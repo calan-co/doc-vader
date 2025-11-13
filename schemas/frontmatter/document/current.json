@@ -5,7 +5,6 @@
   "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",
   "type": "object",
   "required": ["id", "title", "type", "subtype", "lifecycle", "status"],
-  "unprocessedProperties": false,
   "definitions": {
     "T_note": {
       "type": "string",
