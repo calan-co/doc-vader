@@ -239,6 +239,45 @@
         ]
       },
       "description": "List of intended audiences."
+    },
+    "governanceProfiles": {
+      "type": "array",
+      "title": "Governance Profiles",
+      "description": "Named rule sets that govern documentation structure and/or process (e.g., 'diataxis', 'tgdpr', 'sdlc'). Supports strings or typed objects.",
+      "items": {
+        "oneOf": [
+          { "type": "string", "minLength": 1 },
+          {
+            "type": "object",
+            "required": ["name", "category"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "category": {
+                "type": "string",
+                "enum": ["documentation", "process", "security", "compliance", "other"]
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
+                "description": "Optional semantic version string"
+              },
+              "mode": {
+                "type": "string",
+                "enum": ["strict", "advisory"],
+                "description": "Validation mode for this profile"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "reconciliation": {
+      "type": "string",
+      "enum": ["prompt", "auto", "split", "prioritize"],
+      "description": "Strategy to resolve conflicts between selected governance profiles. 'prioritize' requires external tooling to supply an order."
     }
   },
   "examples": [
