@@ -24,7 +24,11 @@ const docsDir = process.env.LINKITY_DOCS_DIR
   ? path.resolve(process.env.LINKITY_DOCS_DIR)
   : path.resolve(process.cwd(), "docs");
 const schemaDir = path.join(docsDir, "schemas");
-const ajv = new Ajv({ allErrors: true, loadSchema: async () => loadSchema });
+const ajv = new Ajv({
+  allErrors: true,
+  loadSchema: async () => loadSchema,
+  strictSchema: "log",
+});
 
 // CLI Entrypoint
 if (import.meta.url === `file://${process.argv[1]}`) {
