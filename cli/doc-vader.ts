@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-import { program } from "@commander-js/extra-typings";
+import { Command } from "commander";
+
+//import { program } from "@commander-js/extra-typings";
 
 // Import controller modules
 import {
@@ -13,8 +15,15 @@ import {
 } from "../lib/controllers/frontmatterController.js";
 import { lint as lintDoc } from "../lib/controllers/docController.js";
 import { list as listBacklogItems } from "../lib/controllers/backlogController.js";
+import {
+  listAvailable as governanceList,
+  detect as governanceDetect,
+  effectiveRules as governanceEffective,
+  reconcile as governanceReconcile,
+  migrate as governanceMigrate,
+} from "../lib/controllers/governanceController.js";
 
-program
+const program = new Command()
   .name("doc-vader")
   .description(
     "Doc-Vader CLI - documentation automation, validation, and utilities"
@@ -31,7 +40,7 @@ frontmatter
   .description("Validate frontmatter in documentation files")
   .argument("[path]", "Path to the docs directory")
   .option("--no-strict", "Disable strict mode (allow missing frontmatter)")
-  .action(async (path, opts) => {
+  .action(async (path: string | undefined, opts: { strict?: boolean }) => {
     const result = await lintFrontmatter({
       docsDir: path || "docs",
       strict: opts?.strict,
@@ -43,7 +52,7 @@ frontmatter
   .command("fix")
   .description("Auto-fix frontmatter in documentation files")
   .option("-d, --docs-dir <path>", "Path to the docs directory")
-  .action((opts) => {
+  .action((opts: { docsDir?: string }) => {
     // Placeholder for fix logic
     console.log("Frontmatter fix not yet implemented.");
   });
@@ -52,7 +61,7 @@ frontmatter
   .command("utils")
   .description("Frontmatter utilities (parse, format, etc)")
   .option("-i, --input <file>", "Input file")
-  .action((opts) => {
+  .action((opts: { input?: string }) => {
     if (opts.input) {
       const parsed = parse(opts.input);
       console.log(parsed);
@@ -85,7 +94,7 @@ docSystem
   .description("Auto-fix documentation to align with Diataxis framework")
   .argument("[path]", "Path to the docs directory")
   .option("--dry-run", "Show what would change without making changes")
-  .action(async (path, opts) => {
+  .action(async (path: string | undefined, opts: { dryRun?: boolean }) => {
     const result = await fix({ docsDir: path || "docs", dryRun: opts.dryRun });
     console.log(result);
   });
@@ -95,7 +104,7 @@ docSystem
   .description("Validate documentation files for structure and content")
   .option("-d, --docs-dir <path>", "Path to the docs directory")
   .option("--no-strict", "Disable strict mode (allow missing frontmatter)")
-  .action(async (opts) => {
+  .action(async (opts: { docsDir?: string; strict?: boolean }) => {
     const result = await lintDoc({
       docsDir: opts.docsDir || "docs",
       strict: opts.strict,
@@ -129,69 +138,106 @@ backlog
 // --- DOMAIN: governance ---
 const governance = program
   .command("governance")
-  .description("Governance profiles (documentation systems and process models)");
+  .description(
+    "Governance profiles (documentation systems and process models)"
+  );
 
 governance
   .command("list")
   .description("List available governance profiles")
   .option("--format <format>", "Output format: table|json", "table")
-  .action((opts) => {
-    // Placeholder: wire to governance controller when available
-    const sample = [
-      { name: "diataxis", category: "documentation" },
-      { name: "tgdpr", category: "documentation" },
-      { name: "sdlc", category: "process" },
-    ];
-    console.log(opts.format === "json" ? JSON.stringify(sample, null, 2) : sample);
+  .action(async (opts: { format: string }) => {
+    const profiles = await governanceList();
+    if (opts.format === "json") {
+      console.log(JSON.stringify(profiles, null, 2));
+    } else {
+      console.table(profiles);
+    }
   });
 
 governance
   .command("detect")
-  .description("Detect governance profiles for a file or folder")
+  .description("Detect governance profiles for a file or directory")
   .argument("<path>", "File or directory to analyze")
   .option("--format <format>", "Output format: table|json", "table")
-  .action((path, opts) => {
-    // Placeholder: implement detection logic in controller
-    console.log(
-      `Governance detection is not yet implemented. Input: ${path}, format=${opts.format}`
-    );
+  .action(async (target: string, opts: { format: string }) => {
+    const result = await governanceDetect(target);
+    if (opts.format === "json") {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.table(
+        result.flatMap((r) =>
+          r.profiles.map((p) => ({
+            file: r.file,
+            name: p.name,
+            mode: p.mode || "",
+            version: p.version || "",
+            category: p.category || "",
+            form: p.sourceForm,
+          }))
+        )
+      );
+    }
   });
 
 governance
   .command("effective-rules")
-  .description("Compute effective merged rules for a file")
+  .description("Show effective merged governance rules for a file")
   .argument("<file>", "Markdown file path")
   .option("--format <format>", "Output format: table|json", "table")
-  .action((file, opts) => {
-    // Placeholder: produce merged rules summary in chosen format
-    console.log(
-      `Effective rules is not yet implemented. Input: ${file}, format=${opts.format}`
-    );
+  .action(async (file: string, opts: { format: string }) => {
+    const effective = await governanceEffective(file);
+    const isProfiles = (obj: any): obj is { profiles: any[] } =>
+      Array.isArray(obj?.profiles);
+    if (opts.format === "json") {
+      console.log(JSON.stringify(effective, null, 2));
+    } else if (isProfiles(effective)) {
+      console.table(
+        effective.profiles.map((p: any) => ({
+          name: p.name,
+          mode: p.mode || "",
+          version: p.version || "",
+          category: p.category || "",
+          form: p.sourceForm,
+        }))
+      );
+    } else if ("message" in (effective as any)) {
+      console.log((effective as any).message);
+    }
   });
 
 governance
   .command("reconcile")
-  .description("Reconcile conflicts between selected governance profiles")
+  .description(
+    "Reconcile conflicts between selected governance profiles (placeholder implementation)"
+  )
   .argument("<file>", "Markdown file path")
-  .option("--strategy <strategy>", "prompt|auto|split|prioritize", "prompt")
+  .option(
+    "--strategy <strategy>",
+    "prompt|auto|prioritize|intersection|override|split|advisory",
+    "prompt"
+  )
   .option("--dry-run", "Show plan without applying changes")
-  .action((file, opts) => {
-    // Placeholder: generate a reconciliation plan
-    console.log(
-      `Reconciliation is not yet implemented. file=${file}, strategy=${opts.strategy}, dryRun=${!!opts.dryRun}`
-    );
-  });
+  .action(
+    async (file: string, opts: { strategy: string; dryRun?: boolean }) => {
+      const plan = await governanceReconcile(file, {
+        strategy: opts.strategy,
+        dryRun: opts.dryRun,
+      });
+      console.log(JSON.stringify(plan, null, 2));
+    }
+  );
 
 governance
   .command("migrate")
-  .description("Migrate legacy 'frameworks' to 'governanceProfiles'")
-  .option("--write", "Apply changes to files (default is dry-run)")
+  .description(
+    "Migrate legacy governanceProfiles/reconciliation to new governance structure (placeholder)"
+  )
+  .option("--write", "Apply changes (default dry-run)")
   .option("-d, --docs-dir <path>", "Path to the docs directory", "docs")
-  .action((opts) => {
-    // Placeholder: implement migration logic
-    console.log(
-      `Governance migration is not yet implemented. docsDir=${opts.docsDir}, write=${!!opts.write}`
-    );
+  .action(async (opts: { docsDir: string; write?: boolean }) => {
+    const result = await governanceMigrate(opts.docsDir, !!opts.write);
+    console.log(JSON.stringify(result, null, 2));
   });
 
 // --- AGGREGATE ACTIONS ---
