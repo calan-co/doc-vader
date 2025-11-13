@@ -1,0 +1,33 @@
+{
+  "name": "doc-vader",
+  "version": "0.0.1",
+  "description": "This directory contains JSON schemas for validating various documentation types.",
+  "main": "dist/lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "npx jest test/schema-repository.test.js",
+    "postinstall": "npx jsonschema-tools install-git-hook",
+    "lint": ""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bin": {
+    "doc-vader": "dist/cli/doc-vader.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@wikimedia/jsonschema-tools": "^1.3.0",
+    "gray-matter": "^4.0.3",
+    "memfs": "^4.50.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  },
+  "dependencies": {
+    "@commander-js/extra-typings": "github:commander-js/extra-typings",
+    "ajv": "^8.17.1",
+    "commander": "^14.0.2",
+    "glob": "^11.0.3"
+  }
+}

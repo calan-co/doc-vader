@@ -1,0 +1,9 @@
+shouldSymlinkExtensionless: false
+contentTypes: [json]
+shouldDereference: false
+schemaBasePath: ./schemas
+skipSchemaTestCases:
+  - description: "Skip schema test cases for frontmatter/document schema"
+    matchPaths:
+      - ./schemas/frontmatter/document/*.json
+    

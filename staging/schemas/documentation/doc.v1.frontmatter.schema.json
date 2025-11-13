@@ -1,0 +1,413 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Minimal Frontmatter Schema (Universal)",
+  "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",
+  "type": "object",
+  "required": ["id", "title", "type", "subtype", "lifecycle", "status"],
+  "unprocessedProperties": false,
+  "definitions": {
+    "T_note": {
+      "type": "string",
+      "description": "Optional. Only include when it adds meaningful context or value."
+    },
+    "T_link": {
+      "oneOf": [
+        { "$ref": "#/definitions/T_url" },
+        { "$ref": "#/definitions/T_wikilink" }
+      ],
+      "properties": {
+        "note": {
+          "$ref": "#/definitions/T_note"
+        }
+      },
+      "description": "Link to a related document or resource."
+    },
+    "T_wikilink": {
+      "type": "string",
+      "pattern": "^(\\[\\[(.+?)\\]\\])$",
+      "description": "Wikilink to a markdown document in this repository."
+    },
+    "T_url": {
+      "type": "string",
+      "pattern": "^((\\[.+?\\])?\\(.+?\\))$",
+      "description": "Url link"
+    }
+  },
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the document or work item."
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable document title."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Short summary describing the document's purpose or content."
+    },
+    "owner": {
+      "type": "string",
+      "description": "Primary owner or responsible party for the document."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["work-item", "document"],
+      "description": "High-level type of the document (e.g., work-item, document)."
+    },
+    "subtype": {
+      "type": "string",
+      "description": "Specific subtype of the document for classification and navigation."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "description": "Single tag in kebab-case (e.g., 'user-guide', 'api-reference')."
+      },
+      "minItems": 1,
+      "description": "List of tags for search, filtering, and organization."
+    },
+    "links": {
+      "definitions": {
+        "link": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["ref"],
+              "additionalProperties": false,
+              "properties": {
+                "ref": { "$ref": "#/definitions/T_link" },
+                "note": { "$ref": "#/definitions/T_note" }
+              }
+            },
+            { "$ref": "#/definitions/T_link" }
+          ],
+          "unprocessedProperties": false
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "patternProperties": {
+            "^.+$": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/properties/links/definitions/link"
+                  }
+                },
+                {
+                  "$ref": "#/properties/links/definitions/link"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "minProperties": 1
+        },
+        {
+          "type": "object",
+          "patternProperties": {
+            "^.+$": {
+              "type": "array",
+              "items": {
+                "$ref": "#/properties/links/definitions/link"
+              }
+            }
+          },
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      ],
+      "description": "Links to related documents, guides, or examples. Only include a note if it materially clarifies the purpose or context of the link. Do not add notes that simply restate the link or add generic information."
+    },
+    "classification": {
+      "type": "object",
+      "required": ["diataxis", "sensitivity"],
+      "definitions": {
+        "T_sensitivityLabel": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"],
+          "description": "Sensitivity level of the document."
+        },
+        "T_diataxisCategory": {
+          "type": "string",
+          "enum": ["tutorial", "how-to", "reference", "explanation"],
+          "description": "Diataxis category."
+        }
+      },
+      "properties": {
+        "diataxis": {
+          "oneOf": [
+            {
+              "$ref": "#/properties/classification/definitions/T_diataxisCategory"
+            },
+            {
+              "type": "object",
+              "required": ["category"],
+              "properties": {
+                "category": {
+                  "$ref": "#/properties/classification/definitions/T_diataxisCategory"
+                },
+                "note": {
+                  "$ref": "#/definitions/T_note"
+                }
+              },
+              "additionalProperties": false
+            }
+          ],
+          "description": "Diataxis classification for the document."
+        },
+        "sensitivity": {
+          "oneOf": [
+            {
+              "$ref": "#/properties/classification/definitions/T_sensitivityLabel"
+            },
+            {
+              "type": "object",
+              "required": ["label"],
+              "properties": {
+                "label": {
+                  "$ref": "#/properties/classification/definitions/T_sensitivityLabel"
+                },
+                "note": {
+                  "$ref": "#/definitions/T_note"
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "compliance": {
+          "type": "object",
+          "description": "Compliance frameworks and their applicability.",
+          "patternProperties": {
+            "^[A-Za-z-][A-Za-z0-9-]*$": {
+              "type": "string",
+              "enum": ["inScope", "outOfScope"],
+              "description": "Compliance framework (e.g., 'GDPR': 'inScope', 'PCI': 'outOfScope')."
+            }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        }
+      },
+      "description": "Classification(s) for the document, such as diataxis, sensitivity, or compliance."
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["draft", "active", "evergreen", "archived", "obsolete"],
+      "description": "Long-term state of the document or work item."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "accepted",
+        "inProgress",
+        "review",
+        "approved",
+        "complete",
+        "deprecated",
+        "superseded",
+        "rejected",
+        "duplicate"
+      ],
+      "description": "Current actionable workflow state."
+    },
+    "audience": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "integrators",
+              "contributors",
+              "operators",
+              "endUsers",
+              "administrators",
+              "executives"
+            ],
+            "description": "Intended audience for the document."
+          },
+          {
+            "type": "string",
+            "description": "Intended audience for the document."
+          }
+        ]
+      },
+      "description": "List of intended audiences."
+    }
+  },
+  "examples": [
+    {
+      "id": "4.6",
+      "title": "API Reference",
+      "summary": "Comprehensive API documentation for Team-in-a-Box.",
+      "owner": "api-team",
+      "type": "document",
+      "subtype": "api-spec",
+      "tags": ["api", "reference", "team-in-a-box"],
+      "links": [
+        {
+          "guide": "getting-started.md",
+          "target": "getting-started.md",
+          "note": "See getting started guide."
+        }
+      ],
+      "classification": {
+        "diataxis": "reference",
+        "sensitivity": {
+          "label": "internal",
+          "note": "Contains super secret information."
+        },
+        "compliance": {
+          "GDPR": "inScope",
+          "HIPAA": "outOfScope"
+        }
+      },
+      "lifecycle": "evergreen",
+      "status": "approved",
+      "audience": ["developers", "integrators"],
+      "sourceType": "manual"
+    }
+  ],
+  "statusTransitions": {
+    "description": "Canonical allowed status transitions for documentation/work items. Used by scripts to enforce valid status changes.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "proposed": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["accepted", "review", "rejected", "duplicate"]
+        }
+      },
+      "accepted": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["inProgress", "review", "approved", "rejected", "duplicate"]
+        }
+      },
+      "inProgress": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["review", "approved", "complete", "rejected", "duplicate"]
+        }
+      },
+      "review": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["approved", "rejected", "duplicate"]
+        }
+      },
+      "approved": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["complete", "deprecated", "superseded"]
+        }
+      },
+      "complete": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["deprecated", "superseded"] }
+      },
+      "deprecated": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["superseded", "archived"] }
+      },
+      "superseded": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["archived"] }
+      },
+      "rejected": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["archived"] }
+      },
+      "duplicate": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["archived"] }
+      }
+    },
+    "examples": [
+      { "proposed": ["accepted", "review", "rejected", "duplicate"] }
+    ]
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "lifecycle": { "const": "draft" } } },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "proposed",
+              "accepted",
+              "inProgress",
+              "review",
+              "rejected",
+              "duplicate"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "lifecycle": { "const": "active" } } },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": ["accepted", "inProgress", "review", "approved", "complete"]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "lifecycle": { "const": "evergreen" } } },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "accepted",
+              "inProgress",
+              "complete",
+              "approved",
+              "deprecated"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "lifecycle": { "const": "archived" } } },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "complete",
+              "deprecated",
+              "superseded",
+              "rejected",
+              "duplicate"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "lifecycle": { "const": "obsolete" } } },
+      "then": {
+        "properties": {
+          "status": { "enum": ["superseded", "archived", "deprecated"] }
+        }
+      }
+    }
+  ]
+}

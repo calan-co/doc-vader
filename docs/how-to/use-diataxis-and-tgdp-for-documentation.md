@@ -1,0 +1,36 @@
+---
+title: How to Use Diátaxis and TGDP for Documentation Structure
+docType: how-to
+created: "2025-10-28"
+status: proposed
+lifecycle: evergreen
+priority: medium
+tags:
+  - diataxis
+  - TGDP
+  - documentation
+  - how-to
+relations:
+  - type: explanation
+    path:
+      - - diataxis-tgdp-foundation-extension
+  - type: reference
+    url: https://diataxis-template.readthedocs.io/en/latest/
+  - type: reference
+    url: https://www.thegooddocsproject.dev/template
+id: template
+type: work-item
+subtype: template
+---
+
+To structure documentation and backlog items:
+
+1. Identify the nature and scope of documentation expected to support the active project (review [[project-brief]])
+2. Start with Diátaxis to determine the type and purpose of each document or backlog item (tutorial, how-to, explanation, reference).
+3. Download [Diátaxis templates](https://diataxis-template.readthedocs.io/en/latest/) and supplementary explanations to establish a foundation of documentation types.
+4. Download [The Good Docs Project (TGDP) templates](https://www.thegooddocsproject.dev/template) and supplementary explanations to flesh out each category, ensuring consistency and completeness.
+5. Adapt templates as needed to align with Diátaxis conventions and metadata.
+6. Create a template index file mapping each template to it's intent and Diátaxis category
+7. Generate a file explaining the purpose of each template and the rationale for selection
+
+**NOTE**: for all downloaded markdown files, include a `source` property with the url to the original template to track provenance
