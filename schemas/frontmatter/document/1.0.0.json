@@ -240,44 +240,154 @@
       },
       "description": "List of intended audiences."
     },
-    "governanceProfiles": {
-      "type": "array",
-      "title": "Governance Profiles",
-      "description": "Named rule sets that govern documentation structure and/or process (e.g., 'diataxis', 'tgdpr', 'sdlc'). Supports strings or typed objects.",
-      "items": {
-        "oneOf": [
-          { "type": "string", "minLength": 1 },
-          {
-            "type": "object",
-            "required": ["name", "category"],
-            "properties": {
-              "name": { "type": "string", "minLength": 1 },
-              "category": {
-                "type": "string",
-                "enum": ["documentation", "process", "security", "compliance", "other"]
-              },
-              "version": {
-                "type": "string",
-                "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
-                "description": "Optional semantic version string"
-              },
-              "mode": {
-                "type": "string",
-                "enum": ["strict", "advisory"],
-                "description": "Validation mode for this profile"
-              }
+    "governance": {
+      "type": "object",
+      "description": "Governance configuration: profiles (documentation systems, process models) and optional reconciliation strategies.",
+      "required": ["profiles"],
+      "properties": {
+        "profiles": {
+          "description": "List or map of governance profiles controlling structure/process rules.",
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
             },
-            "additionalProperties": false
-          }
-        ]
+            {
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+                "priorityOrder": {
+                  "type": "array",
+                  "description": "Explicit precedence order applied when strategy=prioritize; names must reference declared profiles.",
+                  "items": { "type": "string", "minLength": 1 },
+                  "uniqueItems": true,
+                  "minItems": 2
+                }
+              },
+              "patternProperties": {
+                "^[A-Za-z][A-Za-z0-9_-]*$": {
+                  "oneOf": [
+                    { "type": "string", "enum": ["strict", "advisory"] },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": ["strict", "advisory"]
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+                        },
+                        "notes": { "type": "string", "maxLength": 512 }
+                      },
+                      "required": ["mode"],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "reconciliation": {
+          "type": "object",
+          "description": "Conflict resolution configuration across selected profiles.",
+          "properties": {
+            "defaultStrategy": {
+              "type": "string",
+              "enum": [
+                "prompt",
+                "auto",
+                "prioritize",
+                "intersection",
+                "override",
+                "split",
+                "advisory"
+              ]
+            },
+            "strategies": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["appliesTo", "strategy"],
+                "properties": {
+                  "appliesTo": {
+                    "type": "object",
+                    "required": ["profiles"],
+                    "properties": {
+                      "profiles": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": { "type": "string", "minLength": 1 },
+                        "uniqueItems": true
+                      },
+                      "conflictTypes": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "structure",
+                            "taxonomy",
+                            "lifecycle",
+                            "status",
+                            "fields",
+                            "sensitivity",
+                            "naming",
+                            "other"
+                          ]
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "strategy": {
+                    "type": "string",
+                    "enum": [
+                      "prompt",
+                      "auto",
+                      "prioritize",
+                      "intersection",
+                      "override",
+                      "split",
+                      "advisory"
+                    ]
+                  },
+                  "order": {
+                    "type": "array",
+                    "items": { "type": "string", "minLength": 1 },
+                    "minItems": 2,
+                    "uniqueItems": true
+                  },
+                  "overrideProfile": { "type": "string", "minLength": 1 },
+                  "notes": { "type": "string", "maxLength": 512 }
+                },
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": { "strategy": { "const": "prioritize" } }
+                    },
+                    "then": { "required": ["order"] }
+                  },
+                  {
+                    "if": {
+                      "properties": { "strategy": { "const": "override" } }
+                    },
+                    "then": { "required": ["overrideProfile"] }
+                  }
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        }
       },
-      "minItems": 1,
-      "uniqueItems": true
-    },
-    "reconciliation": {
-      "type": "string",
-      "enum": ["prompt", "auto", "split", "prioritize"],
-      "description": "Strategy to resolve conflicts between selected governance profiles. 'prioritize' requires external tooling to supply an order."
+      "additionalProperties": false
     }
   },
   "examples": [
