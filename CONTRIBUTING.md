@@ -80,10 +80,30 @@ Documentation is organized into focused areas:
 - **Diagrams:** Use Mermaid syntax for all diagrams. Do not use ASCII art.
 - **Cross-References:** All internal links must resolve to existing files and anchors.
 - **Frontmatter:** Every documentation file must include YAML frontmatter:
-  <-- TODO: Extract from JSON Schema docs -->
-  - Required: `title`, `type`, `lifecycle`, `status`, `links`, `tags`
+  - Required: `id`, `title`, `type`, `subtype`, `lifecycle`, `status`
+  - Recommended: `tags`, `links`, `owner`, `summary`, `audience`
+  - Governance (optional but encouraged when applicable):
+    - `governanceProfiles`: array of strings or objects `{ name, category, version?, mode? }`
+    - `reconciliation`: `prompt | auto | split | prioritize` for resolving profile conflicts
 - **Templates:** Follow established templates for all documented types. Recommend specific modifications if updates or additions are needed.
 - **No Date Suffixes:** Use git history for versioning, not date suffixes in filenames.
+
+### Governance Profiles
+
+- Use `governanceProfiles` to declare applicable documentation systems and/or process models (e.g., `diataxis`, `tgdpr`, `sdlc`).
+- Prefer typed objects when specifying non-default behavior:
+
+  ```yaml
+  governanceProfiles:
+    - name: diataxis
+      category: documentation
+    - name: sdlc
+      category: process
+      mode: strict
+  reconciliation: prompt
+  ```
+
+- When multiple profiles impose conflicting rules, set `reconciliation` and run CLI reconciliation in dry-run mode first.
 
 ## How to Contribute
 
