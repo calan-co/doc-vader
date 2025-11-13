@@ -126,6 +126,74 @@ backlog
     console.log(items);
   });
 
+// --- DOMAIN: governance ---
+const governance = program
+  .command("governance")
+  .description("Governance profiles (documentation systems and process models)");
+
+governance
+  .command("list")
+  .description("List available governance profiles")
+  .option("--format <format>", "Output format: table|json", "table")
+  .action((opts) => {
+    // Placeholder: wire to governance controller when available
+    const sample = [
+      { name: "diataxis", category: "documentation" },
+      { name: "tgdpr", category: "documentation" },
+      { name: "sdlc", category: "process" },
+    ];
+    console.log(opts.format === "json" ? JSON.stringify(sample, null, 2) : sample);
+  });
+
+governance
+  .command("detect")
+  .description("Detect governance profiles for a file or folder")
+  .argument("<path>", "File or directory to analyze")
+  .option("--format <format>", "Output format: table|json", "table")
+  .action((path, opts) => {
+    // Placeholder: implement detection logic in controller
+    console.log(
+      `Governance detection is not yet implemented. Input: ${path}, format=${opts.format}`
+    );
+  });
+
+governance
+  .command("effective-rules")
+  .description("Compute effective merged rules for a file")
+  .argument("<file>", "Markdown file path")
+  .option("--format <format>", "Output format: table|json", "table")
+  .action((file, opts) => {
+    // Placeholder: produce merged rules summary in chosen format
+    console.log(
+      `Effective rules is not yet implemented. Input: ${file}, format=${opts.format}`
+    );
+  });
+
+governance
+  .command("reconcile")
+  .description("Reconcile conflicts between selected governance profiles")
+  .argument("<file>", "Markdown file path")
+  .option("--strategy <strategy>", "prompt|auto|split|prioritize", "prompt")
+  .option("--dry-run", "Show plan without applying changes")
+  .action((file, opts) => {
+    // Placeholder: generate a reconciliation plan
+    console.log(
+      `Reconciliation is not yet implemented. file=${file}, strategy=${opts.strategy}, dryRun=${!!opts.dryRun}`
+    );
+  });
+
+governance
+  .command("migrate")
+  .description("Migrate legacy 'frameworks' to 'governanceProfiles'")
+  .option("--write", "Apply changes to files (default is dry-run)")
+  .option("-d, --docs-dir <path>", "Path to the docs directory", "docs")
+  .action((opts) => {
+    // Placeholder: implement migration logic
+    console.log(
+      `Governance migration is not yet implemented. docsDir=${opts.docsDir}, write=${!!opts.write}`
+    );
+  });
+
 // --- AGGREGATE ACTIONS ---
 program
   .command("validate")
