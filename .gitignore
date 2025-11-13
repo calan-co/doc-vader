@@ -21,6 +21,10 @@ build/
 *.swo
 *~
 
+# AI chatmodes and support files
+.bmad-core/
+.github/
+
 # OS
 .DS_Store
 Thumbs.db
