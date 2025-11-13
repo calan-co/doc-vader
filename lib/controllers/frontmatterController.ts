@@ -9,7 +9,7 @@ export async function lint(options: {
   strict?: boolean;
 }) {
   const { docsDir, schemaDir, strict: strictMissing } = options;
-  const ajv = new Ajv({ allErrors: true });
+  const ajv = new Ajv({ allErrors: true, strictSchema: "log" });
   const schemaDirectory = schemaDir || path.join(docsDir, "schemas");
   // Example: validate all markdown files in docsDir
   // You may want to use readMarkdownFiles from utils for batch validation

@@ -64,21 +64,27 @@ export async function validateFrontmatter({
       warnings: strictMissing ? [] : [`${msg} (warning)`],
     };
   }
-  const schemaName = await getVersionedName(
-    `${data.type}.frontmatter.schema.json`,
-    schemaDir
+
+  const schemaPath = path.join(
+    schemaDir,
+    "frontmatter",
+    `${data.type}`,
+    "current.json"
   );
-  let validate = ajv.getSchema(schemaName) as ValidateFunction | undefined;
+
+  const schemaId = `/frontmatter/${data.type}/1.0.0`;
+  // const schemaName = await getVersionedName(
+  //   `${data.type}.frontmatter.schema.json`,
+  //   schemaDir
+  // );
+  let validate = ajv.getSchema(schemaId) as ValidateFunction | undefined;
   if (!validate) {
     // getValidator logic inline
-    const rawSchema = await fs.readFile(
-      path.join(schemaDir, schemaName),
-      "utf8"
-    );
+    const rawSchema = await fs.readFile(schemaPath, "utf8");
     const schema = JSON.parse(rawSchema);
     validate = await ajv.compileAsync(schema);
   }
-  if (!validate) throw new Error(`Could not compile schema: ${schemaName}`);
+  if (!validate) throw new Error(`Could not compile schema: ${schemaId}`);
   const errors = validate(data)
     ? []
     : formatAjvErrors((validate.errors ?? []) as ErrorObject[]);
