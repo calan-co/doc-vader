@@ -1,18 +1,27 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "/frontmatter/work-item/1.0.0",
   "title": "frontmatter/work-item",
   "description": "Strict frontmatter schema for backlog work items supporting SDLC and Diataxis standards.",
+  "$id": "/frontmatter/work-item/1.0.0",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "allOf": [
-    { "$ref": "/frontmatter/document/1.0.0" },
+    {
+      "$ref": "/frontmatter/document/1.0.0"
+    },
     {
       "type": "object",
-      "required": ["priority"],
+      "required": [
+        "priority"
+      ],
       "properties": {
         "priority": {
           "type": "string",
-          "enum": ["low", "medium", "high", "critical"]
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
         }
       },
       "unevaluatedProperties": false
