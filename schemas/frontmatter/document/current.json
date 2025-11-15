@@ -247,6 +247,7 @@
       "properties": {
         "profiles": {
           "description": "List or map of governance profiles controlling structure/process rules.",
+          "type": ["array", "object"],
           "oneOf": [
             {
               "type": "array",
@@ -279,7 +280,8 @@
                         },
                         "version": {
                           "type": "string",
-                          "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+                          "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
+                          "maxLength": 128
                         },
                         "notes": { "type": "string", "maxLength": 512 }
                       },
@@ -289,15 +291,17 @@
                   ]
                 }
               },
+              "propertyNames": {
+                "pattern": "^[A-Za-z-][A-Za-z0-9-]*$",
+                "maxLength": 128
+              },
               "additionalProperties": false
             }
           ]
         },
         "reconciliation": {
-          "type": "object",
-          "description": "Conflict resolution configuration across selected profiles.",
-          "properties": {
-            "defaultStrategy": {
+          "$definitions": {
+            "ReconciliationStrategy": {
               "type": "string",
               "enum": [
                 "prompt",
@@ -308,6 +312,14 @@
                 "split",
                 "advisory"
               ]
+            }
+          },
+          "type": "object",
+          "description": "Conflict resolution configuration across selected profiles.",
+          "properties": {
+            "default_strategy": {
+              "type": "string",
+              "$ref": "#/properties/governance/properties/reconciliation/$definitions/ReconciliationStrategy"
             },
             "strategies": {
               "type": "array",
@@ -347,15 +359,7 @@
                   },
                   "strategy": {
                     "type": "string",
-                    "enum": [
-                      "prompt",
-                      "auto",
-                      "prioritize",
-                      "intersection",
-                      "override",
-                      "split",
-                      "advisory"
-                    ]
+                    "$ref": "#/properties/governance/properties/reconciliation/$definitions/ReconciliationStrategy"
                   },
                   "order": {
                     "type": "array",
