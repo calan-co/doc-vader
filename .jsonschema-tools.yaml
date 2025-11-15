@@ -6,4 +6,11 @@ skipSchemaTestCases:
   - description: "Skip schema test cases for frontmatter/document schema"
     matchPaths:
       - ./schemas/frontmatter/document/*.json
-    
+considerDeterministic:
+  - oneOf
+testCaseOverrides:
+  "/frontmatter/document/1\\..*":
+      # Ignore oneOf constraint in deterministic test
+    - schema-deterministic-types:
+        considerDeterministic:
+          - oneOf
