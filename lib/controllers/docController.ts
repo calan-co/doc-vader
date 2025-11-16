@@ -10,7 +10,7 @@ export async function lint(options: {
 }) {
   const { docsDir, schemaDir, strict } = options;
   const ajv = new Ajv({ allErrors: true });
-  const schemaDirectory = schemaDir || path.join(docsDir, "schemas");
+  const schemaDirectory = schemaDir || "schemas";
   const strictMode = strict === undefined ? true : strict;
   return validateDocsWorkflow({
     docsDir,

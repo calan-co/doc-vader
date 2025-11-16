@@ -103,14 +103,22 @@ docSystem
   .command("validate")
   .description("Validate documentation files for structure and content")
   .option("-d, --docs-dir <path>", "Path to the docs directory")
+  .option("-s, --schema-dir <path>", "Path to the schemas directory")
   .option("--no-strict", "Disable strict mode (allow missing frontmatter)")
-  .action(async (opts: { docsDir?: string; strict?: boolean }) => {
-    const result = await lintDoc({
-      docsDir: opts.docsDir || "docs",
-      strict: opts.strict,
-    });
-    console.log(result);
-  });
+  .action(
+    async (opts: {
+      docsDir?: string;
+      schemaDir?: string;
+      strict?: boolean;
+    }) => {
+      const result = await lintDoc({
+        docsDir: opts.docsDir || "docs",
+        schemaDir: opts.schemaDir || "schemas",
+        strict: opts.strict,
+      });
+      console.log(result);
+    }
+  );
 
 // --- DOMAIN: backlog ---
 const backlog = program
@@ -244,13 +252,18 @@ governance
 program
   .command("validate")
   .description("Validate all domains: frontmatter, doc-system, backlog")
-  .action(async () => {
+  .option("-d, --docs-dir <path>", "Path to the docs directory", "docs")
+  .option("-s, --schema-dir <path>", "Path to the schemas directory", "schemas")
+  .action(async (opts: { docsDir: string; schemaDir: string }) => {
     console.log("Running frontmatter validation...");
-    const fmResult = await lintFrontmatter({ docsDir: "docs" });
-    console.log(fmResult);
+    const fmResult = await lintFrontmatter({ docsDir: opts.docsDir });
+    console.log(JSON.stringify(fmResult, null, 2));
     console.log("Running doc-system validation...");
-    const docsResult = await lintDoc({ docsDir: "docs" });
-    console.log(docsResult);
+    const docsResult = await lintDoc({
+      docsDir: opts.docsDir,
+      schemaDir: opts.schemaDir,
+    });
+    console.log(JSON.stringify(docsResult, null, 2));
     console.log("Running backlog validation...");
     // Placeholder for backlog validation logic
     console.log("Backlog validate not yet implemented.");
