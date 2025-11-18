@@ -24,11 +24,11 @@
     "sury": "^11.0.0-alpha.4",
     "typescript": "^5.9.3",
     "unified": "^11.0.0",
-    "vitest": "^4.0.8"
+    "@wikimedia/jsonschema-tools": "^1.3.0",
+    "vitest": "^4.0.10"
   },
   "dependencies": {
     "@commander-js/extra-typings": "github:commander-js/extra-typings",
-    "@wikimedia/jsonschema-tools": "^1.3.0",
     "ajv": "^8.17.1",
     "commander": "^14.0.2",
     "glob": "^11.0.3",
