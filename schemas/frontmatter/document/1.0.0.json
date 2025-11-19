@@ -7,31 +7,31 @@
   "required": ["id", "title", "type", "subtype", "lifecycle", "status"],
   "unevaluatedProperties": false,
   "definitions": {
-    "T_note": {
+    "note": {
       "type": "string",
       "description": "Optional. Only include when it adds meaningful context or value."
     },
-    "T_link": {
-      "oneOf": [
-        { "$ref": "#/definitions/T_url" },
-        { "$ref": "#/definitions/T_wikilink" }
+    "link": {
+      "anyOf": [
+        { "$ref": "#/definitions/url" },
+        { "$ref": "#/definitions/wikilink" }
       ],
       "properties": {
         "note": {
-          "$ref": "#/definitions/T_note"
+          "$ref": "#/definitions/note"
         }
       },
       "description": "Link to a related document or resource."
     },
-    "T_wikilink": {
+    "wikilink": {
       "type": "string",
-      "pattern": "^(\\[\\[(.+?)\\]\\])$",
+      "pattern": "^\\[\\[(?<name>[^\\]\\|\\r\\n]+)(?:\\|(?<title>[^\\]\\|\\r\\n]+))?\\]\\](?<agglu>[^\\p{P}\\s]*)$",
       "maxLength": 128,
       "description": "Wikilink to a markdown document in this repository."
     },
-    "T_url": {
+    "url": {
       "type": "string",
-      "pattern": "^((\\[.+?\\])?\\(.+?\\))$",
+      "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$",
       "maxLength": 256,
       "description": "Url link"
     }
@@ -81,13 +81,18 @@
         "^.+$": {
           "type": "array",
           "items": {
-            "type": "object",
-            "required": ["ref"],
-            "properties": {
-              "ref": { "$ref": "#/definitions/T_link" },
-              "note": { "$ref": "#/definitions/T_note" }
-            },
-            "additionalProperties": false
+            "oneOf": [
+              { "$ref": "#/definitions/link" },
+              {
+                "type": "object",
+                "required": ["ref"],
+                "properties": {
+                  "ref": { "$ref": "#/definitions/link" },
+                  "note": { "$ref": "#/definitions/note" }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         }
       },
@@ -101,7 +106,7 @@
       "properties": {
         "diataxis": {
           "definitions": {
-            "T_diataxisCategory": {
+            "diataxisCategory": {
               "type": "string",
               "enum": ["tutorial", "how-to", "reference", "explanation"],
               "description": "Diataxis category."
@@ -112,7 +117,7 @@
           "oneOf": [
             {
               "type": "string",
-              "$ref": "#/properties/classification/properties/diataxis/definitions/T_diataxisCategory"
+              "$ref": "#/properties/classification/properties/diataxis/definitions/diataxisCategory"
             },
             {
               "type": "object",
@@ -120,11 +125,11 @@
               "properties": {
                 "category": {
                   "type": "string",
-                  "$ref": "#/properties/classification/properties/diataxis/definitions/T_diataxisCategory"
+                  "$ref": "#/properties/classification/properties/diataxis/definitions/diataxisCategory"
                 },
                 "note": {
                   "type": "string",
-                  "$ref": "#/definitions/T_note"
+                  "$ref": "#/definitions/note"
                 }
               },
               "additionalProperties": false
@@ -133,7 +138,7 @@
         },
         "sensitivity": {
           "definitions": {
-            "T_sensitivityLabel": {
+            "sensitivityLabel": {
               "type": "string",
               "enum": ["public", "internal", "confidential", "restricted"],
               "description": "Sensitivity level of the document."
@@ -142,7 +147,7 @@
           "type": ["string", "object"],
           "oneOf": [
             {
-              "$ref": "#/properties/classification/properties/sensitivity/definitions/T_sensitivityLabel"
+              "$ref": "#/properties/classification/properties/sensitivity/definitions/sensitivityLabel"
             },
             {
               "type": "object",
@@ -150,11 +155,11 @@
               "properties": {
                 "label": {
                   "type": "string",
-                  "$ref": "#/properties/classification/properties/sensitivity/definitions/T_sensitivityLabel"
+                  "$ref": "#/properties/classification/properties/sensitivity/definitions/sensitivityLabel"
                 },
                 "note": {
                   "type": "string",
-                  "$ref": "#/definitions/T_note"
+                  "$ref": "#/definitions/note"
                 }
               },
               "additionalProperties": false
