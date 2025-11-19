@@ -14,7 +14,11 @@
           "enum": ["low", "medium", "high", "critical"]
         },
         "assignee": { "type": "string" },
-        "ordinal": { "type": "integer" }
+        "ordinal": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991
+        }
       }
     }
   ]
