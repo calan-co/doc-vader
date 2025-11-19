@@ -20,7 +20,7 @@ Validation is performed automatically on pre-commit using CI and local hooks. On
 >
 > All pre-commit validation rules, required fields, and enforcement logic are now generated directly from the canonical JSON schema:
 >
-> - [schemas/docs.latest.frontmatter.schema.json](../../schemas/docs.latest.frontmatter.schema.json)
+> - [schemas/frontmatter/document/latest.json](../../schemas/frontmatter/document/latest.json)
 > - [schemas/work-item.latest.frontmatter.schema.json](../../schemas/work-item.latest.frontmatter.schema.json)
 >
 > **Do not duplicate rules in prose.**
