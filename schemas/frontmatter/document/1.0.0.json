@@ -1,11 +1,11 @@
 {
   "$id": "/frontmatter/document/1.0.0",
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "frontmatter/document",
   "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",
   "type": "object",
   "required": ["id", "title", "type", "subtype", "lifecycle", "status"],
-  "unprocessedProperties": false,
+  "unevaluatedProperties": false,
   "definitions": {
     "T_note": {
       "type": "string",
@@ -493,72 +493,62 @@
       { "proposed": ["accepted", "review", "rejected", "duplicate"] }
     ]
   },
-  "allOf": [
+  "oneOf": [
     {
-      "if": { "properties": { "lifecycle": { "const": "draft" } } },
-      "then": {
-        "properties": {
-          "status": {
-            "enum": [
-              "proposed",
-              "accepted",
-              "inProgress",
-              "review",
-              "rejected",
-              "duplicate"
-            ]
-          }
+      "properties": {
+        "lifecycle": { "const": "draft" },
+        "status": {
+          "enum": [
+            "proposed",
+            "accepted",
+            "inProgress",
+            "review",
+            "rejected",
+            "duplicate"
+          ]
         }
       }
     },
     {
-      "if": { "properties": { "lifecycle": { "const": "active" } } },
-      "then": {
-        "properties": {
-          "status": {
-            "enum": ["accepted", "inProgress", "review", "approved", "complete"]
-          }
+      "properties": {
+        "lifecycle": { "const": "active" },
+        "status": {
+          "enum": ["accepted", "inProgress", "review", "approved", "complete"]
         }
       }
     },
     {
-      "if": { "properties": { "lifecycle": { "const": "evergreen" } } },
-      "then": {
-        "properties": {
-          "status": {
-            "enum": [
-              "accepted",
-              "inProgress",
-              "complete",
-              "approved",
-              "deprecated"
-            ]
-          }
+      "properties": {
+        "lifecycle": { "const": "evergreen" },
+        "status": {
+          "enum": [
+            "accepted",
+            "inProgress",
+            "complete",
+            "approved",
+            "deprecated"
+          ]
         }
       }
     },
     {
-      "if": { "properties": { "lifecycle": { "const": "archived" } } },
-      "then": {
-        "properties": {
-          "status": {
-            "enum": [
-              "complete",
-              "deprecated",
-              "superseded",
-              "rejected",
-              "duplicate"
-            ]
-          }
+      "properties": {
+        "lifecycle": { "const": "archived" },
+        "status": {
+          "enum": [
+            "complete",
+            "deprecated",
+            "superseded",
+            "rejected",
+            "duplicate"
+          ]
         }
       }
     },
     {
-      "if": { "properties": { "lifecycle": { "const": "obsolete" } } },
-      "then": {
-        "properties": {
-          "status": { "enum": ["superseded", "archived", "deprecated"] }
-        }
+      "properties": {
+        "lifecycle": { "const": "obsolete" },
+        "status": { "enum": ["superseded", "archived", "deprecated"] }
       }
     }
   ]
