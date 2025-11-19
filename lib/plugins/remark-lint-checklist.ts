@@ -91,6 +91,8 @@
 import * as s from "sury";
 import { lintRule } from "unified-lint-rule";
 import { visitParents } from "unist-util-visit-parents";
+import { Plugin } from 'unified';
+import { z } from 'zod';
 
 const optionsSchema = s.strict(
   s.schema({
@@ -105,7 +107,12 @@ const optionsSchema = s.strict(
  * @typedef {Object} ChecklistOptions
  * @property {string[]} [requiredItems] - Array of required checklist item strings.
  */
-export type ChecklistOptions = s.Infer<typeof optionsSchema>;
+export const ChecklistOptionsSchema = z.object({
+  enabled: z.boolean().default(true),
+  requiredItems: z.array(z.string()).nonempty("'requiredItems' must be a non-empty array"),
+});
+
+export type ChecklistOptions = z.infer<typeof ChecklistOptionsSchema>;
 
 const remarkLintChecklist = lintRule(
   {
@@ -119,7 +126,7 @@ const remarkLintChecklist = lintRule(
     let parsedOptions: ChecklistOptions;
     try {
       // Allow undefined by substituting an empty object
-      parsedOptions = s.parseOrThrow(options, optionsSchema);
+      parsedOptions = ChecklistOptionsSchema.parse(options);
     } catch (err: unknown) {
       const reason = err instanceof Error ? err.message : String(err);
       file.fail(`Invalid remark-lint-checklist options: ${reason}`);

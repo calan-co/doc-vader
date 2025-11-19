@@ -1,3 +1,20 @@
+import { Plugin } from 'unified';
+import { z } from 'zod';
+
+export const TemplateComplianceOptionsSchema = z.object({
+  enabled: z.boolean().default(true)
+});
+
+export type TemplateComplianceOptions = z.infer<typeof TemplateComplianceOptionsSchema>;
+
+export const remarkLintTemplateCompliance: Plugin<[TemplateComplianceOptions?]> = (options = {}) => {
+  const opts = TemplateComplianceOptionsSchema.parse(options);
+  // ...plugin implementation...
+  return (tree, file) => {
+    if (!opts.enabled) return;
+    // ...existing lint logic...
+  };
+};
 /**
  * ## What is this?
  *

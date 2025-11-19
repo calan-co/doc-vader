@@ -119,7 +119,23 @@ const optionsSchema = s.strict(
  * @property {string} [rootDir] - Root directory for resolving relative links.
  */
 export type CrossrefOptions = s.Infer<typeof optionsSchema>;
+import { Plugin } from 'unified';
+import { z } from 'zod';
 
+export const CrossrefOptionsSchema = z.object({
+  enabled: z.boolean().default(true)
+});
+
+export type CrossrefOptions = z.infer<typeof CrossrefOptionsSchema>;
+
+export const remarkLintCrossref: Plugin<[CrossrefOptions?]> = (options = {}) => {
+  const opts = CrossrefOptionsSchema.parse(options);
+  // ...plugin implementation...
+  return (tree, file) => {
+    if (!opts.enabled) return;
+    // ...existing lint logic...
+  };
+};
 const remarkLintCrossref = lintRule(
   {
     origin: "remark-lint:crossref",
