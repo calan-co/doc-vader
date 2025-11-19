@@ -399,40 +399,6 @@
       "additionalProperties": false
     }
   },
-  "examples": [
-    {
-      "id": "4.6",
-      "title": "API Reference",
-      "summary": "Comprehensive API documentation.",
-      "owner": "api-team",
-      "type": "document",
-      "subtype": "api-spec",
-      "tags": ["api", "reference", "v1"],
-      "links": {
-        "guide": [
-          {
-            "ref": "[[getting-started.md]]",
-            "note": "See getting started guide."
-          }
-        ]
-      },
-      "classification": {
-        "diataxis": "reference",
-        "sensitivity": {
-          "label": "internal",
-          "note": "Contains super secret information."
-        },
-        "compliance": {
-          "GDPR": "inScope",
-          "HIPAA": "outOfScope"
-        }
-      },
-      "lifecycle": "evergreen",
-      "status": "approved",
-      "audience": ["integrators", "endUsers"],
-      "sourceType": "manual"
-    }
-  ],
   "statusTransitions": {
     "description": "Canonical allowed status transitions for documentation/work items. Used by scripts to enforce valid status changes.",
     "type": "object",
