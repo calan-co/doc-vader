@@ -76,6 +76,7 @@ async function validateFrontmatter(frontmatter, schemaPath) {
     const valid = validate(frontmatter);
     if (valid) return [];
     try {
+      // Preprocess unevaluatedProperties errors as Ajv does not handle them yet
       validate.errors
         .filter((e) => e.keyword === "unevaluatedProperties")
         .forEach(
