@@ -20,7 +20,7 @@ try {
   sessionContext = require("../../team-in-a-box-backend/src/services/sessionContextService");
 } catch (_) {}
 
-const DOCS_DIR = path.join(__dirname, "../../docs");
+const DOCS_DIR = path.join(__dirname, "../../../docs");
 const CHATMODES_DIR = path.join(__dirname, "../../.github/chatmodes");
 const BACKLOG_DIR = path.join(__dirname, "../../backlog");
 const TEMPLATE_DIR = path.join(__dirname, "../../docs/templates");

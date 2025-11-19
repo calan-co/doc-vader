@@ -3,7 +3,7 @@
 // Enforces documentation folder structure per README template
 const fs = require("fs");
 const path = require("path");
-const DOCS_DIR = path.resolve(__dirname, "../../docs");
+const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 const REQUIRED = [
   "project-brief.md",
   "architecture",

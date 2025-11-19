@@ -7,7 +7,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { extractFrontmatter } = require("../utils/frontmatter");
+const { extractFrontmatter } = require("../utils/frontmatter.cjs");
 
 function validateChecklistTasks(content, errors) {
   // Require at least one task for checklists
@@ -48,7 +48,7 @@ function lintFile(filePath, allFiles) {
 }
 
 function main() {
-  const docsDir = path.resolve(__dirname, "../../docs");
+  const docsDir = path.resolve(__dirname, "../../../docs");
   const allFiles = fs
     .readdirSync(docsDir, { withFileTypes: true })
     .filter((f) => f.isFile() && f.name.endsWith(".md"))

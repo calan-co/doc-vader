@@ -4,12 +4,12 @@
 
 const fs = require("fs");
 const path = require("path");
-const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util");
+const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util.cjs");
 let sessionContext;
 try {
   sessionContext = require("../../team-in-a-box-backend/src/services/sessionContextService");
 } catch (_) {}
-const DOCS_DIR = path.resolve(__dirname, "../../docs");
+const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 const SPECIAL = [
   "README.md",
   "CONTRIBUTING.md",

@@ -4,7 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const DOCS_DIR = path.resolve(__dirname, "../../docs");
+const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 const HTML_ANCHOR_REGEX = /<a\s+(?:id|name)=["'][^"']*["'][^>]*>/gi;
 
 function checkFile(file, relPath, errors) {

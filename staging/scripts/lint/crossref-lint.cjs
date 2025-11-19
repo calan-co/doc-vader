@@ -3,8 +3,8 @@
 // Validate that all markdown links point to existing files and, if present, valid anchors
 const fs = require("fs");
 const path = require("path");
-const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util");
-const DOCS_DIR = path.resolve(__dirname, "../../docs");
+const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util.cjs");
+const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 const LINK_REGEX = /\]\(([^)]+)\)/g; // captures the URL part inside (...)
 
 function slugify(text) {

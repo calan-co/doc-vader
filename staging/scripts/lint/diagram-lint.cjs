@@ -3,8 +3,8 @@
 // Validates that all diagrams in docs use Mermaid, not ASCII box-drawing
 const fs = require("fs");
 const path = require("path");
-const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util");
-const DOCS_DIR = path.resolve(__dirname, "../../docs");
+const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util.cjs");
+const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 // Box-drawing characters often used in ASCII diagrams/trees
 const BOX_CHARS_REGEX = /[┌┐└┘├┬─│]/;
 const ARROW_CHAR = "→"; // unicode right arrow used in some ASCII-like flows

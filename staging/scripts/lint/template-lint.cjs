@@ -9,12 +9,12 @@
 // TODO: This script no longer does anything. Remove or add template validation logic.
 const fs = require("fs");
 const path = require("path");
-const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util");
+const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util.cjs");
 let sessionContext;
 try {
-  sessionContext = require("../../team-in-a-box-backend/src/services/sessionContextService");
+  sessionContext = require("../../team-in-a-box-backend/src/services/sessionContextService.js");
 } catch (_) {}
-const DOCS_DIR = path.resolve(__dirname, "../../docs");
+const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 
 // Template mapping logic only. All required section/field validation is now in schema/templates.
 const TEMPLATES = {
