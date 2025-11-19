@@ -1,28 +1,23 @@
 ---
+id: diataxis-template-decision
+type: document
+subtype: decision
 title: >-
   Diátaxis as Foundation, TGDP as Extension: Guidance for Documentation
   Structure
-docType: explanation
-created: "2025-10-28"
-status: proposed
 lifecycle: evergreen
-priority: medium
+status: approved
 tags:
   - diataxis
-  - TGDP
+  - tgdp
   - documentation
   - guidance
-relations:
-  - type: how-to
-    path:
-      - - use-diataxis-and-tgdp-for-documentation
-  - type: reference
-    url: https://diataxis-template.readthedocs.io/en/latest/
-  - type: reference
-    url: https://www.thegooddocsproject.dev/template
-id: template
-type: work-item
-subtype: template
+links:
+  how-to:
+    - "[[use-diataxis-and-tgdp-for-documentation]]"
+  reference:
+    - https://diataxis-template.readthedocs.io/en/latest/
+    - https://www.thegooddocsproject.dev/template
 ---
 
 Diátaxis should be used as the conceptual foundation for documentation and backlog organization. It provides the structure and intent-based categorization (tutorial, how-to, explanation, reference).

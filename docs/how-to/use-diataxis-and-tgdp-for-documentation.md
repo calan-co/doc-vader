@@ -1,26 +1,22 @@
 ---
+# yaml-language-server: $schema=./schemas/frontmatter/document/latest.json
+id: diataxis-templates-how-to
+type: document
+subtype: how-to
 title: How to Use Diátaxis and TGDP for Documentation Structure
-docType: how-to
-created: "2025-10-28"
-status: proposed
 lifecycle: evergreen
-priority: medium
+status: approved
 tags:
   - diataxis
-  - TGDP
+  - tgdp
   - documentation
   - how-to
-relations:
-  - type: explanation
-    path:
-      - - diataxis-tgdp-foundation-extension
-  - type: reference
-    url: https://diataxis-template.readthedocs.io/en/latest/
-  - type: reference
-    url: https://www.thegooddocsproject.dev/template
-id: template
-type: work-item
-subtype: template
+links:
+  explanation:
+    - "[[diataxis-tgdp-foundation-extension]]"
+  reference:
+    - https://diataxis-template.readthedocs.io/en/latest/
+    - https://www.thegooddocsproject.dev/template
 ---
 
 To structure documentation and backlog items:
