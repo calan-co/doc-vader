@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 // Unified lint CLI for documentation (Commander.js version)
-const { Command } = require("commander");
-const { spawnSync } = require("child_process");
+// const { Command } = require("commander");
+// const { spawnSync } = require("child_process");
 
+import { Command } from "commander";
+import { spawnSync } from "child_process";
+
+// Define available commands and their shell commands
 const commands = {
   all: {
     description: "Run all checks (default)",
@@ -14,42 +18,42 @@ const commands = {
   },
   naming: {
     description: "Validate naming conventions",
-    cmd: "node scripts/lint/naming-conventions-lint.js",
+    cmd: "node staging/scripts/lint/naming-conventions-lint.cjs",
   },
   diagram: {
     description: "Validate diagram usage",
-    cmd: "node scripts/lint/diagram-lint.js",
+    cmd: "node staging/scripts/lint/diagram-lint.cjs",
   },
   crossref: {
     description: "Validate cross-references",
-    cmd: "node scripts/lint/crossref-lint.js",
+    cmd: "node staging/scripts/lint/crossref-lint.cjs",
   },
   content: {
     description: "Run custom remark-lint content rules",
-    cmd: "node scripts/lint/remark-content-rules.js",
+    cmd: "node staging/scripts/lint/remark-content-rules.cjs",
   },
   anchor: {
     description: "Validate anchor usage (no explicit HTML anchors)",
-    cmd: "node scripts/lint/anchor-lint.js",
+    cmd: "node staging/scripts/lint/anchor-lint.cjs",
   },
   frontmatter: {
     description: "Validate metadata/frontmatter",
-    cmd: "node scripts/lint/frontmatter-lint.js",
+    cmd: "node staging/scripts/lint/frontmatter-lint.cjs",
   },
   template: {
     description: "Validate template structure",
-    cmd: "node scripts/lint/template-lint.js",
+    cmd: "node staging/scripts/lint/template-lint.cjs",
   },
   structure: {
     description: "Validate documentation structure",
     subcommands: {
       folder: {
         description: "Validate folder structure",
-        cmd: "node scripts/lint/folder-structure-lint.js",
+        cmd: "node staging/scripts/lint/folder-structure-lint.cjs",
       },
       readme: {
         description: "Validate README structure",
-        cmd: "node scripts/lint/readme-structure-lint.js",
+        cmd: "node staging/scripts/lint/readme-structure-lint.cjs",
       },
     },
   },
@@ -118,13 +122,8 @@ function main(argv = process.argv, runner = run) {
   }
 }
 
-if (require.main === module) {
+if (import.meta.main) {
   process.exit(main());
 }
 
-module.exports = {
-  commands,
-  addCommands,
-  run,
-  main,
-};
+export { commands, addCommands, run, main };
