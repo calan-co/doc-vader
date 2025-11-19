@@ -5,6 +5,8 @@ import { createProcessor, run as runUtil } from "./utils";
 const run = async (md: string, opts: any) =>
   await runUtil(md, createProcessor(templateCompliance, opts));
 
+import { TemplateComplianceOptionsSchema } from "../remark-lint-template-compliance";
+
 describe("remark-lint-template-compliance", () => {
   it("passes when all required headings are present", async () => {
     const md = '---\ntitle: Test\nid: "1"\n---\n\n# Heading1\n## Heading2';
@@ -94,6 +96,15 @@ describe("remark-lint-template-compliance", () => {
         m.message.includes("Missing required heading")
       ).length
     ).toBe(2);
+  });
+
+  it("should validate options with zod", () => {
+    expect(() =>
+      TemplateComplianceOptionsSchema.parse({
+        enabled: true,
+        requiredHeadings: [],
+      })
+    ).toThrow();
   });
 
   // Frontmatter presence and YAML validity are intentionally not checked by this plugin anymore.

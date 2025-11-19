@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import crossref, { CrossrefOptions } from "../remark-lint-crossref";
 import fs from "fs";
+import { CrossrefOptionsSchema } from "../remark-lint-crossref";
 
 import { createProcessor, run as runUtil } from "./utils";
 const run = async (md: string, opts?: any) =>
@@ -123,5 +124,15 @@ describe("remark-lint-crossref", () => {
     ).toBe(true);
     (fs.existsSync as any).mockRestore();
     (fs.readFileSync as any).mockRestore();
+  });
+
+  it("should validate options with zod", () => {
+    expect(() => CrossrefOptionsSchema.parse({ enabled: true })).not.toThrow();
+  });
+
+  it("should skip lint if disabled", async () => {
+    const processor = createProcessor(crossref, { enabled: false });
+    const result = await runUtil("[Link](./file.md)", processor);
+    expect(result.messages.length).toBe(0);
   });
 });
