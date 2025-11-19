@@ -2,6 +2,10 @@
 # Centralized documentation linting script
 # Orchestrates all documentation validation tools
 
+SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
+
+echo $SCRIPT_DIR
+
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
@@ -34,12 +38,12 @@ rm -f "$LINT_LOG"
     echo "${GREEN}✓ Markdown style validation passed${NC}"
   fi
   for LINT in markdown-style naming diagram crossref anchor frontmatter template "structure folder" "structure readme"; do
-    echo "${YELLOW}[$LINT] Validating $LINT...${NC}"
-    if [ "$#" -gt 0 ]; then
-      node scripts/lint.js $LINT "$@"
-    else
-      node scripts/lint.js $LINT
-    fi
+      echo "${YELLOW}[$LINT] Validating $LINT...${NC}"
+      if [ "$#" -gt 0 && "$LINT" != "frontmatter" ]; then
+        node $SCRIPT_DIR/lint.js $LINT "$@"
+      else
+        node $SCRIPT_DIR/lint.js $LINT
+      fi
     if [ $? -ne 0 ]; then
       HAS_ERRORS=1
       echo "${RED}✗ $LINT validation failed${NC}"
@@ -66,6 +70,6 @@ else
 fi
 
 # Always run feedback loop after linting
-node scripts/lint/feedback-hook.js
+# node $SCRIPT_DIR/lint/feedback-hook.js
 
 exit $HAS_ERRORS
