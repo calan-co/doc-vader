@@ -2,10 +2,10 @@
 id: doc-vader-project-brief
 title: Doc-Vader Project Brief
 type: project-brief
-date: 2025-11-13
 status: draft
 lifecycle: ideation
 priority: high
+ordinal: 1000
 ---
 
 ## Project Overview

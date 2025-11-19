@@ -10,7 +10,12 @@ priority: low
 classification:
   diataxis: how-to
   sensitivity: internal
-tags: [doc-vader, docs, automation, frontmatter]
+tags:
+  - doc-vader
+  - docs
+  - automation
+  - frontmatter
+ordinal: 1000
 ---
 
 **Estimated Effort:** 3-4 hours  

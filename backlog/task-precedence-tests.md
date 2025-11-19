@@ -10,7 +10,12 @@ priority: medium
 classification:
   diataxis: how-to
   sensitivity: internal
-tags: [parsers, precedence, code-blocks, testing]
+tags:
+  - parsers
+  - precedence
+  - code-blocks
+  - testing
+ordinal: 1000
 ---
 
 **Estimated Effort:** 1–2 hours  
@@ -52,5 +57,5 @@ Ensure that Linkity parsers respect precedence rules and do not parse links insi
 
 ## References
 
-- `src/index.ts` (main API logic)  
+- `src/index.ts` (main API logic)
 - `test/parse-precedence.test.ts` (test patterns)
