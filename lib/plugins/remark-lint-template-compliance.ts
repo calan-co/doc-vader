@@ -1,20 +1,3 @@
-import { Plugin } from 'unified';
-import { z } from 'zod';
-
-export const TemplateComplianceOptionsSchema = z.object({
-  enabled: z.boolean().default(true)
-});
-
-export type TemplateComplianceOptions = z.infer<typeof TemplateComplianceOptionsSchema>;
-
-export const remarkLintTemplateCompliance: Plugin<[TemplateComplianceOptions?]> = (options = {}) => {
-  const opts = TemplateComplianceOptionsSchema.parse(options);
-  // ...plugin implementation...
-  return (tree, file) => {
-    if (!opts.enabled) return;
-    // ...existing lint logic...
-  };
-};
 /**
  * ## What is this?
  *
@@ -104,7 +87,7 @@ export const remarkLintTemplateCompliance: Plugin<[TemplateComplianceOptions?]> 
  *
  * Lint rule to ensure required headings are present in markdown files for template compliance.
  *
- * @param {TemplateComplianceOptions} [options] - Configuration options.
+ * @param {Options} [options] - Configuration options.
  * @param {string[]} [options.requiredHeadings] - Array of required heading strings.
  *
  * @example
@@ -118,37 +101,37 @@ export const remarkLintTemplateCompliance: Plugin<[TemplateComplianceOptions?]> 
  *
  * Reports missing headings as lint errors.
  */
+import { Plugin } from "unified";
 import { lintRule } from "unified-lint-rule";
 import { visitParents } from "unist-util-visit-parents";
-import * as s from "sury";
+import { z } from "zod";
+import type { Root } from "mdast";
 
-const optionsSchema = s.strict(
-  s.schema({
-    requiredHeadings: s.min(
-      s.array(s.string),
-      1,
-      "'requiredHeadings' must be a non-empty array"
-    ),
-  })
-);
+export const optionsSchema = z.object({
+  enabled: z.boolean().optional().default(true),
+  requiredHeadings: z
+    .array(z.string())
+    .nonempty("'requiredHeadings' must be a non-empty array"),
+});
+
+export type Options = z.input<typeof optionsSchema>;
 
 /**
- * @typedef {Object} TemplateComplianceOptions
+ * @typedef {Object} Options
  * @property {string[]} [requiredHeadings] - Array of required heading strings.
  */
-export type TemplateComplianceOptions = s.Infer<typeof optionsSchema>;
 
 const remarkLintTemplateCompliance = lintRule(
   {
     origin: "remark-lint:template-compliance",
     url: "https://github.com/remarkjs/remark-lint",
   },
-  function (tree: any, file: any, options?: TemplateComplianceOptions) {
+  function (tree: any, file: any, options?: Options) {
     // Validate and normalize options using Sury schema
-    let parsedOptions: TemplateComplianceOptions;
+    let parsedOptions: Options;
     try {
       // Allow undefined by substituting an empty object
-      parsedOptions = s.parseOrThrow(options, optionsSchema);
+      parsedOptions = optionsSchema.parse(options ?? {});
     } catch (err: unknown) {
       const reason = err instanceof Error ? err.message : String(err);
       file.fail(`Invalid remark-lint-template-compliance options: ${reason}`);
@@ -171,6 +154,6 @@ const remarkLintTemplateCompliance = lintRule(
       }
     });
   }
-);
+) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
 export default remarkLintTemplateCompliance;

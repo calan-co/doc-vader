@@ -88,7 +88,7 @@
  *
  * Lint rule to check for broken cross-references and missing anchors in markdown links.
  *
- * @param {CrossrefOptions} [options] - Configuration options.
+ * @param {Options} [options] - Configuration options.
  * @param {string} [options.rootDir] - Root directory for resolving relative links.
  *
  * @example
@@ -107,56 +107,36 @@ import { lintRule } from "unified-lint-rule";
 import { visitParents } from "unist-util-visit-parents";
 import fs from "fs";
 import path from "path";
-import * as s from "sury";
+import { z } from "zod";
+import { Plugin } from "unified";
+import type { Root } from "mdast";
 
-const optionsSchema = s.strict(
-  s.schema({
-    rootDir: s.optional(s.string),
-  })
-);
-/**
- * @typedef {Object} CrossrefOptions
- * @property {string} [rootDir] - Root directory for resolving relative links.
- */
-export type CrossrefOptions = s.Infer<typeof optionsSchema>;
-import { Plugin } from 'unified';
-import { z } from 'zod';
-
-export const CrossrefOptionsSchema = z.object({
-  enabled: z.boolean().default(true)
+export const optionsSchema = z.object({
+  enabled: z.boolean().optional().default(true),
+  rootDir: z.string().optional(),
 });
 
-export type CrossrefOptions = z.infer<typeof CrossrefOptionsSchema>;
+export type Options = z.input<typeof optionsSchema>;
 
-export const remarkLintCrossref: Plugin<[CrossrefOptions?]> = (options = {}) => {
-  const opts = CrossrefOptionsSchema.parse(options);
-  // ...plugin implementation...
-  return (tree, file) => {
-    if (!opts.enabled) return;
-    // ...existing lint logic...
-  };
-};
 const remarkLintCrossref = lintRule(
   {
     origin: "remark-lint:crossref",
     url: "https://github.com/remarkjs/remark-lint",
   },
-  function (tree: any, file: any, options?: CrossrefOptions) {
-    type optsSchema = s.Infer<typeof optionsSchema>;
-    // Validate and normalize options using Sury schema
-
-    let parsedOptions: CrossrefOptions = {};
+  function (tree: any, file: any, options?: Options) {
+    let parsedOptions: Options;
     try {
-      // Allow undefined by substituting an empty object
-      parsedOptions = s.parseOrThrow(options ?? {}, optionsSchema);
+      parsedOptions = optionsSchema.parse(options ?? {});
     } catch (err: unknown) {
       const reason = err instanceof Error ? err.message : String(err);
       file.fail(`Invalid remark-lint-crossref options: ${reason}`);
       return;
     }
 
+    if (!parsedOptions.enabled) return;
     const rootDir = parsedOptions.rootDir || process.cwd();
     visitParents(tree, "link", (node: any) => {
+      // TODO: use linkity for robust URL handling
       const url: string = node.url;
       if (
         url.startsWith("./") ||
@@ -179,6 +159,6 @@ const remarkLintCrossref = lintRule(
       }
     });
   }
-);
+) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
 export default remarkLintCrossref;

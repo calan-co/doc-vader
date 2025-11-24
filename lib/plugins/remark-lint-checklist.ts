@@ -88,45 +88,38 @@
  */
 // #endregion
 
-import * as s from "sury";
 import { lintRule } from "unified-lint-rule";
 import { visitParents } from "unist-util-visit-parents";
-import { Plugin } from 'unified';
-import { z } from 'zod';
+import { z } from "zod";
+import type { Plugin } from "unified";
+import type { Root } from "mdast";
 
-const optionsSchema = s.strict(
-  s.schema({
-    requiredItems: s.min(
-      s.array(s.string),
-      1,
-      "'requiredItems' must be a non-empty array"
-    ),
-  })
-);
 /**
- * @typedef {Object} ChecklistOptions
+ * @typedef {Object} Options
  * @property {string[]} [requiredItems] - Array of required checklist item strings.
  */
-export const ChecklistOptionsSchema = z.object({
-  enabled: z.boolean().default(true),
-  requiredItems: z.array(z.string()).nonempty("'requiredItems' must be a non-empty array"),
+export const optionsSchema = z.object({
+  enabled: z.boolean().optional().default(true),
+  requiredItems: z
+    .array(z.string())
+    .nonempty("'requiredItems' must be a non-empty array"),
 });
 
-export type ChecklistOptions = z.infer<typeof ChecklistOptionsSchema>;
+export type Options = z.input<typeof optionsSchema>;
 
 const remarkLintChecklist = lintRule(
   {
     origin: "remark-lint:checklist",
     url: "https://github.com/remarkjs/remark-lint",
   },
-  function (tree: any, file: any, options?: ChecklistOptions) {
+  function (tree: any, file: any, options?: Options) {
     // If no options, nothing to check
     if (options === undefined) return;
     // Validate and normalize options using Sury schema
-    let parsedOptions: ChecklistOptions;
+    let parsedOptions: Options;
     try {
       // Allow undefined by substituting an empty object
-      parsedOptions = ChecklistOptionsSchema.parse(options);
+      parsedOptions = optionsSchema.parse(options);
     } catch (err: unknown) {
       const reason = err instanceof Error ? err.message : String(err);
       file.fail(`Invalid remark-lint-checklist options: ${reason}`);
@@ -163,6 +156,6 @@ const remarkLintChecklist = lintRule(
       }
     }
   }
-);
+) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
 export default remarkLintChecklist;

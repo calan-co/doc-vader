@@ -3,7 +3,7 @@ import checklist from "../remark-lint-checklist";
 import { run as runUtil, createProcessor } from "./utils";
 const run = async (md: string, opts: any) =>
   await runUtil(md, createProcessor(checklist, opts));
-import { ChecklistOptionsSchema } from "../remark-lint-checklist";
+import { optionsSchema } from "../remark-lint-checklist";
 
 describe("remark-lint-checklist", () => {
   it("passes when all required items are present", async () => {
@@ -126,7 +126,7 @@ Other section:
 
   it("should validate options with zod", () => {
     expect(() =>
-      ChecklistOptionsSchema.parse({ enabled: true, requiredItems: [] })
+      optionsSchema.parse({ enabled: true, requiredItems: [] })
     ).toThrow();
   });
 });

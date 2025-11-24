@@ -5,7 +5,7 @@ import { createProcessor, run as runUtil } from "./utils";
 const run = async (md: string, opts: any) =>
   await runUtil(md, createProcessor(templateCompliance, opts));
 
-import { TemplateComplianceOptionsSchema } from "../remark-lint-template-compliance";
+import { optionsSchema } from "../remark-lint-template-compliance";
 
 describe("remark-lint-template-compliance", () => {
   it("passes when all required headings are present", async () => {
@@ -63,7 +63,9 @@ describe("remark-lint-template-compliance", () => {
     const md = "# Heading1";
     const result = await run(md, "not-an-object" as any);
     expect(result.messages.length).toBe(1);
-    expect(result.messages[0].message).toMatch(/\"not-an-object\"/);
+    expect(result.messages[0].message).toMatch(
+      /^Invalid remark-lint-template-compliance options/
+    );
   });
 
   it("handles headings with extra whitespace", async () => {
@@ -100,7 +102,7 @@ describe("remark-lint-template-compliance", () => {
 
   it("should validate options with zod", () => {
     expect(() =>
-      TemplateComplianceOptionsSchema.parse({
+      optionsSchema.parse({
         enabled: true,
         requiredHeadings: [],
       })
