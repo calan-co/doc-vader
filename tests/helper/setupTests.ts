@@ -3,23 +3,26 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { vol, fs } from "memfs";
 import { toTreeSync } from "memfs/lib/print";
 
-vi.mock("node:fs/promises", getMemfs(true));
+beforeEach(() => {
+  vi.mock("node:fs/promises", getMemfs(true));
 
-vi.mock("fs/promises", getMemfs(true));
+  vi.mock("fs/promises", getMemfs(true));
 
-vi.mock("node:fs", getMemfs());
+  vi.mock("node:fs", getMemfs());
 
-vi.mock("fs", getMemfs());
+  vi.mock("fs", getMemfs());
+});
 
 // reset the state of in-memory file system after each test
 afterEach(() => {
-  vol.reset();
-  vi.resetModules();
+  vi.unmock("node:fs/promises");
+  vi.unmock("fs/promises");
+  vi.unmock("node:fs");
+  vi.unmock("fs");
 });
 
 function getMemfs(async = false) {
   return async () => {
-    console.log(toTreeSync(fs));
     return { default: fs, ...(async ? fs.promises : fs) };
   };
 }
