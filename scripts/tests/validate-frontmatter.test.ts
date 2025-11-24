@@ -195,11 +195,10 @@ describe("validateFrontmatter", () => {
       content: badSchemaDirective,
     });
     expect(result.ok).toBe(false);
-    expect(
-      result.errors.some((e) =>
-        e.includes("Schema directive filename mismatch")
-      )
-    ).toBe(true);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors).toContainEqual(
+      expect.stringContaining("Schema not found")
+    );
   });
 
   it.skip("fails for diataxis folder mismatch", async () => {
@@ -208,9 +207,10 @@ describe("validateFrontmatter", () => {
       content: folderMismatch,
     });
     expect(result.ok).toBe(false);
-    expect(
-      result.errors.some((e) => e.includes("Diataxis folder mismatch"))
-    ).toBe(true);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors).toContainEqual(
+      expect.stringContaining("Diataxis folder mismatch")
+    );
   });
 
   it("warns (non-strict) when frontmatter missing", async () => {
@@ -233,11 +233,10 @@ describe("validateFrontmatter", () => {
       strictMissing: true,
     });
     expect(result.ok).toBe(false);
-    expect(
-      result.errors.some((e) =>
-        e.includes("Missing frontmatter or no `type` specified")
-      )
-    ).toBe(true);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors).toContainEqual(
+      expect.stringContaining("Missing frontmatter or no `type` specified")
+    );
   });
 });
 async function syncSchemaFiles(
