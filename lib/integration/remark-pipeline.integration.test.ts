@@ -9,7 +9,7 @@ const markdown = `
 # Conclusion
 `;
 
-describe("Integration: .remarkrc.mjs and createTiabProcessor", () => {
+describe("Integration: .remarkrc.mts and createTiabProcessor", () => {
   it("should lint with all core plugins and pass when all requirements met", async () => {
     const processor = createTiabProcessor({
       checklist: { enabled: true, requiredItems: ["Task 1", "Task 2"] },
@@ -20,7 +20,7 @@ describe("Integration: .remarkrc.mjs and createTiabProcessor", () => {
       },
     });
     const file = await processor.process(markdown);
-    expect(file.messages.length).toBe(0);
+    expect(file.messages).toHaveLength(0);
   });
 
   it("should report missing checklist and heading", async () => {
@@ -30,13 +30,16 @@ describe("Integration: .remarkrc.mjs and createTiabProcessor", () => {
       templateCompliance: { enabled: true, requiredHeadings: ["Missing"] },
     });
     const file = await processor.process(markdown);
-    expect(
-      file.messages.some((m) =>
-        m.message.includes("Required checklist item missing")
-      )
-    ).toBe(true);
-    expect(
-      file.messages.some((m) => m.message.includes("Missing required heading"))
-    ).toBe(true);
+    expect(file.messages).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringContaining("Required checklist item missing"),
+      })
+    );
+    expect(file.messages).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringContaining("Missing required heading"),
+      })
+    );
+    expect(file.messages).toHaveLength(2);
   });
 });

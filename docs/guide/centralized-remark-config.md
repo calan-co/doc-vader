@@ -6,7 +6,7 @@ This feature provides a single source of truth for remark linting rules and opti
 
 ### 1. Configuration
 
-Create a `.remarkrc.mjs` file:
+Create a `.remarkrc.mts` file:
 
 ```js
 import { remarkLintChecklist } from "./lib/plugins/remark-lint-checklist.js";

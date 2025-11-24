@@ -1,22 +1,18 @@
 ---
+"$schema": /frontmatter/document
 title: Adopt unified remark-lint architecture for documentation linting
-docType: reference
-docSubType: decision
-created: "2025-11-16"
-status: proposed
-lifecycle: draft
+type: document
+subtype: decision
+status: complete
+lifecycle: active
 priority: high
 tags:
   - adr
   - linting
   - remark
   - unified
-relations:
-  - type: references
-    path:
-      - - ../..
-        - reference
-        - remark-lint-unified-architecture.md
+links:
+  reference: "[[remark-lint-unified-architecture]]"
 ---
 
 ## Context and Problem Statement
@@ -34,7 +30,7 @@ Adopt a layered, unified pipeline built on unified/remark-lint as the single sou
 
 ### Scope
 
-- Central config via a `.remarkrc.mjs` and a programmatic `createTiabProcessor()` factory.
+- Central config via a `.remarkrc.mts` and a programmatic `createTiabProcessor()` factory.
 - Ajv-backed frontmatter schema validation integrated as a remark plugin with shared cache.
 - Diátaxis/template compliance, cross-file graph checks (links, naming, dependency cycles), and backlog semantics as dedicated remark plugins.
 - Consistent message format and severity control across all rules.
@@ -116,7 +112,7 @@ graph TD
   E170 --> F176[Feature: CI/deprecation]
 
   F171 --> S1711[Story: Centralized config]
-  S1711 --> T17111[Task: .remarkrc.mjs & factory]
+  S1711 --> T17111[Task: .remarkrc.mts & factory]
   S1711 --> T17112[Task: Plugin normalization/tests]
 
   F172 --> S1721[Story: Frontmatter validation]

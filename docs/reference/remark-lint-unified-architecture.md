@@ -50,24 +50,24 @@ flowchart LR
 
 ## Plugin Inventory and Mapping
 
-| Layer | Plugin/Rule | Status | Notes |
-| ----- | ----------- | ------ | ----- |
-| 0 | remark-parse, remark-frontmatter | existing | Parse Markdown + YAML frontmatter |
-| 1 | frontmatter-normalize | new | Normalize IDs/dates into vFile.data |
-| 1 | frontmatter-schema (Ajv) | migrate | Port Ajv script into plugin with cache |
-| 1 | metadata-enums | new | Validate enums per schema |
-| 1 | lifecycle-rules | new | Enforce lifecycle/status transitions |
-| 2 | template-compliance | extend | Multi-template support by subtype |
-| 2 | diataxis-classifier | new | Validate folder placement vs subtype |
-| 2 | checklist | existing | Ensure required checklist items |
-| 3 | project-context | new | Pre-scan registry: files, anchors, ids |
-| 3 | crossref | extend | Use registry; validate anchors & files |
-| 3 | naming-conventions | new | Filename and slug patterns |
-| 3 | backlog-semantic | new | Epic/feature/story/task links & deps |
-| 3 | lifecycle-rules (uses context) | new | Cross-item lifecycle integrity |
-| 4 | link-external-policy | new | Allow/deny list for external links |
-| 4 | dependency-graph | new | Detect cycles; warn on large fan-in |
-| 4 | auto-fix-suggestions | new | Provide non-mutating suggestions |
+| Layer | Plugin/Rule                      | Status   | Notes                                  |
+| ----- | -------------------------------- | -------- | -------------------------------------- |
+| 0     | remark-parse, remark-frontmatter | existing | Parse Markdown + YAML frontmatter      |
+| 1     | frontmatter-normalize            | new      | Normalize IDs/dates into vFile.data    |
+| 1     | frontmatter-schema (Ajv)         | migrate  | Port Ajv script into plugin with cache |
+| 1     | metadata-enums                   | new      | Validate enums per schema              |
+| 1     | lifecycle-rules                  | new      | Enforce lifecycle/status transitions   |
+| 2     | template-compliance              | extend   | Multi-template support by subtype      |
+| 2     | diataxis-classifier              | new      | Validate folder placement vs subtype   |
+| 2     | checklist                        | existing | Ensure required checklist items        |
+| 3     | project-context                  | new      | Pre-scan registry: files, anchors, ids |
+| 3     | crossref                         | extend   | Use registry; validate anchors & files |
+| 3     | naming-conventions               | new      | Filename and slug patterns             |
+| 3     | backlog-semantic                 | new      | Epic/feature/story/task links & deps   |
+| 3     | lifecycle-rules (uses context)   | new      | Cross-item lifecycle integrity         |
+| 4     | link-external-policy             | new      | Allow/deny list for external links     |
+| 4     | dependency-graph                 | new      | Detect cycles; warn on large fan-in    |
+| 4     | auto-fix-suggestions             | new      | Provide non-mutating suggestions       |
 
 ## Processor Contract
 
@@ -80,7 +80,7 @@ flowchart LR
 
 ## Configuration Strategy
 
-- `.remarkrc.mjs` defines the canonical pipeline order and rule options.
+- `.remarkrc.mts` defines the canonical pipeline order and rule options.
 - `createTiabProcessor({ mode, overrides })` factory for programmatic use.
 - `tiab-lint.config.mjs` (optional) to externalize rule tuning (e.g., required checklist items, severity mapping).
 - Environment flags: `TIAB_LINT_MODE=perf|full`, `STRICT_FRONTMATTER=1|0`.

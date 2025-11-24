@@ -9,25 +9,25 @@ ordinal: 1000
 
 See below for the prioritized list:
 
-1. [x] 156.lint-frontmatter-bug.md
-2. [ ] 171.unified-config-and-core-pipeline-feature.md
-3. [ ] 172.frontmatter-schema-integration-feature.md
-4. [ ] 160.template-compliance-feature.md
-5. [ ] 173.diataxis-and-template-integration-feature.md
-6. [ ] 174.cross-file-graph-and-naming-feature.md
-7. [ ] 176.ci-integration-and-deprecation-feature.md
-8. [ ] 170.remark-lint-unified-adoption-epic.md
-9. [ ] 181.audit-staging-scripts-feature.md
-10. [ ] 180.staging-script-consolidation-epic.md
-11. [ ] 182.migrate-core-scripts-to-typescript-feature.md
-12. [ ] 183.deprecate-obsolete-staging-scripts-feature.md
-13. [ ] task-precedence-tests.md
-14. [ ] 175.extended-rules-and-autofix-feature.md
-15. [ ] task-frontmatter-fixer.md
+1. [x] [[156.lint-frontmatter-bug.md]]
+2. [x] [[171.remark-config-and-core-pipeline-feature]]
+3. [ ] [[172.frontmatter-schema-integration-feature.md]]
+4. [ ] [[160.template-compliance-feature.md]]
+5. [ ] [[173.diataxis-and-template-integration-feature.md]]
+6. [ ] [[174.cross-file-graph-and-naming-feature.md]]
+7. [ ] [[176.ci-integration-and-deprecation-feature.md]]
+8. [ ] [[170.remark-lint-unified-adoption-epic.md]]
+9. [ ] [[181.audit-staging-scripts-feature.md]]
+10. [ ] [[180.staging-script-consolidation-epic.md]]
+11. [ ] [[182.migrate-core-scripts-to-typescript-feature.md]]
+12. [ ] [[183.deprecate-obsolete-staging-scripts-feature.md]]
+13. [ ] [[task-precedence-tests.md]]
+14. [ ] [[175.extended-rules-and-autofix-feature.md]]
+15. [ ] [[task-frontmatter-fixer.md]]
 
 ## Progress: 171.unified-config-and-core-pipeline-feature
 
-- [x] `.remarkrc.mjs` created with ESM and plugin layers
+- [x] `.remarkrc.mts` created with ESM and plugin layers
 - [x] `createTiabProcessor()` implemented in TypeScript/ESM
 - [x] Plugins refactored to use zod schemas for options
 - [x] Unit tests written for checklist, crossref, and template compliance plugins
