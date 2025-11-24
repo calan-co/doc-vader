@@ -5,7 +5,7 @@
  * Uses helpers from frontmatter-utils.ts
  */
 import path from "node:path";
-import Ajv from "ajv";
+import Ajv from "ajv/dist/2020";
 import {
   readMarkdownFiles,
   ValidateResult,
@@ -29,6 +29,7 @@ const ajv = new Ajv({
   loadSchema: async () => loadSchema,
   strictSchema: "log",
 });
+ajv.addKeyword("statusTransitions");
 
 // CLI Entrypoint
 if (import.meta.url === `file://${process.argv[1]}`) {
