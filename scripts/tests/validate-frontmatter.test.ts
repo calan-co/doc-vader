@@ -64,6 +64,11 @@ describe("getVersionedName", () => {
   beforeEach(async () => {
     vol.fromNestedJSON(dirStructure);
     console.log(toTreeSync(fsSync as any));
+
+    // not sure why vol.reset() doesn't clear symlinks but this is all going to be deleted soon anyway.
+    fsSync.fs.existsSync(latestFilePath) &&
+      fsSync.fs.unlinkSync(latestFilePath);
+
     // latest is a symlink to v3
     vol.symlinkSync(v3FilePath, latestFilePath);
     console.log(vol.toJSON());

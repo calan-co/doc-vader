@@ -42,7 +42,7 @@ export async function readMarkdownFiles(dir: string): Promise<string[]> {
   }
   return files;
 }
-
+//TODO: use gray-matter instead?
 export function extractFrontmatterBlock(raw: string): string {
   if (typeof raw === "string" && raw.startsWith("---")) {
     return raw.replace(/^---\s*/, "").replace(/\s*---\s*$/, "");
@@ -50,7 +50,7 @@ export function extractFrontmatterBlock(raw: string): string {
   const m = raw.match(/^---\n([\s\S]*?)\n---/);
   return m ? m[1] : "";
 }
-
+//TODO: Refactor solution to delete everything below this line.
 export async function getVersionedName(
   name: string,
   schemaDir: string

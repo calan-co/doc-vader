@@ -2,8 +2,9 @@ import { Linter, Fixer } from "../interfaces/ruleset";
 import Ajv, { ValidateFunction, ErrorObject } from "ajv";
 import matter from "gray-matter";
 import { promises as fs } from "node:fs";
-import { getVersionedName, ValidateResult } from "./utils.js";
+import { ValidateResult } from "./utils.js";
 import path from "node:path";
+import semver from "semver";
 
 // Frontmatter linter implementation example
 export class FrontmatterLinter implements Linter<string | object, object> {
@@ -45,15 +46,6 @@ export async function validateFrontmatter({
   const raw = content ?? (filePath ? await fs.readFile(filePath, "utf8") : "");
   const fm = matter(raw);
   const data = fm.data;
-  // if frontmatter has the schema directive, it will be validated using checkSchemaDirective
-  if (data.schema) {
-    return {
-      file: filePath ?? "(string)",
-      ok: true,
-      errors: [],
-      warnings: [],
-    };
-  }
 
   if (!data || Object.keys(data).length === 0 || !data.type) {
     const msg = "Missing frontmatter or no `type` specified";
@@ -65,26 +57,42 @@ export async function validateFrontmatter({
     };
   }
 
-  const schemaPath = path.join(
-    schemaDir,
-    "frontmatter",
-    `${data.type}`,
-    "current.json"
-  );
+  let baseSchemaId =
+    data.$schema || data.schema || `/frontmatter/${data.type}/`;
 
-  const schemaId = `/frontmatter/${data.type}/1.0.0`;
-  // const schemaName = await getVersionedName(
-  //   `${data.type}.frontmatter.schema.json`,
-  //   schemaDir
-  // );
-  let validate = ajv.getSchema(schemaId) as ValidateFunction | undefined;
+  if (path.basename(baseSchemaId) === "latest")
+    baseSchemaId = path.dirname(baseSchemaId);
+  if (path.basename(baseSchemaId) === data.type)
+    baseSchemaId = path.join(baseSchemaId, "*");
+  // Naive lookup of existing schema file
+  let validate = ajv.getSchema(baseSchemaId) as ValidateFunction | undefined;
   if (!validate) {
-    // getValidator logic inline
-    const rawSchema = await fs.readFile(schemaPath, "utf8");
-    const schema = JSON.parse(rawSchema);
-    validate = await ajv.compileAsync(schema);
+    // That didn't work, let's see if we can resolve as semver to specific version
+    const { schemaId, schemaPath } = await resolveSchemaPath(
+      baseSchemaId,
+      schemaDir
+    );
+    validate = ajv.getSchema(schemaId);
+
+    // Still nothing. One last try: load schema from file
+    if (!validate) {
+      // Doesn't exist, bail out
+      if (!(await fs.stat(schemaPath).catch(() => false))) {
+        return {
+          file: filePath ?? "(string)",
+          ok: false,
+          errors: [`Schema not found: ${baseSchemaId}`],
+          warnings: [],
+        };
+      }
+      const rawSchema = await fs.readFile(schemaPath, "utf8");
+      const schema = JSON.parse(rawSchema);
+      if (schema)
+        validate =
+          ajv.getSchema(schema.$id) || (await ajv.compileAsync(schema));
+    }
   }
-  if (!validate) throw new Error(`Could not compile schema: ${schemaId}`);
+  if (!validate) throw new Error(`Could not find schema: ${baseSchemaId}`);
   const errors = validate(data)
     ? []
     : formatAjvErrors((validate.errors ?? []) as ErrorObject[]);
@@ -94,5 +102,50 @@ export async function validateFrontmatter({
     ok: errors.length === 0,
     errors,
     warnings: [],
+  };
+}
+async function resolveSchemaPath(
+  schemaId: string,
+  schemaDir: string
+): Promise<{ schemaId: string; schemaPath: string }> {
+  // Match semver range in schemaId
+  const semverMatch = path.posix.parse(schemaId);
+  if (!semverMatch) return { schemaId, schemaPath: schemaId };
+
+  const basePath = semverMatch.dir;
+  // if only base path, default to latest. Otherwise, if invalid range, return as is
+  const range =
+    semver.validRange(semverMatch.base || "*") ||
+    semver.validRange(semverMatch.name || "*");
+  if (!range) return { schemaId, schemaPath: schemaId };
+
+  // Read available versions from schemaDir
+  let availableVersions: string[] = [];
+  try {
+    const files = await fs.readdir(path.join(schemaDir, basePath), {
+      recursive: true,
+      withFileTypes: true,
+    });
+    availableVersions = files
+      .filter(
+        (f) =>
+          f.isFile() && semver.satisfies(path.basename(f.name, ".json"), range)
+      )
+      .map((f) => path.join(f.parentPath || "", f.name));
+  } catch {}
+
+  // get the highest version that matches the range
+  const resolvedPath = availableVersions
+    .sort((a, b) =>
+      semver.rcompare(path.basename(a, ".json"), path.basename(b, ".json"))
+    )
+    .at(0);
+
+  // If no version matches, return the original schemaId
+  if (!resolvedPath) return { schemaId, schemaPath: schemaId };
+  return {
+    // prepend basePath to resolved schemaId
+    schemaId: path.posix.join(basePath, path.basename(resolvedPath, ".json")),
+    schemaPath: resolvedPath,
   };
 }

@@ -4,14 +4,12 @@ contentTypes: [json]
 shouldDereference: false
 schemaBasePath: ./schemas
 skipSchemaTestCases:
-  - description: "Skip schema test cases for frontmatter/document schema"
-    matchPaths:
-      - ./schemas/frontmatter/document/*.json
-considerDeterministic:
-  - oneOf
+  ".*":
+    - schema-snake-case-properties
 testCaseOverrides:
   "/frontmatter/document/1\\..*":
       # Ignore oneOf constraint in deterministic test
     - schema-deterministic-types:
         considerDeterministic:
           - oneOf
+          - anyOf
