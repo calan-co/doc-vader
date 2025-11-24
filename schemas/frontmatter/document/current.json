@@ -1,6 +1,7 @@
 {
-  "$id": "/frontmatter/document/1.0.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/frontmatter/document/1.0.0",
+  "$versioningScheme": "semver",
   "title": "frontmatter/document",
   "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",
   "type": "object",
@@ -11,31 +12,32 @@
       "type": "string",
       "description": "Optional. Only include when it adds meaningful context or value."
     },
-    "link": {
-      "anyOf": [
-        { "$ref": "#/definitions/url" },
-        { "$ref": "#/definitions/wikilink" }
-      ],
-      "properties": {
-        "note": {
-          "$ref": "#/definitions/note"
-        }
-      },
-      "description": "Link to a related document or resource."
-    },
     "wikilink": {
       "type": "string",
       "pattern": "^\\[\\[(?<name>[^\\]\\|\\r\\n]+)(?:\\|(?<title>[^\\]\\|\\r\\n]+))?\\]\\](?<agglu>[^\\p{P}\\s]*)$",
       "maxLength": 128,
       "description": "Wikilink to a markdown document in this repository."
     },
-    "url": {
+    "uri": {
       "type": "string",
       "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$",
       "maxLength": 256,
-      "description": "Url link"
+      "description": "Uri to an external resource."
+    },
+    "link": {
+      "anyOf": [
+        { "$ref": "#/definitions/uri" },
+        { "$ref": "#/definitions/wikilink" }
+      ],
+      "description": "Link to a related document or resource."
     }
   },
+  "patternProperties": {
+    "^\\$[a-zA-Z0-9_]+$": {
+      "description": "Allow custom properties starting with $ for tooling purposes."
+    }
+  },
+  "propertyNames": { "maxLength": 128 },
   "properties": {
     "id": {
       "type": "string",
@@ -112,7 +114,6 @@
               "description": "Diataxis category."
             }
           },
-          "type": ["string", "object"],
           "description": "Diataxis classification for the document.",
           "oneOf": [
             {
@@ -144,7 +145,6 @@
               "description": "Sensitivity level of the document."
             }
           },
-          "type": ["string", "object"],
           "oneOf": [
             {
               "$ref": "#/properties/classification/properties/sensitivity/definitions/sensitivityLabel"
@@ -252,7 +252,6 @@
       "properties": {
         "profiles": {
           "description": "List or map of governance profiles controlling structure/process rules.",
-          "type": ["array", "object"],
           "oneOf": [
             {
               "type": "array",
@@ -263,15 +262,7 @@
             {
               "type": "object",
               "minProperties": 1,
-              "properties": {
-                "priorityOrder": {
-                  "type": "array",
-                  "description": "Explicit precedence order applied when strategy=prioritize; names must reference declared profiles.",
-                  "items": { "type": "string", "minLength": 1 },
-                  "uniqueItems": true,
-                  "minItems": 2
-                }
-              },
+              "properties": {},
               "patternProperties": {
                 "^[A-Za-z][A-Za-z0-9_-]*$": {
                   "oneOf": [
@@ -305,26 +296,51 @@
           ]
         },
         "reconciliation": {
-          "$definitions": {
+          "definitions": {
             "ReconciliationStrategy": {
-              "type": "string",
-              "enum": [
-                "prompt",
-                "auto",
-                "prioritize",
-                "intersection",
-                "override",
-                "split",
-                "advisory"
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "prompt",
+                    "auto",
+                    "intersection",
+                    "split",
+                    "advisory"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "override": {
+                      "type": "string",
+                      "description": "Profile name to use as override when strategy=override; must reference a declared profile.",
+                      "minLength": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["prioritize"],
+                  "properties": {
+                    "prioritize": {
+                      "type": "array",
+                      "description": "Explicit precedence order applied when strategy=prioritize; names must reference declared profiles.",
+                      "items": { "type": "string", "minLength": 1 },
+                      "uniqueItems": true,
+                      "minItems": 2
+                    }
+                  }
+                }
               ]
             }
           },
           "type": "object",
           "description": "Conflict resolution configuration across selected profiles.",
           "properties": {
-            "default_strategy": {
+            "defaultStrategy": {
               "type": "string",
-              "$ref": "#/properties/governance/properties/reconciliation/$definitions/ReconciliationStrategy"
+              "$ref": "#/properties/governance/properties/reconciliation/definitions/ReconciliationStrategy"
             },
             "strategies": {
               "type": "array",
@@ -364,32 +380,12 @@
                   },
                   "strategy": {
                     "type": "string",
-                    "$ref": "#/properties/governance/properties/reconciliation/$definitions/ReconciliationStrategy"
-                  },
-                  "order": {
-                    "type": "array",
-                    "items": { "type": "string", "minLength": 1 },
-                    "minItems": 2,
-                    "uniqueItems": true
+                    "$ref": "#/properties/governance/properties/reconciliation/definitions/ReconciliationStrategy"
                   },
                   "overrideProfile": { "type": "string", "minLength": 1 },
                   "notes": { "type": "string", "maxLength": 512 }
                 },
-                "additionalProperties": false,
-                "allOf": [
-                  {
-                    "if": {
-                      "properties": { "strategy": { "const": "prioritize" } }
-                    },
-                    "then": { "required": ["order"] }
-                  },
-                  {
-                    "if": {
-                      "properties": { "strategy": { "const": "override" } }
-                    },
-                    "then": { "required": ["overrideProfile"] }
-                  }
-                ]
+                "additionalProperties": false
               }
             }
           },
@@ -466,6 +462,7 @@
   },
   "oneOf": [
     {
+      "type": "object",
       "properties": {
         "lifecycle": { "const": "draft" },
         "status": {
@@ -481,6 +478,7 @@
       }
     },
     {
+      "type": "object",
       "properties": {
         "lifecycle": { "const": "active" },
         "status": {
@@ -489,6 +487,7 @@
       }
     },
     {
+      "type": "object",
       "properties": {
         "lifecycle": { "const": "evergreen" },
         "status": {
@@ -503,6 +502,7 @@
       }
     },
     {
+      "type": "object",
       "properties": {
         "lifecycle": { "const": "archived" },
         "status": {
@@ -517,6 +517,7 @@
       }
     },
     {
+      "type": "object",
       "properties": {
         "lifecycle": { "const": "obsolete" },
         "status": { "enum": ["superseded", "archived", "deprecated"] }
