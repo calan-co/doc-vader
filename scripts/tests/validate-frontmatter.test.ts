@@ -153,7 +153,7 @@ describe("loadSchema", () => {
 });
 
 describe("validateFrontmatter", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Load memfs with actual schema files from disk
     const realFs = await vi.importActual<typeof import("fs/promises")>(
       "fs/promises"
@@ -163,15 +163,15 @@ describe("validateFrontmatter", () => {
     await syncSchemaFiles(sourceSchemaDir, targetSchemaDir, realFs);
     console.log(toTreeSync(fsSync as any));
   });
-  afterAll(async () => {
+  afterEach(async () => {
     vol.reset();
     vi.clearAllMocks();
     vi.unstubAllEnvs();
   });
-  const goodV1Frontmatter = `---\n# yaml-language-server: $schema=./schemas/frontmatter/document/1.0.0.json\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: explanation\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
-  const goodLatestFrontmatter = `---\n# yaml-language-server: $schema=./schemas/frontmatter/document/latest.json\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: explanation\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
-  const badSchemaDirective = `---\n# yaml-language-server: $schema=./schemas/wrong.json\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: explanation\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
-  const folderMismatch = `---\n# yaml-language-server: $schema=./schemas/frontmatter/document/latest.json\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: tutorial\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
+  const goodV1Frontmatter = `---\n# yaml-language-server: $schema=/frontmatter/document/1.0.0.json\n'$schema': /frontmatter/document/1.0.0\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: explanation\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
+  const goodLatestFrontmatter = `---\n# yaml-language-server: $schema=/frontmatter/document/latest.json\n'$schema': /frontmatter/document/\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: explanation\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
+  const badSchemaDirective = `---\n# yaml-language-server: $schema=/99.99.99.json\n'$schema': /99.99.99\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: explanation\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
+  const folderMismatch = `---\n# yaml-language-server: $schema=/frontmatter/document/latest.json\n'$schema': /frontmatter/document\nid: docs-abc\ntitle: Example Doc\ntype: document\nsubtype: sample\nlifecycle: active\nstatus: accepted\nclassification:\n  diataxis: tutorial\n  sensitivity: public\ntags: [linkity]\n---\n\nContent here.`;
   it("passes for valid doc in matching folder", async () => {
     const result = await validateFrontmatter({
       content: goodV1Frontmatter,
