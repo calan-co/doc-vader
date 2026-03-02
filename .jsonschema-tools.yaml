@@ -1,4 +1,3 @@
-preCommitPath: ./.git/hooks/pre-commit.d/jsonschema-tools
 shouldSymlinkExtensionless: false
 contentTypes: [json]
 shouldDereference: false
