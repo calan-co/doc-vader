@@ -1,7 +1,6 @@
 // --- tests/helper/setupTest.ts
 import { afterEach, beforeEach, vi } from "vitest";
 import { vol, fs } from "memfs";
-import { toTreeSync } from "memfs/lib/print";
 
 beforeEach(() => {
   vi.mock("node:fs/promises", getMemfs(true));
