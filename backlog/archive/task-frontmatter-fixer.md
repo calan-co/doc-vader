@@ -5,7 +5,8 @@ title: Extend Diataxis Fixer to Auto-Generate Missing Frontmatter
 type: work-item
 subtype: tooling
 lifecycle: active
-status: proposed
+status: closed
+status_reason: obsolete
 priority: low
 classification:
   diataxis: how-to
@@ -222,3 +223,8 @@ npm run docs:validate
 - `scripts/validate-frontmatter.mjs` - Validation logic
 - `docs/schemas/document.frontmatter.schema.json` - Schema reference
 - `docs/schemas/work-item.frontmatter.schema.json` - Schema reference
+
+## Closure Note
+
+- 2026-02-27: Closed during backlog triage as obsolete. Evidence: `backlog/audit/auditing-backlog-report.json` listed this item in `no_inbound_active`, and this task references stale script paths and non-current scope.
+- Detail: This backlog item points to `.mjs` paths and legacy assumptions that no longer match the active codebase conventions.

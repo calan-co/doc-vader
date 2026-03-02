@@ -12,7 +12,7 @@ See below for the prioritized list:
 1. [x] [[156.lint-frontmatter-bug.md]]
 2. [x] [[171.remark-config-and-core-pipeline-feature]]
 3. [ ] [[172.frontmatter-schema-integration-feature.md]]
-4. [ ] [[160.template-compliance-feature.md]]
+4. [x] `160.template-compliance-feature` (closed/superseded; archived)
 5. [ ] [[173.diataxis-and-template-integration-feature.md]]
 6. [ ] [[174.cross-file-graph-and-naming-feature.md]]
 7. [ ] [[176.ci-integration-and-deprecation-feature.md]]

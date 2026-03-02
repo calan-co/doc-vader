@@ -5,7 +5,8 @@ title: Parser Precedence and Fenced Code Block Exclusion
 type: work-item
 subtype: feature
 lifecycle: active
-status: proposed
+status: closed
+status_reason: obsolete
 priority: medium
 classification:
   diataxis: how-to
@@ -59,3 +60,8 @@ Ensure that Linkity parsers respect precedence rules and do not parse links insi
 
 - `src/index.ts` (main API logic)
 - `test/parse-precedence.test.ts` (test patterns)
+
+## Closure Note
+
+- 2026-02-27: Closed during backlog triage as obsolete. Evidence: `backlog/audit/auditing-backlog-report.json` listed this item in `no_inbound_active`, and it is outside the current MVP critical path in `docs/how-to/implementation-plans/doc-vader-shared-engine-mvp.plan.md`.
+- Detail: References non-existent local parser paths and appears to belong to a different code scope.
