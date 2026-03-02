@@ -39,3 +39,11 @@ docs/source-files/templates/
 tmp/
 temp/
 *.tmp
+
+# Transient files
+*.bak
+*.backup
+*.orig
+*.old
+*.log
+auditing-backlog-report*.json
