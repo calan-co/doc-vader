@@ -1,1 +1,132 @@
-current.json
+{
+  "title": "frontmatter/work-item",
+  "description": "Strict frontmatter schema for backlog work items supporting SDLC and Diataxis standards.",
+  "$id": "/frontmatter/work-item/1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "allOf": [
+    {
+      "$ref": "/frontmatter/document/1.0.0"
+    },
+    {
+      "type": "object",
+      "required": [
+        "priority"
+      ],
+      "properties": {
+        "assignee": {
+          "type": "string"
+        },
+        "classifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "created": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "modified": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "ordinal": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "relations": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "type",
+                  "ref"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "status_comment": {
+          "type": "string"
+        },
+        "status_reason": {
+          "description": "Required when status is 'closed' to capture why the work item was closed.",
+          "type": "string",
+          "enum": [
+            "success",
+            "obsolete",
+            "redundant",
+            "superseded",
+            "cancelled"
+          ]
+        },
+        "workItemType": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "closed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "status_reason"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

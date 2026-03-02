@@ -29,4 +29,5 @@ export class BacklogClassifier implements Classifier<object, object> {
   }
 }
 
+export * from "./audit.js";
 export * from "./backlog.js";

@@ -14,8 +14,69 @@
           "enum": ["low", "medium", "high", "critical"]
         },
         "assignee": { "type": "string" },
-        "ordinal": { "type": "integer" }
-      }
+        "workItemType": { "type": "string" },
+        "name": { "type": "string" },
+        "created": {
+          "oneOf": [{ "type": "string" }, { "type": "object" }]
+        },
+        "modified": {
+          "oneOf": [{ "type": "string" }, { "type": "object" }]
+        },
+        "status_comment": { "type": "string" },
+        "relations": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["type", "ref"],
+                "properties": {
+                  "type": { "type": "string" },
+                  "ref": { "type": "string" },
+                  "note": { "type": "string" }
+                },
+                "additionalProperties": true
+              }
+            }
+          ]
+        },
+        "classifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "status_reason": {
+          "type": "string",
+          "enum": [
+            "success",
+            "obsolete",
+            "redundant",
+            "superseded",
+            "cancelled"
+          ],
+          "description": "Required when status is 'closed' to capture why the work item was closed."
+        },
+        "ordinal": {
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["status"],
+            "properties": { "status": { "const": "closed" } }
+          },
+          "then": { "required": ["status_reason"] }
+        }
+      ]
     }
   ]
 }

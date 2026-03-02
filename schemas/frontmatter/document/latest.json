@@ -1,1 +1,794 @@
-current.json
+{
+  "title": "frontmatter/document",
+  "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",
+  "$id": "/frontmatter/document/1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "type",
+    "subtype",
+    "lifecycle",
+    "status"
+  ],
+  "properties": {
+    "title": {
+      "description": "Human-readable document title.",
+      "type": "string"
+    },
+    "type": {
+      "description": "High-level type of the document (e.g., work-item, document).",
+      "type": "string",
+      "enum": [
+        "work-item",
+        "document"
+      ]
+    },
+    "audience": {
+      "description": "List of intended audiences.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "oneOf": [
+          {
+            "description": "Intended audience for the document.",
+            "type": "string",
+            "enum": [
+              "integrators",
+              "contributors",
+              "operators",
+              "endUsers",
+              "administrators",
+              "executives"
+            ],
+            "maxLength": 32
+          },
+          {
+            "description": "Intended audience for the document.",
+            "type": "string",
+            "maxLength": 32,
+            "not": {
+              "enum": [
+                "integrators",
+                "contributors",
+                "operators",
+                "endUsers",
+                "administrators",
+                "executives"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "classification": {
+      "description": "Classification(s) for the document, such as diataxis, sensitivity, or compliance.",
+      "type": "object",
+      "required": [
+        "diataxis",
+        "sensitivity"
+      ],
+      "properties": {
+        "compliance": {
+          "description": "Compliance frameworks and their applicability.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+          },
+          "minProperties": 1,
+          "patternProperties": {
+            "^[A-Za-z-][A-Za-z0-9-]*$": {
+              "description": "Compliance framework (e.g., 'GDPR': 'inScope', 'PCI': 'outOfScope').",
+              "type": "string",
+              "enum": [
+                "inScope",
+                "outOfScope"
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 128,
+            "pattern": "^[A-Za-z-][A-Za-z0-9-]*$"
+          }
+        },
+        "diataxis": {
+          "description": "Diataxis classification for the document.",
+          "definitions": {
+            "diataxisCategory": {
+              "description": "Diataxis category.",
+              "type": "string",
+              "enum": [
+                "tutorial",
+                "how-to",
+                "reference",
+                "explanation"
+              ]
+            }
+          },
+          "oneOf": [
+            {
+              "type": "string",
+              "$ref": "#/properties/classification/properties/diataxis/definitions/diataxisCategory"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "category"
+              ],
+              "properties": {
+                "category": {
+                  "type": "string",
+                  "$ref": "#/properties/classification/properties/diataxis/definitions/diataxisCategory"
+                },
+                "note": {
+                  "type": "string",
+                  "$ref": "#/definitions/note"
+                }
+              }
+            }
+          ]
+        },
+        "sensitivity": {
+          "definitions": {
+            "sensitivityLabel": {
+              "description": "Sensitivity level of the document.",
+              "type": "string",
+              "enum": [
+                "public",
+                "internal",
+                "confidential",
+                "restricted"
+              ]
+            }
+          },
+          "oneOf": [
+            {
+              "$ref": "#/properties/classification/properties/sensitivity/definitions/sensitivityLabel"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "label"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "$ref": "#/properties/classification/properties/sensitivity/definitions/sensitivityLabel"
+                },
+                "note": {
+                  "type": "string",
+                  "$ref": "#/definitions/note"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "governance": {
+      "description": "Governance configuration: profiles (documentation systems, process models) and optional reconciliation strategies.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profiles"
+      ],
+      "properties": {
+        "profiles": {
+          "description": "List or map of governance profiles controlling structure/process rules.",
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+              },
+              "minProperties": 1,
+              "patternProperties": {
+                "^[A-Za-z][A-Za-z0-9_-]*$": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "strict",
+                        "advisory"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "mode"
+                      ],
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "strict",
+                            "advisory"
+                          ]
+                        },
+                        "notes": {
+                          "type": "string",
+                          "maxLength": 512
+                        },
+                        "version": {
+                          "type": "string",
+                          "maxLength": 128,
+                          "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "propertyNames": {
+                "maxLength": 128,
+                "pattern": "^[A-Za-z-][A-Za-z0-9-]*$"
+              }
+            }
+          ]
+        },
+        "reconciliation": {
+          "description": "Conflict resolution configuration across selected profiles.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "defaultStrategy": {
+              "type": "string",
+              "$ref": "#/properties/governance/properties/reconciliation/definitions/ReconciliationStrategy"
+            },
+            "strategies": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "appliesTo",
+                  "strategy"
+                ],
+                "properties": {
+                  "appliesTo": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "profiles"
+                    ],
+                    "properties": {
+                      "conflictTypes": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "structure",
+                            "taxonomy",
+                            "lifecycle",
+                            "status",
+                            "fields",
+                            "sensitivity",
+                            "naming",
+                            "other"
+                          ]
+                        },
+                        "minItems": 1
+                      },
+                      "profiles": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "minItems": 2,
+                        "uniqueItems": true
+                      }
+                    }
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 512
+                  },
+                  "overrideProfile": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "strategy": {
+                    "type": "string",
+                    "$ref": "#/properties/governance/properties/reconciliation/definitions/ReconciliationStrategy"
+                  }
+                }
+              }
+            }
+          },
+          "definitions": {
+            "ReconciliationStrategy": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "prompt",
+                    "auto",
+                    "intersection",
+                    "split",
+                    "advisory"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "override": {
+                      "description": "Profile name to use as override when strategy=override; must reference a declared profile.",
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "prioritize"
+                  ],
+                  "properties": {
+                    "prioritize": {
+                      "description": "Explicit precedence order applied when strategy=prioritize; names must reference declared profiles.",
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "minItems": 2,
+                      "uniqueItems": true
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "id": {
+      "description": "Unique identifier for the document or work item.",
+      "type": "string"
+    },
+    "lifecycle": {
+      "description": "Long-term state of the document or work item.",
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "evergreen",
+        "archived",
+        "obsolete"
+      ]
+    },
+    "links": {
+      "description": "Links to related documents, guides, or examples. Supports both canonical object format and legacy list format for backward compatibility.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+          },
+          "minProperties": 1,
+          "patternProperties": {
+            "^.+$": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/definitions/link"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "ref"
+                    ],
+                    "properties": {
+                      "note": {
+                        "$ref": "#/definitions/note"
+                      },
+                      "ref": {
+                        "$ref": "#/definitions/link"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "propertyNames": {
+            "maxLength": 128,
+            "pattern": "^.+$"
+          }
+        },
+        {
+          "description": "Legacy format: list of single-key link objects.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "maxProperties": 1,
+            "minProperties": 1,
+            "patternProperties": {
+              "^.+$": {
+                "oneOf": [
+                  {
+                    "$ref": "#/definitions/link"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/definitions/link"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "ref"
+                          ],
+                          "properties": {
+                            "note": {
+                              "$ref": "#/definitions/note"
+                            },
+                            "ref": {
+                              "$ref": "#/definitions/link"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "minItems": 1
+                  }
+                ]
+              }
+            }
+          },
+          "minItems": 1
+        }
+      ]
+    },
+    "owner": {
+      "description": "Primary owner or responsible party for the document.",
+      "type": "string"
+    },
+    "status": {
+      "description": "Current actionable workflow state.",
+      "type": "string",
+      "enum": [
+        "open",
+        "proposed",
+        "accepted",
+        "inProgress",
+        "in-progress",
+        "review",
+        "ready-for-review",
+        "approved",
+        "complete",
+        "completed",
+        "closed",
+        "deprecated",
+        "superseded",
+        "rejected",
+        "duplicate"
+      ]
+    },
+    "subtype": {
+      "description": "Specific subtype of the document for classification and navigation.",
+      "type": "string"
+    },
+    "summary": {
+      "description": "Short summary describing the document's purpose or content.",
+      "type": "string"
+    },
+    "tags": {
+      "description": "List of tags for search, filtering, and organization.",
+      "type": "array",
+      "items": {
+        "description": "Single tag in kebab-case (e.g., 'user-guide', 'api-reference').",
+        "type": "string",
+        "maxLength": 64,
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "minItems": 1
+    }
+  },
+  "$versioningScheme": "semver",
+  "definitions": {
+    "link": {
+      "description": "Link to a related document or resource.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/uri"
+        },
+        {
+          "$ref": "#/definitions/wikilink"
+        }
+      ]
+    },
+    "note": {
+      "description": "Optional. Only include when it adds meaningful context or value.",
+      "type": "string"
+    },
+    "uri": {
+      "description": "Uri to an external resource.",
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$"
+    },
+    "wikilink": {
+      "description": "Wikilink to a markdown document in this repository.",
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^\\[\\[(?<name>[^\\]\\|\\r\\n]+)(?:\\|(?<title>[^\\]\\|\\r\\n]+))?\\]\\](?<agglu>[^\\p{P}\\s]*)$"
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "lifecycle": {
+          "const": "draft"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "proposed",
+            "accepted",
+            "inProgress",
+            "in-progress",
+            "review",
+            "ready-for-review",
+            "complete",
+            "completed",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "lifecycle": {
+          "const": "active"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "proposed",
+            "accepted",
+            "inProgress",
+            "in-progress",
+            "review",
+            "ready-for-review",
+            "approved",
+            "complete",
+            "completed",
+            "closed"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "lifecycle": {
+          "const": "evergreen"
+        },
+        "status": {
+          "enum": [
+            "open",
+            "proposed",
+            "accepted",
+            "inProgress",
+            "in-progress",
+            "complete",
+            "completed",
+            "approved",
+            "deprecated",
+            "closed"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "lifecycle": {
+          "const": "archived"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "deprecated",
+            "superseded",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "lifecycle": {
+          "const": "obsolete"
+        },
+        "status": {
+          "enum": [
+            "superseded",
+            "archived",
+            "deprecated",
+            "closed"
+          ]
+        }
+      }
+    }
+  ],
+  "patternProperties": {
+    "^\\$[a-zA-Z0-9_]+$": {
+      "description": "Allow custom properties starting with $ for tooling purposes."
+    }
+  },
+  "propertyNames": {
+    "maxLength": 128
+  },
+  "statusTransitions": {
+    "description": "Canonical allowed status transitions for documentation/work items. Used by scripts to enforce valid status changes.",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "accepted": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "inProgress",
+            "review",
+            "approved",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
+        }
+      },
+      "approved": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "deprecated",
+            "superseded",
+            "closed"
+          ]
+        }
+      },
+      "closed": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+          ]
+        }
+      },
+      "complete": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "deprecated",
+            "superseded",
+            "closed"
+          ]
+        }
+      },
+      "deprecated": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "superseded",
+            "archived",
+            "closed"
+          ]
+        }
+      },
+      "duplicate": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "archived",
+            "closed"
+          ]
+        }
+      },
+      "inProgress": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "review",
+            "approved",
+            "complete",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
+        }
+      },
+      "proposed": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "review",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
+        }
+      },
+      "rejected": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "archived",
+            "closed"
+          ]
+        }
+      },
+      "review": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "approved",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
+        }
+      },
+      "superseded": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "archived",
+            "closed"
+          ]
+        }
+      }
+    },
+    "examples": [
+      {
+        "proposed": [
+          "accepted",
+          "review",
+          "rejected",
+          "duplicate"
+        ]
+      }
+    ]
+  },
+  "unevaluatedProperties": true
+}

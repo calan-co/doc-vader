@@ -9,6 +9,9 @@
     "postinstall": "npx jsonschema-tools install-git-hook",
     "docs:lint": "sh staging/scripts/docs-lint.sh",
     "docs:lint:fix": "markdownlint-cli2 --fix 'docs/**/*.md' '*.md'",
+    "backlog:validate": "node dist/cli/doc-vader.js backlog validate --dir backlog --fail-on error",
+    "backlog:validate:ci": "sh staging/scripts/backlog-hygiene-ci.sh",
+    "backlog:validate:ci:raw": "node dist/cli/doc-vader.js backlog validate --dir backlog --profile profiles/backlog-ci.json",
     "lint": ""
   },
   "keywords": [],

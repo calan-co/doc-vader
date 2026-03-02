@@ -1,0 +1,7 @@
+{
+  "default": "schemas/frontmatter/document/current.json",
+  "byType": {
+    "work-item": "schemas/frontmatter/work-item/current.json",
+    "document": "schemas/frontmatter/document/current.json"
+  }
+}

@@ -85,6 +85,18 @@ flowchart LR
 - `tiab-lint.config.mjs` (optional) to externalize rule tuning (e.g., required checklist items, severity mapping).
 - Environment flags: `TIAB_LINT_MODE=perf|full`, `STRICT_FRONTMATTER=1|0`.
 
+## Closure and Guardrail Layers
+
+- Backlog closure model is enforced by schema compatibility:
+  - `status: closed` supported across lifecycle transitions.
+  - `status_reason` required for closed work-items.
+- Guardrail lane for backlog hygiene is executed with deterministic CLI gates:
+  - `doc-vader backlog validate --fail-on error|warning`
+  - `doc-vader backlog validate --format json`
+  - `doc-vader backlog validate --profile <name|path>`
+  - `doc-vader backlog validate --schema-map <path>`
+- CI should run warning-level failure policy to block merge on unresolved hygiene drift.
+
 ## Data Flow
 
 ```mermaid

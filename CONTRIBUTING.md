@@ -20,6 +20,9 @@ status: approved
 - **Validate all frontmatter and structure before and after edits** using the schema-driven linter:
   - Run `npm run docs:lint` before and after every change to documentation or work items.
   - Reference the appropriate schema and template for the file type (see `docs/templates/` and `schemas/`).
+- For backlog-affecting changes, run hygiene validation:
+  - `doc-vader backlog validate --dir backlog --fail-on error`
+  - CI-grade policy: `npm run backlog:validate:ci` (writes `backlog/audit/auditing-backlog-report.json`)
 
 ### YAML Formatting Rules
 
@@ -120,6 +123,7 @@ Documentation is organized into focused areas:
 - [ ] Documentation updated
 - [ ] No secrets or sensitive data committed
 - [ ] All CI checks pass
+- [ ] Backlog hygiene gate passes (`npm run backlog:validate:ci`)
 
 ## Reporting Issues
 

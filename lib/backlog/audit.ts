@@ -1,0 +1,610 @@
+import Ajv2020 from "ajv/dist/2020.js";
+import type { ErrorObject } from "ajv";
+import matter from "gray-matter";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
+export type BacklogFormat = "text" | "json";
+export type BacklogFailOn = "error" | "warning";
+
+export interface BacklogAuditOptions {
+  backlogDir?: string;
+  rootDir?: string;
+  format?: BacklogFormat;
+  failOn?: BacklogFailOn;
+  profile?: string;
+  schemaMap?: string;
+  includeArchive?: boolean;
+}
+
+interface ResolvedOptions {
+  backlogDir: string;
+  rootDir: string;
+  format: BacklogFormat;
+  failOn: BacklogFailOn;
+  schemaMap?: string;
+  includeArchive: boolean;
+  profile?: string;
+}
+
+interface SchemaMapConfig {
+  default?: string;
+  byType?: Record<string, string>;
+  bySubtype?: Record<string, string>;
+}
+
+interface BacklogItem {
+  file: string;
+  id: string | null;
+  status: string | null;
+  lifecycle: string | null;
+  title: string | null;
+  type: string | null;
+  subtype: string | null;
+  refs: string[];
+  parseError: string | null;
+  data: Record<string, unknown>;
+}
+
+interface DuplicateIdFinding {
+  id: string;
+  files: string[];
+}
+
+interface UnresolvedWikilinkFinding {
+  file: string;
+  ref: string;
+}
+
+interface ParseErrorFinding {
+  file: string;
+  error: string;
+}
+
+interface NoInboundActiveFinding {
+  file: string;
+  id: string | null;
+  status: string | null;
+  title: string | null;
+}
+
+interface SchemaViolationFinding {
+  file: string;
+  schema: string;
+  errors: string[];
+}
+
+export interface BacklogAuditReport {
+  generated_at: string;
+  options: ResolvedOptions;
+  totals: {
+    files: number;
+    duplicate_ids: number;
+    unresolved_wikilinks: number;
+    parse_errors: number;
+    no_inbound_active: number;
+    schema_violations: number;
+  };
+  duplicate_ids: DuplicateIdFinding[];
+  unresolved_wikilinks: UnresolvedWikilinkFinding[];
+  parse_errors: ParseErrorFinding[];
+  no_inbound_active: NoInboundActiveFinding[];
+  schema_violations: SchemaViolationFinding[];
+  exit_code: number;
+}
+
+const ACTIVE_STATUSES = new Set([
+  "open",
+  "proposed",
+  "ready",
+  "accepted",
+  "inprogress",
+  "in-progress",
+  "review",
+  "approved",
+  "ready-for-review",
+  "draft",
+]);
+
+const BUILTIN_PROFILES: Record<string, Partial<BacklogAuditOptions>> = {
+  default: { failOn: "error", format: "text" },
+  strict: { failOn: "warning", format: "text" },
+  ci: { failOn: "warning", format: "json" },
+};
+
+function toErrorLines(errors: ErrorObject[] | null | undefined): string[] {
+  return (errors ?? []).map((e) => `${e.instancePath || "(root)"} ${e.message}`);
+}
+
+async function findMarkdownFiles(
+  dir: string,
+  includeArchive: boolean
+): Promise<string[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!includeArchive && entry.name === "archive") continue;
+      if (entry.name === "audit") continue;
+      files.push(...(await findMarkdownFiles(full, includeArchive)));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".md")) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+function normalizeRef(ref: string): string {
+  return ref.split("|")[0].split("#")[0].trim();
+}
+
+function extractWikilinks(links: unknown): string[] {
+  const text = typeof links === "string" ? links : JSON.stringify(links ?? {});
+  const refs: string[] = [];
+  const re = /\[\[([^\]]+)\]\]/g;
+  let match: RegExpExecArray | null = null;
+  while ((match = re.exec(text)) !== null) {
+    refs.push(match[1]);
+  }
+  return refs;
+}
+
+function guessSchemaMap(raw: Record<string, unknown>): SchemaMapConfig {
+  const rootCandidate =
+    (raw.backlogValidation as Record<string, unknown>) ||
+    (raw.backlog_validation as Record<string, unknown>) ||
+    raw;
+  const byType =
+    (rootCandidate.byType as Record<string, string>) ||
+    (rootCandidate.by_type as Record<string, string>) ||
+    (rootCandidate.types as Record<string, string>) ||
+    undefined;
+  const bySubtype =
+    (rootCandidate.bySubtype as Record<string, string>) ||
+    (rootCandidate.by_subtype as Record<string, string>) ||
+    (rootCandidate.subtypes as Record<string, string>) ||
+    undefined;
+  const defaultSchema =
+    (rootCandidate.default as string) ||
+    (rootCandidate.defaultSchema as string) ||
+    (rootCandidate.default_schema as string) ||
+    undefined;
+
+  // Allow direct schema-map style where top-level keys map type->schema path.
+  if (!byType) {
+    const maybeTypeMap: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rootCandidate)) {
+      if (typeof value === "string") {
+        maybeTypeMap[key] = value;
+      }
+    }
+    if (Object.keys(maybeTypeMap).length > 0) {
+      return {
+        default: defaultSchema,
+        byType: maybeTypeMap,
+        bySubtype,
+      };
+    }
+  }
+
+  return {
+    default: defaultSchema,
+    byType,
+    bySubtype,
+  };
+}
+
+async function loadJson(filePath: string): Promise<Record<string, unknown>> {
+  const raw = await fs.readFile(filePath, "utf8");
+  return JSON.parse(raw) as Record<string, unknown>;
+}
+
+function resolveLocalPath(rootDir: string, target: string): string {
+  if (target.startsWith("/frontmatter/")) {
+    const rel = path.join(
+      "schemas",
+      target.replace(/^\//, "") + (target.endsWith(".json") ? "" : ".json")
+    );
+    return path.resolve(rootDir, rel);
+  }
+  if (path.isAbsolute(target)) return target;
+  return path.resolve(rootDir, target);
+}
+
+async function resolveSchemaMap(
+  rootDir: string,
+  schemaMapPath?: string
+): Promise<SchemaMapConfig> {
+  const defaults: SchemaMapConfig = {
+    byType: {
+      "work-item": "schemas/frontmatter/work-item/current.json",
+      document: "schemas/frontmatter/document/current.json",
+    },
+    default: "schemas/frontmatter/document/current.json",
+  };
+  if (!schemaMapPath) return defaults;
+  const resolved = resolveLocalPath(rootDir, schemaMapPath);
+  const raw = await loadJson(resolved);
+  const parsed = guessSchemaMap(raw);
+  return {
+    default: parsed.default ?? defaults.default,
+    byType: { ...(defaults.byType ?? {}), ...(parsed.byType ?? {}) },
+    bySubtype: parsed.bySubtype ?? {},
+  };
+}
+
+function determineSchemaTarget(
+  item: BacklogItem,
+  schemaMap: SchemaMapConfig
+): string | null {
+  if (item.subtype && schemaMap.bySubtype?.[item.subtype]) {
+    return schemaMap.bySubtype[item.subtype];
+  }
+  if (item.type && schemaMap.byType?.[item.type]) {
+    return schemaMap.byType[item.type];
+  }
+  if (!schemaMap.default) return null;
+  if (!item.type) return schemaMap.default;
+  if (item.type === "work-item" || item.type === "document") {
+    return schemaMap.default;
+  }
+  return null;
+}
+
+function mergeOptions(
+  cliOptions: BacklogAuditOptions,
+  profileOptions?: Partial<BacklogAuditOptions>
+): ResolvedOptions {
+  const merged: BacklogAuditOptions = { ...(profileOptions || {}) };
+  for (const [key, value] of Object.entries(cliOptions)) {
+    if (value !== undefined) {
+      (merged as Record<string, unknown>)[key] = value;
+    }
+  }
+  const rootDir = path.resolve(merged.rootDir || process.cwd());
+  return {
+    backlogDir: path.resolve(rootDir, merged.backlogDir || "backlog"),
+    rootDir,
+    format: merged.format || "text",
+    failOn: merged.failOn || "error",
+    schemaMap: merged.schemaMap,
+    includeArchive: merged.includeArchive ?? false,
+    profile: merged.profile,
+  };
+}
+
+async function resolveProfile(
+  profile: string | undefined,
+  rootDir: string
+): Promise<Partial<BacklogAuditOptions> | undefined> {
+  if (!profile) return undefined;
+  if (BUILTIN_PROFILES[profile]) return BUILTIN_PROFILES[profile];
+
+  const candidates = [
+    profile,
+    path.join("profiles", `${profile}.json`),
+    path.join("backlog", "profiles", `${profile}.json`),
+  ].map((p) => resolveLocalPath(rootDir, p));
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      const raw = (await loadJson(candidate)) as Record<string, unknown>;
+      const profileObj =
+        (raw.backlogValidation as Record<string, unknown>) ||
+        (raw.backlog_validation as Record<string, unknown>) ||
+        raw;
+      return {
+        failOn: (profileObj.failOn as BacklogFailOn) || undefined,
+        format: (profileObj.format as BacklogFormat) || undefined,
+        schemaMap:
+          (profileObj.schemaMap as string) ||
+          (profileObj.schema_map as string) ||
+          undefined,
+        includeArchive:
+          typeof profileObj.includeArchive === "boolean"
+            ? (profileObj.includeArchive as boolean)
+            : typeof profileObj.include_archive === "boolean"
+            ? (profileObj.include_archive as boolean)
+            : undefined,
+      };
+    } catch {
+      // Continue candidates.
+    }
+  }
+  throw new Error(`Profile not found: ${profile}`);
+}
+
+export function formatAuditReportText(report: BacklogAuditReport): string {
+  const lines: string[] = [];
+  lines.push("Backlog Audit Report");
+  lines.push("===================");
+  lines.push(
+    `files=${report.totals.files} duplicate_ids=${report.totals.duplicate_ids} unresolved_wikilinks=${report.totals.unresolved_wikilinks} parse_errors=${report.totals.parse_errors} schema_violations=${report.totals.schema_violations} no_inbound_active=${report.totals.no_inbound_active}`
+  );
+  if (report.duplicate_ids.length) {
+    lines.push("");
+    lines.push("Duplicate IDs:");
+    for (const finding of report.duplicate_ids) {
+      lines.push(`- ${finding.id}: ${finding.files.join(", ")}`);
+    }
+  }
+  if (report.unresolved_wikilinks.length) {
+    lines.push("");
+    lines.push("Unresolved Wikilinks:");
+    for (const finding of report.unresolved_wikilinks) {
+      lines.push(`- ${finding.file} -> ${finding.ref}`);
+    }
+  }
+  if (report.schema_violations.length) {
+    lines.push("");
+    lines.push("Schema Violations:");
+    for (const finding of report.schema_violations) {
+      lines.push(`- ${finding.file} (${finding.schema})`);
+      for (const err of finding.errors) {
+        lines.push(`  * ${err}`);
+      }
+    }
+  }
+  if (report.no_inbound_active.length) {
+    lines.push("");
+    lines.push("No-Inbound Active Candidates:");
+    for (const finding of report.no_inbound_active) {
+      lines.push(
+        `- ${finding.file} | status=${finding.status ?? ""} | id=${finding.id ?? ""}`
+      );
+    }
+  }
+  lines.push("");
+  lines.push(`exit_code=${report.exit_code}`);
+  return lines.join("\n");
+}
+
+export async function auditBacklog(
+  cliOptions: BacklogAuditOptions = {}
+): Promise<BacklogAuditReport> {
+  const rootDir = path.resolve(cliOptions.rootDir || process.cwd());
+  const profileOptions = await resolveProfile(cliOptions.profile, rootDir);
+  const options = mergeOptions({ ...cliOptions, rootDir }, profileOptions);
+  const schemaMap = await resolveSchemaMap(options.rootDir, options.schemaMap);
+
+  const files = await findMarkdownFiles(options.backlogDir, options.includeArchive);
+  const items: BacklogItem[] = [];
+  const idToFiles = new Map<string, string[]>();
+  const basenameToFile = new Map<string, string>();
+  const parseErrors: ParseErrorFinding[] = [];
+
+  for (const absFile of files) {
+    const rel = path.relative(options.rootDir, absFile).replaceAll("\\", "/");
+    basenameToFile.set(path.basename(absFile, ".md"), rel);
+  }
+
+  for (const absFile of files) {
+    const rel = path.relative(options.rootDir, absFile).replaceAll("\\", "/");
+    const raw = await fs.readFile(absFile, "utf8");
+    let parsed;
+    try {
+      parsed = matter(raw);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err);
+      parseErrors.push({ file: rel, error });
+      items.push({
+        file: rel,
+        id: null,
+        status: null,
+        lifecycle: null,
+        title: null,
+        type: null,
+        subtype: null,
+        refs: [],
+        parseError: error,
+        data: {},
+      });
+      continue;
+    }
+    const data = (parsed.data || {}) as Record<string, unknown>;
+    const id = data.id != null ? String(data.id) : null;
+    const item: BacklogItem = {
+      file: rel,
+      id,
+      status: data.status != null ? String(data.status) : null,
+      lifecycle: data.lifecycle != null ? String(data.lifecycle) : null,
+      title: data.title != null ? String(data.title) : null,
+      type:
+        data.type != null
+          ? String(data.type)
+          : data.workItemType != null
+          ? "work-item"
+          : null,
+      subtype: data.subtype != null ? String(data.subtype) : null,
+      refs: extractWikilinks(data.links),
+      parseError: null,
+      data,
+    };
+    items.push(item);
+    if (id) {
+      if (!idToFiles.has(id)) idToFiles.set(id, []);
+      idToFiles.get(id)!.push(rel);
+    }
+  }
+
+  const duplicateIds: DuplicateIdFinding[] = [...idToFiles.entries()]
+    .filter(([, fileList]) => fileList.length > 1)
+    .map(([id, fileList]) => ({ id, files: fileList.sort() }))
+    .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+
+  const inbound = new Map<string, string[]>();
+  for (const item of items) inbound.set(item.file, []);
+
+  const unresolved: UnresolvedWikilinkFinding[] = [];
+  for (const item of items) {
+    for (const rawRef of item.refs) {
+      const normalized = normalizeRef(rawRef);
+      const key = normalized.replace(/\.md$/, "");
+      if (basenameToFile.has(key)) {
+        const target = basenameToFile.get(key)!;
+        inbound.get(target)?.push(item.file);
+        continue;
+      }
+      const candidates = [
+        normalized,
+        normalized.endsWith(".md") ? "" : `${normalized}.md`,
+      ].filter(Boolean);
+      let resolved = false;
+      for (const candidate of candidates) {
+        const relCandidates = [
+          candidate,
+          path.join("backlog", candidate),
+          path.join("docs", candidate),
+          path.join("schemas", candidate),
+          path.join("schemas", "frontmatter", candidate),
+        ];
+        for (const relCandidate of relCandidates) {
+          const fullCandidate = path.resolve(options.rootDir, relCandidate);
+          try {
+            await fs.access(fullCandidate);
+            resolved = true;
+            break;
+          } catch {
+            // Continue.
+          }
+        }
+        if (resolved) break;
+      }
+      if (!resolved) {
+        unresolved.push({ file: item.file, ref: rawRef });
+      }
+    }
+  }
+
+  const noInboundActive = items
+    .filter((item) => {
+      const status = (item.status || "").toLowerCase();
+      return ACTIVE_STATUSES.has(status) && (inbound.get(item.file)?.length || 0) === 0;
+    })
+    .map((item) => ({
+      file: item.file,
+      id: item.id,
+      status: item.status,
+      title: item.title,
+    }))
+    .sort((a, b) => a.file.localeCompare(b.file));
+
+  const schemaViolations: SchemaViolationFinding[] = [];
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict: false,
+    validateSchema: false,
+  });
+  const validatorCache = new Map<string, ReturnType<Ajv2020["compile"]>>();
+
+  const docSchemaPath = resolveLocalPath(
+    options.rootDir,
+    "schemas/frontmatter/document/current.json"
+  );
+  try {
+    const docSchema = await loadJson(docSchemaPath);
+    ajv.addSchema(docSchema, "/frontmatter/document/1.0.0");
+  } catch {
+    // Best effort.
+  }
+
+  async function getValidator(schemaTarget: string) {
+    const schemaPath = resolveLocalPath(options.rootDir, schemaTarget);
+    if (validatorCache.has(schemaPath)) return validatorCache.get(schemaPath)!;
+    const schema = await loadJson(schemaPath);
+    const schemaId =
+      typeof schema.$id === "string" ? (schema.$id as string) : undefined;
+    if (schemaId) {
+      const cachedById = ajv.getSchema(schemaId);
+      if (cachedById) {
+        validatorCache.set(schemaPath, cachedById);
+        return cachedById;
+      }
+    }
+    let validator;
+    try {
+      validator = ajv.compile(schema);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (schemaId && message.includes("already exists")) {
+        const cachedById = ajv.getSchema(schemaId);
+        if (cachedById) {
+          validatorCache.set(schemaPath, cachedById);
+          return cachedById;
+        }
+      }
+      throw err;
+    }
+    validatorCache.set(schemaPath, validator);
+    return validator;
+  }
+
+  for (const item of items) {
+    if (item.parseError) continue;
+    if (!item.type) continue;
+    const schemaTarget = determineSchemaTarget(item, schemaMap);
+    if (!schemaTarget) continue;
+    try {
+      const validate = await getValidator(schemaTarget);
+      const ok = validate(item.data);
+      if (!ok) {
+        schemaViolations.push({
+          file: item.file,
+          schema: schemaTarget,
+          errors: toErrorLines(validate.errors as ErrorObject[]),
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      schemaViolations.push({
+        file: item.file,
+        schema: schemaTarget,
+        errors: [`(schema-load) ${message}`],
+      });
+    }
+  }
+
+  const hasErrors =
+    duplicateIds.length > 0 ||
+    unresolved.length > 0 ||
+    parseErrors.length > 0 ||
+    schemaViolations.length > 0;
+  const hasWarnings = noInboundActive.length > 0;
+
+  const exitCode =
+    options.failOn === "warning"
+      ? hasErrors || hasWarnings
+        ? 1
+        : 0
+      : hasErrors
+      ? 1
+      : 0;
+
+  return {
+    generated_at: new Date().toISOString(),
+    options,
+    totals: {
+      files: items.length,
+      duplicate_ids: duplicateIds.length,
+      unresolved_wikilinks: unresolved.length,
+      parse_errors: parseErrors.length,
+      no_inbound_active: noInboundActive.length,
+      schema_violations: schemaViolations.length,
+    },
+    duplicate_ids: duplicateIds,
+    unresolved_wikilinks: unresolved.sort((a, b) =>
+      `${a.file}:${a.ref}`.localeCompare(`${b.file}:${b.ref}`)
+    ),
+    parse_errors: parseErrors.sort((a, b) => a.file.localeCompare(b.file)),
+    no_inbound_active: noInboundActive,
+    schema_violations: schemaViolations.sort((a, b) =>
+      a.file.localeCompare(b.file)
+    ),
+    exit_code: exitCode,
+  };
+}

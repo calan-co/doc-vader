@@ -14,7 +14,11 @@ import {
   parse,
 } from "../lib/controllers/frontmatterController.js";
 import { lint as lintDoc } from "../lib/controllers/docController.js";
-import { list as listBacklogItems } from "../lib/controllers/backlogController.js";
+import {
+  list as listBacklogItems,
+  validate as validateBacklog,
+  formatAuditReportText,
+} from "../lib/controllers/backlogController.js";
 import {
   listAvailable as governanceList,
   detect as governanceDetect,
@@ -128,9 +132,45 @@ const backlog = program
 backlog
   .command("validate")
   .description("Validate backlog items")
-  .action(() => {
-    // Placeholder for backlog validation logic
-    console.log("Backlog validate not yet implemented.");
+  .option("-d, --dir <path>", "Path to the backlog directory", "backlog")
+  .option("--format <format>", "Output format: text|json")
+  .option(
+    "--fail-on <level>",
+    "Fail level for exit code: error|warning"
+  )
+  .option(
+    "--profile <nameOrPath>",
+    "Validation profile name (default|strict|ci) or JSON profile path"
+  )
+  .option(
+    "--schema-map <path>",
+    "Optional schema-map JSON path for schema routing"
+  )
+  .option(
+    "--include-archive",
+    "Include backlog/archive files in audit validation",
+    false
+  )
+  .action(async (opts) => {
+    const report = await validateBacklog({
+      backlogDir: opts.dir,
+      format: opts.format,
+      failOn: opts.failOn,
+      profile: opts.profile,
+      schemaMap: opts.schemaMap,
+      includeArchive: opts.includeArchive,
+    });
+
+    const outputFormat = opts.format || report.options.format;
+    if (outputFormat === "json") {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(formatAuditReportText(report));
+    }
+
+    if (report.exit_code !== 0) {
+      process.exit(report.exit_code);
+    }
   });
 
 backlog
