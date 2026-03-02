@@ -6,19 +6,23 @@ lifecycle: draft
 priority: medium
 type: work-item
 subtype: feature
+links:
+  - depends_on:
+      - "[[support-multi-frameworks.md]]"
 ordinal: 1000
 ---
 
 ## Summary
 
-Implement a user-guided workflow to reconcile conflicting rules when multiple documentation frameworks are selected in Doc-Vader.
+Implement a deterministic workflow to reconcile conflicting rules when multiple documentation frameworks are selected in Doc-Vader.
 
 ## Acceptance Criteria
 
 - CLI detects conflicts between selected frameworks
-- User is presented with reconciliation options (e.g., prioritize, merge, ignore)
-- Selected option is applied to validation and fixing logic
-- Clear feedback and documentation for reconciliation process
+- Reconciliation supports non-interactive strategy selection (`--strategy`)
+- Strategy selection is deterministic and CI-safe (no interactive prompts required)
+- Selected strategy is applied consistently to validation and fixing logic
+- Clear feedback and documentation for reconciliation process and tie-break rules
 
 ## Dependencies
 
@@ -27,5 +31,5 @@ Implement a user-guided workflow to reconcile conflicting rules when multiple do
 
 ## Related Work
 
-- support-multi-frameworks
-- Project brief
+- [[support-multi-frameworks.md]]
+- [[docs/project-brief.md]]
