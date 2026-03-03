@@ -2,6 +2,9 @@
 type: document
 subtype: guide
 title: Release Notes Template Guide
+id: process-release-notes-guide
+lifecycle: active
+status: proposed
 links:
   - related: "[[release-notes.tpl]]"
 ---

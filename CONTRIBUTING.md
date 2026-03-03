@@ -18,11 +18,11 @@ status: approved
 ### Frontmatter & Structure Validation
 
 - **Validate all frontmatter and structure before and after edits** using the schema-driven linter:
-  - Run `npm run docs:lint` before and after every change to documentation or work items.
+  - Run `pnpm run docs:lint` before and after every change to documentation or work items.
   - Reference the appropriate schema and template for the file type (see `docs/templates/` and `schemas/`).
 - For backlog-affecting changes, run hygiene validation:
   - `doc-vader backlog validate --dir backlog --fail-on error`
-  - CI-grade policy: `npm run backlog:validate:ci` (writes `backlog/audit/auditing-backlog-report.json`)
+  - CI-grade policy: `pnpm run backlog:validate:ci` (writes `backlog/audit/auditing-backlog-report.json`)
 
 ### YAML Formatting Rules
 
@@ -37,7 +37,7 @@ status: approved
 For every documentation or work item edit/refactor, contributors and LLMs **must**:
 
 - [ ] Explicitly reload the file from disk before editing (or on trigger)
-- [ ] Validate frontmatter and structure using `npm run docs:lint` (before and after)
+- [ ] Validate frontmatter and structure using `pnpm run docs:lint` (before and after)
 - [ ] Reference the schema and template for required fields and structure
 - [ ] Enforce YAML formatting rules (see above)
 - [ ] Use a checklist for every change, referencing the schema and validation tool
@@ -123,7 +123,7 @@ Documentation is organized into focused areas:
 - [ ] Documentation updated
 - [ ] No secrets or sensitive data committed
 - [ ] All CI checks pass
-- [ ] Backlog hygiene gate passes (`npm run backlog:validate:ci`)
+- [ ] Backlog hygiene gate passes (`pnpm run backlog:validate:ci`)
 
 ## Reporting Issues
 

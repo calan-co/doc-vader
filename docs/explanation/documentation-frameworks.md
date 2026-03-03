@@ -1,8 +1,15 @@
-# Information Architecture
+---
+id: documentation-frameworks-explanation
+title: Documentation Frameworks Landscape
+type: document
+subtype: explanation
+lifecycle: draft
+status: proposed
+---
 
 ## Research Resources
 
-https://en.wikipedia.org/wiki/Information_architecture#See_also
+[Information Architecture](https://en.wikipedia.org/wiki/Information_architecture#See_also)
 
 ## Search results for Well-known Documentation Frameworks
 

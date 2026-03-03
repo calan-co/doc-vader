@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import os from "node:os";
 import path from "node:path";
 
-import { NestedDirectoryJSON, vol } from "memfs";
-import fsSync, { promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import matter from "gray-matter";
 import {
   DIATAXIS_CATEGORIES,
@@ -12,7 +12,6 @@ import {
 import { DiataxisLinter, DiataxisFixer } from "../../lib/diataxis/lint";
 import { DiataxisClassifier } from "../../lib/diataxis/classify";
 import { DiataxisChecker } from "../../lib/diataxis/check";
-import { toTreeSync } from "memfs/lib/print";
 
 describe("DIATAXIS_CATEGORIES", () => {
   it("contains all expected categories", () => {
@@ -66,21 +65,20 @@ describe("stripLeadingDiataxis", () => {
 });
 
 describe("listMarkdownFiles", () => {
-  const tmpDir = path.join("/tmp", "tmp-docs-test");
-  const dirStructure: NestedDirectoryJSON = {};
-  dirStructure[tmpDir] = {
-    "a.md": "# A",
-    "b.txt": "not md",
-    sub: {
-      "c.md": "# C",
-    },
-    schemas: {
-      "schema.md": "# Should skip",
-    },
-  };
+  let tmpDir: string;
+
   beforeEach(async () => {
-    vol.fromNestedJSON(dirStructure);
-    console.log(toTreeSync(fsSync as any));
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "doc-vader-docs-"));
+    await fs.writeFile(path.join(tmpDir, "a.md"), "# A");
+    await fs.writeFile(path.join(tmpDir, "b.txt"), "not md");
+    await fs.mkdir(path.join(tmpDir, "sub"), { recursive: true });
+    await fs.writeFile(path.join(tmpDir, "sub", "c.md"), "# C");
+    await fs.mkdir(path.join(tmpDir, "schemas"), { recursive: true });
+    await fs.writeFile(path.join(tmpDir, "schemas", "schema.md"), "# Skip");
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
   it("lists only markdown files, skipping schemas and dotfiles", async () => {

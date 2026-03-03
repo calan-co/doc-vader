@@ -5,6 +5,12 @@ export default {
     globals: true,
     environment: "node",
     clearMocks: true,
+    exclude: [
+      "**/node_modules/**",
+      "**/.pnpm-store/**",
+      "**/.nx/**",
+      "**/dist/**",
+    ],
     //globalSetup: "tests/helper/globalSetup.ts",
     setupFiles: [
       //"dotenv/config",

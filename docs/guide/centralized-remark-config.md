@@ -1,4 +1,11 @@
-# Centralized Remark Configuration & Core Pipeline
+---
+id: centralized-remark-config-guide
+title: Centralized Remark Configuration and Core Pipeline
+type: document
+subtype: guide
+lifecycle: active
+status: proposed
+---
 
 This feature provides a single source of truth for remark linting rules and options, with standardized plugin exports and zod-validated schemas.
 

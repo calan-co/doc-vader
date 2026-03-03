@@ -1,4 +1,11 @@
-# Release Notes Template Guide
+---
+id: guide-release-notes
+title: Release Notes Template Guide
+type: document
+subtype: guide
+lifecycle: active
+status: proposed
+---
 
 > Thank you for downloading this template from The Good Docs Project! Before using the template, read this template guide for information about how to complete each section. Want to explore more templates? Check them out in our [templates GitLab repository](https://gitlab.com/tgdp/templates).
 
@@ -31,7 +38,7 @@ The following table describes the differences between changelogs and release not
 | Customer focused                                                                                                                                                                           | Developer focused                                                                                                                                                                                                          |
 | Use plain language.                                                                                                                                                                        | Use technical language.                                                                                                                                                                                                    |
 | Typically requires research to understand the features, functionality, and user experience.                                                                                                | Typically a light effort as it is closely related to developers' current work.                                                                                                                                             |
-| Describes the changes to features and functionality. <ul><li>Can include media to enhance descriptions.</li><li> Often includes links to the user documentation for more information.</li> | A reverse chronological list that describes code changes and their impact on the features. <ul><li>Can include links to merge requests, issue numbers, or commits.</li><li>Can list contributors to the release.</li></ul> |
+| Describes the changes to features and functionality, can include media to enhance descriptions, and often includes links to user documentation for more information. | A reverse chronological list that describes code changes and their impact on the features, can include links to merge requests/issue numbers/commits, and can list contributors to the release. |
 | Includes what changed and why.                                                                                                                                                             | Links to the developer who made the change and specific issues.                                                                                                                                                            |
 | Typically written by a Technical Writer or Product Manager.                                                                                                                                | Typically written by a Software Developer derived from commit messages to a version control system.                                                                                                                        |
 
@@ -41,7 +48,7 @@ The template includes the following sections common to release notes:
 
 - [Title](#about-the-title-section): Describes common conventions for titles and numbering in release notes.
 - [Release Notes version](#release-notes-version-optional) (optional): Include a document version number.
-- [High-level summary](#optional-high-level-summary) (optional): One to two sentences that highlight the most important items in the release notes.
+- [High-level summary](#high-level-summary-optional) (optional): One to two sentences that highlight the most important items in the release notes.
 - [New features](#about-the-new-features-section): Describes new features and functionality.
 - [Improvements](#about-the-improvements-section): Describes updates to existing features and functionality.
 - [Bug fixes](#about-the-bug-fixes-section): Describes bug defects and their resolution.

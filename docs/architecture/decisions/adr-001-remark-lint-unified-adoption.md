@@ -1,5 +1,6 @@
 ---
 "$schema": /frontmatter/document
+id: adr-001-remark-lint-unified-adoption
 title: Adopt unified remark-lint architecture for documentation linting
 type: document
 subtype: decision
@@ -12,7 +13,8 @@ tags:
   - remark
   - unified
 links:
-  reference: "[[remark-lint-unified-architecture]]"
+  reference:
+    - "[[../../reference/remark-lint-unified-architecture.md]]"
 ---
 
 ## Context and Problem Statement

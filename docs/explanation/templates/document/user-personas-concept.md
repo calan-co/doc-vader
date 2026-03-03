@@ -28,6 +28,6 @@ See the appendix for a bibliography and additional resources.
 
 ## Related Documents
 
-- [How to Create User Personas](../../docs/how-to/templates/document/process-user-personas.md)
-- [User Personas Template Reference](../reference/user-personas-template.md)
-- [User Personas Template Guide](../../docs/how-to/templates/document/process-user-personas.md)
+- [How to Create User Personas](../../../how-to/templates/document/process-user-personas.md)
+- [User Personas Template Reference](../../../reference/templates/document/user-personas-template.md)
+- [User Personas Template Guide](../../../how-to/templates/document/process-user-personas.md)

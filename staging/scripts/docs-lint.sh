@@ -13,6 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 HAS_ERRORS=0
+STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/docs-lint-status.XXXXXX")
+trap 'rm -f "$STATUS_FILE"' EXIT
 
 echo "${BLUE}================================${NC}"
 echo "${BLUE}Documentation Validation${NC}"
@@ -39,7 +41,7 @@ rm -f "$LINT_LOG"
   fi
   for LINT in markdown-style naming diagram crossref anchor frontmatter template "structure folder" "structure readme"; do
       echo "${YELLOW}[$LINT] Validating $LINT...${NC}"
-      if [ "$#" -gt 0 && "$LINT" != "frontmatter" ]; then
+      if [ "$#" -gt 0 ] && [ "$LINT" != "frontmatter" ]; then
         node $SCRIPT_DIR/lint.js $LINT "$@"
       else
         node $SCRIPT_DIR/lint.js $LINT
@@ -52,7 +54,12 @@ rm -f "$LINT_LOG"
     fi
     echo ""
   done
+  echo "$HAS_ERRORS" > "$STATUS_FILE"
 } 2>&1 | tee "$LINT_LOG"
+
+if [ -f "$STATUS_FILE" ]; then
+  HAS_ERRORS=$(cat "$STATUS_FILE")
+fi
 
 # Summary
 echo "${BLUE}================================${NC}"
