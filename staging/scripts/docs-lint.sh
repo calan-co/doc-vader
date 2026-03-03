@@ -41,7 +41,7 @@ rm -f "$LINT_LOG"
   fi
   for LINT in markdown-style naming diagram crossref anchor frontmatter template "structure folder" "structure readme"; do
       echo "${YELLOW}[$LINT] Validating $LINT...${NC}"
-      if [ "$#" -gt 0 && "$LINT" != "frontmatter" ]; then
+      if [ "$#" -gt 0 ] && [ "$LINT" != "frontmatter" ]; then
         node $SCRIPT_DIR/lint.js $LINT "$@"
       else
         node $SCRIPT_DIR/lint.js $LINT
