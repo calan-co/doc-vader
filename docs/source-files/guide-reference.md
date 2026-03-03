@@ -2,6 +2,9 @@
 type: document
 subtype: guide
 title: Reference Template Guide
+id: reference
+lifecycle: active
+status: proposed
 lastReviewed: 2025-11-05
 createdBy: GitHub Copilot
 ---

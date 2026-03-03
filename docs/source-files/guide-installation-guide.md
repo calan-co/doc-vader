@@ -2,6 +2,9 @@
 type: document
 subtype: guide
 title: Installation Guide Template Guide
+id: installation-guide
+lifecycle: active
+status: proposed
 lastReviewed: 2025-11-05
 createdBy: GitHub Copilot
 ---

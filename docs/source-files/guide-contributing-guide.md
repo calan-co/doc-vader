@@ -2,6 +2,9 @@
 type: document
 subtype: guide
 title: Contributing Template Guide
+id: contributing-guide
+lifecycle: active
+status: proposed
 lastReviewed: 2025-11-05
 createdBy: GitHub Copilot
 ---

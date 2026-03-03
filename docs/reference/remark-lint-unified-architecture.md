@@ -1,5 +1,8 @@
 ---
+id: remark-lint-unified-architecture
 title: Remark-lint Unified Architecture (Doc-Vader)
+type: document
+subtype: reference
 docType: reference
 created: "2025-11-16"
 status: proposed
@@ -125,4 +128,4 @@ sequenceDiagram
 ## References
 
 - Decision: [[../architecture/decisions/adr-001-remark-lint-unified-adoption.md]]
-- Unified/remark: https://unifiedjs.com/ • https://github.com/remarkjs/remark-lint
+- [Unified/remark](https://unifiedjs.com/) - on [GitHub](https://github.com/remarkjs/remark-lint)
