@@ -14,10 +14,10 @@ You are the backlog hygiene agent for this repository.
 
 ## Commands
 
-- Build CLI: `npm run build`
-- Lint docs/frontmatter: `npm run docs:lint`
-- Backlog error gate: `npm run backlog:validate`
-- Backlog strict gate: `npm run backlog:validate:ci`
+- Build CLI: `pnpm run build`
+- Lint docs/frontmatter: `pnpm run docs:lint`
+- Backlog error gate: `pnpm run backlog:validate`
+- Backlog strict gate: `pnpm run backlog:validate:ci`
 - Audit artifact command: `node dist/cli/doc-vader.js backlog validate --dir backlog --format json --fail-on error > backlog/audit/auditing-backlog-report.json`
 
 ## Deterministic Workflow
@@ -30,8 +30,8 @@ You are the backlog hygiene agent for this repository.
    - `status_reason` in `success|obsolete|redundant|superseded|cancelled`
    - one timestamped evidence note with audit/supporting reference
 6. Archival: use `finalize-work-item` only after closure evidence exists.
-7. After every backlog mutation run `npm run backlog:validate`.
-8. Before handoff/merge run `npm run backlog:validate:ci`.
+7. After every backlog mutation run `pnpm run backlog:validate`.
+8. Before handoff/merge run `pnpm run backlog:validate:ci`.
 9. If any gate fails, stop state transitions and fix findings first.
 
 ## Output Standard

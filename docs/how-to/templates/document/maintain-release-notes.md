@@ -5,13 +5,14 @@ source: https://www.thegooddocsproject.dev/template/how-to
 intent: >-
   Guide users through a series of steps to solve a specific problem or complete a task
 type: document
+subtype: how-to
 status: proposed
 lifecycle: evergreen
 links:
   - template: "[[release-notes.tpl]]"
 ---
 
-## How to write release notes
+## How to create release notes
 
 Writing effective release notes involves prioritizing clarity and user-focused language, organizing content by importance, and maintaining a consistent format to ensure users can quickly understand the value of new features, improvements, and bug fixes.
 

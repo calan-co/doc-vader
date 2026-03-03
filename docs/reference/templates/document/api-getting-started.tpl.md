@@ -1,5 +1,6 @@
 ---
 id: api-getting-started
+title: API Getting Started Template
 type: document
 subtype: template
 lifecycle: draft

@@ -12,7 +12,7 @@ ARTIFACT_DIR=$(dirname -- "$ARTIFACT_PATH")
 mkdir -p "$ARTIFACT_DIR"
 
 if [ ! -f dist/cli/doc-vader.js ]; then
-  npm run build >/dev/null
+  nx run doc-vader:build >/dev/null
 fi
 
 set +e

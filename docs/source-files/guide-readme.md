@@ -2,6 +2,9 @@
 type: document
 subtype: guide
 title: Readme Template Guide
+id: readme
+lifecycle: active
+status: proposed
 ---
 
 This guide explains how to use the Readme template from The Good Docs Project.

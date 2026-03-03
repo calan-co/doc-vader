@@ -1,11 +1,13 @@
 # Dependencies
 node_modules/
 yarn.lock
-pnpm-lock.yaml
+package-lock.json
 
 # Build outputs
 dist/
 build/
+.nx/
+.pnpm-store/
 *.log
 
 # Environment variables
@@ -47,3 +49,6 @@ temp/
 *.old
 *.log
 auditing-backlog-report*.json
+
+# Husky generated internals
+.husky/_/

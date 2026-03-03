@@ -1,6 +1,7 @@
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "path";
+import os from "node:os";
 import {
   getNextAvailableId,
   findDuplicateIdPrefixes,
@@ -9,46 +10,40 @@ import {
   renumberDuplicateBacklogItems,
 } from "../lib/backlog";
 
-const TEST_DIR = "/__backlog_test__";
+let testDir = "";
 
 function createFile(name: string, content: string) {
-  fs.writeFileSync(path.join(TEST_DIR, name), content);
+  fs.writeFileSync(path.join(testDir, name), content);
 }
 
 function readFile(name: string) {
-  return fs.readFileSync(path.join(TEST_DIR, name), "utf8");
+  return fs.readFileSync(path.join(testDir, name), "utf8");
 }
 
 describe("backlog", () => {
   beforeEach(() => {
-    fs.mkdirSync(TEST_DIR, { recursive: true });
-    // Clean up any files
-    fs.readdirSync(TEST_DIR).forEach((f) =>
-      fs.unlinkSync(path.join(TEST_DIR, f))
-    );
+    testDir = fs.mkdtempSync(path.join(os.tmpdir(), "doc-vader-backlog-"));
   });
 
   afterEach(() => {
-    fs.readdirSync(TEST_DIR).forEach((f) =>
-      fs.unlinkSync(path.join(TEST_DIR, f))
-    );
-    fs.rmdirSync(TEST_DIR);
+    fs.rmSync(testDir, { recursive: true, force: true });
+    testDir = "";
   });
 
   describe("getNextAvailableId", () => {
     it("returns 1 if no backlog files exist", () => {
-      expect(getNextAvailableId(TEST_DIR)).toBe(1);
+      expect(getNextAvailableId(testDir)).toBe(1);
     });
 
     it("returns next id after highest existing id", () => {
       createFile("1.first-item.md", "---\nid: 1\n---\n");
       createFile("2.second-item.md", "---\nid: 2\n---\n");
-      expect(getNextAvailableId(TEST_DIR)).toBe(3);
+      expect(getNextAvailableId(testDir)).toBe(3);
     });
 
     it("ignores files without numeric prefix", () => {
       createFile("foo.md", "---\nid: foo\n---\n");
-      expect(getNextAvailableId(TEST_DIR)).toBe(1);
+      expect(getNextAvailableId(testDir)).toBe(1);
     });
   });
 
@@ -56,14 +51,14 @@ describe("backlog", () => {
     it("returns empty object if no duplicates", () => {
       createFile("1.one.md", "---\nid: 1\n---\n");
       createFile("2.two.md", "---\nid: 2\n---\n");
-      expect(findDuplicateIdPrefixes(TEST_DIR)).toEqual({});
+      expect(findDuplicateIdPrefixes(testDir)).toEqual({});
     });
 
     it("finds duplicate id prefixes", () => {
       createFile("3.alpha.md", "---\nid: 3\n---\n");
       createFile("3.beta.md", "---\nid: 3\n---\n");
       createFile("4.gamma.md", "---\nid: 4\n---\n");
-      const result = findDuplicateIdPrefixes(TEST_DIR);
+      const result = findDuplicateIdPrefixes(testDir);
       expect(result["3"]).toEqual(
         expect.arrayContaining(["3.alpha.md", "3.beta.md"])
       );
@@ -75,13 +70,13 @@ describe("backlog", () => {
     it("renames duplicate files and updates id in frontmatter", () => {
       createFile("5.a.md", "---\nid: 5\n---\n");
       createFile("5.b.md", "---\nid: 5\n---\n");
-      const duplicates = findDuplicateIdPrefixes(TEST_DIR);
-      const renameMap = renumberDuplicateFiles(TEST_DIR, duplicates);
+      const duplicates = findDuplicateIdPrefixes(testDir);
+      const renameMap = renumberDuplicateFiles(testDir, duplicates);
       const newFileName = Object.values(renameMap)[0];
-      expect(fs.existsSync(path.join(TEST_DIR, newFileName))).toBe(true);
+      expect(fs.existsSync(path.join(testDir, newFileName))).toBe(true);
       const content = readFile(newFileName);
       expect(content).toMatch(/id:\s*6/); // Next available id should be 6
-      expect(fs.existsSync(path.join(TEST_DIR, "5.b.md"))).toBe(false);
+      expect(fs.existsSync(path.join(testDir, "5.b.md"))).toBe(false);
     });
   });
   // undefined means we haven't run a rename test yet,
@@ -99,7 +94,7 @@ describe("backlog", () => {
       createFile("7.old.md", '---\nid: 7\nlinks:\n  - "[[7.old]]"\n---\n');
       createFile("8.ref.md", '---\nid: 8\nlinks:\n  - "[[7.old]]"\n---\n');
       const renameMap = { "7.old.md": "9.new.md" };
-      updateBacklogLinks(TEST_DIR, renameMap);
+      updateBacklogLinks(testDir, renameMap);
       const updated = readFile("8.ref.md");
       expect(updated).toMatch(/links:\n  - "\[\[9\.new\]\]"/);
       renameWorks = true;
@@ -108,7 +103,7 @@ describe("backlog", () => {
     it("does not change files without matching links", () => {
       createFile("10.no-links.md", "---\nid: 10\n---\n");
       const renameMap = { "10.no-links.md": "11.renamed.md" };
-      updateBacklogLinks(TEST_DIR, renameMap);
+      updateBacklogLinks(testDir, renameMap);
       const content = readFile("10.no-links.md");
       expect(content).toContain("id: 10");
     });
@@ -122,9 +117,9 @@ describe("backlog", () => {
         createFile("12.x.md", '---\nid: 12\nlinks:\n  - "[[12.x]]"\n---\n');
         createFile("12.y.md", '---\nid: 12\nlinks:\n  - "[[12.x]]"\n---\n');
         createFile("13.z.md", '---\nid: 13\nlinks:\n  - "[[12.y]]"\n---\n');
-        renumberDuplicateBacklogItems(TEST_DIR);
+        renumberDuplicateBacklogItems(testDir);
         // Only one file should remain with id 12, the other should be renamed to next id (14)
-        const files = fs.readdirSync(TEST_DIR);
+        const files = fs.readdirSync(testDir);
         expect(files.filter((f) => f.startsWith("12.")).length).toBe(1);
 
         const yFile = files.find((f) => f === "14.y.md");
@@ -147,8 +142,8 @@ describe("backlog", () => {
 
     it("does nothing if no duplicates", () => {
       createFile("14.a.md", "---\nid: 14\n---\n");
-      renumberDuplicateBacklogItems(TEST_DIR);
-      expect(fs.existsSync(path.join(TEST_DIR, "14.a.md"))).toBe(true);
+      renumberDuplicateBacklogItems(testDir);
+      expect(fs.existsSync(path.join(testDir, "14.a.md"))).toBe(true);
     });
   });
 });
