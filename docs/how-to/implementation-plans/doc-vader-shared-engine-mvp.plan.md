@@ -1,4 +1,11 @@
-# Doc-Vader Shared-Engine MVP Plan (Revised with Backlog Hygiene Cleanup)
+---
+id: doc-vader-shared-engine-mvp-plan
+title: Doc-Vader Shared-Engine MVP Plan
+type: document
+subtype: plan
+lifecycle: active
+status: approved
+---
 
 ## Summary
 
@@ -14,13 +21,13 @@ Primary repo is `doc-vader`, with explicit consumer migration tasks for `templjs
 
 ## Milestone Progress (Traceability)
 
-| Milestone | Status | Evidence |
-| --- | --- | --- |
-| M1: Baseline + schema alignment (`208.2.*`) | complete | [`schemas/frontmatter/work-item/1.0.0.json`](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/work-item/1.0.0.json), [`schemas/frontmatter/document/1.0.0.json`](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/document/1.0.0.json) |
-| M2: Backlog audit + remediation (`208.1.*`) | complete | [`backlog/audit/auditing-backlog-report.json`](/Users/macos/dev/tiab/doc-vader/backlog/audit/auditing-backlog-report.json) |
-| M3: Controlled closure + finalization (`208.3.*`) | complete | [`backlog/archive/160.template-compliance-feature.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/160.template-compliance-feature.md), [`backlog/archive/30.markdown-linting-commercialization.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/30.markdown-linting-commercialization.md), [`backlog/archive/174.1.graph-and-naming-story 1.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/174.1.graph-and-naming-story%201.md), [`backlog/archive/188.spike-core-linting-framework-scope-definition-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/188.spike-core-linting-framework-scope-definition-story.md) |
-| M4: Reconciliation + strict gating (`208.4.*`) | complete | `pnpm run backlog:validate:ci`, [`staging/scripts/backlog-hygiene-ci.sh`](/Users/macos/dev/tiab/doc-vader/staging/scripts/backlog-hygiene-ci.sh), [`backlog/audit/auditing-backlog-report.json`](/Users/macos/dev/tiab/doc-vader/backlog/audit/auditing-backlog-report.json), [`backlog/208.4.2.hygiene-ci-gate-task.md`](/Users/macos/dev/tiab/doc-vader/backlog/208.4.2.hygiene-ci-gate-task.md) |
-| M5: Shared-engine consumer stabilization (`207.*`) | in-progress | [`backlog/207.shared-engine-mvp-epic.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.shared-engine-mvp-epic.md), [`backlog/207.1.templjs-consumer-migration-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.1.templjs-consumer-migration-story.md), [`backlog/207.2.pax-consumer-migration-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.2.pax-consumer-migration-story.md) |
+| Milestone                                          | Status      | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| -------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1: Baseline + schema alignment (`208.2.*`)        | complete    | [`schemas/frontmatter/work-item/1.0.0.json`](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/work-item/1.0.0.json), [`schemas/frontmatter/document/1.0.0.json`](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/document/1.0.0.json)                                                                                                                                                                                                                                                   |
+| M2: Backlog audit + remediation (`208.1.*`)        | complete    | [`backlog/audit/auditing-backlog-report.json`](/Users/macos/dev/tiab/doc-vader/backlog/audit/auditing-backlog-report.json)                                                                                                                                                                                                                                                                                                                                                                     |
+| M3: Controlled closure + finalization (`208.3.*`)  | complete    | [`backlog/archive/160.template-compliance-feature.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/160.template-compliance-feature.md), [`backlog/archive/30.markdown-linting-commercialization.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/30.markdown-linting-commercialization.md), [`backlog/archive/188.spike-core-linting-framework-scope-definition-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/188.spike-core-linting-framework-scope-definition-story.md) |
+| M4: Reconciliation + strict gating (`208.4.*`)     | complete    | `pnpm run backlog:validate:ci`, [`staging/scripts/backlog-hygiene-ci.sh`](/Users/macos/dev/tiab/doc-vader/staging/scripts/backlog-hygiene-ci.sh), [`backlog/audit/auditing-backlog-report.json`](/Users/macos/dev/tiab/doc-vader/backlog/audit/auditing-backlog-report.json), [`backlog/208.4.2.hygiene-ci-gate-task.md`](/Users/macos/dev/tiab/doc-vader/backlog/208.4.2.hygiene-ci-gate-task.md)                                                                                             |
+| M5: Shared-engine consumer stabilization (`207.*`) | in-progress | [`backlog/207.shared-engine-mvp-epic.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.shared-engine-mvp-epic.md), [`backlog/207.1.templjs-consumer-migration-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.1.templjs-consumer-migration-story.md), [`backlog/207.2.pax-consumer-migration-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.2.pax-consumer-migration-story.md)                                                                                                   |
 
 ## Execution Log
 

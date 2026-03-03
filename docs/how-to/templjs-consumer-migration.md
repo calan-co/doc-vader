@@ -7,21 +7,19 @@ lifecycle: active
 status: proposed
 ---
 
-<!-- markdownlint-disable MD013 -->
-
 ## Goal
 
 Define a testable migration path for `templjs` to consume `doc-vader` validation contracts without legacy `../templjs/scripts/ci/*` coupling.
 
 ## Shared Contract Mapping
 
-| Shared Engine Contract (`doc-vader`) | TemplJS Consumer Hook | Command Example |
-| --- | --- | --- |
-| Error-only backlog gate | PR blocking validation | `node ./node_modules/.bin/doc-vader backlog validate --dir backlog --fail-on error` |
-| CI strict profile gate with JSON artifact | CI job artifact + merge gate | `sh staging/scripts/backlog-hygiene-ci.sh` |
-| Machine-readable audit output | CI reporting and historical evidence | `node dist/cli/doc-vader.js backlog validate --dir backlog --profile profiles/backlog-ci.json --format json > backlog/audit/auditing-backlog-report.json` |
-| Profile-driven governance | Repo policy selection by profile file | `node ./node_modules/.bin/doc-vader backlog validate --dir backlog --profile profiles/backlog-ci.json` |
-| Optional schema routing | Consumer-specific schema map compatibility | `node ./node_modules/.bin/doc-vader backlog validate --dir backlog --schema-map schemas/schema-map.json` |
+| Shared Engine Contract (`doc-vader`)      | TemplJS Consumer Hook                      | Command Example                                                                                                                                           |
+| ----------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Error-only backlog gate                   | PR blocking validation                     | `node ./node_modules/.bin/doc-vader backlog validate --dir backlog --fail-on error`                                                                       |
+| CI strict profile gate with JSON artifact | CI job artifact + merge gate               | `sh staging/scripts/backlog-hygiene-ci.sh`                                                                                                                |
+| Machine-readable audit output             | CI reporting and historical evidence       | `node dist/cli/doc-vader.js backlog validate --dir backlog --profile profiles/backlog-ci.json --format json > backlog/audit/auditing-backlog-report.json` |
+| Profile-driven governance                 | Repo policy selection by profile file      | `node ./node_modules/.bin/doc-vader backlog validate --dir backlog --profile profiles/backlog-ci.json`                                                    |
+| Optional schema routing                   | Consumer-specific schema map compatibility | `node ./node_modules/.bin/doc-vader backlog validate --dir backlog --schema-map schemas/schema-map.json`                                                  |
 
 ## Migration Sequence
 
@@ -67,13 +65,13 @@ Rollback criteria:
 
 ## Dependency and Risk Log
 
-| Dependency | Current Status | Risk | Unblock Condition |
-| --- | --- | --- | --- |
-| `170.remark-lint-unified-adoption-epic` | proposed | Contract drift across lint rules | Mark core remark-lint adoption criteria complete |
-| `171.2.4.task-update-docs-lint-sh-to-use-remark-lint-pipeline` | proposed | CI behavior mismatch with old shell pipeline | Confirm docs-lint pipeline parity in shared engine runs |
-| `172.frontmatter-schema-integration-feature` | accepted | Schema mismatch between producer and consumer | Finalize schema-map compatibility checks |
-| `support-multi-frameworks` | proposed | Profile interpretation inconsistency | Confirm profile selection and deterministic policy mapping |
-| `framework-reconciliation` | proposed | Multi-framework conflict handling differences | Confirm deterministic reconciliation behavior in CI |
+| Dependency                                                     | Current Status | Risk                                          | Unblock Condition                                          |
+| -------------------------------------------------------------- | -------------- | --------------------------------------------- | ---------------------------------------------------------- |
+| `170.remark-lint-unified-adoption-epic`                        | proposed       | Contract drift across lint rules              | Mark core remark-lint adoption criteria complete           |
+| `171.2.4.task-update-docs-lint-sh-to-use-remark-lint-pipeline` | proposed       | CI behavior mismatch with old shell pipeline  | Confirm docs-lint pipeline parity in shared engine runs    |
+| `172.frontmatter-schema-integration-feature`                   | accepted       | Schema mismatch between producer and consumer | Finalize schema-map compatibility checks                   |
+| `support-multi-frameworks`                                     | proposed       | Profile interpretation inconsistency          | Confirm profile selection and deterministic policy mapping |
+| `framework-reconciliation`                                     | proposed       | Multi-framework conflict handling differences | Confirm deterministic reconciliation behavior in CI        |
 
 ## Notes
 
