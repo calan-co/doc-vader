@@ -37,4 +37,3 @@ Doc-Vader is the shared validation engine for documentation governance, backlog 
 - Active backlog items validate against current schemas.
 - Closed items are archived with evidence and reason metadata.
 - CI can fail deterministically on hygiene violations.
-

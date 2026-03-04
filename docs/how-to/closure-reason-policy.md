@@ -34,4 +34,3 @@ Each closure must include a timestamped note with:
 - Why closure is valid.
 - Replacement/superseding link if applicable.
 - Any audit report reference used for decision making.
-
