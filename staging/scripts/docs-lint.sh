@@ -1,10 +1,9 @@
 #!/bin/sh
 # Centralized documentation linting script
-# Orchestrates all documentation validation tools
+# Uses unified remark-lint pipeline with custom plugins for consistent validation
 
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")
-
-echo $SCRIPT_DIR
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -18,42 +17,52 @@ trap 'rm -f "$STATUS_FILE"' EXIT
 
 echo "${BLUE}================================${NC}"
 echo "${BLUE}Documentation Validation${NC}"
+echo "${BLUE}(Unified Remark Pipeline)${NC}"
 echo "${BLUE}================================${NC}"
 echo ""
-
 
 # Aggregate all output to .lint-session.log for feedback loop
 LINT_LOG=".lint-session.log"
 rm -f "$LINT_LOG"
 
 {
-  echo "${YELLOW}[4/9] Validating markdown style...${NC}"
+  echo "${YELLOW}Running unified remark-lint validation...${NC}"
+  
+  # Determine which files to lint
+  LINT_PATTERNS="docs/**/*.md *.md backlog/**/*.md"
   if [ "$#" -gt 0 ]; then
-    npx markdownlint-cli2 "$@"
-  else
-    npx markdownlint-cli2 'docs/**/*.md' '*.md'
+    LINT_PATTERNS="$@"
   fi
-  if [ $? -ne 0 ]; then
+  
+  # Run the remark-based linter using node directly
+  # This will validate: markdown style, template compliance, naming conventions,
+  # cross-references, and more via the remark plugins
+  cd "$PROJECT_ROOT"
+  NODE_OPTIONS="--loader tsx/esm" node scripts/docs-remark-lint.ts $LINT_PATTERNS
+  REMARK_RESULT=$?
+  
+  if [ $REMARK_RESULT -ne 0 ]; then
     HAS_ERRORS=1
-    echo "${RED}✗ Markdown style validation failed${NC}"
+    echo "${RED}✗ Unified validation failed${NC}"
   else
-    echo "${GREEN}✓ Markdown style validation passed${NC}"
+    echo "${GREEN}✓ Unified validation passed${NC}"
   fi
-  for LINT in markdown-style naming diagram crossref anchor frontmatter template "structure folder" "structure readme"; do
-      echo "${YELLOW}[$LINT] Validating $LINT...${NC}"
-      if [ "$#" -gt 0 ] && [ "$LINT" != "frontmatter" ]; then
-        node $SCRIPT_DIR/lint.js $LINT "$@"
-      else
-        node $SCRIPT_DIR/lint.js $LINT
-      fi
-    if [ $? -ne 0 ]; then
-      HAS_ERRORS=1
-      echo "${RED}✗ $LINT validation failed${NC}"
-    else
-      echo "${GREEN}✓ $LINT validation passed${NC}"
-    fi
-    echo ""
-  done
+  
+  echo ""
+  
+  # Note: frontmatter-lint.cjs is kept temporarily until item 172 integrates
+  # frontmatter schema validation into the remark pipeline
+  echo "${YELLOW}Validating frontmatter schema...${NC}"
+  node $SCRIPT_DIR/lint/frontmatter-lint.cjs
+  FRONTMATTER_RESULT=$?
+  
+  if [ $FRONTMATTER_RESULT -ne 0 ]; then
+    HAS_ERRORS=1
+    echo "${RED}✗ Frontmatter validation failed${NC}"
+  else
+    echo "${GREEN}✓ Frontmatter validation passed${NC}"
+  fi
+  
   echo "$HAS_ERRORS" > "$STATUS_FILE"
 } 2>&1 | tee "$LINT_LOG"
 
@@ -67,16 +76,14 @@ if [ $HAS_ERRORS -ne 0 ]; then
   echo "${RED}Documentation validation FAILED${NC}"
   echo "${BLUE}================================${NC}"
   echo ""
-  echo "To auto-fix markdown style issues, run:"
-  echo "  ${YELLOW}npm run docs:lint:fix${NC}"
+  echo "Review the errors above. For help, see:"
+  echo "  - CONTRIBUTING.md for naming and style conventions"
+  echo "  - docs/guide/centralized-remark-config.md for linting details"
   echo ""
 else
   echo "${GREEN}All documentation validation PASSED${NC}"
   echo "${BLUE}================================${NC}"
   echo ""
 fi
-
-# Always run feedback loop after linting
-# node $SCRIPT_DIR/lint/feedback-hook.js
 
 exit $HAS_ERRORS
