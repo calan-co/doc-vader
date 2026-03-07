@@ -1,0 +1,703 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/1.0.0.json",
+  "title": "frontmatter/base",
+  "description": "Shared building blocks and rules for frontmatter schemas.",
+  "$defs": {
+    "toolingScalar": {
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 1024
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "toolingProperty": {
+      "description": "Allow custom properties starting with $ for tooling purposes.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/toolingScalar"
+        },
+        {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/toolingScalar"
+          }
+        },
+        {
+          "type": "object",
+          "maxProperties": 64,
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/toolingScalar"
+          }
+        }
+      ]
+    },
+    "note": {
+      "type": "string",
+      "description": "Adds meaningful context or value."
+    },
+    "noteWithTimestamp": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the note was added.",
+          "note": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/note"
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "minProperties": 1
+              },
+              {
+                "$ref": "#/$defs/note"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "timestamp",
+        "note"
+      ],
+      "additionalProperties": true
+    },
+    "wikilink": {
+      "type": "string",
+      "pattern": "^\\[\\[(?<name>[^\\]\\|\\r\\n]+)(?:\\|(?<title>[^\\]\\|\\r\\n]+))?\\]\\](?<agglu>[^\\p{P}\\s]*)$",
+      "maxLength": 128,
+      "description": "Wikilink to a markdown document in this repository."
+    },
+    "uri": {
+      "type": "string",
+      "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?):\\/\\/)(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$",
+      "maxLength": 256,
+      "description": "Uri to an external resource."
+    },
+    "link": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/uri"
+        },
+        {
+          "$ref": "#/$defs/wikilink"
+        }
+      ],
+      "description": "Link to a related document or resource."
+    },
+    "linkWithNote": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/link"
+        },
+        "link": {
+          "$ref": "#/$defs/link"
+        },
+        "note": {
+          "$ref": "#/$defs/note"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "ref"
+          ]
+        },
+        {
+          "required": [
+            "link"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "links": {
+      "type": "object",
+      "description": "Links to related documents, guides, or examples. Only include a note if it materially clarifies the purpose or context of the link. Do not add notes that simply restate the link or add generic information.",
+      "properties": {},
+      "patternProperties": {
+        "^.+$": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/link"
+              },
+              {
+                "$ref": "#/$defs/linkWithNote"
+              }
+            ]
+          }
+        }
+      },
+      "propertyNames": {
+        "pattern": "^.+$",
+        "maxLength": 128
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "classificationToken": {
+      "allOf": [
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/classification-token.contract/current.json"
+        },
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/current.json#/$defs/token"
+        }
+      ]
+    },
+    "classification": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/classificationToken"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/classificationToken"
+          }
+        },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z][a-z0-9_-]*$": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/classificationToken"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "$ref": "#/$defs/classificationToken"
+                  }
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]*$",
+            "maxLength": 64
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "Classification(s) for the document, such as diataxis, sensitivity, or compliance."
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "evergreen",
+        "inactive"
+      ],
+      "description": "Long-term state of the document."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "ready",
+        "in-progress",
+        "ready-for-review",
+        "closed"
+      ],
+      "description": "Current actionable workflow state."
+    },
+    "statusReasonKnown": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/status-reason-token.vocab.core/current.json#/$defs/coreToken"
+    },
+    "statusReasonExtensionToken": {
+      "allOf": [
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/status-reason-token.contract/current.json"
+        },
+        {
+          "not": {
+            "$ref": "#/$defs/statusReasonKnown"
+          }
+        }
+      ]
+    },
+    "statusReasonFreeform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "not": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/statusReasonKnown"
+          },
+          {
+            "$ref": "#/$defs/statusReasonExtensionToken"
+          }
+        ]
+      },
+      "description": "Free-form reason. If a well-known reason exists, use the canonical token instead."
+    },
+    "statusReasonValue": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/statusReasonKnown"
+        },
+        {
+          "$ref": "#/$defs/statusReasonExtensionToken"
+        },
+        {
+          "$ref": "#/$defs/statusReasonFreeform"
+        }
+      ]
+    },
+    "audienceToken": {
+      "allOf": [
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/audience-token.contract/current.json"
+        },
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/audience-token.vocab.core/current.json#/$defs/token"
+        }
+      ]
+    },
+    "audience": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/audienceToken"
+      },
+      "description": "List of intended audiences."
+    },
+    "governanceMode": {
+      "allOf": [
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/governance-mode.contract/current.json"
+        },
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/governance-mode.vocab.core/current.json#/$defs/token"
+        }
+      ]
+    },
+    "governanceProfileValue": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/governanceMode"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "$ref": "#/$defs/governanceMode"
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
+              "maxLength": 128
+            },
+            "notes": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "reconciliationStrategyToken": {
+      "allOf": [
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/reconciliation-strategy-token.contract/current.json"
+        },
+        {
+          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/reconciliation-strategy-token.vocab.core/current.json#/$defs/token"
+        }
+      ]
+    },
+    "reconciliationStrategy": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/reconciliationStrategyToken"
+        },
+        {
+          "type": "object",
+          "required": [
+            "override"
+          ],
+          "properties": {
+            "override": {
+              "type": "string",
+              "description": "Profile name to use as override when strategy=override; must reference a declared profile.",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "prioritize"
+          ],
+          "properties": {
+            "prioritize": {
+              "type": "array",
+              "description": "Explicit precedence order applied when strategy=prioritize; names must reference declared profiles.",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true,
+              "minItems": 2
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "governance": {
+      "type": "object",
+      "description": "Governance configuration: profiles (documentation systems, process models) and optional reconciliation strategies.",
+      "required": [
+        "profiles"
+      ],
+      "properties": {
+        "profiles": {
+          "description": "List or map of governance profiles controlling structure/process rules.",
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            {
+              "type": "object",
+              "minProperties": 1,
+              "properties": {},
+              "patternProperties": {
+                "^[A-Za-z][A-Za-z0-9_-]*$": {
+                  "$ref": "#/$defs/governanceProfileValue"
+                }
+              },
+              "propertyNames": {
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+                "maxLength": 128
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "reconciliation": {
+          "type": "object",
+          "description": "Conflict resolution configuration across selected profiles.",
+          "properties": {
+            "defaultStrategy": {
+              "$ref": "#/$defs/reconciliationStrategy"
+            },
+            "strategies": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "appliesTo",
+                  "strategy"
+                ],
+                "properties": {
+                  "appliesTo": {
+                    "type": "object",
+                    "required": [
+                      "profiles"
+                    ],
+                    "properties": {
+                      "profiles": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "uniqueItems": true
+                      },
+                      "conflictTypes": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "structure",
+                            "taxonomy",
+                            "lifecycle",
+                            "status",
+                            "fields",
+                            "sensitivity",
+                            "naming",
+                            "other"
+                          ]
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "strategy": {
+                    "$ref": "#/$defs/reconciliationStrategy"
+                  },
+                  "overrideProfile": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 512
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "statusTransitions": {
+      "description": "Canonical allowed status transitions for documentation/work items. Used by scripts to enforce valid status changes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "proposed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "closed"
+            ]
+          }
+        },
+        "ready": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "in-progress",
+              "closed"
+            ]
+          }
+        },
+        "in-progress": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ready-for-review",
+              "closed"
+            ]
+          }
+        },
+        "ready-for-review": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "closed"
+            ]
+          }
+        },
+        "closed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": []
+          }
+        }
+      },
+      "examples": [
+        {
+          "proposed": [
+            "ready",
+            "closed"
+          ]
+        }
+      ]
+    },
+    "lifecycleStatusCompatibility": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "draft"
+            },
+            "status": {
+              "enum": [
+                "proposed",
+                "closed"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "active"
+            },
+            "status": {
+              "enum": [
+                "ready",
+                "in-progress",
+                "ready-for-review",
+                "closed"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "evergreen"
+            },
+            "status": {
+              "enum": [
+                "ready",
+                "in-progress",
+                "ready-for-review",
+                "closed"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "inactive"
+            },
+            "status": {
+              "enum": [
+                "closed"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "core": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "type",
+        "subtype",
+        "lifecycle",
+        "status"
+      ],
+      "patternProperties": {
+        "^\\$[a-zA-Z0-9_]+$": {
+          "$ref": "#/$defs/toolingProperty"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 128
+      },
+      "properties": {
+        "id": {
+          "description": "Unique identifier for the document or work item.",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable document title."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short summary describing the document's purpose or content."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Primary owner or responsible party for the document."
+        },
+        "type": {
+          "type": "string",
+          "description": "High-level type of the document (e.g., work-item, document)."
+        },
+        "subtype": {
+          "type": "string",
+          "description": "Specific subtype of the document for classification and navigation."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "maxLength": 64,
+            "description": "Single tag in kebab-case (e.g., 'user-guide', 'api-reference')."
+          },
+          "minItems": 1,
+          "description": "List of tags for search, filtering, and organization."
+        },
+        "links": {
+          "$ref": "#/$defs/links"
+        },
+        "classification": {
+          "$ref": "#/$defs/classification"
+        },
+        "lifecycle": {
+          "$ref": "#/$defs/lifecycle"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "status_reason": {
+          "$ref": "#/$defs/statusReasonValue"
+        },
+        "audience": {
+          "$ref": "#/$defs/audience"
+        },
+        "governance": {
+          "$ref": "#/$defs/governance"
+        }
+      }
+    }
+  }
+}

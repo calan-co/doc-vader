@@ -1,0 +1,411 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/by-type/work-item/1.0.0.json",
+  "title": "frontmatter/work-item",
+  "description": "Strict frontmatter schema for work items.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "x-statusTransitions": {
+    "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusTransitions"
+  },
+  "allOf": [
+    {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+    },
+    {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+    },
+    {
+      "type": "object",
+      "required": [
+        "priority",
+        "estimated"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^wi-\\d+$",
+          "description": "Unique identifier for the document or work item."
+        },
+        "type": {
+          "type": "string",
+          "const": "work-item",
+          "description": "High-level type of the document (e.g., work-item, document)."
+        },
+        "subtype": {
+          "type": "string",
+          "enum": [
+            "story",
+            "task",
+            "bug",
+            "epic",
+            "spike"
+          ],
+          "description": "Specific subtype of the document for classification and navigation."
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
+          "description": "Priority level of the work item, indicating its importance and urgency."
+        },
+        "assignee": {
+          "type": "string",
+          "description": "Person responsible for the work item."
+        },
+        "ordinal": {
+          "type": "integer",
+          "description": "Optional field for manual ordering or ranking of work items."
+        },
+        "complexity": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "description": "Optional field to indicate the estimated complexity of the work item, which can help with planning and resource allocation."
+        },
+        "estimated": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Captures the estimated effort required to complete the work item."
+        },
+        "actual": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Optional field to capture the actual effort spent on the work item. Useful for tracking and improving estimation accuracy over time."
+        },
+        "completed_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "test_results": {
+          "type": "array",
+          "items": {
+            "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/noteWithTimestamp"
+          },
+          "minItems": 1
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/noteWithTimestamp"
+          },
+          "description": "Optional field for any additional notes or context about the work item."
+        },
+        "commits": {
+          "type": "object",
+          "patternProperties": {
+            "^(?:[0-9a-f]{7}|[0-9a-f]{40})$": {
+              "type": "string",
+              "minLength": 10,
+              "description": "Description or title of the commit associated with the commit SHA (i.e., `git show <commit_sha> -s --format=%s`)."
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256
+          },
+          "minProperties": 1,
+          "description": "Map of commit SHAs to their commit messages. Tracks all commits related to this work item."
+        },
+        "links": {
+          "type": "object",
+          "properties": {
+            "pull_requests": {
+              "type": "array",
+              "items": {
+                "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/link"
+              },
+              "minItems": 1,
+              "description": "Array of GitHub PR URLs related to this work item."
+            },
+            "depends_on": {
+              "type": "array",
+              "items": {
+                "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/link",
+                "description": "Link to another work item that this work item depends on."
+              },
+              "minItems": 1,
+              "description": "Array of work item links (wikilinks for local repos, URIs for cross-repo dependencies) that must be completed before this work item can start."
+            }
+          },
+          "description": "Links to pull requests and dependencies."
+        },
+        "execution": {
+          "type": "object",
+          "description": "Optional execution tracking for epics managing multiple work items. Defines phases, concurrency modes, and current progress.",
+          "properties": {
+            "current_phase": {
+              "type": "string",
+              "description": "Name of the currently active phase."
+            },
+            "current_item": {
+              "type": "string",
+              "description": "ID of the work item currently being executed."
+            },
+            "phases": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/executionPhase"
+              },
+              "minItems": 1,
+              "description": "Hierarchical execution plan with sequential or parallel phases."
+            }
+          }
+        }
+      }
+    },
+    {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "proposed"
+            },
+            "status_reason": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "needs-triage",
+                    "awaiting-approval",
+                    "deferred",
+                    "blocked-by-dependency"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "ready"
+            },
+            "status_reason": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "prioritized",
+                    "scheduled",
+                    "dependencies-cleared"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "in-progress"
+            },
+            "status_reason": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "implementation",
+                    "investigation",
+                    "blocked",
+                    "waiting-on-feedback"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "ready-for-review"
+            },
+            "status_reason": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "awaiting-review",
+                    "changes-requested",
+                    "verification-pending"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "status_reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "closed"
+            },
+            "status_reason": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "rejected",
+                    "duplicate",
+                    "obsolete",
+                    "cancelled"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "status_reason"
+        ],
+        "properties": {
+          "status_reason": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "required": [
+          "links",
+          "actual",
+          "completed_date",
+          "test_results"
+        ],
+        "properties": {
+          "status": {
+            "const": "closed"
+          },
+          "links": {
+            "type": "object",
+            "required": [
+              "pull_requests"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "executionPhase": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of this execution phase or group."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "sequential",
+            "parallel"
+          ],
+          "description": "Execution mode: sequential (items/phases execute one after another) or parallel (items/phases can execute concurrently)."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "not-started",
+            "in-progress",
+            "completed"
+          ],
+          "description": "Current status of this phase."
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Work item ID (e.g., '172.1', '172.2.3')."
+          },
+          "minItems": 1,
+          "description": "Leaf-level work item IDs. Mutually exclusive with 'phases'."
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/executionPhase"
+          },
+          "minItems": 1,
+          "description": "Nested execution phases for hierarchical planning. Mutually exclusive with 'items'."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "items"
+          ],
+          "not": {
+            "required": [
+              "phases"
+            ]
+          }
+        },
+        {
+          "required": [
+            "phases"
+          ],
+          "not": {
+            "required": [
+              "items"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

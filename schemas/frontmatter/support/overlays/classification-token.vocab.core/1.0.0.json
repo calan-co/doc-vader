@@ -1,0 +1,34 @@
+{
+  "title": "frontmatter/overlays/classification-token.vocab.core",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/1.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "coreToken": {
+      "type": "string",
+      "enum": [
+        "tutorial",
+        "how-to",
+        "reference",
+        "explanation",
+        "public",
+        "internal",
+        "confidential",
+        "restricted",
+        "compliance",
+        "regulated"
+      ]
+    },
+    "token": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/coreToken"
+        },
+        {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^x-[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      ]
+    }
+  }
+}

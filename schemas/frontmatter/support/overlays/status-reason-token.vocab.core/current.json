@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/status-reason-token.vocab.core/1.0.0.json",
+  "title": "frontmatter/overlays/status-reason-token.vocab.core",
+  "$defs": {
+    "coreToken": {
+      "type": "string",
+      "enum": [
+        "needs-triage",
+        "awaiting-approval",
+        "deferred",
+        "blocked-by-dependency",
+        "prioritized",
+        "scheduled",
+        "dependencies-cleared",
+        "implementation",
+        "investigation",
+        "blocked",
+        "waiting-on-feedback",
+        "awaiting-review",
+        "changes-requested",
+        "verification-pending",
+        "completed",
+        "rejected",
+        "duplicate",
+        "obsolete",
+        "cancelled"
+      ]
+    },
+    "token": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/coreToken"
+        },
+        {
+          "type": "string",
+          "pattern": "^x-[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 128
+        }
+      ]
+    }
+  }
+}

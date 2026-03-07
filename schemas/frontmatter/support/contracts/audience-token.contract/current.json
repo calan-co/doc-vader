@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/audience-token.contract/1.0.0.json",
+  "title": "frontmatter/contracts/audience-token",
+  "description": "Extension contract for audience tokens. Supports canonical tokens and x-* extension tokens.",
+  "oneOf": [
+    {
+      "type": "string",
+      "pattern": "^x-[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*$",
+      "not": {
+        "pattern": "^x-[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "maxLength": 64
+    }
+  ]
+}
