@@ -12,14 +12,14 @@ function selectSchema(filePath, frontmatter) {
   if (relPath.startsWith("docs/")) {
     return path.resolve(
       process.cwd(),
-      "schemas/frontmatter/document/latest.json"
+      "schemas/frontmatter/by-type/document/latest.json",
     );
   }
   if (relPath.startsWith("backlog/")) {
     // If backlog schema exists, use it
     const backlogSchema = path.resolve(
       process.cwd(),
-      "schemas/frontmatter/work-item/latest.json"
+      "schemas/frontmatter/by-type/work-item/latest.json",
     );
     try {
       require("fs").accessSync(backlogSchema);

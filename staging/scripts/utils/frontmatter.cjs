@@ -59,6 +59,13 @@ async function validateFrontmatter(frontmatter, schemaPath) {
       } else if (uri.startsWith(".")) {
         // Relative ref, treat as relative to main schema
         p = path.resolve(path.dirname(schemaPath), uri);
+      } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
+        // Fetch from URL
+        const res = await fetch(uri);
+        if (!res.ok) {
+          throw new Error(`Failed to load schema from URL: ${uri}`);
+        }
+        return res.json();
       } else {
         // Fallback: try as filename in schemas root
         p = path.resolve(__dirname, "../../../schemas", uri);
@@ -84,8 +91,8 @@ async function validateFrontmatter(frontmatter, schemaPath) {
             (e.message = ` has an unexpected property, ${
               e.params.unevaluatedProperty
             }, which is not in the list of allowed properties (${Object.keys(
-              e.parentSchema?.properties ?? {}
-            ).join(", ")})`)
+              e.parentSchema?.properties ?? {},
+            ).join(", ")})`),
         );
       const humanErrors = new AggregateAjvError(validate.errors);
       return humanErrors.errors
@@ -93,7 +100,7 @@ async function validateFrontmatter(frontmatter, schemaPath) {
         .filter((msg) => msg.trim());
     } catch (e) {
       return validate.errors.map(
-        (e) => `${e.instancePath} ${e.message} ${JSON.stringify(e.params)}`
+        (e) => `${e.instancePath} ${e.message} ${JSON.stringify(e.params)}`,
       );
     }
   } catch (err) {
