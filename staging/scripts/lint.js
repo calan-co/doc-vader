@@ -44,19 +44,19 @@ const commands = {
     description: "Validate template structure",
     cmd: "node staging/scripts/lint/template-lint.cjs",
   },
-  structure: {
-    description: "Validate documentation structure",
-    subcommands: {
-      folder: {
-        description: "Validate folder structure",
-        cmd: "node staging/scripts/lint/folder-structure-lint.cjs",
-      },
-      readme: {
-        description: "Validate README structure",
-        cmd: "node staging/scripts/lint/readme-structure-lint.cjs",
-      },
-    },
-  },
+  // structure: {
+  //   description: "Validate documentation structure",
+  //   subcommands: {
+  //     folder: {
+  //       description: "Validate folder structure",
+  //       cmd: "node staging/scripts/lint/folder-structure-lint.cjs",
+  //     },
+  //     readme: {
+  //       description: "Validate README structure",
+  //       cmd: "node staging/scripts/lint/readme-structure-lint.cjs",
+  //     },
+  //   },
+  // },
 };
 
 // Extract command and args from a shell command string

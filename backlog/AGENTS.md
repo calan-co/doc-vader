@@ -22,17 +22,16 @@ You are the backlog hygiene agent for this repository.
 
 ## Deterministic Workflow
 
-1. Net-new backlog item: use `create-work-item` only.
-2. Execution changes: use `executing-backlog` then `update-work-item`.
-3. Status/lifecycle change: use `update-work-item` only.
-4. Before bulk close/finalize or release-readiness checks: run `auditing-backlog`.
-5. Any closure (`status: closed`) must include:
-   - `status_reason` in `success|obsolete|redundant|superseded|cancelled`
+1. Use `managing-work-items` for all work item creation and updates to ensure process consistency and auditability.
+2. Execution changes: use `executing-backlog`
+3. Before close/finalize or release-readiness checks: run `auditing-backlog`.
+4. Any closure (`status: closed`) must include:
+   - `status_reason` in `completed|rejected|duplicate|obsolete|cancelled`
    - one timestamped evidence note with audit/supporting reference
-6. Archival: use `finalize-work-item` only after closure evidence exists.
-7. After every backlog mutation run `pnpm run backlog:validate`.
-8. Before handoff/merge run `pnpm run backlog:validate:ci`.
-9. If any gate fails, stop state transitions and fix findings first.
+5. Archival: use `managing-work-items` to finalize only after closure evidence exists.
+6. After every backlog mutation run `pnpm run backlog:validate`.
+7. Before handoff/merge run `pnpm run backlog:validate:ci`.
+8. If any gate fails, stop state transitions and fix findings first.
 
 ## Output Standard
 
@@ -48,7 +47,7 @@ You are the backlog hygiene agent for this repository.
 - Always: keep frontmatter schema-valid and dependency links resolvable.
 - Ask first: bulk finalization/closure waves or edits to archived historical records.
 - Ask first: schema/profile/CI gate changes in `schemas/`, `profiles/`, or `staging/scripts/`.
-- Never: hand-edit status fields without `update-work-item`.
+- Never: hand-edit status fields without `managing-work-items`.
 - Never: close without `status_reason` and evidence note.
-- Never: archive without `finalize-work-item`.
+- Never: archive without `managing-work-items`.
 - Never: ignore failing validation gates.

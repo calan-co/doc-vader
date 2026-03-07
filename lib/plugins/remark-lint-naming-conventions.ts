@@ -68,7 +68,8 @@ export const optionsSchema = z.object({
 export type Options = z.input<typeof optionsSchema>;
 
 // Naming convention patterns
-const SPECIAL_FILES = /^(README|CONTRIBUTING|LICENSE|CHANGELOG|AGENTS)(\.md)?$/i;
+const SPECIAL_FILES =
+  /^(README|CONTRIBUTING|LICENSE|CHANGELOG|AGENTS)(\.md)?$/i;
 const KEBAB_CASE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const WORK_ITEM = /^\d+(\.\d+(\.\d+)?)?[.-].+\.(md|yml)$/;
 const ADR = /^adr-\d{3,}-[a-z0-9-]+\.md$/;
@@ -114,7 +115,7 @@ const remarkLintNamingConventions = lintRule(
       if (!WORK_ITEM.test(filename)) {
         file.message(
           `Invalid backlog file naming: "${filename}" should follow pattern "{number}.{slug}-{type}.md" (e.g., "171.my-feature-epic.md")`,
-          { source: "remark-lint:naming-conventions" }
+          { source: "remark-lint:naming-conventions" },
         );
       }
       return;
@@ -125,7 +126,7 @@ const remarkLintNamingConventions = lintRule(
       if (!ADR.test(filename)) {
         file.message(
           `Invalid ADR naming: "${filename}" should follow pattern "adr-###-kebab-case.md"`,
-          { source: "remark-lint:naming-conventions" }
+          { source: "remark-lint:naming-conventions" },
         );
       }
       return;
@@ -136,10 +137,10 @@ const remarkLintNamingConventions = lintRule(
     if (!KEBAB_CASE.test(nameWithoutExt)) {
       file.message(
         `Invalid filename: "${filename}" should use kebab-case (e.g., "my-document.md")`,
-        { source: "remark-lint:naming-conventions" }
+        { source: "remark-lint:naming-conventions" },
       );
     }
-  }
+  },
 ) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
 export default remarkLintNamingConventions;

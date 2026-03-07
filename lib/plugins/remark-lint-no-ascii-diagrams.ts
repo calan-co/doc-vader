@@ -71,10 +71,10 @@ function isLikelyAsciiDiagram(code: string, minLines: number): boolean {
   }
 
   // Look for patterns common in ASCII diagrams
-  const boxDrawing = /[+\-=|]+/;     // Box drawing
-  const arrows = /[<>^v\-|]+/;       // Arrows
-  const slashes = /[\\\/]+/;         // Slashes
-  const stars = /\*+/;               // Stars/emphasis
+  const boxDrawing = /[+\-=|]+/; // Box drawing
+  const arrows = /[<>^v\-|]+/; // Arrows
+  const slashes = /[\\\/]+/; // Slashes
+  const stars = /\*+/; // Stars/emphasis
 
   let diagramLineCount = 0;
   const lineIndicators = lines.map((line) => {
@@ -126,11 +126,11 @@ const remarkLintNoAsciiDiagrams = lintRule(
       if (isLikelyAsciiDiagram(node.value, parsedOptions.minLines)) {
         file.message(
           `Avoid ASCII art diagrams. Use Mermaid, PlantUML, or proper diagram tools instead.`,
-          node
+          node,
         );
       }
     });
-  }
+  },
 ) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
 export default remarkLintNoAsciiDiagrams;

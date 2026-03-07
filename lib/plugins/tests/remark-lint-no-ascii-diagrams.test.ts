@@ -27,8 +27,8 @@ const x = 42;
     const result = await run(md, { enabled: true });
     expect(
       result.messages.some((m) =>
-        m.message.includes("Avoid ASCII art diagrams")
-      )
+        m.message.includes("Avoid ASCII art diagrams"),
+      ),
     ).toBe(true);
   });
 
@@ -42,8 +42,8 @@ Input --> Process --> Output
     const result = await run(md, { enabled: true });
     expect(
       result.messages.some((m) =>
-        m.message.includes("Avoid ASCII art diagrams")
-      )
+        m.message.includes("Avoid ASCII art diagrams"),
+      ),
     ).toBe(true);
   });
 
