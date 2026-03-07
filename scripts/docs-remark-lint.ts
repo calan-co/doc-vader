@@ -20,7 +20,8 @@ import remarkLintNoHtmlAnchors from "../lib/plugins/remark-lint-no-html-anchors.
 import { VFile } from "vfile";
 
 const args = process.argv.slice(2);
-const patterns = args.length > 0 ? args : ["docs/**/*.md", "*.md", "backlog/**/*.md"];
+const patterns =
+  args.length > 0 ? args : ["docs/**/*.md", "*.md", "backlog/**/*.md"];
 
 // Create processor with all plugins
 const processor = unified()
@@ -90,7 +91,9 @@ lintFiles(patterns)
     let hasErrors = false;
 
     if (results.length === 0) {
-      console.log(`✓ All files passed validation (processed files with patterns: ${patterns.join(", ")})`);
+      console.log(
+        `✓ All files passed validation (processed files with patterns: ${patterns.join(", ")})`,
+      );
       process.exit(0);
     }
 
@@ -98,16 +101,14 @@ lintFiles(patterns)
     for (const result of results) {
       for (const msg of result.messages) {
         console.error(
-          `${result.file}:${msg.line}:${msg.column} - ${msg.source}: ${msg.message}`
+          `${result.file}:${msg.line}:${msg.column} - ${msg.source}: ${msg.message}`,
         );
         hasErrors = true;
       }
     }
 
     if (hasErrors) {
-      console.error(
-        `\n✗ Validation failed for ${results.length} file(s)`
-      );
+      console.error(`\n✗ Validation failed for ${results.length} file(s)`);
       process.exit(1);
     }
   })

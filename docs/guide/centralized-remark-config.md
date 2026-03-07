@@ -40,13 +40,38 @@ import remarkLintNoHtmlAnchors from "./lib/plugins/remark-lint-no-html-anchors.j
 export default {
   plugins: [
     // Layer 2: Content compliance
-    [remarkLintChecklist, { /* options */ }],
-    [remarkLintTemplateCompliance, { /* options */ }],
-    [remarkLintNoAsciiDiagrams, { /* options */ }],
-    [remarkLintNoHtmlAnchors, { /* options */ }],
+    [
+      remarkLintChecklist,
+      {
+        /* options */
+      },
+    ],
+    [
+      remarkLintTemplateCompliance,
+      {
+        /* options */
+      },
+    ],
+    [
+      remarkLintNoAsciiDiagrams,
+      {
+        /* options */
+      },
+    ],
+    [
+      remarkLintNoHtmlAnchors,
+      {
+        /* options */
+      },
+    ],
     // Layer 3: Cross-reference and naming validation
     [remarkLintCrossref, { rootDir: process.cwd() }],
-    [remarkLintNamingConventions, { /* options */ }],
+    [
+      remarkLintNamingConventions,
+      {
+        /* options */
+      },
+    ],
   ],
 };
 ```
@@ -108,14 +133,14 @@ Integration tests validate the entire pipeline in `lib/integration/remark-pipeli
 
 As of item 171 completion, the following tools have been consolidated into the unified remark pipeline:
 
-| Legacy Tool | Replaced By | Status |
-|-------------|------------|--------|
-| `markdownlint-cli2` | `remark-preset-lint-*` (pending) + built-in rules | ✅ Migrated |
-| `naming-conventions-lint.cjs` | `remark-lint-naming-conventions` | ✅ Migrated |
-| `diagram-lint.cjs` | `remark-lint-no-ascii-diagrams` | ✅ Migrated |
-| `anchor-lint.cjs` | `remark-lint-no-html-anchors` | ✅ Migrated |
-| `crossref-lint.cjs` | `remark-lint-crossref` | ✅ Migrated |
-| `frontmatter-lint.cjs` | Pending integration (item 172) | ⏳ Deferred |
+| Legacy Tool                   | Replaced By                                       | Status      |
+| ----------------------------- | ------------------------------------------------- | ----------- |
+| `markdownlint-cli2`           | `remark-preset-lint-*` (pending) + built-in rules | ✅ Migrated |
+| `naming-conventions-lint.cjs` | `remark-lint-naming-conventions`                  | ✅ Migrated |
+| `diagram-lint.cjs`            | `remark-lint-no-ascii-diagrams`                   | ✅ Migrated |
+| `anchor-lint.cjs`             | `remark-lint-no-html-anchors`                     | ✅ Migrated |
+| `crossref-lint.cjs`           | `remark-lint-crossref`                            | ✅ Migrated |
+| `frontmatter-lint.cjs`        | Pending integration (item 172)                    | ⏳ Deferred |
 
 To run all validations via the unified pipeline:
 
@@ -139,7 +164,7 @@ The `remark-lint-naming-conventions` plugin enforces:
 ---
 
 For more details, see:
+
 - [Remark-lint unified architecture](../reference/remark-lint-unified-architecture.md)
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) for naming and style standards
 - [Item 171 backlog](../../backlog/171.remark-config-and-core-pipeline-feature.md)
-

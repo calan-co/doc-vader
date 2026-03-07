@@ -25,8 +25,8 @@ This is regular markdown content.
     const result = await run(md, { enabled: true });
     expect(
       result.messages.some((m) =>
-        m.message.includes("Avoid raw HTML anchor tags")
-      )
+        m.message.includes("Avoid raw HTML anchor tags"),
+      ),
     ).toBe(true);
   });
 
@@ -38,8 +38,8 @@ This is regular markdown content.
     const result = await run(md, { enabled: true });
     expect(
       result.messages.some((m) =>
-        m.message.includes("Avoid raw HTML anchor tags")
-      )
+        m.message.includes("Avoid raw HTML anchor tags"),
+      ),
     ).toBe(true);
   });
 
@@ -51,8 +51,8 @@ This is regular markdown content.
     const result = await run(md, { enabled: true });
     expect(
       result.messages.some((m) =>
-        m.message.includes("Avoid raw HTML anchor tags")
-      )
+        m.message.includes("Avoid raw HTML anchor tags"),
+      ),
     ).toBe(true);
   });
 
@@ -93,8 +93,8 @@ This is regular markdown content.
     const result = await run(md, { enabled: true });
     expect(
       result.messages.some((m) =>
-        m.message.includes("Avoid raw HTML anchor tags")
-      )
+        m.message.includes("Avoid raw HTML anchor tags"),
+      ),
     ).toBe(true);
   });
 });

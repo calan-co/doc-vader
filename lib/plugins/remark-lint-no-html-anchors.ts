@@ -62,10 +62,10 @@ export type Options = z.input<typeof optionsSchema>;
 
 // Patterns to detect HTML anchor tags
 const HTML_ANCHOR_PATTERNS = [
-  /<a\s+[^>]*id\s*=/i,        // <a id="...">
-  /<a\s+[^>]*name\s*=/i,      // <a name="...">
-  /<name\s+[^>]*id\s*=/i,     // <name id="...">
-  /<name\s+[^>]*>/i,          // Deprecated <name> tag
+  /<a\s+[^>]*id\s*=/i, // <a id="...">
+  /<a\s+[^>]*name\s*=/i, // <a name="...">
+  /<name\s+[^>]*id\s*=/i, // <name id="...">
+  /<name\s+[^>]*>/i, // Deprecated <name> tag
 ];
 
 const remarkLintNoHtmlAnchors = lintRule(
@@ -93,13 +93,13 @@ const remarkLintNoHtmlAnchors = lintRule(
         if (pattern.test(htmlContent)) {
           file.message(
             `Avoid raw HTML anchor tags. Use markdown heading IDs or proper markdown syntax instead.`,
-            node
+            node,
           );
           return; // Report once per node
         }
       }
     });
-  }
+  },
 ) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
 export default remarkLintNoHtmlAnchors;
