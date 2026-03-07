@@ -1,0 +1,252 @@
+{
+  "title": "frontmatter/status-transition-payload",
+  "description": "Transition payload for runtime status changes. Validates from->to status rules and optional lifecycle compatibility.",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/payloads/status-transition-payload/1.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "from_status",
+    "to_status"
+  ],
+  "properties": {
+    "from_lifecycle": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycle"
+    },
+    "from_status": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/status"
+    },
+    "from_status_reason": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonValue"
+    },
+    "to_lifecycle": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycle"
+    },
+    "to_status": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/status"
+    },
+    "to_status_reason": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonValue"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "from_status"
+        ],
+        "properties": {
+          "from_status": {
+            "const": "proposed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "ready",
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "from_status"
+        ],
+        "properties": {
+          "from_status": {
+            "const": "ready"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "in-progress",
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "from_status"
+        ],
+        "properties": {
+          "from_status": {
+            "const": "in-progress"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "ready-for-review",
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "from_status"
+        ],
+        "properties": {
+          "from_status": {
+            "const": "ready-for-review"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "from_status"
+        ],
+        "properties": {
+          "from_status": {
+            "const": "closed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "to_lifecycle"
+        ],
+        "properties": {
+          "to_lifecycle": {
+            "const": "draft"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "proposed",
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "to_lifecycle"
+        ],
+        "properties": {
+          "to_lifecycle": {
+            "const": "active"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "ready",
+              "in-progress",
+              "ready-for-review",
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "to_lifecycle"
+        ],
+        "properties": {
+          "to_lifecycle": {
+            "const": "evergreen"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "ready",
+              "in-progress",
+              "ready-for-review",
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "to_lifecycle"
+        ],
+        "properties": {
+          "to_lifecycle": {
+            "const": "inactive"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "to_status": {
+            "enum": [
+              "closed"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "to_status"
+        ],
+        "properties": {
+          "to_status": {
+            "const": "closed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "to_status_reason"
+        ]
+      }
+    }
+  ],
+  "x-statusTransitions": {
+    "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusTransitions"
+  }
+}

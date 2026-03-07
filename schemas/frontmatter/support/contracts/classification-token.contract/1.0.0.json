@@ -1,0 +1,21 @@
+{
+  "title": "frontmatter/contracts/classification-token",
+  "description": "Extension contract for classification tokens. Supports canonical tokens and x-* extension tokens.",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/classification-token.contract/1.0.0.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^x-[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    {
+      "type": "string",
+      "maxLength": 64,
+      "not": {
+        "pattern": "^x-[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    }
+  ]
+}

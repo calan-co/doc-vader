@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/governance-mode.contract/1.0.0.json",
+  "title": "frontmatter/contracts/governance-mode",
+  "description": "Extension contract for governance mode tokens. Supports canonical tokens and x-* extension tokens.",
+  "oneOf": [
+    {
+      "type": "string",
+      "pattern": "^x-[A-Za-z][A-Za-z0-9_-]*$",
+      "maxLength": 64
+    },
+    {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "not": {
+        "pattern": "^x-[A-Za-z][A-Za-z0-9_-]*$"
+      },
+      "maxLength": 64
+    }
+  ]
+}
