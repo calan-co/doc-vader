@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/content/release.json",
+  "title": "work-management/content/release",
+  "type": "object",
+  "required": [
+    "entityType",
+    "releaseObjective",
+    "releaseScope",
+    "readinessGates",
+    "rolloutNotes",
+    "relationships"
+  ],
+  "properties": {
+    "entityType": {
+      "const": "release"
+    },
+    "releaseObjective": {
+      "$ref": "../support/common.json#/$defs/nonEmptyString"
+    },
+    "releaseScope": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "readinessGates": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "rolloutNotes": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "relationships": {
+      "$ref": "../support/common.json#/$defs/nonEmptyRelationshipList"
+    },
+    "notes": {
+      "$ref": "../support/common.json#/$defs/notesValue"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/frontmatter/plan.json",
+  "title": "work-management/frontmatter/plan",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "allOf": [
+    {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+    },
+    {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+    },
+    {
+      "$ref": "../support/common.json#/$defs/correlationFields"
+    },
+    {
+      "$ref": "../support/common.json#/$defs/assignableFields"
+    },
+    {
+      "type": "object",
+      "required": [
+        "$schema",
+        "summary"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "schemas/work-management/frontmatter/plan.json"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^plan:[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "type": {
+          "const": "plan"
+        },
+        "subtype": {
+          "$ref": "../support/common.json#/$defs/planSubtype"
+        },
+        "summary": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      }
+    }
+  ]
+}

@@ -6,15 +6,14 @@ lifecycle: active
 status: proposed
 title: Create DRY Schema Resolution Functions (lib/schema/resolver.ts)
 description: |
-  Implement shared schema resolution logic with 4-level precedence
-  (inline > embedded ref > property-based config > user default).
-  Single function used by both validateFrontmatter and audit validation
-  eliminates duplication and ensures consistency.
+  Implement shared schema resolution logic with 4-level precedence (inline > embedded ref > property-based config > user default).
+  Single function used by both validateFrontmatter and audit validation eliminates duplication and ensures consistency.
 summary: Unified schema resolution with 4-level precedence
-owner: ~
+priority: medium
 audience: [developers]
-governance: technical-decision
-tags: [schema, resolver, validation, DRY]
+governance:
+  profiles: [technical-decision]
+tags: [schema, resolver, validation, dry]
 estimated: 2
 links:
   depends_on:

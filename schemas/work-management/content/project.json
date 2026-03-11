@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/content/project.json",
+  "title": "work-management/content/project",
+  "type": "object",
+  "required": [
+    "entityType",
+    "narrative",
+    "objectives",
+    "scope",
+    "successCriteria"
+  ],
+  "properties": {
+    "entityType": {
+      "const": "project"
+    },
+    "narrative": {
+      "$ref": "../support/common.json#/$defs/nonEmptyString"
+    },
+    "objectives": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "scope": {
+      "$ref": "../support/common.json#/$defs/scopeBlock"
+    },
+    "successCriteria": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "operatingConstraints": {
+      "type": "array",
+      "items": {
+        "$ref": "../support/common.json#/$defs/nonEmptyString"
+      }
+    },
+    "relationships": {
+      "$ref": "../support/common.json#/$defs/relationshipList"
+    },
+    "notes": {
+      "$ref": "../support/common.json#/$defs/notesValue"
+    }
+  },
+  "additionalProperties": false
+}

@@ -3,14 +3,13 @@ id: wi-210
 type: work-item
 subtype: epic
 lifecycle: active
-status: proposed
+status: in-progress
 title: Canonical Schema Integration with Configuration System
 description: |
-  Complete schema integration and validation overhaul: adopt canonical schema structure (by-type/support/),
-  implement TypeBox-based configuration system with extends support, add JSON-LD vocabulary mapping,
-  and establish minimal schema requirements. This epic blocks all configuration-, schema-, and
+  Complete schema integration and validation overhaul: adopt canonical schema structure (by-type/support/), implement TypeBox-based configuration system with extends support, add JSON-LD vocabulary mapping, and establish minimal schema requirements. This epic blocks all configuration-, schema-, and
   validation-related work.
 summary: Schema/config/validation system unification - jsonschema-first approach
+priority: high
 audience: [developers, architects]
 tags: [schemas, config, validation, architecture]
 execution:
@@ -48,6 +47,11 @@ execution:
       mode: sequential
       status: not-started
       items: ["222", "223"]
+
+    - name: "Phase 6: Validation & Testing"
+      mode: parallel
+      status: not-started
+      items: ["209", "224"]
 ---
 
 ## Goal
@@ -68,9 +72,9 @@ Unify schema handling around jsonschema-first principles with:
 - [ ] Configuration system loads correctly with extends resolution
 - [ ] DRY resolver used by both frontmatter and audit validation
 - [ ] JSON-LD @context/@type explicitly defined in all schemas
-- [ ] Minimal schema requirements documented with working example
+- [x] Minimal schema requirements documented with working example
 - [ ] All paths migrated from old to new structure
-- [ ] Pre-commit hook passes with canonical schemas
+- [x] Pre-commit hook passes with canonical schemas
 - [ ] Test fixtures validate correctly
 
 ## Notes
@@ -81,3 +85,5 @@ Unify schema handling around jsonschema-first principles with:
 - Configuration system uses TypeBox + AJV (no new dependencies)
 - New work item 209 tracks execution-item-ownership lint validation rule
 - New work item 224 tracks execution-item-status-validity lint validation rule
+- 2026-03-11: Commit `00a8da0` added the canonical work-management foundation package (`docs/reference/work-management/`, `schemas/work-management/`, `templates/reference/work-management/`) and a runnable example graph, satisfying the epic-level documentation/example milestone while the config, JSON-LD, and migration work remains open.
+- 2026-03-11: The same commit passed the repo pre-commit materialization hook after regenerating `schemas/frontmatter/support/base/1.0.0.json` from `current.json`, so the canonical schema hook path is now functioning for staged changes.
