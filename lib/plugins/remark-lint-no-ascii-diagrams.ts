@@ -123,7 +123,7 @@ const remarkLintNoAsciiDiagrams = lintRule(
     if (!parsedOptions.enabled) return;
 
     visitParents(tree, "code", (node: any) => {
-      if (isLikelyAsciiDiagram(node.value, parsedOptions.minLines)) {
+      if (isLikelyAsciiDiagram(node.value, parsedOptions.minLines ?? 3)) {
         file.message(
           `Avoid ASCII art diagrams. Use Mermaid, PlantUML, or proper diagram tools instead.`,
           node,

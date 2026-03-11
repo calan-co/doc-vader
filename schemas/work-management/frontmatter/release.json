@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/frontmatter/release.json",
+  "title": "work-management/frontmatter/release",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "allOf": [
+    {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+    },
+    {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+    },
+    {
+      "$ref": "../support/common.json#/$defs/correlationFields"
+    },
+    {
+      "$ref": "../support/common.json#/$defs/assignableFields"
+    },
+    {
+      "type": "object",
+      "required": [
+        "$schema",
+        "summary"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "schemas/work-management/frontmatter/release.json"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^release:[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "type": {
+          "const": "release"
+        },
+        "subtype": {
+          "$ref": "../support/common.json#/$defs/releaseSubtype"
+        },
+        "summary": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      }
+    }
+  ]
+}

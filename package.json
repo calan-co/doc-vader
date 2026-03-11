@@ -43,6 +43,7 @@
     "commander": "^14.0.2",
     "glob": "^11.0.3",
     "js-yaml": "^4.1.1",
+    "minimatch": "^10.2.4",
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "remark-lint": "^10.0.1",

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/content/plan.json",
+  "title": "work-management/content/plan",
+  "type": "object",
+  "required": [
+    "entityType",
+    "intent",
+    "methodology",
+    "assumptions",
+    "constraints",
+    "entries",
+    "relationships"
+  ],
+  "properties": {
+    "entityType": {
+      "const": "plan"
+    },
+    "intent": {
+      "$ref": "../support/common.json#/$defs/nonEmptyString"
+    },
+    "methodology": {
+      "$ref": "../support/common.json#/$defs/methodology"
+    },
+    "assumptions": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "constraints": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "../support/common.json#/$defs/planEntry"
+      }
+    },
+    "relationships": {
+      "$ref": "../support/common.json#/$defs/nonEmptyRelationshipList"
+    },
+    "notes": {
+      "$ref": "../support/common.json#/$defs/notesValue"
+    }
+  },
+  "additionalProperties": false
+}

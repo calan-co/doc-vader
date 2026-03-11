@@ -1,0 +1,783 @@
+{
+  "generatedFrom": [
+    "docs/reference/work-management/examples/greenfield-pet-store/project-pet-store-website.md",
+    "docs/reference/work-management/examples/greenfield-pet-store/release-pet-store-launch-01.md",
+    "docs/reference/work-management/examples/greenfield-pet-store/milestone-pet-store-checkout-ready.md",
+    "docs/reference/work-management/examples/greenfield-pet-store/work-item-pet-100.md",
+    "docs/reference/work-management/examples/greenfield-pet-store/work-item-pet-110.md",
+    "docs/reference/work-management/examples/greenfield-pet-store/work-item-pet-120.md",
+    "docs/reference/work-management/examples/greenfield-pet-store/plan-pet-store-strategy.md",
+    "docs/reference/work-management/examples/greenfield-pet-store/record-pet-store-launch-dry-run.md"
+  ],
+  "entities": [
+    {
+      "id": "project:pet-store-website",
+      "type": "project",
+      "subtype": "initiative",
+      "schemaTypes": [
+        "schema:Project",
+        "dv:Project"
+      ],
+      "frontmatter": {
+        "title": "Greenfield Pet Store Website",
+        "summary": "Launch the first public ecommerce experience for a neighborhood pet store.",
+        "owner": "product-team",
+        "assignee": "launch-manager",
+        "lifecycle": "active",
+        "status": "ready",
+        "status_reason": "prioritized",
+        "portfolio": "neighborhood-retail",
+        "product": "pet-store-digital",
+        "component": "storefront",
+        "target_end_period": "2026-Q2",
+        "tags": [
+          "pet-store",
+          "ecommerce",
+          "launch"
+        ]
+      },
+      "content": {
+        "entityType": "project",
+        "narrative": "This project creates the first customer-facing web experience for a neighborhood pet store. The target outcome is a credible launch that lets customers browse products, complete a purchase, and gives the business enough signal to guide the next release.",
+        "objectives": [
+          "Launch a storefront that supports browsing, cart, and checkout for first-wave orders.",
+          "Keep the launch scope focused enough to ship in a single staffed release window.",
+          "Capture enough operational and customer evidence to guide the next increment."
+        ],
+        "scope": {
+          "included": [
+            "Storefront shell, navigation, and reusable design primitives.",
+            "A purchase path from product discovery through checkout confirmation.",
+            "Launch-readiness planning, validation, and supporting operational evidence."
+          ],
+          "excluded": [
+            "Loyalty programs and subscriptions.",
+            "Native mobile applications.",
+            "Multi-store inventory routing."
+          ]
+        },
+        "successCriteria": [
+          "A first-time customer can browse products and complete a purchase.",
+          "The team can staff and promote a launch with explicit readiness gates.",
+          "Owners can review basic launch evidence before opening the next planning cycle."
+        ],
+        "relationships": [],
+        "notes": [
+          "This example keeps portfolio and product concerns as correlation fields rather than first-class authored entities.",
+          "Child entities record the canonical part_of, includes, and targets relationships back to this project.",
+          "That keeps the v1 foundation lightweight while preserving future roll-up paths such as portfolio -> product -> component."
+        ]
+      }
+    },
+    {
+      "id": "release:pet-store-launch-01",
+      "type": "release",
+      "subtype": "launch",
+      "schemaTypes": [
+        "schema:CreativeWork",
+        "dv:Release"
+      ],
+      "frontmatter": {
+        "title": "Pet Store Launch 01",
+        "summary": "First public launch boundary for browsing products and completing checkout online.",
+        "owner": "launch-manager",
+        "assignee": "delivery-lead",
+        "lifecycle": "active",
+        "status": "ready",
+        "status_reason": "scheduled",
+        "portfolio": "neighborhood-retail",
+        "product": "pet-store-digital",
+        "component": "storefront",
+        "target_start_date": "2026-05-18",
+        "target_end_date": "2026-05-20",
+        "tags": [
+          "launch",
+          "release",
+          "storefront"
+        ]
+      },
+      "content": {
+        "entityType": "release",
+        "releaseObjective": "Promote the first public storefront release once the purchase path, launch messaging, and launch evidence are all strong enough to support real customer traffic.",
+        "releaseScope": [
+          "Public storefront with browse-to-cart and checkout path.",
+          "Launch content and basic operating guidance for a staffed release window.",
+          "Explicit validation evidence captured before promotion."
+        ],
+        "readinessGates": [
+          "Checkout dry run passes against the release candidate environment.",
+          "Launch communications and on-site messaging are approved.",
+          "The release team can point to a current operational record for go-live."
+        ],
+        "rolloutNotes": [
+          "Promote during a staffed weekday window with product and engineering coverage.",
+          "If the payment provider is unstable at cut time, fall back to a browse-only holding state."
+        ],
+        "relationships": [
+          {
+            "type": "part_of",
+            "target": "project:pet-store-website"
+          },
+          {
+            "type": "includes",
+            "target": "work-item:pet-100"
+          },
+          {
+            "type": "includes",
+            "target": "work-item:pet-120"
+          },
+          {
+            "type": "targets",
+            "target": "milestone:pet-store-checkout-ready"
+          }
+        ],
+        "notes": "The release owns the launch boundary and included scope. It does not duplicate the task hierarchy already authored on work items."
+      }
+    },
+    {
+      "id": "milestone:pet-store-checkout-ready",
+      "type": "milestone",
+      "subtype": "capability",
+      "schemaTypes": [
+        "schema:Intangible",
+        "dv:Milestone"
+      ],
+      "frontmatter": {
+        "title": "Checkout Ready For Launch",
+        "summary": "Capability gate showing the purchase path is ready to support the first public release.",
+        "owner": "commerce-team",
+        "assignee": "qa-lead",
+        "lifecycle": "active",
+        "status": "ready",
+        "status_reason": "scheduled",
+        "portfolio": "neighborhood-retail",
+        "product": "pet-store-digital",
+        "component": "checkout",
+        "target_end_date": "2026-05-12",
+        "tags": [
+          "milestone",
+          "checkout",
+          "readiness"
+        ]
+      },
+      "content": {
+        "entityType": "milestone",
+        "milestoneObjective": "Make checkout readiness visible as a concrete capability gate before the launch release is cut.",
+        "successSignals": [
+          "The dry-run purchase path produces the expected totals and confirmation state.",
+          "Release stakeholders agree the checkout experience is credible for first-wave customers."
+        ],
+        "completionDefinition": [
+          "The checkout work item reaches a launch-ready state with evidence attached.",
+          "The launch record references the milestone as part of the release go/no-go packet."
+        ],
+        "relationships": [
+          {
+            "type": "part_of",
+            "target": "release:pet-store-launch-01"
+          },
+          {
+            "type": "targets",
+            "target": "work-item:pet-120"
+          }
+        ],
+        "notes": "This milestone is modeled as a target, not as executable work. The work item and release remain the authored sources of execution and ship scope."
+      }
+    },
+    {
+      "id": "work-item:pet-100",
+      "type": "work-item",
+      "subtype": "epic",
+      "schemaTypes": [
+        "schema:Action",
+        "dv:WorkItem"
+      ],
+      "frontmatter": {
+        "title": "Launch Pet Store Website MVP",
+        "summary": "Coordinate the minimum viable storefront launch across design, delivery, and launch readiness work.",
+        "owner": "delivery-lead",
+        "assignee": "product-team",
+        "lifecycle": "active",
+        "status": "ready",
+        "status_reason": "prioritized",
+        "priority": "high",
+        "estimated": 21,
+        "portfolio": "neighborhood-retail",
+        "product": "pet-store-digital",
+        "component": "storefront",
+        "target_end_period": "2026-Q2",
+        "links": {
+          "reference": [
+            "[[release-pet-store-launch-01.md]]",
+            "[[plan-pet-store-strategy.md]]"
+          ]
+        },
+        "tags": [
+          "epic",
+          "launch",
+          "storefront"
+        ]
+      },
+      "content": {
+        "entityType": "work-item",
+        "goal": "Coordinate the work required to launch the first customer-ready storefront MVP.",
+        "background": [
+          "The first release needs one durable execution artifact that keeps scope, sequencing, and launch-readiness work aligned.",
+          "Release, milestone, and plan artifacts should point at the same execution boundary instead of duplicating delivery semantics."
+        ],
+        "tasks": [
+          {
+            "text": "Establish the storefront foundation and deployment baseline.",
+            "done": true
+          },
+          {
+            "text": "Deliver the checkout-ready purchase path and supporting launch evidence.",
+            "done": false
+          },
+          {
+            "text": "Keep release, milestone, and planning overlays aligned with the same MVP boundary.",
+            "done": false
+          }
+        ],
+        "acceptanceCriteria": [
+          {
+            "text": "The MVP boundary is explicit enough to guide delivery and release planning.",
+            "done": false
+          },
+          {
+            "text": "Child work items cover foundation and checkout-readiness concerns without duplicating ownership.",
+            "done": false
+          }
+        ],
+        "deliverables": [
+          "One coherent launch epic tying project, release, milestone, and plan artifacts together.",
+          "Child work items that can be sequenced and audited independently."
+        ],
+        "relationships": [
+          {
+            "type": "part_of",
+            "target": "project:pet-store-website"
+          }
+        ],
+        "scope": {
+          "successCriteria": [
+            "The launch scope is small enough to ship in a single staffed release window.",
+            "Downstream work can roll up into one execution boundary without restating ownership rules."
+          ],
+          "nonGoals": [
+            "Modeling portfolio, product, or component as first-class authored entities in v1.",
+            "Turning the epic into a second release plan with duplicated sequencing detail."
+          ]
+        },
+        "analysis": {
+          "summary": "This epic is the durable execution anchor for the launch. It keeps the release, milestone, and plan artifacts focused on their own perspectives while child work items carry the executable decomposition."
+        },
+        "notes": [
+          "This epic does not author reverse child links.",
+          "Tooling derives those from the child work items that point back with part_of."
+        ]
+      }
+    },
+    {
+      "id": "work-item:pet-110",
+      "type": "work-item",
+      "subtype": "task",
+      "schemaTypes": [
+        "schema:Action",
+        "dv:WorkItem"
+      ],
+      "frontmatter": {
+        "title": "Establish Storefront Foundation",
+        "summary": "Set up the storefront shell, deployment baseline, and launch-ready design primitives.",
+        "owner": "platform-team",
+        "assignee": "frontend-lead",
+        "lifecycle": "active",
+        "status": "closed",
+        "status_reason": "completed",
+        "priority": "high",
+        "estimated": 13,
+        "actual": 11,
+        "portfolio": "neighborhood-retail",
+        "product": "pet-store-digital",
+        "component": "storefront-shell",
+        "target_end_date": "2026-04-15",
+        "commits": {
+          "a1b2c3d": "Build storefront shell and deployment baseline",
+          "d4e5f6a": "Add design primitives and foundation smoke test coverage"
+        },
+        "links": {
+          "pull_requests": [
+            "https://github.com/example/pet-store/pull/42"
+          ],
+          "evidence": [
+            "https://example.internal/pet-store/foundation-smoke-test"
+          ],
+          "reference": [
+            "[[project-pet-store-website.md]]"
+          ]
+        },
+        "tags": [
+          "task",
+          "foundation",
+          "storefront"
+        ]
+      },
+      "content": {
+        "entityType": "work-item",
+        "goal": "Set up the storefront shell, hosting baseline, and reusable launch-ready design primitives.",
+        "background": [
+          "Checkout readiness depends on a stable shell, predictable deployment path, and shared UI primitives.",
+          "Closing this task should make the downstream checkout work unambiguously unblocked."
+        ],
+        "tasks": [
+          {
+            "text": "Create the storefront shell with base routes and navigation.",
+            "done": true
+          },
+          {
+            "text": "Establish the deployment baseline for the release candidate environment.",
+            "done": true
+          },
+          {
+            "text": "Publish the initial set of reusable design primitives needed by checkout work.",
+            "done": true
+          }
+        ],
+        "acceptanceCriteria": [
+          {
+            "text": "The storefront shell loads in the target environment.",
+            "done": true,
+            "verification": "Open the release candidate shell and confirm navigation and base routes render."
+          },
+          {
+            "text": "Shared design primitives are available for downstream launch work.",
+            "done": true,
+            "verification": "Review the initial component inventory used by the checkout path."
+          }
+        ],
+        "deliverables": [
+          "A deployable storefront shell.",
+          "Reusable launch-ready design primitives.",
+          "Smoke-test evidence for the shell and baseline routes."
+        ],
+        "relationships": [
+          {
+            "type": "part_of",
+            "target": "work-item:pet-100"
+          }
+        ],
+        "design": {
+          "architecture": "The foundation task owns the storefront shell, the route scaffold, and the shared primitive layer. Downstream feature tasks depend on those capabilities without restating the hosting or shell concerns.",
+          "styleGuidelines": [
+            "Keep layout and navigation primitives reusable across browse, cart, and checkout flows.",
+            "Prefer launch-ready defaults over theme complexity in the first release boundary."
+          ]
+        },
+        "examples": {
+          "usageExamples": [
+            "Base shell routes render /, /products, and /cart without fallback errors.",
+            "Checkout work can import the shared button, input, and layout primitives directly from the storefront shell package."
+          ]
+        },
+        "testing": {
+          "strategy": "Validate the shell in the release candidate environment and keep the smoke path small enough that it can be rerun whenever the hosting baseline changes.",
+          "runCommands": [
+            "Deploy the release candidate shell to the preview environment.",
+            "Execute the storefront shell smoke test against the preview hostname."
+          ]
+        },
+        "operations": {
+          "runbookOutline": [
+            "Verify preview deployment health before handing the environment to commerce work.",
+            "Record smoke-test evidence anywhere the launch team can retrieve it during release review."
+          ]
+        },
+        "notes": [
+          "This task is intentionally closed before the checkout task moves into review so the example graph has one clear upstream dependency."
+        ]
+      }
+    },
+    {
+      "id": "work-item:pet-120",
+      "type": "work-item",
+      "subtype": "task",
+      "schemaTypes": [
+        "schema:Action",
+        "dv:WorkItem"
+      ],
+      "frontmatter": {
+        "title": "Deliver Checkout-Ready Purchase Path",
+        "summary": "Complete the browse-to-cart and checkout path needed for launch readiness.",
+        "owner": "commerce-team",
+        "assignee": "checkout-lead",
+        "lifecycle": "active",
+        "status": "ready-for-review",
+        "status_reason": "verification-pending",
+        "priority": "critical",
+        "estimated": 8,
+        "actual": 7,
+        "portfolio": "neighborhood-retail",
+        "product": "pet-store-digital",
+        "component": "checkout",
+        "target_end_date": "2026-05-08",
+        "commits": {
+          "e1f2a3b": "Implement browse-to-cart checkout flow",
+          "c4d5e6f": "Attach dry-run evidence and launch review notes"
+        },
+        "links": {
+          "pull_requests": [
+            "https://github.com/example/pet-store/pull/57"
+          ],
+          "evidence": [
+            "[[record-pet-store-launch-dry-run.md]]"
+          ],
+          "reference": [
+            "[[milestone-pet-store-checkout-ready.md]]",
+            "[[release-pet-store-launch-01.md]]"
+          ]
+        },
+        "tags": [
+          "task",
+          "checkout",
+          "commerce"
+        ]
+      },
+      "content": {
+        "entityType": "work-item",
+        "goal": "Deliver the purchase path needed for launch readiness, from product selection through checkout confirmation.",
+        "background": [
+          "The launch release only ships if the team can demonstrate one credible end-to-end purchase flow.",
+          "This task follows the storefront foundation work and concentrates the evidence needed for the release go/no-go packet."
+        ],
+        "tasks": [
+          {
+            "text": "Implement the product-selection, cart, and checkout confirmation path.",
+            "done": true
+          },
+          {
+            "text": "Exercise the path against the release candidate environment and capture evidence.",
+            "done": true
+          },
+          {
+            "text": "Complete launch review of the evidence packet and close the task.",
+            "done": false
+          }
+        ],
+        "acceptanceCriteria": [
+          {
+            "text": "A buyer can move from product selection to checkout confirmation.",
+            "done": true,
+            "verification": "Run a representative purchase path in the release candidate environment."
+          },
+          {
+            "text": "The checkout dry run is accepted into the release go/no-go packet.",
+            "done": false,
+            "verification": "Review the linked test-result record during launch review."
+          }
+        ],
+        "deliverables": [
+          "A launch-ready purchase path.",
+          "Evidence-ready validation steps for the release cut.",
+          "A linked dry-run record that release stakeholders can review."
+        ],
+        "relationships": [
+          {
+            "type": "part_of",
+            "target": "work-item:pet-100"
+          },
+          {
+            "type": "depends_on",
+            "target": "work-item:pet-110"
+          }
+        ],
+        "testing": {
+          "strategy": "Use one representative purchase flow as the canonical dry run, then attach the captured evidence directly to the work item and release boundary.",
+          "scenarios": [
+            "Buyer browses a product, adds it to cart, completes checkout, and sees the expected confirmation state.",
+            "Launch reviewers can trace the dry-run result back to both this work item and the release boundary."
+          ],
+          "runCommands": [
+            "Run the checkout dry run against the release candidate environment.",
+            "Review the linked test-result record before closing the work item."
+          ]
+        },
+        "operations": {
+          "releaseChecklist": [
+            "Confirm the dry-run evidence is linked from the work item before closure.",
+            "Verify release stakeholders have reviewed the linked evidence during go/no-go."
+          ]
+        },
+        "notes": [
+          "This task is the canonical authored source of the dependency on the storefront foundation.",
+          "Reverse dependency views are derived in tooling."
+        ]
+      }
+    },
+    {
+      "id": "plan:pet-store-strategy",
+      "type": "plan",
+      "subtype": "strategic",
+      "schemaTypes": [
+        "schema:CreativeWork",
+        "schema:ItemList",
+        "dv:Plan"
+      ],
+      "frontmatter": {
+        "title": "Pet Store Launch Strategy",
+        "summary": "Strategic launch view showing the release anchor, checkout gate, and the work that determines launch credibility.",
+        "owner": "product-team",
+        "assignee": "delivery-lead",
+        "lifecycle": "active",
+        "status": "ready",
+        "status_reason": "scheduled",
+        "portfolio": "neighborhood-retail",
+        "product": "pet-store-digital",
+        "component": "storefront",
+        "target_start_date": "2026-02-01",
+        "target_end_period": "2026-Q2",
+        "tags": [
+          "strategic",
+          "plan",
+          "launch"
+        ]
+      },
+      "content": {
+        "entityType": "plan",
+        "intent": "Provide the market-facing planning view of the first storefront launch so the team can reason about release scope, checkout readiness, and launch evidence in one place.",
+        "methodology": "hybrid",
+        "assumptions": [
+          "The team can keep the launch scope narrow enough to ship during a single staffed window.",
+          "Checkout readiness is the highest-risk capability gate for the first release."
+        ],
+        "constraints": [
+          "Do not cut the release before a current launch record references the checkout milestone.",
+          "Avoid adding new launch scope once checkout validation begins."
+        ],
+        "entries": [
+          {
+            "target": "release:pet-store-launch-01",
+            "position": 1,
+            "status": "anchor",
+            "rationale": "The release defines the ship boundary and staffed launch window."
+          },
+          {
+            "target": "work-item:pet-120",
+            "position": 2,
+            "status": "focus",
+            "rationale": "Checkout readiness is the launch-critical delivery concern."
+          },
+          {
+            "target": "milestone:pet-store-checkout-ready",
+            "position": 3,
+            "status": "guardrail",
+            "rationale": "The milestone makes the go/no-go gate visible without opening the release artifact."
+          }
+        ],
+        "relationships": [
+          {
+            "type": "part_of",
+            "target": "project:pet-store-website"
+          }
+        ],
+        "notes": "The plan remains an overlay. It does not own task decomposition or release scope; it only expresses a specific planning lens across those entities."
+      }
+    },
+    {
+      "id": "record:pet-store-launch-dry-run",
+      "type": "record",
+      "subtype": "test-result",
+      "schemaTypes": [
+        "schema:CreativeWork",
+        "dv:Record"
+      ],
+      "frontmatter": {
+        "title": "Checkout Dry Run Before Launch",
+        "summary": "Test-result record capturing the final dry-run purchase flow before launch.",
+        "owner": "qa-lead",
+        "lifecycle": "active",
+        "status": "ready",
+        "status_reason": "recorded",
+        "tags": [
+          "record",
+          "test-result",
+          "checkout"
+        ]
+      },
+      "content": {
+        "entityType": "record",
+        "recordedAt": "2026-05-01T14:00:00Z",
+        "outcome": "pass",
+        "observation": "The release candidate purchase path was exercised end to end against the launch configuration immediately before the staffed launch review.",
+        "findings": [
+          "Totals, tax, and confirmation copy matched the expected launch behavior.",
+          "No blocking issues were observed during the dry run."
+        ],
+        "subjectRefs": [
+          "release:pet-store-launch-01",
+          "milestone:pet-store-checkout-ready",
+          "work-item:pet-120"
+        ],
+        "artifactRefs": [
+          "[[plan-pet-store-strategy.md]]",
+          "https://example.internal/pet-store/dry-run-2026-05-01"
+        ],
+        "notes": "This record captures evidence without mutating the release, milestone, or work item content. Those authored artifacts remain focused on their own semantics."
+      }
+    }
+  ],
+  "derivedRelationships": [
+    {
+      "type": "has_part",
+      "source": "project:pet-store-website",
+      "target": "release:pet-store-launch-01",
+      "derivedFrom": {
+        "entity": "release:pet-store-launch-01",
+        "relationshipType": "part_of"
+      }
+    },
+    {
+      "type": "has_part",
+      "source": "project:pet-store-website",
+      "target": "work-item:pet-100",
+      "derivedFrom": {
+        "entity": "work-item:pet-100",
+        "relationshipType": "part_of"
+      }
+    },
+    {
+      "type": "has_part",
+      "source": "project:pet-store-website",
+      "target": "plan:pet-store-strategy",
+      "derivedFrom": {
+        "entity": "plan:pet-store-strategy",
+        "relationshipType": "part_of"
+      }
+    },
+    {
+      "type": "has_part",
+      "source": "release:pet-store-launch-01",
+      "target": "milestone:pet-store-checkout-ready",
+      "derivedFrom": {
+        "entity": "milestone:pet-store-checkout-ready",
+        "relationshipType": "part_of"
+      }
+    },
+    {
+      "type": "has_part",
+      "source": "work-item:pet-100",
+      "target": "work-item:pet-110",
+      "derivedFrom": {
+        "entity": "work-item:pet-110",
+        "relationshipType": "part_of"
+      }
+    },
+    {
+      "type": "has_part",
+      "source": "work-item:pet-100",
+      "target": "work-item:pet-120",
+      "derivedFrom": {
+        "entity": "work-item:pet-120",
+        "relationshipType": "part_of"
+      }
+    },
+    {
+      "type": "included_in",
+      "source": "work-item:pet-100",
+      "target": "release:pet-store-launch-01",
+      "derivedFrom": {
+        "entity": "release:pet-store-launch-01",
+        "relationshipType": "includes"
+      }
+    },
+    {
+      "type": "included_in",
+      "source": "work-item:pet-120",
+      "target": "release:pet-store-launch-01",
+      "derivedFrom": {
+        "entity": "release:pet-store-launch-01",
+        "relationshipType": "includes"
+      }
+    },
+    {
+      "type": "targeted_by",
+      "source": "milestone:pet-store-checkout-ready",
+      "target": "release:pet-store-launch-01",
+      "derivedFrom": {
+        "entity": "release:pet-store-launch-01",
+        "relationshipType": "targets"
+      }
+    },
+    {
+      "type": "targeted_by",
+      "source": "work-item:pet-120",
+      "target": "milestone:pet-store-checkout-ready",
+      "derivedFrom": {
+        "entity": "milestone:pet-store-checkout-ready",
+        "relationshipType": "targets"
+      }
+    },
+    {
+      "type": "blocked_by",
+      "source": "work-item:pet-120",
+      "target": "work-item:pet-110",
+      "derivedFrom": {
+        "entity": "work-item:pet-120",
+        "relationshipType": "depends_on"
+      }
+    },
+    {
+      "type": "targeted_by",
+      "source": "release:pet-store-launch-01",
+      "target": "plan:pet-store-strategy",
+      "derivedFrom": {
+        "entity": "plan:pet-store-strategy",
+        "relationshipType": "entry"
+      }
+    },
+    {
+      "type": "targeted_by",
+      "source": "work-item:pet-120",
+      "target": "plan:pet-store-strategy",
+      "derivedFrom": {
+        "entity": "plan:pet-store-strategy",
+        "relationshipType": "entry"
+      }
+    },
+    {
+      "type": "targeted_by",
+      "source": "milestone:pet-store-checkout-ready",
+      "target": "plan:pet-store-strategy",
+      "derivedFrom": {
+        "entity": "plan:pet-store-strategy",
+        "relationshipType": "entry"
+      }
+    },
+    {
+      "type": "referenced_by",
+      "source": "release:pet-store-launch-01",
+      "target": "record:pet-store-launch-dry-run",
+      "derivedFrom": {
+        "entity": "record:pet-store-launch-dry-run",
+        "relationshipType": "subjectRefs"
+      }
+    },
+    {
+      "type": "referenced_by",
+      "source": "milestone:pet-store-checkout-ready",
+      "target": "record:pet-store-launch-dry-run",
+      "derivedFrom": {
+        "entity": "record:pet-store-launch-dry-run",
+        "relationshipType": "subjectRefs"
+      }
+    },
+    {
+      "type": "referenced_by",
+      "source": "work-item:pet-120",
+      "target": "record:pet-store-launch-dry-run",
+      "derivedFrom": {
+        "entity": "record:pet-store-launch-dry-run",
+        "relationshipType": "subjectRefs"
+      }
+    }
+  ]
+}

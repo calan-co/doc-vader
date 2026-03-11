@@ -10,9 +10,10 @@ description: |
   Support Dublin Core, Schema.org, and custom vocabularies.
   Store in contexts/ directory for reference in .doc.json configuration.
 summary: JSON-LD context definitions for vocabulary mapping
-owner: ~
+priority: low
 audience: [developers]
-governance: technical-decision
+governance:
+  profiles: [technical-decision]
 tags: [json-ld, vocabulary, contexts]
 estimated: 3
 links:

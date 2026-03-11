@@ -6,12 +6,10 @@ lifecycle: active
 status: proposed
 title: Create execution-item-status-validity lint rule
 description: |
-  Implement lint validation that ensures `current_phase` and `current_item` fields
-  in epic execution blocks reference actual values from the phases hierarchy.
+  Implement lint validation that ensures `current_phase` and `current_item` fields in epic execution blocks reference actual values from the phases hierarchy.
   Prevents stale references that no longer exist in the execution plan.
 priority: medium
 estimated: 2
-owner: ~
 tags: [validation, lint, execution, schemas]
 links:
   depends_on:
@@ -118,7 +116,7 @@ function main() {
     const allItemIds = new Set();
 
     execution.phases.forEach((phase) => {
-      collectPhaseNames(phase, Array.from(allPhaseNames));
+      collectPhaseNames(phase, allPhaseNames);
       collectItemIds(phase, allItemIds);
     });
 

@@ -23,11 +23,11 @@ Primary repo is `doc-vader`, with explicit consumer migration tasks for `templjs
 
 | Milestone                                          | Status   | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | -------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M1: Baseline + schema alignment (`208.2.*`)        | complete | [`schemas/frontmatter/work-item/1.0.0.json`](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/work-item/1.0.0.json), [`schemas/frontmatter/document/1.0.0.json`](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/document/1.0.0.json)                                                                                                                                                                                                                                                   |
-| M2: Backlog audit + remediation (`208.1.*`)        | complete | [`backlog/audit/auditing-backlog-report.json`](/Users/macos/dev/tiab/doc-vader/backlog/audit/auditing-backlog-report.json)                                                                                                                                                                                                                                                                                                                                                                     |
-| M3: Controlled closure + finalization (`208.3.*`)  | complete | [`backlog/archive/160.template-compliance-feature.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/160.template-compliance-feature.md), [`backlog/archive/30.markdown-linting-commercialization.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/30.markdown-linting-commercialization.md), [`backlog/archive/188.spike-core-linting-framework-scope-definition-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/archive/188.spike-core-linting-framework-scope-definition-story.md) |
-| M4: Reconciliation + strict gating (`208.4.*`)     | complete | `pnpm run backlog:validate:ci`, [`staging/scripts/backlog-hygiene-ci.sh`](/Users/macos/dev/tiab/doc-vader/staging/scripts/backlog-hygiene-ci.sh), [`backlog/audit/auditing-backlog-report.json`](/Users/macos/dev/tiab/doc-vader/backlog/audit/auditing-backlog-report.json), [`backlog/208.4.2.hygiene-ci-gate-task.md`](/Users/macos/dev/tiab/doc-vader/backlog/208.4.2.hygiene-ci-gate-task.md)                                                                                             |
-| M5: Shared-engine consumer stabilization (`207.*`) | complete | [`backlog/207.shared-engine-mvp-epic.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.shared-engine-mvp-epic.md), [`backlog/207.1.templjs-consumer-migration-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.1.templjs-consumer-migration-story.md), [`backlog/207.2.pax-consumer-migration-story.md`](/Users/macos/dev/tiab/doc-vader/backlog/207.2.pax-consumer-migration-story.md), [PR #1](https://github.com/squirrel289/doc-vader/pull/1)                                         |
+| M1: Baseline + schema alignment (`208.2.*`)        | complete | [`schemas/frontmatter/work-item/1.0.0.json`](schemas/frontmatter/work-item/1.0.0.json), [`schemas/frontmatter/document/1.0.0.json`](schemas/frontmatter/document/1.0.0.json)                                                                                                                                                                                                                                                   |
+| M2: Backlog audit + remediation (`208.1.*`)        | complete | [`backlog/audit/auditing-backlog-report.json`](backlog/audit/auditing-backlog-report.json)                                                                                                                                                                                                                                                                                                                                                                     |
+| M3: Controlled closure + finalization (`208.3.*`)  | complete | [`backlog/archive/160.template-compliance-feature.md`](backlog/archive/160.template-compliance-feature.md), [`backlog/archive/30.markdown-linting-commercialization.md`](backlog/archive/30.markdown-linting-commercialization.md), [`backlog/archive/188.spike-core-linting-framework-scope-definition-story.md`](backlog/archive/188.spike-core-linting-framework-scope-definition-story.md) |
+| M4: Reconciliation + strict gating (`208.4.*`)     | complete | `pnpm run backlog:validate:ci`, [`staging/scripts/backlog-hygiene-ci.sh`](staging/scripts/backlog-hygiene-ci.sh), [`backlog/audit/auditing-backlog-report.json`](backlog/audit/auditing-backlog-report.json), [`backlog/208.4.2.hygiene-ci-gate-task.md`](backlog/208.4.2.hygiene-ci-gate-task.md)                                                                                             |
+| M5: Shared-engine consumer stabilization (`207.*`) | complete | [`backlog/207.shared-engine-mvp-epic.md`](backlog/207.shared-engine-mvp-epic.md), [`backlog/207.1.templjs-consumer-migration-story.md`](backlog/207.1.templjs-consumer-migration-story.md), [`backlog/207.2.pax-consumer-migration-story.md`](backlog/207.2.pax-consumer-migration-story.md), [PR #1](https://github.com/squirrel289/doc-vader/pull/1)                                         |
 
 ## Execution Log
 
@@ -52,8 +52,8 @@ Primary repo is `doc-vader`, with explicit consumer migration tasks for `templjs
 
 ## Required Public Interface and Schema Changes
 
-1. Add `status_reason` to work-item frontmatter schema in [work-item schema](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/work-item/1.0.0.json) and alias in `current.json`.
-2. Add closure-compatible status handling in [document schema](/Users/macos/dev/tiab/doc-vader/schemas/frontmatter/document/1.0.0.json):
+1. Add `status_reason` to work-item frontmatter schema in [work-item schema](schemas/frontmatter/work-item/1.0.0.json) and alias in `current.json`.
+2. Add closure-compatible status handling in [document schema](schemas/frontmatter/document/1.0.0.json):
    - Add `closed` to status enum.
    - Preserve legacy statuses for backward compatibility.
    - Add lifecycle/status compatibility for `closed`.
@@ -68,11 +68,11 @@ Primary repo is `doc-vader`, with explicit consumer migration tasks for `templjs
 
 ## Backlog Updates (Existing Items)
 
-1. Update [170.remark-lint-unified-adoption-epic.md](/Users/macos/dev/tiab/doc-vader/backlog/170.remark-lint-unified-adoption-epic.md) to include shared-engine + hygiene lane completion criteria.
-2. Update [support-multi-frameworks.md](/Users/macos/dev/tiab/doc-vader/backlog/support-multi-frameworks.md) to include profile-driven governance and reconciliation.
-3. Update [framework-reconciliation.md](/Users/macos/dev/tiab/doc-vader/backlog/framework-reconciliation.md) for deterministic non-interactive strategy selection.
-4. Update [171.2.4.task-update-docs-lint-sh-to-use-remark-lint-pipeline.md](/Users/macos/dev/tiab/doc-vader/backlog/171.2.4.task-update-docs-lint-sh-to-use-remark-lint-pipeline.md) to include strict fail policy and JSON output acceptance criteria.
-5. Update [172.frontmatter-schema-integration-feature.md](/Users/macos/dev/tiab/doc-vader/backlog/172.frontmatter-schema-integration-feature.md) to include status_reason/closed migration and schema-map routing.
+1. Update [170.remark-lint-unified-adoption-epic.md](backlog/170.remark-lint-unified-adoption-epic.md) to include shared-engine + hygiene lane completion criteria.
+2. Update [support-multi-frameworks.md](backlog/support-multi-frameworks.md) to include profile-driven governance and reconciliation.
+3. Update [framework-reconciliation.md](backlog/framework-reconciliation.md) for deterministic non-interactive strategy selection.
+4. Update [171.2.4.task-update-docs-lint-sh-to-use-remark-lint-pipeline.md](backlog/171.2.4.task-update-docs-lint-sh-to-use-remark-lint-pipeline.md) to include strict fail policy and JSON output acceptance criteria.
+5. Update [172.frontmatter-schema-integration-feature.md](backlog/172.frontmatter-schema-integration-feature.md) to include status_reason/closed migration and schema-map routing.
 
 ## New Work Items (Discrete, Actionable)
 
@@ -179,11 +179,11 @@ Each corresponding epic includes `depends_on` links for this in-scope trunk set 
 
 ## Documentation Deliverables
 
-1. Update [project-brief.md](/Users/macos/dev/tiab/doc-vader/docs/project-brief.md) with shared-engine + hygiene lane objectives.
-2. Update [remark-lint-unified-architecture.md](/Users/macos/dev/tiab/doc-vader/docs/reference/remark-lint-unified-architecture.md) with closure and guardrail layers.
+1. Update [project-brief.md](docs/project-brief.md) with shared-engine + hygiene lane objectives.
+2. Update [remark-lint-unified-architecture.md](docs/reference/remark-lint-unified-architecture.md) with closure and guardrail layers.
 3. Add `docs/how-to/backlog-hygiene-cleanup.md` documenting the 1-4 action flow.
 4. Add `docs/how-to/closure-reason-policy.md` defining `status_reason` usage.
-5. Update [CONTRIBUTING.md](/Users/macos/dev/tiab/doc-vader/CONTRIBUTING.md) with mandatory hygiene gate checks.
+5. Update [CONTRIBUTING.md](CONTRIBUTING.md) with mandatory hygiene gate checks.
 
 ## Assumptions and Defaults
 

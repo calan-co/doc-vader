@@ -6,13 +6,12 @@ lifecycle: active
 status: proposed
 title: Enable Extensible Subtypes via x-* Pattern
 description: |
-  Update document and work-item schemas to allow custom subtypes
-  using x-* namespace (e.g., x-runbook, x-rfc). Update schema-map.json
-  to support optional bySubtype routing for custom types.
+  Update document and work-item schemas to allow custom subtypes using x-* namespace (e.g., x-runbook, x-rfc). Update schema-map.json to support optional bySubtype routing for custom types.
 summary: Extensible subtype namespace for custom document types
-owner: ~
+priority: medium
 audience: [developers]
-governance: technical-decision
+governance:
+  profiles: [technical-decision]
 tags: [schemas, extensibility, subtypes]
 estimated: 2
 links:

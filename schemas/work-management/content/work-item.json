@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/content/work-item.json",
+  "title": "work-management/content/work-item",
+  "type": "object",
+  "required": [
+    "entityType",
+    "goal",
+    "tasks",
+    "acceptanceCriteria",
+    "relationships"
+  ],
+  "properties": {
+    "entityType": {
+      "const": "work-item"
+    },
+    "goal": {
+      "$ref": "../support/common.json#/$defs/nonEmptyString"
+    },
+    "background": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "tasks": {
+      "$ref": "../support/common.json#/$defs/taskList"
+    },
+    "deliverables": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "../support/common.json#/$defs/acceptanceCriterion"
+      }
+    },
+    "relationships": {
+      "$ref": "../support/common.json#/$defs/nonEmptyRelationshipList"
+    },
+    "design": {
+      "$ref": "../support/common.json#/$defs/designFamily"
+    },
+    "examples": {
+      "$ref": "../support/common.json#/$defs/examplesFamily"
+    },
+    "testing": {
+      "$ref": "../support/common.json#/$defs/testingFamily"
+    },
+    "operations": {
+      "$ref": "../support/common.json#/$defs/operationsFamily"
+    },
+    "scope": {
+      "$ref": "../support/common.json#/$defs/scopeFamily"
+    },
+    "analysis": {
+      "$ref": "../support/common.json#/$defs/analysisFamily"
+    },
+    "notes": {
+      "$ref": "../support/common.json#/$defs/stringList"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/content/record.json",
+  "title": "work-management/content/record",
+  "type": "object",
+  "required": [
+    "entityType",
+    "recordedAt",
+    "observation",
+    "subjectRefs"
+  ],
+  "properties": {
+    "entityType": {
+      "const": "record"
+    },
+    "recordedAt": {
+      "$ref": "../support/common.json#/$defs/dateTimeString"
+    },
+    "outcome": {
+      "$ref": "../support/common.json#/$defs/recordOutcome"
+    },
+    "observation": {
+      "$ref": "../support/common.json#/$defs/nonEmptyString"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "../support/common.json#/$defs/nonEmptyString"
+      }
+    },
+    "subjectRefs": {
+      "$ref": "../support/common.json#/$defs/entityRefList"
+    },
+    "artifactRefs": {
+      "$ref": "../support/common.json#/$defs/supportingRefList"
+    },
+    "notes": {
+      "$ref": "../support/common.json#/$defs/notesValue"
+    }
+  },
+  "additionalProperties": false
+}

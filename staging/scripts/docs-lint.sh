@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Centralized documentation linting script
 # Uses unified remark-lint pipeline with custom plugins for consistent validation
 

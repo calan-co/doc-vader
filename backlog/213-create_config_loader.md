@@ -6,13 +6,13 @@ lifecycle: active
 status: proposed
 title: Create Configuration Loader with Extends Support (lib/config/loader.ts)
 description: |
-  Implement ConfigLoader class with extends resolution, circular dependency detection,
-  and TypeBox schema validation. Uses AJV directly (already a dependency) for validation.
+  Implement ConfigLoader class with extends resolution, circular dependency detection, and TypeBox schema validation. Uses AJV directly (already a dependency) for validation.
   Supports extends chains and merges configs following tsconfig.json patterns.
 summary: Config loader with extends inheritance and deep merging
-owner: ~
+priority: medium
 audience: [developers]
-governance: technical-decision
+governance:
+  profiles: [technical-decision]
 tags: [config, typebox, ajv, loader]
 estimated: 3
 links:

@@ -1,0 +1,617 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/support/common.json",
+  "title": "work-management/support/common",
+  "description": "Shared building blocks for the canonical work-management foundation.",
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stringList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "notesValue": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        {
+          "$ref": "#/$defs/stringList"
+        }
+      ]
+    },
+    "normalizedToken": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "extensionToken": {
+      "type": "string",
+      "pattern": "^x-[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "planningPeriod": {
+      "type": "string",
+      "pattern": "^\\d{4}(?:-(?:Q[1-4]|H[1-2]))?$"
+    },
+    "dateString": {
+      "type": "string",
+      "format": "date"
+    },
+    "dateTimeString": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entityId": {
+      "type": "string",
+      "pattern": "^(project|release|milestone|work-item|plan|record):[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "entityRefList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/entityId"
+      }
+    },
+    "primaryType": {
+      "type": "string",
+      "enum": ["project", "release", "milestone", "work-item", "plan", "record"]
+    },
+    "frontmatterSchemaRef": {
+      "type": "string",
+      "pattern": "^schemas/work-management/frontmatter/[a-z0-9-]+\\.json$"
+    },
+    "contentSchemaRef": {
+      "type": "string",
+      "pattern": "^schemas/work-management/content/[a-z0-9-]+\\.json$"
+    },
+    "projectSubtype": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["initiative", "program"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "releaseSubtype": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["launch", "incremental", "hotfix"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "milestoneSubtype": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["capability", "date-gate", "decision-gate"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "workItemSubtype": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["epic", "feature", "story", "task", "bug", "spike"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "planSubtype": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["strategic", "operational", "tactical", "contingency"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "recordSubtype": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "evidence",
+            "test-result",
+            "comment",
+            "approval",
+            "audit-note"
+          ]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "methodology": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["waterfall", "agile", "hybrid", "remedial", "ad-hoc"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "planEntryStatus": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "anchor",
+            "focus",
+            "committed",
+            "active",
+            "queued",
+            "watch",
+            "fallback",
+            "stretch",
+            "guardrail"
+          ]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "recordOutcome": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["pass", "fail", "mixed", "approved", "rejected", "noted"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "priority": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "effortHours": {
+      "type": "number",
+      "minimum": 0
+    },
+    "relationshipType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["part_of", "depends_on", "targets", "includes"]
+        },
+        {
+          "$ref": "#/$defs/extensionToken"
+        }
+      ]
+    },
+    "relationship": {
+      "type": "object",
+      "required": ["type", "target"],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/relationshipType"
+        },
+        "target": {
+          "$ref": "#/$defs/entityId"
+        },
+        "note": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "relationshipList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "nonEmptyRelationshipList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    },
+    "checklistState": {
+      "type": "boolean"
+    },
+    "taskItem": {
+      "type": "object",
+      "required": ["text", "done"],
+      "properties": {
+        "text": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "done": {
+          "$ref": "#/$defs/checklistState"
+        },
+        "subtasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/taskItem"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "taskList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/taskItem"
+      }
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "required": ["text", "done"],
+      "properties": {
+        "text": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "done": {
+          "$ref": "#/$defs/checklistState"
+        },
+        "verification": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scopeBlock": {
+      "type": "object",
+      "required": ["included", "excluded"],
+      "properties": {
+        "included": {
+          "$ref": "#/$defs/stringList"
+        },
+        "excluded": {
+          "$ref": "#/$defs/stringList"
+        }
+      },
+      "additionalProperties": false
+    },
+    "planEntry": {
+      "type": "object",
+      "required": ["target", "position", "status", "rationale"],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/entityId"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "$ref": "#/$defs/planEntryStatus"
+        },
+        "rationale": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "supportingRef": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/link"
+    },
+    "supportingRefList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/supportingRef"
+      }
+    },
+    "uriRef": {
+      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/uri"
+    },
+    "uriRefList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/uriRef"
+      }
+    },
+    "commitMap": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^(?:[0-9a-f]{7}|[0-9a-f]{40})$": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 40
+      },
+      "additionalProperties": false
+    },
+    "workItemLinks": {
+      "type": "object",
+      "properties": {
+        "pull_requests": {
+          "$ref": "#/$defs/uriRefList"
+        },
+        "evidence": {
+          "$ref": "#/$defs/supportingRefList"
+        },
+        "reference": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "designFamily": {
+      "type": "object",
+      "properties": {
+        "architecture": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "technicalChallenges": {
+          "$ref": "#/$defs/stringList"
+        },
+        "keyQuestions": {
+          "$ref": "#/$defs/stringList"
+        },
+        "apiSketch": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "inputFormats": {
+          "$ref": "#/$defs/stringList"
+        },
+        "configurationPrecedence": {
+          "$ref": "#/$defs/stringList"
+        },
+        "styleGuidelines": {
+          "$ref": "#/$defs/stringList"
+        },
+        "refs": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "examplesFamily": {
+      "type": "object",
+      "properties": {
+        "usageExamples": {
+          "$ref": "#/$defs/stringList"
+        },
+        "cliFlags": {
+          "$ref": "#/$defs/stringList"
+        },
+        "templateExamples": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "demoOutline": {
+          "$ref": "#/$defs/stringList"
+        },
+        "gettingStarted": {
+          "$ref": "#/$defs/stringList"
+        },
+        "refs": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "testingFamily": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "categories": {
+          "$ref": "#/$defs/stringList"
+        },
+        "exampleTests": {
+          "$ref": "#/$defs/stringList"
+        },
+        "runCommands": {
+          "$ref": "#/$defs/stringList"
+        },
+        "scenarios": {
+          "$ref": "#/$defs/stringList"
+        },
+        "roundTripExample": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "ambiguityResolution": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "validationExamples": {
+          "$ref": "#/$defs/stringList"
+        },
+        "typeCoercionExamples": {
+          "$ref": "#/$defs/stringList"
+        },
+        "refs": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "operationsFamily": {
+      "type": "object",
+      "properties": {
+        "releaseChecklist": {
+          "$ref": "#/$defs/stringList"
+        },
+        "postReleaseMonitoring": {
+          "$ref": "#/$defs/stringList"
+        },
+        "runbookOutline": {
+          "$ref": "#/$defs/stringList"
+        },
+        "performanceTargets": {
+          "$ref": "#/$defs/stringList"
+        },
+        "skillsIntegration": {
+          "$ref": "#/$defs/stringList"
+        },
+        "lintingTechnologies": {
+          "$ref": "#/$defs/stringList"
+        },
+        "secretScanning": {
+          "$ref": "#/$defs/stringList"
+        },
+        "refs": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "scopeFamily": {
+      "type": "object",
+      "properties": {
+        "successCriteria": {
+          "$ref": "#/$defs/stringList"
+        },
+        "nonGoals": {
+          "$ref": "#/$defs/stringList"
+        },
+        "futureEnhancements": {
+          "$ref": "#/$defs/stringList"
+        },
+        "timeline": {
+          "$ref": "#/$defs/stringList"
+        },
+        "risksAndMitigations": {
+          "$ref": "#/$defs/stringList"
+        },
+        "refs": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "analysisFamily": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "topRegions": {
+          "$ref": "#/$defs/stringList"
+        },
+        "comparisonTable": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "refs": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "correlationFields": {
+      "type": "object",
+      "properties": {
+        "portfolio": {
+          "$ref": "#/$defs/normalizedToken"
+        },
+        "product": {
+          "$ref": "#/$defs/normalizedToken"
+        },
+        "component": {
+          "$ref": "#/$defs/normalizedToken"
+        },
+        "target_start_date": {
+          "$ref": "#/$defs/dateString"
+        },
+        "target_end_date": {
+          "$ref": "#/$defs/dateString"
+        },
+        "target_start_period": {
+          "$ref": "#/$defs/planningPeriod"
+        },
+        "target_end_period": {
+          "$ref": "#/$defs/planningPeriod"
+        }
+      },
+      "dependentRequired": {
+        "product": ["portfolio"],
+        "component": ["product", "portfolio"]
+      },
+      "allOf": [
+        {
+          "not": {
+            "required": ["target_start_date", "target_start_period"]
+          }
+        },
+        {
+          "not": {
+            "required": ["target_end_date", "target_end_period"]
+          }
+        },
+        {
+          "properties": {
+            "portfolio": {
+              "$ref": "#/$defs/normalizedToken"
+            },
+            "product": {
+              "$ref": "#/$defs/normalizedToken"
+            },
+            "component": {
+              "$ref": "#/$defs/normalizedToken"
+            },
+            "target_start_date": {
+              "$ref": "#/$defs/dateString"
+            },
+            "target_end_date": {
+              "$ref": "#/$defs/dateString"
+            },
+            "target_start_period": {
+              "$ref": "#/$defs/planningPeriod"
+            },
+            "target_end_period": {
+              "$ref": "#/$defs/planningPeriod"
+            }
+          }
+        }
+      ]
+    },
+    "assignableFields": {
+      "type": "object",
+      "properties": {
+        "assignee": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    }
+  }
+}
