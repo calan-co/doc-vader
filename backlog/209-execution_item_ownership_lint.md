@@ -6,12 +6,9 @@ lifecycle: active
 status: proposed
 title: Create execution-item-ownership lint rule
 description: |
-  Implement lint validation that ensures each work item can only be referenced in
-  one epic's execution.phases hierarchy. Prevents duplicate ownership and ensures
-  clear execution boundaries.
+  Implement lint validation that ensures each work item can only be referenced in one epic's execution.phases hierarchy. Prevents duplicate ownership and ensures clear execution boundaries.
 priority: medium
 estimated: 2
-owner: ~
 tags: [validation, lint, execution, schemas]
 ---
 

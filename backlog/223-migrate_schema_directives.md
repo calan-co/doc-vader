@@ -6,13 +6,13 @@ lifecycle: active
 status: proposed
 title: Migrate Frontmatter Schema Directives to New Paths
 description: |
-  Update schema references in all markdown files (~50+ files) from old paths
-  (schemas/frontmatter/document/) to canonical paths (schemas/frontmatter/by-type/document/).
+  Update schema references in all markdown files (~50+ files) from old paths (schemas/frontmatter/document/) to canonical paths (schemas/frontmatter/by-type/document/).
   Use automated script for bulk migration, verify each change.
 summary: Bulk migrate markdown frontmatter schema directives
-owner: ~
-audience: [developers]
-governance: migration
+priority: low
+audience: [contributors]
+governance:
+  profiles: [migration]
 tags: [schema, paths, migration, bulk-update]
 estimated: 2
 links:

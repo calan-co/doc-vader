@@ -53,34 +53,31 @@
     "noteWithTimestamp": {
       "type": "object",
       "properties": {
+        "note": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/note"
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": true,
+              "minProperties": 1
+            },
+            {
+              "$ref": "#/$defs/note"
+            }
+          ]
+        },
         "timestamp": {
           "type": "string",
           "format": "date-time",
-          "description": "ISO 8601 timestamp of when the note was added.",
-          "note": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/$defs/note"
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": true,
-                "minProperties": 1
-              },
-              {
-                "$ref": "#/$defs/note"
-              }
-            ]
-          }
+          "description": "ISO 8601 timestamp of when the note was added."
         }
       },
-      "required": [
-        "timestamp",
-        "note"
-      ],
+      "required": ["timestamp", "note"],
       "additionalProperties": true
     },
     "wikilink": {
@@ -121,14 +118,10 @@
       },
       "oneOf": [
         {
-          "required": [
-            "ref"
-          ]
+          "required": ["ref"]
         },
         {
-          "required": [
-            "link"
-          ]
+          "required": ["link"]
         }
       ],
       "additionalProperties": false
@@ -213,12 +206,7 @@
     },
     "lifecycle": {
       "type": "string",
-      "enum": [
-        "draft",
-        "active",
-        "evergreen",
-        "inactive"
-      ],
+      "enum": ["draft", "active", "evergreen", "inactive"],
       "description": "Long-term state of the document."
     },
     "status": {
@@ -326,9 +314,7 @@
               "maxLength": 512
             }
           },
-          "required": [
-            "mode"
-          ],
+          "required": ["mode"],
           "additionalProperties": false
         }
       ]
@@ -350,9 +336,7 @@
         },
         {
           "type": "object",
-          "required": [
-            "override"
-          ],
+          "required": ["override"],
           "properties": {
             "override": {
               "type": "string",
@@ -364,9 +348,7 @@
         },
         {
           "type": "object",
-          "required": [
-            "prioritize"
-          ],
+          "required": ["prioritize"],
           "properties": {
             "prioritize": {
               "type": "array",
@@ -386,9 +368,7 @@
     "governance": {
       "type": "object",
       "description": "Governance configuration: profiles (documentation systems, process models) and optional reconciliation strategies.",
-      "required": [
-        "profiles"
-      ],
+      "required": ["profiles"],
       "properties": {
         "profiles": {
           "description": "List or map of governance profiles controlling structure/process rules.",
@@ -430,16 +410,11 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": [
-                  "appliesTo",
-                  "strategy"
-                ],
+                "required": ["appliesTo", "strategy"],
                 "properties": {
                   "appliesTo": {
                     "type": "object",
-                    "required": [
-                      "profiles"
-                    ],
+                    "required": ["profiles"],
                     "properties": {
                       "profiles": {
                         "type": "array",
@@ -500,39 +475,28 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "ready",
-              "closed"
-            ]
+            "enum": ["ready", "closed"]
           }
         },
         "ready": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "in-progress",
-              "closed"
-            ]
+            "enum": ["in-progress", "closed"]
           }
         },
         "in-progress": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "ready-for-review",
-              "closed"
-            ]
+            "enum": ["ready-for-review", "closed"]
           }
         },
         "ready-for-review": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": [
-              "closed"
-            ]
+            "enum": ["closed"]
           }
         },
         "closed": {
@@ -545,10 +509,7 @@
       },
       "examples": [
         {
-          "proposed": [
-            "ready",
-            "closed"
-          ]
+          "proposed": ["ready", "closed"]
         }
       ]
     },
@@ -561,10 +522,7 @@
               "const": "draft"
             },
             "status": {
-              "enum": [
-                "proposed",
-                "closed"
-              ]
+              "enum": ["proposed", "closed"]
             }
           }
         },
@@ -575,12 +533,7 @@
               "const": "active"
             },
             "status": {
-              "enum": [
-                "ready",
-                "in-progress",
-                "ready-for-review",
-                "closed"
-              ]
+              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
             }
           }
         },
@@ -591,12 +544,7 @@
               "const": "evergreen"
             },
             "status": {
-              "enum": [
-                "ready",
-                "in-progress",
-                "ready-for-review",
-                "closed"
-              ]
+              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
             }
           }
         },
@@ -607,9 +555,7 @@
               "const": "inactive"
             },
             "status": {
-              "enum": [
-                "closed"
-              ]
+              "enum": ["closed"]
             }
           }
         }
@@ -617,14 +563,7 @@
     },
     "core": {
       "type": "object",
-      "required": [
-        "id",
-        "title",
-        "type",
-        "subtype",
-        "lifecycle",
-        "status"
-      ],
+      "required": ["id", "title", "type", "subtype", "lifecycle", "status"],
       "patternProperties": {
         "^\\$[a-zA-Z0-9_]+$": {
           "$ref": "#/$defs/toolingProperty"

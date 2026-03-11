@@ -56,6 +56,7 @@
  */
 //#endregion
 import { lintRule } from "unified-lint-rule";
+import { minimatch } from "minimatch";
 import { z } from "zod";
 import { Plugin } from "unified";
 import type { Root } from "mdast";
@@ -99,8 +100,8 @@ const remarkLintNamingConventions = lintRule(
     }
 
     // Skip excluded patterns
-    for (const pattern of parsedOptions.excludePatterns) {
-      if (filename.match(pattern)) {
+    for (const pattern of parsedOptions.excludePatterns ?? []) {
+      if (minimatch(filename, pattern)) {
         return;
       }
     }

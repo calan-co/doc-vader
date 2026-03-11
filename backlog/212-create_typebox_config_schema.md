@@ -10,9 +10,10 @@ description: |
   Schema generates pure JSON Schema 2020-12 compatible with AJV.
   Replaces Zod with TypeBox for better alignment with doc-vader's jsonschema-first nature.
 summary: TypeBox schema definitions for .doc.json config
-owner: ~
+priority: medium
 audience: [developers]
-governance: technical-decision
+governance:
+  profiles: [technical-decision]
 tags: [config, typebox, schema, jsonschema]
 estimated: 2
 links:

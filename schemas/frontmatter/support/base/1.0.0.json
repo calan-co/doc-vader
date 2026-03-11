@@ -456,28 +456,28 @@
         "note"
       ],
       "properties": {
+        "note": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/note"
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": true,
+              "minProperties": 1
+            },
+            {
+              "$ref": "#/$defs/note"
+            }
+          ]
+        },
         "timestamp": {
           "description": "ISO 8601 timestamp of when the note was added.",
           "type": "string",
-          "format": "date-time",
-          "note": {
-            "anyOf": [
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/$defs/note"
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": true,
-                "minProperties": 1
-              },
-              {
-                "$ref": "#/$defs/note"
-              }
-            ]
-          }
+          "format": "date-time"
         }
       }
     },

@@ -6,14 +6,13 @@ lifecycle: active
 status: proposed
 title: Update Validation Code to Use DRY Resolver
 description: |
-  Refactor validateFrontmatter() and determineSchemaTarget() to use the
-  new resolveSchema() function. Eliminates duplication and ensures both
-  code paths use consistent 4-level precedence.
+  Refactor validateFrontmatter() and determineSchemaTarget() to use the new resolveSchema() function. Eliminates duplication and ensures both code paths use consistent 4-level precedence.
 summary: Refactor validation to use unified resolver
-owner: ~
+priority: medium
 audience: [developers]
-governance: technical-decision
-tags: [validation, refactor, DRY]
+governance:
+  profiles: [technical-decision]
+tags: [validation, refactor, dry]
 estimated: 3
 links:
   depends_on:

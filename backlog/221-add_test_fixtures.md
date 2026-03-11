@@ -7,12 +7,12 @@ status: proposed
 title: Add Schema Test Fixtures
 description: |
   Create positive and negative test cases for all schemas.
-  Store in test-cases/ subdirectories following Wikimedia jsonschema-tools
-  conventions. Enables automated schema testing and provides examples for reuse.
+  Store in test-cases/ subdirectories following Wikimedia jsonschema-tools conventions. Enables automated schema testing and provides examples for reuse.
 summary: Test fixture files for schema validation
-owner: ~
+priority: medium
 audience: [developers, schema-authors]
-governance: testing
+governance:
+  profiles: [testing]
 tags: [schemas, testing, fixtures]
 estimated: 3
 links:

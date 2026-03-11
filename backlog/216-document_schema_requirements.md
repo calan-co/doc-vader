@@ -3,22 +3,25 @@ id: "216"
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: in-progress
 title: Document Minimal Schema Requirements (schemas/README.md)
 description: |
   Create comprehensive documentation for creating doc-vader-compatible schemas.
   Include minimal requirements, optional features, examples, and validation checklist.
   Serve as reference for users creating custom schema types.
 summary: Schema requirements documentation and examples
-owner: ~
+priority: medium
 audience: [developers, schema-authors]
-governance: documentation
+governance:
+  profiles: [documentation]
 tags: [schemas, documentation, guide]
 estimated: 3
 links:
   depends_on:
     - "[[211-fix_jsonschema_tools_compatibility]]"
     - "[[215-update_validation_to_use_resolver]]"
+commits:
+  00a8da0: "feat(work-management): add canonical foundation package"
 ---
 
 ## Files to Create
@@ -79,10 +82,10 @@ links:
         "type": { "const": "custom-type" },
         "id": { "pattern": "^ct-\\d+$" },
         "@context": {
-          /* JSON-LD as per spec */
+          "description": "JSON-LD context per spec"
         },
         "@type": {
-          /* JSON-LD as per spec */
+          "description": "JSON-LD type per spec"
         }
       }
     }
@@ -97,5 +100,11 @@ links:
 - [ ] Feature-complete example demonstrates all options
 - [ ] Checklist is clear and actionable
 - [ ] Examples are in schemas/examples/
-- [ ] Cross-links to other docs
+- [x] Cross-links to other docs
 - [ ] Reviewed for clarity and accuracy
+
+## Notes
+
+- 2026-03-11: Commit `00a8da0` started this task by adding [`docs/reference/work-management/overview.md`](../docs/reference/work-management/overview.md), [`docs/reference/work-management/foundation.md`](../docs/reference/work-management/foundation.md), and the greenfield pet-store example set under `docs/reference/work-management/examples/`.
+- 2026-03-11: The new work-management package also landed the companion schemas in `schemas/work-management/` and templates in `templates/reference/work-management/`, which gives this task a concrete working example set to fold into `schemas/README.md` and `schemas/examples/`.
+- 2026-03-11: Remaining scope is to consolidate that material into the planned `schemas/README.md` and `schemas/examples/*` deliverables after the resolver/config dependencies settle.
