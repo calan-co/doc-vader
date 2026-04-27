@@ -7,67 +7,64 @@ lifecycle: active
 status: approved
 ---
 
-## Documentation & Editing Standards (Critical Update)
+# Contributing to doc-vader
 
-### File Reload and State Consistency
+Thank you for your interest in contributing to `doc-vader`!
 
-- **Always read the latest file state from disk before making or reporting on changes.**
-- Use event-driven or explicit reload triggers (e.g., "RELOAD FILE" keyword, file change event, or cache invalidation) to ensure you are working with the most current version.
-- For protected/system files, prompt for access if needed.
+## Development Setup
 
-### Frontmatter & Structure Validation
+### Prerequisites
 
-- **Validate all frontmatter and structure before and after edits** using the schema-driven linter:
-  - Run `pnpm run docs:lint` before and after every change to documentation or work items.
-  - Reference the appropriate schema and template for the file type (see `docs/templates/` and `schemas/`).
-- For backlog-affecting changes, run hygiene validation:
-  - `doc-vader backlog validate --dir backlog --fail-on error`
-  - CI-grade policy: `pnpm run backlog:validate:ci` (writes `backlog/audit/auditing-backlog-report.json`)
+- Node.js ≥ 22
+- pnpm 8 (`npm install -g pnpm@8`)
 
-### YAML Formatting Rules
+### Clone and install
 
-- Fence `---` on line 1 for YAML frontmatter
-- 2-space indentation (no tabs)
-- No duplicate fields
-- All required fields present per schema/template
-- Proper enums and field types
+```bash
+git clone https://github.com/calan-co/doc-vader.git
+cd doc-vader
+pnpm install
+```
 
-### Edit/Refactor Checklist (MANDATORY)
+### Build
 
-For every documentation or work item edit/refactor, contributors and LLMs **must**:
+```bash
+pnpm build
+```
 
-- [ ] Explicitly reload the file from disk before editing (or on trigger)
-- [ ] Validate frontmatter and structure using `pnpm run docs:lint` (before and after)
-- [ ] Reference the schema and template for required fields and structure
-- [ ] Enforce YAML formatting rules (see above)
-- [ ] Use a checklist for every change, referencing the schema and validation tool
-- [ ] For protected/system files, prompt for access if needed
+### Run tests
 
-### Training & Onboarding
+```bash
+pnpm test
+```
 
-- All contributors and LLMs must be trained to follow the above checklist for every change.
-- Review onboarding and instruction sets regularly to ensure compliance with these standards.
+### Lint documentation
 
-## Contributing Guide
+```bash
+pnpm run docs:lint
+```
 
-Thank you for your interest in Team-in-a-Box!
+### Validate backlog hygiene
+
+```bash
+pnpm run backlog:validate
+```
 
 ## Documentation Standards
 
 ### Lifecycle and Status Usage Guidance
 
 When updating a work item's state, always check that the new `status` is valid for its current `lifecycle`.
-Use the reference [[lifecycle-status-rules#State Dependency Rules|table]] and [[lifecycle-status-examples#Example State Transitions|diagram]] for documentation, templates, and automation.
+See the schemas in `schemas/` and templates in `docs/` for field constraints and valid state transitions.
 
 ### Structure
 
 Documentation is organized into focused areas:
 
-- **`docs/`** - Top-level documentation hub with README navigation
-- **`docs/explanation/`** -
-- **`docs/how-to/`** -
-- **`docs/tutorial/`** -
-- **`docs/reference/`** -
+- **`docs/`** - Top-level documentation hub
+- **`docs/explanation/`** - Conceptual background and architecture docs
+- **`docs/how-to/`** - Task-focused guides and getting-started content
+- **`docs/reference/`** - API and schema reference
 
 ### Naming Conventions
 
@@ -111,7 +108,7 @@ Documentation is organized into focused areas:
 ## How to Contribute
 
 - Fork the repo and create a feature branch.
-- Follow code style guidelines (see [[coding-standards]]).
+- Follow code style guidelines (see [docs/reference/coding-standards.md](docs/reference/coding-standards.md)).
 - Submit pull requests with clear descriptions.
 - Write tests for new features.
 - Ensure your code passes all tests before submitting.
@@ -133,4 +130,4 @@ Documentation is organized into focused areas:
 ## Code of Conduct
 
 - Be respectful and collaborative.
-- See [[SUPPORT]] for help.
+- See [docs/how-to/support.md](docs/how-to/support.md) for help.
