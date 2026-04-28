@@ -50,6 +50,7 @@
     "nx": "^20.4.6",
     "sury": "^11.0.0-alpha.4",
     "typescript": "^5.9.3",
+    "tsx": "^4.20.6",
     "unified": "^11.0.5",
     "vitest": "^4.0.10"
   },
@@ -68,6 +69,7 @@
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
     "semver": "^7.7.3",
+    "unified-lint-rule": "^2.1.2",
     "unist-util-position": "^5.0.0"
   }
 }
