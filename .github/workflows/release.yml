@@ -13,13 +13,7 @@ concurrency:
   group: release-${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  packages: write
-  pull-requests: write
-
 env:
-  SHARED_RELEASE_REF: v1
   PACKAGE_NAME: '@calan-co/doc-vader'
   REGISTRY_URL: https://npm.pkg.github.com
   NODE_VERSION: '22'
@@ -28,41 +22,36 @@ env:
 jobs:
   version:
     if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
-    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-release.yml@v1
+    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-version.yml@v1
     permissions:
       contents: write
       pull-requests: write
     secrets: inherit
     with:
-      mode: version
       package-name: '@calan-co/doc-vader'
       registry-url: https://npm.pkg.github.com
       node-version: '22'
-      stable-branch: main
 
   publish-staging-prerelease:
     if: github.event_name == 'push' && github.ref_name == 'staging'
-    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-release.yml@v1
+    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-staging.yml@v1
     permissions:
       contents: read
       packages: write
     secrets: inherit
     with:
-      mode: staging
       package-name: '@calan-co/doc-vader'
       registry-url: https://npm.pkg.github.com
       node-version: '22'
-      stable-branch: main
 
   publish-release:
     if: github.event_name == 'release'
-    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-release.yml@v1
+    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-stable-release.yml@v1
     permissions:
       contents: write
       packages: write
     secrets: inherit
     with:
-      mode: release
       package-name: '@calan-co/doc-vader'
       registry-url: https://npm.pkg.github.com
       node-version: '22'
