@@ -575,13 +575,16 @@ function buildRecordBody(options: CreateRecordOptions): string {
 
 async function createRecordInternal(rootDir: string, config: ResolvedConsumerConfig, options: CreateRecordOptions): Promise<CreateRecordResult> {
   const subtype = options.subtype ?? "test-result";
-  const rawSlug = options.id ? options.id.replace(/^record:/, "") : slugify(options.summary);
-  if (!/^[a-zA-Z0-9_.-]+$/.test(rawSlug) || rawSlug.includes("..")) {
-    throw new Error(`Invalid record id "${rawSlug}": only alphanumerics, dashes, underscores, and dots are allowed`);
+  if (options.id && !/^record:[a-zA-Z0-9]+(?:[_-][a-zA-Z0-9]+)*$/.test(options.id)) {
+    throw new Error(`Invalid record id '${options.id}': must match record:<slug> with alphanumeric segments separated by dashes or underscores`);
   }
-  const slug = rawSlug;
+  const slug = options.id ? options.id.replace(/^record:/, "") : slugify(options.summary);
   const recordId = options.id ?? buildRecordId(slug);
-  const filePath = path.resolve(rootDir, config.roots.records, `${buildRecordBasename(slug)}.md`);
+  const recordsRoot = path.resolve(rootDir, config.roots.records);
+  const filePath = path.resolve(recordsRoot, `${buildRecordBasename(slug)}.md`);
+  if (!filePath.startsWith(`${recordsRoot}${path.sep}`)) {
+    throw new Error(`Resolved record path escapes records root for '${recordId}'`);
+  }
   const supportingRefs = unique((options.supportingRefs ?? []).map((value) => normalizeLink("reference", value)));
 
   const frontmatter: Frontmatter = {
