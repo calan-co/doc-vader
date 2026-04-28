@@ -5,6 +5,7 @@ type: milestone
 ---
 
 ## Milestone Objective
+
 {# Describe the capability, date, or decision boundary this milestone is meant to
 make visible. #}
 
@@ -22,7 +23,7 @@ make visible. #}
 
 {% for condition in completionDefinition %}
 
-- {{ condition }}
+- [{{ condition | length > 0 ? "x" : " " }}] {{ condition }}
 
 {% endfor %}
 

@@ -51,6 +51,9 @@
         "actual": {
           "$ref": "../support/common.json#/$defs/effortHours"
         },
+        "completed_date": {
+          "$ref": "../support/common.json#/$defs/dateString"
+        },
         "commits": {
           "$ref": "../support/common.json#/$defs/commitMap"
         },
@@ -186,7 +189,7 @@
       },
       "then": {
         "type": "object",
-        "required": ["actual", "commits", "links"],
+        "required": ["actual", "completed_date", "links"],
         "properties": {
           "links": {
             "allOf": [

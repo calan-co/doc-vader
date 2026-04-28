@@ -15,28 +15,35 @@
       "const": "project"
     },
     "narrative": {
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "../support/common.json#/$defs/nonEmptyString",
+      "description": "A brief overview of the project"
     },
     "objectives": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "../support/common.json#/$defs/stringList",
+      "description": "The goals or targets the project aims to achieve"
     },
     "scope": {
-      "$ref": "../support/common.json#/$defs/scopeBlock"
+      "$ref": "../support/common.json#/$defs/scopeBlock",
+      "description": "The boundaries and limitations of the project"
     },
     "successCriteria": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "../support/common.json#/$defs/stringList",
+      "description": "The criteria for determining the project's success"
     },
     "operatingConstraints": {
       "type": "array",
+      "description": "Any limitations or restrictions that affect how the project operates",
       "items": {
         "$ref": "../support/common.json#/$defs/nonEmptyString"
       }
     },
     "relationships": {
-      "$ref": "../support/common.json#/$defs/relationshipList"
+      "$ref": "../support/common.json#/$defs/relationshipList",
+      "description": "The relationships between the project and other entities"
     },
     "notes": {
-      "$ref": "../support/common.json#/$defs/notesValue"
+      "$ref": "../support/common.json#/$defs/notesValue",
+      "description": "Additional information about the project"
     }
   },
   "additionalProperties": false
