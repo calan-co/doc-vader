@@ -326,11 +326,19 @@ workItem
   .option("--consumer-config <path>", "Path to consumer config JSON")
   .option("--dry-run", "Show the mutation without writing files")
   .action(async (opts) => {
+    let actual: number | undefined;
+    if (opts.actual !== undefined) {
+      const n = Number(opts.actual);
+      if (!Number.isFinite(n)) {
+        throw new Error(`--actual must be a valid finite number, got: "${opts.actual}"`);
+      }
+      actual = n;
+    }
     const result = await finalizeWorkItem({
       id: opts.id,
       statusReason: opts.reason,
       completedDate: opts.completedDate,
-      actual: opts.actual !== undefined ? Number(opts.actual) : undefined,
+      actual,
       consumerConfig: opts.consumerConfig,
       dryRun: opts.dryRun,
     });
