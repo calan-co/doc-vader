@@ -1,49 +1,44 @@
 ---
 title: Frequently Asked Questions (FAQ)
-status: proposed
-lastReviewed: 2025-10-20T00:00:00.000Z
-description: Answers to common questions about Team-in-a-Box.
-id: template
-type: work-item
-subtype: template
-lifecycle: draft
+status: approved
+lastReviewed: 2026-04-27T00:00:00.000Z
+description: Answers to common questions about doc-vader.
+id: faq
+type: document
+subtype: reference
+lifecycle: active
 ---
 
-## General Questions
+## General
 
-- **What is Team-in-a-Box?**
-  - An AI-powered platform for managing virtual teams using declarative agent and workflow files.
-- **Who should use Team-in-a-Box?**
-  - Startup founders, product managers, and developers looking to automate team workflows.
+- **What is doc-vader?**
+  - `doc-vader` is a CLI and TypeScript library for documentation validation, backlog hygiene auditing, and governance enforcement in Markdown-based projects.
+
+- **Who should use doc-vader?**
+  - Engineering and documentation teams that manage structured Markdown docs and work-item backlogs, especially across multiple repositories.
 
 ## Installation & Setup
 
-- **How do I install Team-in-a-Box?**
-  - See [Getting Started](./getting-started.md).
+- **How do I install doc-vader?**
+  - See [Getting Started](./getting-started.md) for installation instructions.
+
 - **What are the system requirements?**
-  - Node.js 18+, macOS/Linux recommended.
+  - Node.js ≥ 22, pnpm 8 (for development).
 
-## Configuration
-
-- **Where do I put my API keys?**
-  - In your environment file (`~/.tiab/config/.env`).
-- **How do I set up TIAB_HOME?**
-  - Add `TIAB_HOME=/path/to/your/.tiab` to your `.env` file.
+- **The registry install fails — what do I do?**
+  - Ensure your `.npmrc` includes `@calan-co:registry=https://npm.pkg.github.com` and that you are authenticated with `npm login --scope=@calan-co --registry=https://npm.pkg.github.com`.
 
 ## Usage
 
-- **How do I create an agent or workflow?**
-  - Use YAML, JSON, or TOML files in the examples/agents or examples/workflows folders.
-- **Can I use version control for my agents/workflows?**
-  - Yes, all files are local and can be managed with git.
+- **How do I run validation in CI?**
+  - Use `doc-vader backlog validate --profile ci --fail-on error`. This returns a non-zero exit code on any error-level finding and outputs machine-readable JSON with `--format json`.
 
-## Security
+- **Can I use doc-vader as a library?**
+  - Yes. Import `frontmatter`, `backlog`, `docs`, `workManagement`, or `diataxis` from `@calan-co/doc-vader`.
 
-- **How are secrets managed?**
-  - Secrets are stored in user-local `.env` files, never committed.
-- **How do I rotate API keys?**
-  - Update your `.env` file and restart the backend.
+- **What is a consumer config?**
+  - A JSON file that overrides default path resolution and schema routing for `work-item`, `backlog`, and `record` commands. Pass it with `--consumer-config <path>`.
 
 ## Troubleshooting
 
-- **See [Troubleshooting](./TROUBLESHOOTING.md) for more help.**
+- **See [Troubleshooting](./troubleshooting.md) for common error messages and fixes.**

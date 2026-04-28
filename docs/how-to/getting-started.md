@@ -1,82 +1,72 @@
 ---
 title: Getting Started
-lastReviewed: 2025-10-21T00:00:00.000Z
-id: template
-type: work-item
-subtype: template
-lifecycle: draft
-status: proposed
+lastReviewed: 2026-04-27T00:00:00.000Z
+id: getting-started
+type: document
+subtype: how-to
+lifecycle: active
+status: approved
 ---
 
-## Getting Started
+## Getting Started with doc-vader
 
-Welcome to Team-in-a-Box! This guide will help you install, configure, and run your first virtual team.
+This guide walks you through installing `doc-vader` and running your first validation.
 
-1. **Installation**
+### Prerequisites
 
-   ```bash
-   npm install
-   cd team-in-a-box-backend && npm install
-   ```
+- Node.js ≥ 22
+- A Markdown-based project with a `docs/` or `backlog/` directory
 
-2. **Configuration**
+### 1. Install
 
-   Create your TIAB home directory and environment file:
+```bash
+npm install -g @calan-co/doc-vader
+```
 
-   ```bash
-   mkdir -p ~/.tiab/config
-   touch ~/.tiab/config/.env
-   chmod 600 ~/.tiab/config/.env
-   ```
+To install from the GitHub Package Registry, add the following to your `.npmrc`:
 
-   Add your API keys and settings to `.env`:
+```
+@calan-co:registry=https://npm.pkg.github.com
+```
 
-   ```bash
-   PORT=3000
-   TIAB_HOME=/Users/youruser/.tiab
-   OPENAI_API_KEY=your_key_here
-   ANTHROPIC_API_KEY=your_key_here
-   NODE_ENV=development
-   ```
+### 2. Validate frontmatter
 
-3. **Running the Platform**
+Run frontmatter validation against your docs directory:
 
-   Start the backend:
+```bash
+doc-vader frontmatter validate docs/
+```
 
-   ```bash
-   cd team-in-a-box-backend
-   npm start
-   ```
+### 3. Audit your backlog
 
-4. **Creating Your First Agent**
+If your project has a `backlog/` directory with work-item files:
 
-   Use the CLI or create a YAML file in `examples/agents/`:
+```bash
+doc-vader backlog validate --dir backlog --format text
+```
 
-   ```yaml
-   apiVersion: tiab.dev/v1
-   kind: Agent
-   metadata:
-     name: analyst
-   spec:
-     role: Analyst
-     persona:
-       role: Holistic Analyst
-       style: Direct
-       identity: Data-driven
-       focus: Discovery
-       principles:
-         - Strategy before execution
-         - Evidence-based decisions
-     inputFormat: markdown
-     outputFormat: json
-   ```
+To enforce CI-safe exit codes on errors:
 
-5. **Running Tests**
+```bash
+doc-vader backlog validate --dir backlog --profile ci --fail-on error
+```
 
-   ```bash
-   npm test
-   cd team-in-a-box-backend && npm test
-   ```
+### 4. Validate all domains at once
+
+```bash
+doc-vader validate --docs-dir docs --schema-dir schemas
+```
+
+### 5. Using as a library
+
+```typescript
+import { frontmatter, backlog } from "@calan-co/doc-vader";
+
+const fmResult = await frontmatter.lint({ docsDir: "docs" });
+const report = await backlog.validate({ backlogDir: "backlog", failOn: "error" });
+```
+
+See the [README](../../README.md) for the full CLI reference and API details.
 
 6. **Next Steps**
 
