@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+
+pnpm run hooks:commit-msg -- "$1"

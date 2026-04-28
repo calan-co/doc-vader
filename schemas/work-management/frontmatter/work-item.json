@@ -19,12 +19,7 @@
     },
     {
       "type": "object",
-      "required": [
-        "$schema",
-        "summary",
-        "priority",
-        "estimated"
-      ],
+      "required": ["$schema", "summary", "priority", "estimated"],
       "properties": {
         "$schema": {
           "const": "schemas/work-management/frontmatter/work-item.json"
@@ -74,7 +69,12 @@
               "oneOf": [
                 {
                   "type": "string",
-                  "enum": ["needs-triage", "awaiting-approval", "deferred", "blocked-by-dependency"]
+                  "enum": [
+                    "needs-triage",
+                    "awaiting-approval",
+                    "deferred",
+                    "blocked-by-dependency"
+                  ]
                 },
                 {
                   "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
@@ -118,7 +118,12 @@
               "oneOf": [
                 {
                   "type": "string",
-                  "enum": ["implementation", "investigation", "blocked", "waiting-on-feedback"]
+                  "enum": [
+                    "implementation",
+                    "investigation",
+                    "blocked",
+                    "waiting-on-feedback"
+                  ]
                 },
                 {
                   "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
@@ -140,7 +145,11 @@
               "oneOf": [
                 {
                   "type": "string",
-                  "enum": ["awaiting-review", "changes-requested", "verification-pending"]
+                  "enum": [
+                    "awaiting-review",
+                    "changes-requested",
+                    "verification-pending"
+                  ]
                 },
                 {
                   "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
@@ -163,7 +172,13 @@
               "oneOf": [
                 {
                   "type": "string",
-                  "enum": ["completed", "rejected", "duplicate", "obsolete", "cancelled"]
+                  "enum": [
+                    "completed",
+                    "rejected",
+                    "duplicate",
+                    "obsolete",
+                    "cancelled"
+                  ]
                 },
                 {
                   "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"

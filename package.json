@@ -26,6 +26,7 @@
     "backlog:validate": "nx run doc-vader:backlog-validate",
     "backlog:validate:ci": "nx run doc-vader:backlog-validate-ci",
     "backlog:validate:ci:raw": "nx run doc-vader:backlog-validate-ci-raw",
+    "hooks:commit-msg": "commitlint --edit",
     "lint": "nx run doc-vader:lint"
   },
   "keywords": [],
@@ -37,6 +38,8 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
     "@types/node": "^24.10.0",
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.0.8",

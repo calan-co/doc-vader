@@ -39,7 +39,7 @@ import {
 const program = new Command()
   .name("doc-vader")
   .description(
-    "Doc-Vader CLI - documentation automation, validation, and utilities"
+    "Doc-Vader CLI - documentation automation, validation, and utilities",
   )
   .version("1.0.0");
 
@@ -135,7 +135,7 @@ docSystem
         strict: opts.strict,
       });
       console.log(result);
-    }
+    },
   );
 
 // --- DOMAIN: backlog ---
@@ -148,22 +148,19 @@ backlog
   .description("Validate backlog items")
   .option("-d, --dir <path>", "Path to the backlog directory", "backlog")
   .option("--format <format>", "Output format: text|json")
-  .option(
-    "--fail-on <level>",
-    "Fail level for exit code: error|warning"
-  )
+  .option("--fail-on <level>", "Fail level for exit code: error|warning")
   .option(
     "--profile <nameOrPath>",
-    "Validation profile name (default|strict|ci) or JSON profile path"
+    "Validation profile name (default|strict|ci) or JSON profile path",
   )
   .option(
     "--schema-map <path>",
-    "Optional schema-map JSON path for schema routing"
+    "Optional schema-map JSON path for schema routing",
   )
   .option(
     "--include-archive",
     "Include backlog/archive files in audit validation",
-    false
+    false,
   )
   .action(async (opts) => {
     const report = await validateBacklog({
@@ -199,7 +196,9 @@ backlog
 
 backlog
   .command("migrate")
-  .description("Migrate a legacy backlog to canonical doc-vader work-management artifacts")
+  .description(
+    "Migrate a legacy backlog to canonical doc-vader work-management artifacts",
+  )
   .option("-d, --dir <path>", "Path to the legacy backlog directory")
   .option("--consumer-config <path>", "Path to consumer config JSON")
   .option("--dry-run", "Show what would change without writing files")
@@ -219,7 +218,10 @@ backlog
 backlog
   .command("ingest-event")
   .description("Ingest a forge/VCS event payload and apply backlog mutations")
-  .requiredOption("--provider <provider>", "Provider: github|gitlab|bitbucket|subversion")
+  .requiredOption(
+    "--provider <provider>",
+    "Provider: github|gitlab|bitbucket|subversion",
+  )
   .requiredOption("--event <event>", "Event name, e.g. pull_request.closed")
   .requiredOption("--payload <path>", "Path to JSON payload file")
   .option("--consumer-config <path>", "Path to consumer config JSON")
@@ -255,7 +257,9 @@ workItem
     if (opts.actual !== undefined) {
       const n = Number(opts.actual);
       if (!Number.isFinite(n)) {
-        throw new Error(`--actual must be a valid finite number, got: "${opts.actual}"`);
+        throw new Error(
+          `--actual must be a valid finite number, got: "${opts.actual}"`,
+        );
       }
       actual = n;
     }
@@ -283,8 +287,12 @@ workItem
   .option("--dry-run", "Show the mutation without writing files")
   .action(async (kind: string, opts) => {
     const allowedKinds = ["pr", "evidence", "reference"] as const;
-    if (!allowedKinds.includes(kind as typeof allowedKinds[number])) {
-      throw new Error(`Invalid link kind "${kind}". Must be one of: ${allowedKinds.join(", ")}`);
+    if (!allowedKinds.includes(kind as (typeof allowedKinds)[number])) {
+      throw new Error(
+        `Invalid link kind "${kind}". Must be one of: ${allowedKinds.join(
+          ", ",
+        )}`,
+      );
     }
     const value = opts.url ?? opts.ref;
     if (!value) {
@@ -333,7 +341,9 @@ workItem
     if (opts.actual !== undefined) {
       const n = Number(opts.actual);
       if (!Number.isFinite(n)) {
-        throw new Error(`--actual must be a valid finite number, got: "${opts.actual}"`);
+        throw new Error(
+          `--actual must be a valid finite number, got: "${opts.actual}"`,
+        );
       }
       actual = n;
     }
@@ -357,7 +367,11 @@ record
   .description("Create an append-only record artifact such as a test-result")
   .requiredOption("--summary <summary>", "Record summary")
   .requiredOption("--observation <observation>", "Primary record observation")
-  .requiredOption("--subject <subject>", "Subject wikilink or reference", collectOption)
+  .requiredOption(
+    "--subject <subject>",
+    "Subject wikilink or reference",
+    collectOption,
+  )
   .option("--id <id>", "Canonical record id")
   .option("--type <subtype>", "Record subtype, e.g. test-result")
   .option("--status <status>", "Lifecycle status")
@@ -371,7 +385,9 @@ record
   .option("--consumer-config <path>", "Path to consumer config JSON")
   .option("--dry-run", "Show the mutation without writing files")
   .action(async (opts) => {
-    const subjects = Array.isArray(opts.subject) ? opts.subject : [opts.subject];
+    const subjects = Array.isArray(opts.subject)
+      ? opts.subject
+      : [opts.subject];
     const result = await createWorkRecord({
       id: opts.id,
       summary: opts.summary,
@@ -396,7 +412,7 @@ record
 const governance = program
   .command("governance")
   .description(
-    "Governance profiles (documentation systems and process models)"
+    "Governance profiles (documentation systems and process models)",
   );
 
 governance
@@ -431,8 +447,8 @@ governance
             version: p.version || "",
             category: p.category || "",
             form: p.sourceForm,
-          }))
-        )
+          })),
+        ),
       );
     }
   });
@@ -456,7 +472,7 @@ governance
           version: p.version || "",
           category: p.category || "",
           form: p.sourceForm,
-        }))
+        })),
       );
     } else if ("message" in (effective as any)) {
       console.log((effective as any).message);
@@ -466,13 +482,13 @@ governance
 governance
   .command("reconcile")
   .description(
-    "Reconcile conflicts between selected governance profiles (placeholder implementation)"
+    "Reconcile conflicts between selected governance profiles (placeholder implementation)",
   )
   .argument("<file>", "Markdown file path")
   .option(
     "--strategy <strategy>",
     "prompt|auto|prioritize|intersection|override|split|advisory",
-    "prompt"
+    "prompt",
   )
   .option("--dry-run", "Show plan without applying changes")
   .action(
@@ -482,13 +498,13 @@ governance
         dryRun: opts.dryRun,
       });
       console.log(JSON.stringify(plan, null, 2));
-    }
+    },
   );
 
 governance
   .command("migrate")
   .description(
-    "Migrate legacy governanceProfiles/reconciliation to new governance structure (placeholder)"
+    "Migrate legacy governanceProfiles/reconciliation to new governance structure (placeholder)",
   )
   .option("--write", "Apply changes (default dry-run)")
   .option("-d, --docs-dir <path>", "Path to the docs directory", "docs")

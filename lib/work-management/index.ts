@@ -217,7 +217,10 @@ function ensureArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  return value.filter(
+    (item): item is string =>
+      typeof item === "string" && item.trim().length > 0,
+  );
 }
 
 function unique(values: string[]): string[] {
@@ -274,28 +277,29 @@ function normalizeOptionalAssignee(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function normalizeLegacyCommitMap(value: unknown): Record<string, string> | undefined {
+function normalizeLegacyCommitMap(
+  value: unknown,
+): Record<string, string> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
   }
 
-  const normalizedEntries = Object.entries(value as Record<string, unknown>).reduce<Array<readonly [string, string]>>(
-    (entries, [sha, summary]) => {
-      if (!/^[0-9a-f]{7,40}$/i.test(sha.trim())) {
-        return entries;
-      }
-      if (typeof summary !== "string") {
-        return entries;
-      }
-      const trimmedSummary = summary.trim();
-      if (trimmedSummary.length === 0) {
-        return entries;
-      }
-      entries.push([normalizeSha(sha), trimmedSummary] as const);
+  const normalizedEntries = Object.entries(
+    value as Record<string, unknown>,
+  ).reduce<Array<readonly [string, string]>>((entries, [sha, summary]) => {
+    if (!/^[0-9a-f]{7,40}$/i.test(sha.trim())) {
       return entries;
-    },
-    []
-  );
+    }
+    if (typeof summary !== "string") {
+      return entries;
+    }
+    const trimmedSummary = summary.trim();
+    if (trimmedSummary.length === 0) {
+      return entries;
+    }
+    entries.push([normalizeSha(sha), trimmedSummary] as const);
+    return entries;
+  }, []);
 
   if (normalizedEntries.length === 0) {
     return undefined;
@@ -315,7 +319,9 @@ function normalizeLink(kind: LinkKind, value: string): string {
   if (/^(https?:)?\/\//.test(trimmed) || /^mailto:/.test(trimmed)) {
     return trimmed;
   }
-  const basename = stripMarkdownExtension(trimmed.split(/[\\/]/).pop() || trimmed);
+  const basename = stripMarkdownExtension(
+    trimmed.split(/[\\/]/).pop() || trimmed,
+  );
   return `[[${basename}]]`;
 }
 
@@ -354,7 +360,11 @@ async function readMarkdown(filePath: string): Promise<MarkdownDocument> {
   };
 }
 
-async function writeMarkdown(filePath: string, frontmatter: Frontmatter, body: string): Promise<void> {
+async function writeMarkdown(
+  filePath: string,
+  frontmatter: Frontmatter,
+  body: string,
+): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, stringifyMarkdown(frontmatter, body), "utf8");
 }
@@ -395,7 +405,10 @@ async function findMarkdownFiles(dirPath: string): Promise<string[]> {
   return files.sort();
 }
 
-async function loadConsumerConfig(rootDir: string, configPath?: string): Promise<ResolvedConsumerConfig> {
+async function loadConsumerConfig(
+  rootDir: string,
+  configPath?: string,
+): Promise<ResolvedConsumerConfig> {
   const fallback: ResolvedConsumerConfig = {
     roots: { ...DEFAULT_ROOTS },
     automation: {
@@ -413,7 +426,9 @@ async function loadConsumerConfig(rootDir: string, configPath?: string): Promise
     return fallback;
   }
 
-  const loaded = await readJsonFile<ConsumerConfig>(path.resolve(rootDir, configPath));
+  const loaded = await readJsonFile<ConsumerConfig>(
+    path.resolve(rootDir, configPath),
+  );
   return {
     roots: {
       ...fallback.roots,
@@ -430,16 +445,25 @@ async function loadConsumerConfig(rootDir: string, configPath?: string): Promise
   };
 }
 
-function ensureWorkItemLinks(frontmatter: Frontmatter): Record<string, unknown> {
-  const links = typeof frontmatter.links === "object" && frontmatter.links !== null
-    ? { ...(frontmatter.links as Record<string, unknown>) }
-    : {};
+function ensureWorkItemLinks(
+  frontmatter: Frontmatter,
+): Record<string, unknown> {
+  const links =
+    typeof frontmatter.links === "object" && frontmatter.links !== null
+      ? { ...(frontmatter.links as Record<string, unknown>) }
+      : {};
   frontmatter.links = links;
   return links;
 }
 
-async function resolveWorkItemFile(rootDir: string, config: ResolvedConsumerConfig, id: string): Promise<string> {
-  const dirs = [config.roots.active, config.roots.archive].map((value) => path.resolve(rootDir, value));
+async function resolveWorkItemFile(
+  rootDir: string,
+  config: ResolvedConsumerConfig,
+  id: string,
+): Promise<string> {
+  const dirs = [config.roots.active, config.roots.archive].map((value) =>
+    path.resolve(rootDir, value),
+  );
   for (const dirPath of dirs) {
     const files = await findMarkdownFiles(dirPath);
     for (const filePath of files) {
@@ -472,12 +496,17 @@ function deriveLegacySlug(filePath: string): string {
   return slugify(path.basename(filePath, ".md").replace(/_/g, "-"));
 }
 
-function summarizeLegacyItem(frontmatter: Frontmatter, filePath: string): string {
-  const summary = typeof frontmatter.summary === "string" ? frontmatter.summary.trim() : "";
+function summarizeLegacyItem(
+  frontmatter: Frontmatter,
+  filePath: string,
+): string {
+  const summary =
+    typeof frontmatter.summary === "string" ? frontmatter.summary.trim() : "";
   if (summary.length > 0) {
     return summary;
   }
-  const title = typeof frontmatter.title === "string" ? frontmatter.title.trim() : "";
+  const title =
+    typeof frontmatter.title === "string" ? frontmatter.title.trim() : "";
   if (title.length > 0) {
     return title.replace(/^\d+:\s*/, "");
   }
@@ -485,49 +514,65 @@ function summarizeLegacyItem(frontmatter: Frontmatter, filePath: string): string
 }
 
 function extractLegacyDependencies(frontmatter: Frontmatter): string[] {
-  const links = typeof frontmatter.links === "object" && frontmatter.links !== null
-    ? (frontmatter.links as Record<string, unknown>)
-    : {};
+  const links =
+    typeof frontmatter.links === "object" && frontmatter.links !== null
+      ? (frontmatter.links as Record<string, unknown>)
+      : {};
   return ensureArray(links.depends_on);
 }
 
 function extractLegacyPullRequests(frontmatter: Frontmatter): string[] {
-  const links = typeof frontmatter.links === "object" && frontmatter.links !== null
-    ? (frontmatter.links as Record<string, unknown>)
-    : {};
+  const links =
+    typeof frontmatter.links === "object" && frontmatter.links !== null
+      ? (frontmatter.links as Record<string, unknown>)
+      : {};
   return ensureArray(links.pull_requests);
 }
 
-function extractLegacyTestResults(frontmatter: Frontmatter): Array<{ timestamp?: string; note: string }> {
+function extractLegacyTestResults(
+  frontmatter: Frontmatter,
+): Array<{ timestamp?: string; note: string }> {
   if (!Array.isArray(frontmatter.test_results)) {
     return [];
   }
 
   return frontmatter.test_results
-    .filter((entry): entry is { timestamp?: string; note?: string } => typeof entry === "object" && entry !== null)
+    .filter(
+      (entry): entry is { timestamp?: string; note?: string } =>
+        typeof entry === "object" && entry !== null,
+    )
     .map((entry) => ({
-      timestamp: typeof entry.timestamp === "string" ? entry.timestamp : undefined,
+      timestamp:
+        typeof entry.timestamp === "string" ? entry.timestamp : undefined,
       note: typeof entry.note === "string" ? entry.note : "",
     }))
     .filter((entry) => entry.note.trim().length > 0);
 }
 
-function rewriteBasenames(content: string, basenameMap: Record<string, string>): string {
-  return content.replace(/\[\[([^\]|#]+)([^\]]*)\]\]/g, (fullMatch, target, suffix) => {
-    const normalizedTarget = stripMarkdownExtension(String(target).trim());
-    const replacement = basenameMap[normalizedTarget];
-    if (!replacement) {
-      return fullMatch;
-    }
-    return `[[${replacement}${suffix}]]`;
-  });
+function rewriteBasenames(
+  content: string,
+  basenameMap: Record<string, string>,
+): string {
+  return content.replace(
+    /\[\[([^\]|#]+)([^\]]*)\]\]/g,
+    (fullMatch, target, suffix) => {
+      const normalizedTarget = stripMarkdownExtension(String(target).trim());
+      const replacement = basenameMap[normalizedTarget];
+      if (!replacement) {
+        return fullMatch;
+      }
+      return `[[${replacement}${suffix}]]`;
+    },
+  );
 }
 
 function appendRelationships(body: string, dependencies: string[]): string {
   if (dependencies.length === 0) {
     return body;
   }
-  const lines = dependencies.map((dependency) => `- \`depends_on\`: ${dependency}`);
+  const lines = dependencies.map(
+    (dependency) => `- \`depends_on\`: ${dependency}`,
+  );
   const trimmed = body.replace(/\s+$/, "");
   return `${trimmed}\n\n## Relationships\n\n${lines.join("\n")}\n`;
 }
@@ -558,13 +603,28 @@ function buildRecordBody(options: CreateRecordOptions): string {
   ];
 
   if (findings.length > 0) {
-    lines.push("", "## Findings", "", ...findings.map((finding) => `- ${finding}`));
+    lines.push(
+      "",
+      "## Findings",
+      "",
+      ...findings.map((finding) => `- ${finding}`),
+    );
   }
   if (artifacts.length > 0) {
-    lines.push("", "## Artifact References", "", ...artifacts.map((artifact) => `- ${artifact}`));
+    lines.push(
+      "",
+      "## Artifact References",
+      "",
+      ...artifacts.map((artifact) => `- ${artifact}`),
+    );
   }
   if (supportingRefs.length > 0) {
-    lines.push("", "## Supporting References", "", ...supportingRefs.map((reference) => `- ${reference}`));
+    lines.push(
+      "",
+      "## Supporting References",
+      "",
+      ...supportingRefs.map((reference) => `- ${reference}`),
+    );
   }
   if (notes.length > 0) {
     lines.push("", "## Notes", "", ...notes.map((note) => `- ${note}`));
@@ -573,19 +633,36 @@ function buildRecordBody(options: CreateRecordOptions): string {
   return `${lines.join("\n")}\n`;
 }
 
-async function createRecordInternal(rootDir: string, config: ResolvedConsumerConfig, options: CreateRecordOptions): Promise<CreateRecordResult> {
+async function createRecordInternal(
+  rootDir: string,
+  config: ResolvedConsumerConfig,
+  options: CreateRecordOptions,
+): Promise<CreateRecordResult> {
   const subtype = options.subtype ?? "test-result";
-  if (options.id && !/^record:[a-zA-Z0-9]+(?:[_-][a-zA-Z0-9]+)*$/.test(options.id)) {
-    throw new Error(`Invalid record id '${options.id}': must match record:<slug> with alphanumeric segments separated by dashes or underscores`);
+  if (
+    options.id &&
+    !/^record:[a-zA-Z0-9]+(?:[_-][a-zA-Z0-9]+)*$/.test(options.id)
+  ) {
+    throw new Error(
+      `Invalid record id '${options.id}': must match record:<slug> with alphanumeric segments separated by dashes or underscores`,
+    );
   }
-  const slug = options.id ? options.id.replace(/^record:/, "") : slugify(options.summary);
+  const slug = options.id
+    ? options.id.replace(/^record:/, "")
+    : slugify(options.summary);
   const recordId = options.id ?? buildRecordId(slug);
   const recordsRoot = path.resolve(rootDir, config.roots.records);
   const filePath = path.resolve(recordsRoot, `${buildRecordBasename(slug)}.md`);
   if (!filePath.startsWith(`${recordsRoot}${path.sep}`)) {
-    throw new Error(`Resolved record path escapes records root for '${recordId}'`);
+    throw new Error(
+      `Resolved record path escapes records root for '${recordId}'`,
+    );
   }
-  const supportingRefs = unique((options.supportingRefs ?? []).map((value) => normalizeLink("reference", value)));
+  const supportingRefs = unique(
+    (options.supportingRefs ?? []).map((value) =>
+      normalizeLink("reference", value),
+    ),
+  );
 
   const frontmatter: Frontmatter = {
     $schema: "schemas/work-management/frontmatter/record.json",
@@ -617,7 +694,9 @@ async function createRecordInternal(rootDir: string, config: ResolvedConsumerCon
   };
 }
 
-export async function transitionWorkItem(options: TransitionWorkItemOptions): Promise<TransitionWorkItemResult> {
+export async function transitionWorkItem(
+  options: TransitionWorkItemOptions,
+): Promise<TransitionWorkItemResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
@@ -625,7 +704,8 @@ export async function transitionWorkItem(options: TransitionWorkItemOptions): Pr
   const status = normalizeStatus(options.status);
 
   document.frontmatter.status = status;
-  document.frontmatter.status_reason = options.statusReason ?? inferStatusReason(status);
+  document.frontmatter.status_reason =
+    options.statusReason ?? inferStatusReason(status);
   if (typeof options.actual === "number") {
     document.frontmatter.actual = options.actual;
   }
@@ -642,17 +722,26 @@ export async function transitionWorkItem(options: TransitionWorkItemOptions): Pr
   }
   if (status === "closed") {
     document.frontmatter.lifecycle = "inactive";
-    document.frontmatter.completed_date ??= new Date().toISOString().slice(0, 10);
+    document.frontmatter.completed_date ??= new Date()
+      .toISOString()
+      .slice(0, 10);
   }
 
   if (!options.dryRun) {
     await writeMarkdown(filePath, document.frontmatter, document.body);
   }
 
-  return { id: options.id, filePath, frontmatter: document.frontmatter, dryRun: Boolean(options.dryRun) };
+  return {
+    id: options.id,
+    filePath,
+    frontmatter: document.frontmatter,
+    dryRun: Boolean(options.dryRun),
+  };
 }
 
-export async function linkWorkItem(options: LinkWorkItemOptions): Promise<LinkWorkItemResult> {
+export async function linkWorkItem(
+  options: LinkWorkItemOptions,
+): Promise<LinkWorkItemResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
@@ -660,7 +749,10 @@ export async function linkWorkItem(options: LinkWorkItemOptions): Promise<LinkWo
   const links = ensureWorkItemLinks(document.frontmatter);
   const bucketKey = options.kind === "pr" ? "pull_requests" : options.kind;
   const normalizedValue = normalizeLink(options.kind, options.value);
-  links[bucketKey] = unique([...ensureArray(links[bucketKey]), normalizedValue]);
+  links[bucketKey] = unique([
+    ...ensureArray(links[bucketKey]),
+    normalizedValue,
+  ]);
 
   if (!options.dryRun) {
     await writeMarkdown(filePath, document.frontmatter, document.body);
@@ -676,17 +768,23 @@ export async function linkWorkItem(options: LinkWorkItemOptions): Promise<LinkWo
   };
 }
 
-export async function recordWorkItemCommit(options: RecordCommitOptions): Promise<RecordCommitResult> {
+export async function recordWorkItemCommit(
+  options: RecordCommitOptions,
+): Promise<RecordCommitResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
-  const commits = typeof document.frontmatter.commits === "object" && document.frontmatter.commits !== null
-    ? { ...(document.frontmatter.commits as Record<string, unknown>) }
-    : {};
+  const commits =
+    typeof document.frontmatter.commits === "object" &&
+    document.frontmatter.commits !== null
+      ? { ...(document.frontmatter.commits as Record<string, unknown>) }
+      : {};
 
   if (!/^[0-9a-f]{7,40}$/i.test(options.sha.trim())) {
-    throw new Error(`Invalid commit SHA "${options.sha}": must be a hex string of 7–40 characters`);
+    throw new Error(
+      `Invalid commit SHA "${options.sha}": must be a hex string of 7–40 characters`,
+    );
   }
   const trimmedSummary = options.summary.trim();
   if (trimmedSummary.length === 0) {
@@ -708,20 +806,26 @@ export async function recordWorkItemCommit(options: RecordCommitOptions): Promis
   };
 }
 
-export async function createRecord(options: CreateRecordOptions): Promise<CreateRecordResult> {
+export async function createRecord(
+  options: CreateRecordOptions,
+): Promise<CreateRecordResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   return createRecordInternal(rootDir, config, options);
 }
 
-export async function finalizeWorkItem(options: FinalizeWorkItemOptions): Promise<FinalizeWorkItemResult> {
+export async function finalizeWorkItem(
+  options: FinalizeWorkItemOptions,
+): Promise<FinalizeWorkItemResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
-  const links = typeof document.frontmatter.links === "object" && document.frontmatter.links !== null
-    ? (document.frontmatter.links as Record<string, unknown>)
-    : {};
+  const links =
+    typeof document.frontmatter.links === "object" &&
+    document.frontmatter.links !== null
+      ? (document.frontmatter.links as Record<string, unknown>)
+      : {};
 
   if (ensureArray(links.pull_requests).length === 0) {
     throw new Error(`Cannot finalize '${options.id}' without linked PRs.`);
@@ -733,15 +837,22 @@ export async function finalizeWorkItem(options: FinalizeWorkItemOptions): Promis
   document.frontmatter.status = "closed";
   document.frontmatter.status_reason = options.statusReason ?? "completed";
   document.frontmatter.lifecycle = "inactive";
-  document.frontmatter.completed_date = options.completedDate ?? new Date().toISOString().slice(0, 10);
+  document.frontmatter.completed_date =
+    options.completedDate ?? new Date().toISOString().slice(0, 10);
   if (typeof options.actual === "number") {
     document.frontmatter.actual = options.actual;
   }
   if (typeof document.frontmatter.actual !== "number") {
-    throw new Error(`Cannot finalize '${options.id}' without actual effort recorded.`);
+    throw new Error(
+      `Cannot finalize '${options.id}' without actual effort recorded.`,
+    );
   }
 
-  const archivePath = path.resolve(rootDir, config.roots.archive, path.basename(filePath));
+  const archivePath = path.resolve(
+    rootDir,
+    config.roots.archive,
+    path.basename(filePath),
+  );
   if (!options.dryRun) {
     await writeMarkdown(archivePath, document.frontmatter, document.body);
     if (path.resolve(filePath) !== archivePath) {
@@ -758,25 +869,38 @@ export async function finalizeWorkItem(options: FinalizeWorkItemOptions): Promis
   };
 }
 
-export async function migrateBacklog(options: MigrateBacklogOptions): Promise<MigrateBacklogResult> {
+export async function migrateBacklog(
+  options: MigrateBacklogOptions,
+): Promise<MigrateBacklogResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
-  const legacyRoot = path.resolve(rootDir, options.dir ?? config.migration.legacyActive);
+  const legacyRoot = path.resolve(
+    rootDir,
+    options.dir ?? config.migration.legacyActive,
+  );
   const legacyArchive = path.resolve(rootDir, config.migration.legacyArchive);
   const activeFiles = (await findMarkdownFiles(legacyRoot)).filter(
-    (filePath) => !filePath.includes(`${path.sep}archive${path.sep}`) && path.basename(filePath) !== "AGENTS.md"
+    (filePath) =>
+      !filePath.includes(`${path.sep}archive${path.sep}`) &&
+      path.basename(filePath) !== "AGENTS.md",
   );
-  const archiveFiles = (await findMarkdownFiles(legacyArchive)).filter((filePath) => path.basename(filePath) !== "AGENTS.md");
+  const archiveFiles = (await findMarkdownFiles(legacyArchive)).filter(
+    (filePath) => path.basename(filePath) !== "AGENTS.md",
+  );
   const files = unique([...activeFiles, ...archiveFiles]);
   const basenameMap: Record<string, string> = {};
   const targetBasenameSet = new Set<string>();
+  const skippedLegacyPaths = new Set<string>();
 
   for (const legacyPath of files) {
     const slug = deriveLegacySlug(legacyPath);
     const legacyBasename = stripMarkdownExtension(path.basename(legacyPath));
     const targetBasename = buildWorkItemBasename(slug);
     if (targetBasenameSet.has(targetBasename)) {
-      console.warn(`[migrateBacklog] Skipping "${legacyPath}": target basename "${targetBasename}" is already mapped by another entry`);
+      console.warn(
+        `[migrateBacklog] Skipping "${legacyPath}": target basename "${targetBasename}" is already mapped by another entry`,
+      );
+      skippedLegacyPaths.add(legacyPath);
       continue;
     }
     targetBasenameSet.add(targetBasename);
@@ -786,20 +910,33 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
   const migrated: MigrationRecord[] = [];
 
   for (const legacyPath of files) {
+    if (skippedLegacyPaths.has(legacyPath)) {
+      continue;
+    }
+
     const isArchived = legacyPath.startsWith(legacyArchive);
     const legacyDoc = await readMarkdown(legacyPath);
     const slug = deriveLegacySlug(legacyPath);
     const newId = buildWorkItemId(slug);
     const newBasename = buildWorkItemBasename(slug);
-    const normalizedStatus = isArchived ? "closed" : normalizeStatus(legacyDoc.frontmatter.status);
-    const pullRequests = unique(extractLegacyPullRequests(legacyDoc.frontmatter));
+    const normalizedStatus = isArchived
+      ? "closed"
+      : normalizeStatus(legacyDoc.frontmatter.status);
+    const pullRequests = unique(
+      extractLegacyPullRequests(legacyDoc.frontmatter),
+    );
     const dependencies = extractLegacyDependencies(legacyDoc.frontmatter)
       .map((dependency) => dependency.replace(/^\[\[|\]\]$/g, ""))
-      .map((dependency) => basenameMap[stripMarkdownExtension(dependency)] ?? dependency)
+      .map(
+        (dependency) =>
+          basenameMap[stripMarkdownExtension(dependency)] ?? dependency,
+      )
       .map((dependency) => `[[${stripMarkdownExtension(dependency)}]]`);
 
     const assignee = normalizeOptionalAssignee(legacyDoc.frontmatter.assignee);
-    const normalizedCommits = normalizeLegacyCommitMap(legacyDoc.frontmatter.commits);
+    const normalizedCommits = normalizeLegacyCommitMap(
+      legacyDoc.frontmatter.commits,
+    );
 
     const frontmatter: Frontmatter = {
       $schema: "schemas/work-management/frontmatter/work-item.json",
@@ -815,7 +952,10 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
           ? legacyDoc.frontmatter.status_reason
           : inferStatusReason(normalizedStatus),
       priority: legacyDoc.frontmatter.priority ?? "medium",
-      estimated: typeof legacyDoc.frontmatter.estimated === "number" ? legacyDoc.frontmatter.estimated : 0,
+      estimated:
+        typeof legacyDoc.frontmatter.estimated === "number"
+          ? legacyDoc.frontmatter.estimated
+          : 0,
     };
 
     if (typeof legacyDoc.frontmatter.owner === "string") {
@@ -830,7 +970,10 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
     if (typeof legacyDoc.frontmatter.actual === "number") {
       frontmatter.actual = legacyDoc.frontmatter.actual;
     } else if (normalizedStatus === "closed") {
-      frontmatter.actual = typeof legacyDoc.frontmatter.estimated === "number" ? legacyDoc.frontmatter.estimated : 0;
+      frontmatter.actual =
+        typeof legacyDoc.frontmatter.estimated === "number"
+          ? legacyDoc.frontmatter.estimated
+          : 0;
     }
     if (typeof legacyDoc.frontmatter.completed_date === "string") {
       frontmatter.completed_date = legacyDoc.frontmatter.completed_date;
@@ -846,14 +989,18 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
 
     const generatedRecords: string[] = [];
     const legacyTestResults = extractLegacyTestResults(legacyDoc.frontmatter);
-    const fallbackEvidence = legacyTestResults.length === 0 && normalizedStatus === "closed";
+    const fallbackEvidence =
+      legacyTestResults.length === 0 && normalizedStatus === "closed";
     const evidenceEntries = fallbackEvidence
-      ? [{
-          timestamp: typeof legacyDoc.frontmatter.completed_date === "string"
-            ? `${legacyDoc.frontmatter.completed_date}T00:00:00Z`
-            : undefined,
-          note: "Legacy closed work item migrated without inline test_results; preserved as closure evidence.",
-        }]
+      ? [
+          {
+            timestamp:
+              typeof legacyDoc.frontmatter.completed_date === "string"
+                ? `${legacyDoc.frontmatter.completed_date}T00:00:00Z`
+                : undefined,
+            note: "Legacy closed work item migrated without inline test_results; preserved as closure evidence.",
+          },
+        ]
       : legacyTestResults;
 
     for (let index = 0; index < evidenceEntries.length; index += 1) {
@@ -861,7 +1008,9 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
       const recordSlug = `${slug}-evidence-${index + 1}`;
       const record = await createRecordInternal(rootDir, config, {
         id: buildRecordId(recordSlug),
-        summary: `${String(frontmatter.title ?? frontmatter.summary)} evidence ${index + 1}`,
+        summary: `${String(
+          frontmatter.title ?? frontmatter.summary,
+        )} evidence ${index + 1}`,
         subtype: legacyTestResults.length === 0 ? "evidence" : "test-result",
         status: "ready",
         statusReason: "recorded",
@@ -876,14 +1025,23 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
     }
 
     if (generatedRecords.length > 0) {
-      links.evidence = generatedRecords.map((recordFile) => `[[${stripMarkdownExtension(recordFile)}]]`);
+      links.evidence = generatedRecords.map(
+        (recordFile) => `[[${stripMarkdownExtension(recordFile)}]]`,
+      );
     }
     if (Object.keys(links).length > 0) {
       frontmatter.links = links;
     }
 
-    const rewrittenBody = appendRelationships(rewriteBasenames(legacyDoc.body, basenameMap), dependencies);
-    const targetPath = path.resolve(rootDir, isArchived ? config.roots.archive : config.roots.active, `${newBasename}.md`);
+    const rewrittenBody = appendRelationships(
+      rewriteBasenames(legacyDoc.body, basenameMap),
+      dependencies,
+    );
+    const targetPath = path.resolve(
+      rootDir,
+      isArchived ? config.roots.archive : config.roots.active,
+      `${newBasename}.md`,
+    );
 
     if (!options.dryRun) {
       await writeMarkdown(targetPath, frontmatter, rewrittenBody);
@@ -895,19 +1053,30 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
     migrated.push({
       legacyPath,
       newPath: targetPath,
-      legacyId: typeof legacyDoc.frontmatter.id === "string" ? legacyDoc.frontmatter.id : null,
+      legacyId:
+        typeof legacyDoc.frontmatter.id === "string"
+          ? legacyDoc.frontmatter.id
+          : null,
       newId,
       generatedRecords,
     });
   }
 
   if (!options.dryRun && config.roots.audit) {
-    const mappingPath = path.resolve(rootDir, config.roots.audit, "work-management-migration-map.json");
+    const mappingPath = path.resolve(
+      rootDir,
+      config.roots.audit,
+      "work-management-migration-map.json",
+    );
     await fs.mkdir(path.dirname(mappingPath), { recursive: true });
     await fs.writeFile(
       mappingPath,
-      JSON.stringify({ generatedAt: new Date().toISOString(), migrated, basenameMap }, null, 2),
-      "utf8"
+      JSON.stringify(
+        { generatedAt: new Date().toISOString(), migrated, basenameMap },
+        null,
+        2,
+      ),
+      "utf8",
     );
   }
 
@@ -922,7 +1091,8 @@ function extractGithubSubjects(payload: Record<string, unknown>): string[] {
     payload.body,
     (payload.pull_request as Record<string, unknown> | undefined)?.body,
     (payload.pull_request as Record<string, unknown> | undefined)?.title,
-    (payload.workflow_run as Record<string, unknown> | undefined)?.display_title,
+    (payload.workflow_run as Record<string, unknown> | undefined)
+      ?.display_title,
     (payload.workflow_run as Record<string, unknown> | undefined)?.name,
   ];
 
@@ -953,10 +1123,14 @@ function githubWorkflowOutcome(conclusion: string | undefined): string {
   }
 }
 
-export async function ingestEvent(options: IngestEventOptions): Promise<IngestEventResult> {
+export async function ingestEvent(
+  options: IngestEventOptions,
+): Promise<IngestEventResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
-  const payload = await readJsonFile<Record<string, unknown>>(path.resolve(rootDir, options.payloadPath));
+  const payload = await readJsonFile<Record<string, unknown>>(
+    path.resolve(rootDir, options.payloadPath),
+  );
 
   if (options.provider !== "github") {
     throw new Error(`Provider '${options.provider}' is not implemented yet.`);
@@ -966,11 +1140,21 @@ export async function ingestEvent(options: IngestEventOptions): Promise<IngestEv
   const actions: Array<Record<string, unknown>> = [];
 
   if (options.event.startsWith("pull_request")) {
-    const pullRequest = (payload.pull_request as Record<string, unknown> | undefined) ?? {};
-    const prUrl = typeof pullRequest.html_url === "string" ? pullRequest.html_url : undefined;
+    const pullRequest =
+      (payload.pull_request as Record<string, unknown> | undefined) ?? {};
+    const prUrl =
+      typeof pullRequest.html_url === "string"
+        ? pullRequest.html_url
+        : undefined;
     const merged = pullRequest.merged === true;
-    const mergeCommitSha = typeof pullRequest.merge_commit_sha === "string" ? pullRequest.merge_commit_sha : undefined;
-    const title = typeof pullRequest.title === "string" ? pullRequest.title : "Merged pull request";
+    const mergeCommitSha =
+      typeof pullRequest.merge_commit_sha === "string"
+        ? pullRequest.merge_commit_sha
+        : undefined;
+    const title =
+      typeof pullRequest.title === "string"
+        ? pullRequest.title
+        : "Merged pull request";
 
     for (const subject of subjects) {
       if (prUrl) {
@@ -993,15 +1177,29 @@ export async function ingestEvent(options: IngestEventOptions): Promise<IngestEv
           summary: title,
           dryRun: options.dryRun,
         });
-        actions.push({ type: "record-commit", subject, sha: mergeCommitSha, summary: title });
+        actions.push({
+          type: "record-commit",
+          subject,
+          sha: mergeCommitSha,
+          summary: title,
+        });
       }
       if (merged && config.automation.autoCloseOnMerge) {
-        const workItemPath = await resolveWorkItemFile(rootDir, config, subject);
+        const workItemPath = await resolveWorkItemFile(
+          rootDir,
+          config,
+          subject,
+        );
         const workItem = await readMarkdown(workItemPath);
-        const links = typeof workItem.frontmatter.links === "object" && workItem.frontmatter.links !== null
-          ? (workItem.frontmatter.links as Record<string, unknown>)
-          : {};
-        if (ensureArray(links.evidence).length > 0 && typeof workItem.frontmatter.actual === "number") {
+        const links =
+          typeof workItem.frontmatter.links === "object" &&
+          workItem.frontmatter.links !== null
+            ? (workItem.frontmatter.links as Record<string, unknown>)
+            : {};
+        if (
+          ensureArray(links.evidence).length > 0 &&
+          typeof workItem.frontmatter.actual === "number"
+        ) {
           await finalizeWorkItem({
             rootDir,
             consumerConfig: options.consumerConfig,
@@ -1014,30 +1212,51 @@ export async function ingestEvent(options: IngestEventOptions): Promise<IngestEv
     }
   }
 
-  if (options.event.startsWith("workflow_run") && config.automation.autoEvidenceFromWorkflowRuns) {
-    const workflowRun = (payload.workflow_run as Record<string, unknown> | undefined) ?? {};
-    const workflowName = typeof workflowRun.name === "string" ? workflowRun.name : "workflow";
-    const conclusion = typeof workflowRun.conclusion === "string" ? workflowRun.conclusion : undefined;
-    const htmlUrl = typeof workflowRun.html_url === "string" ? workflowRun.html_url : undefined;
-    const runId = workflowRun.id !== undefined ? String(workflowRun.id) : workflowName;
+  if (
+    options.event.startsWith("workflow_run") &&
+    config.automation.autoEvidenceFromWorkflowRuns
+  ) {
+    const workflowRun =
+      (payload.workflow_run as Record<string, unknown> | undefined) ?? {};
+    const workflowName =
+      typeof workflowRun.name === "string" ? workflowRun.name : "workflow";
+    const conclusion =
+      typeof workflowRun.conclusion === "string"
+        ? workflowRun.conclusion
+        : undefined;
+    const htmlUrl =
+      typeof workflowRun.html_url === "string"
+        ? workflowRun.html_url
+        : undefined;
+    const runId =
+      workflowRun.id !== undefined ? String(workflowRun.id) : workflowName;
 
     for (const subject of subjects) {
       const subjectSlug = subject.replace(/^work-item:/, "");
       const record = await createRecordInternal(rootDir, config, {
-        id: buildRecordId(`${subjectSlug}-${slugify(workflowName)}-${slugify(runId)}`),
+        id: buildRecordId(
+          `${subjectSlug}-${slugify(workflowName)}-${slugify(runId)}`,
+        ),
         summary: `${workflowName} result for ${subject}`,
         subtype: "test-result",
         status: "ready",
         statusReason: "recorded",
         outcome: githubWorkflowOutcome(conclusion),
-        recordedAt: typeof workflowRun.updated_at === "string" ? workflowRun.updated_at : new Date().toISOString(),
-        observation: `Workflow '${workflowName}' completed with conclusion '${conclusion ?? "unknown"}'.`,
+        recordedAt:
+          typeof workflowRun.updated_at === "string"
+            ? workflowRun.updated_at
+            : new Date().toISOString(),
+        observation: `Workflow '${workflowName}' completed with conclusion '${
+          conclusion ?? "unknown"
+        }'.`,
         findings: htmlUrl ? [`Run details: ${htmlUrl}`] : undefined,
         subjects: [`[[work-item-${subjectSlug}]]`],
         artifactRefs: htmlUrl ? [htmlUrl] : undefined,
         dryRun: options.dryRun,
       });
-      const evidenceLink = `[[${stripMarkdownExtension(path.basename(record.filePath))}]]`;
+      const evidenceLink = `[[${stripMarkdownExtension(
+        path.basename(record.filePath),
+      )}]]`;
       await linkWorkItem({
         rootDir,
         consumerConfig: options.consumerConfig,
@@ -1046,8 +1265,18 @@ export async function ingestEvent(options: IngestEventOptions): Promise<IngestEv
         value: evidenceLink,
         dryRun: options.dryRun,
       });
-      actions.push({ type: "create-record", subject, record: record.id, outcome: githubWorkflowOutcome(conclusion) });
-      actions.push({ type: "link", subject, kind: "evidence", value: evidenceLink });
+      actions.push({
+        type: "create-record",
+        subject,
+        record: record.id,
+        outcome: githubWorkflowOutcome(conclusion),
+      });
+      actions.push({
+        type: "link",
+        subject,
+        kind: "evidence",
+        value: evidenceLink,
+      });
     }
   }
 
