@@ -193,27 +193,27 @@ This collides and should be skipped.
     expect(result.migrated).toHaveLength(1);
     expect(result.migrated[0]?.newPath).toContain("work-item-001-sample-task.md");
 
+    const underscoredLegacyPath = path.join(rootDir, "backlog", "001_sample_task.md");
+    const spacedLegacyPath = path.join(rootDir, "backlog", "001 sample task.md");
+    const migratedLegacyPath = result.migrated[0]!.legacyPath;
+    expect([underscoredLegacyPath, spacedLegacyPath]).toContain(migratedLegacyPath);
+
     const migratedItem = await readFile(
       path.join(rootDir, "backlog", "active", "work-item-001-sample-task.md"),
       "utf8"
     );
     expect(migratedItem).toContain("id: work-item:001-sample-task");
-    expect(migratedItem).toMatch(/title: '1: Sample task( duplicate)?'/);
-    expect(migratedItem).toMatch(/summary: Sample task( duplicate)?/);
+    if (migratedLegacyPath === underscoredLegacyPath) {
+      expect(migratedItem).toContain("title: '1: Sample task'");
+      expect(migratedItem).toContain("summary: Sample task");
+    } else {
+      expect(migratedItem).toContain("title: '1: Sample task duplicate'");
+      expect(migratedItem).toContain("summary: Sample task duplicate");
+    }
 
-    const legacyResults = await Promise.allSettled([
-      readFile(path.join(rootDir, "backlog", "001_sample_task.md"), "utf8"),
-      readFile(path.join(rootDir, "backlog", "001 sample task.md"), "utf8"),
-    ]);
-    const remainingLegacyItems = legacyResults
-      .filter(
-        (result): result is PromiseFulfilledResult<string> =>
-          result.status === "fulfilled",
-      )
-      .map((result) => result.value);
-
-    expect(remainingLegacyItems).toHaveLength(1);
-    expect(remainingLegacyItems[0]).toMatch(/Sample task( duplicate)?/);
+    const remainingLegacyPath =
+      migratedLegacyPath === underscoredLegacyPath ? spacedLegacyPath : underscoredLegacyPath;
+    await expect(readFile(remainingLegacyPath, "utf8")).resolves.toBeDefined();
   });
 
   it("creates and links evidence records from workflow_run events", async () => {
