@@ -19,11 +19,23 @@ jobs:
     uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-ci.yml@v1
     with:
       node-version: '22'
+      working-directory: .
+      install-command: pnpm install --frozen-lockfile
       lint-command: pnpm run lint
       typecheck-command: pnpm exec tsc --noEmit
       docs-command: pnpm run docs:lint
       backlog-command: pnpm run backlog:validate:ci
       test-command: pnpm run test -- --run
       build-command: pnpm run build
+      test-matrix-node-versions: '["22", "24"]'
+      test-matrix-os: '["ubuntu-latest", "macos-latest", "windows-latest"]'
+      changeset-exempt-path-prefixes: 'docs/ backlog/ README.md CHANGELOG.md LICENSE .github/'
       require-changeset: true
+      enable-lint: true
+      enable-type-check: true
+      enable-backlog-check: true
+      enable-docs-check: true
+      enable-tests: true
+      enable-build: true
+      enable-changeset-check: true
     secrets: inherit
