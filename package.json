@@ -1,11 +1,24 @@
 {
-  "name": "doc-vader",
+  "name": "@calan-co/doc-vader",
   "version": "0.0.1",
-  "description": "This directory contains JSON schemas for validating various documentation types.",
+  "description": "Documentation automation, validation, and governance CLI for Markdown-based projects.",
   "main": "dist/lib/index.js",
+  "files": [
+    "dist/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "packageManager": "pnpm@8.15.0",
   "scripts": {
     "build": "nx build doc-vader",
+    "changeset": "changeset",
     "test": "nx test doc-vader",
     "prepare": "husky",
     "docs:lint": "nx run doc-vader:docs-lint",
@@ -23,6 +36,7 @@
     "doc-vader": "dist/cli/doc-vader.js"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^24.10.0",
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.0.8",

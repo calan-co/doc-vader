@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: 'en-US'
+reviews:
+  profile: 'chill'
+  auto_review:
+    enabled: true
+    drafts: false
+  # When enabled, CodeRabbit can auto-approve after its comments are resolved
+  # and pre-merge checks are passing.
+  request_changes_workflow: true
+  review_status: true
+  review_details: false
+chat:
+  auto_reply: true
