@@ -19,10 +19,7 @@
     },
     {
       "type": "object",
-      "required": [
-        "$schema",
-        "summary"
-      ],
+      "required": ["$schema", "summary"],
       "properties": {
         "$schema": {
           "const": "schemas/work-management/frontmatter/project.json"
@@ -32,10 +29,12 @@
           "pattern": "^project:[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
         "type": {
-          "const": "project"
+          "const": "project",
+          "description": "The type of the document. Always 'project' for this schema"
         },
         "subtype": {
-          "$ref": "../support/common.json#/$defs/projectSubtype"
+          "$ref": "../support/common.json#/$defs/projectSubtype",
+          "description": "The subtype of the project (e.g., program, initiative), providing more specific categorization"
         },
         "summary": {
           "$ref": "../support/common.json#/$defs/nonEmptyString"

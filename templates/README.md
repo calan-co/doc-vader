@@ -12,6 +12,8 @@ subtype: template
 lifecycle: draft
 ---
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/calan-co/doc-vader?utm_source=oss&utm_medium=github&utm_campaign=calan-co%2Fdoc-vader&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 ## Documentation Template Index
 
 This index maps each template to its intended use and Diátaxis category. All templates include a `source` property referencing their provenance.
