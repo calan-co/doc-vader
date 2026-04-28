@@ -24,7 +24,7 @@ make visible. #}
 
 {% for condition in completionDefinition %}
 
-- {{ condition }}
+- [{{ condition | length > 0 ? "x" : " " }}] {{ condition }}
 
 {% endfor %}
 
@@ -42,7 +42,7 @@ make visible. #}
 {# Add scheduling context, dependencies, or rationale that helps explain why the
 milestone matters. #}
 
-{% if notes | type == "array" %}
+{% if notes | length > 0 %}
 {% for note in notes %}
 
 - {{ note }}

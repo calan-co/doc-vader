@@ -73,7 +73,7 @@ initiative exists to create. #}
 {# Add narrative context, sequencing notes, or rationale that helps a reader
 interpret the project without affecting extracted structure. #}
 
-{% if notes | type == "array" %}
+{% if notes | typeof == "array" %}
 {% for note in notes %}
 
 - {{ note }}
