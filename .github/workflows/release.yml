@@ -30,10 +30,10 @@ jobs:
     secrets: inherit
     with:
       mode: version
-      package-name: ${{ env.PACKAGE_NAME }}
-      registry-url: ${{ env.REGISTRY_URL }}
-      node-version: ${{ env.NODE_VERSION }}
-      stable-branch: ${{ env.STABLE_BRANCH }}
+      package-name: '@calan-co/doc-vader'
+      registry-url: https://npm.pkg.github.com
+      node-version: '22'
+      stable-branch: main
 
   publish-staging-prerelease:
     if: github.event_name == 'push' && github.ref_name == 'staging'
@@ -44,10 +44,10 @@ jobs:
     secrets: inherit
     with:
       mode: staging
-      package-name: ${{ env.PACKAGE_NAME }}
-      registry-url: ${{ env.REGISTRY_URL }}
-      node-version: ${{ env.NODE_VERSION }}
-      stable-branch: ${{ env.STABLE_BRANCH }}
+      package-name: '@calan-co/doc-vader'
+      registry-url: https://npm.pkg.github.com
+      node-version: '22'
+      stable-branch: main
 
   publish-release:
     if: github.event_name == 'release'
@@ -58,9 +58,9 @@ jobs:
     secrets: inherit
     with:
       mode: release
-      package-name: ${{ env.PACKAGE_NAME }}
-      registry-url: ${{ env.REGISTRY_URL }}
-      node-version: ${{ env.NODE_VERSION }}
-      stable-branch: ${{ env.STABLE_BRANCH }}
+      package-name: '@calan-co/doc-vader'
+      registry-url: https://npm.pkg.github.com
+      node-version: '22'
+      stable-branch: main
       release-tag: ${{ github.event.release.tag_name }}
       release-prerelease: ${{ github.event.release.prerelease }}

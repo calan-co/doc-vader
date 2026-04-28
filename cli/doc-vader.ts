@@ -26,13 +26,27 @@ import {
   reconcile as governanceReconcile,
   migrate as governanceMigrate,
 } from "../lib/controllers/governanceController.js";
+import {
+  transition as transitionWorkItem,
+  link as linkWorkItem,
+  recordCommit as recordWorkItemCommit,
+  createRecord as createWorkRecord,
+  finalize as finalizeWorkItem,
+  migrate as migrateBacklogWorkManagement,
+  ingestEvent as ingestBacklogEvent,
+} from "../lib/controllers/workManagementController.js";
 
 const program = new Command()
   .name("doc-vader")
   .description(
-    "Doc-Vader CLI - documentation automation, validation, and utilities"
+    "Doc-Vader CLI - documentation automation, validation, and utilities",
   )
   .version("1.0.0");
+
+const collectOption = (value: string, previous: string[] = []) => [
+  ...previous,
+  value,
+];
 
 // --- DOMAIN: frontmatter ---
 const frontmatter = program
@@ -121,7 +135,7 @@ docSystem
         strict: opts.strict,
       });
       console.log(result);
-    }
+    },
   );
 
 // --- DOMAIN: backlog ---
@@ -134,22 +148,19 @@ backlog
   .description("Validate backlog items")
   .option("-d, --dir <path>", "Path to the backlog directory", "backlog")
   .option("--format <format>", "Output format: text|json")
-  .option(
-    "--fail-on <level>",
-    "Fail level for exit code: error|warning"
-  )
+  .option("--fail-on <level>", "Fail level for exit code: error|warning")
   .option(
     "--profile <nameOrPath>",
-    "Validation profile name (default|strict|ci) or JSON profile path"
+    "Validation profile name (default|strict|ci) or JSON profile path",
   )
   .option(
     "--schema-map <path>",
-    "Optional schema-map JSON path for schema routing"
+    "Optional schema-map JSON path for schema routing",
   )
   .option(
     "--include-archive",
     "Include backlog/archive files in audit validation",
-    false
+    false,
   )
   .action(async (opts) => {
     const report = await validateBacklog({
@@ -183,11 +194,225 @@ backlog
     console.log(items);
   });
 
+backlog
+  .command("migrate")
+  .description(
+    "Migrate a legacy backlog to canonical doc-vader work-management artifacts",
+  )
+  .option("-d, --dir <path>", "Path to the legacy backlog directory")
+  .option("--consumer-config <path>", "Path to consumer config JSON")
+  .option("--dry-run", "Show what would change without writing files")
+  .option("--write", "Apply the migration")
+  .action(async (opts) => {
+    if (opts.write && opts.dryRun) {
+      throw new Error("Use either --write or --dry-run, not both.");
+    }
+    const result = await migrateBacklogWorkManagement({
+      dir: opts.dir,
+      consumerConfig: opts.consumerConfig,
+      dryRun: opts.write ? false : Boolean(opts.dryRun ?? true),
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+backlog
+  .command("ingest-event")
+  .description("Ingest a forge/VCS event payload and apply backlog mutations")
+  .requiredOption(
+    "--provider <provider>",
+    "Provider: github|gitlab|bitbucket|subversion",
+  )
+  .requiredOption("--event <event>", "Event name, e.g. pull_request.closed")
+  .requiredOption("--payload <path>", "Path to JSON payload file")
+  .option("--consumer-config <path>", "Path to consumer config JSON")
+  .option("--dry-run", "Show the mutations without writing files")
+  .action(async (opts) => {
+    const result = await ingestBacklogEvent({
+      provider: opts.provider,
+      event: opts.event,
+      payloadPath: opts.payload,
+      consumerConfig: opts.consumerConfig,
+      dryRun: opts.dryRun,
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+const workItem = program
+  .command("work-item")
+  .description("Canonical work-item mutation commands");
+
+workItem
+  .command("transition")
+  .description("Transition a work item to a new lifecycle status")
+  .requiredOption("--id <id>", "Canonical work-item id")
+  .requiredOption("--status <status>", "Target status")
+  .option("--reason <reason>", "Status reason token/value")
+  .option("--actual <hours>", "Actual effort in hours")
+  .option("--assignee <assignee>", "Assignee or owner handle")
+  .option("--completed-date <date>", "Completion date in YYYY-MM-DD form")
+  .option("--consumer-config <path>", "Path to consumer config JSON")
+  .option("--dry-run", "Show the mutation without writing files")
+  .action(async (opts) => {
+    let actual: number | undefined;
+    if (opts.actual !== undefined) {
+      const n = Number(opts.actual);
+      if (!Number.isFinite(n)) {
+        throw new Error(
+          `--actual must be a valid finite number, got: "${opts.actual}"`,
+        );
+      }
+      actual = n;
+    }
+    const result = await transitionWorkItem({
+      id: opts.id,
+      status: opts.status,
+      statusReason: opts.reason,
+      actual,
+      assignee: opts.assignee,
+      completedDate: opts.completedDate,
+      consumerConfig: opts.consumerConfig,
+      dryRun: opts.dryRun,
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+workItem
+  .command("link")
+  .description("Attach a canonical link to a work item")
+  .argument("<kind>", "Link kind: pr|evidence|reference")
+  .requiredOption("--id <id>", "Canonical work-item id")
+  .option("--url <url>", "External URL for PR links")
+  .option("--ref <ref>", "Wikilink, file, or other reference")
+  .option("--consumer-config <path>", "Path to consumer config JSON")
+  .option("--dry-run", "Show the mutation without writing files")
+  .action(async (kind: string, opts) => {
+    const allowedKinds = ["pr", "evidence", "reference"] as const;
+    if (!allowedKinds.includes(kind as (typeof allowedKinds)[number])) {
+      throw new Error(
+        `Invalid link kind "${kind}". Must be one of: ${allowedKinds.join(
+          ", ",
+        )}`,
+      );
+    }
+    const value = opts.url ?? opts.ref;
+    if (!value) {
+      throw new Error("Provide --url or --ref for work-item link.");
+    }
+    const result = await linkWorkItem({
+      id: opts.id,
+      kind: kind as "pr" | "evidence" | "reference",
+      value,
+      consumerConfig: opts.consumerConfig,
+      dryRun: opts.dryRun,
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+workItem
+  .command("record-commit")
+  .description("Record an implementation commit against a work item")
+  .requiredOption("--id <id>", "Canonical work-item id")
+  .requiredOption("--sha <sha>", "Commit SHA")
+  .requiredOption("--summary <summary>", "Short commit summary")
+  .option("--consumer-config <path>", "Path to consumer config JSON")
+  .option("--dry-run", "Show the mutation without writing files")
+  .action(async (opts) => {
+    const result = await recordWorkItemCommit({
+      id: opts.id,
+      sha: opts.sha,
+      summary: opts.summary,
+      consumerConfig: opts.consumerConfig,
+      dryRun: opts.dryRun,
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+workItem
+  .command("finalize")
+  .description("Finalize and archive a work item once closure evidence exists")
+  .requiredOption("--id <id>", "Canonical work-item id")
+  .option("--reason <reason>", "Closure reason")
+  .option("--completed-date <date>", "Completion date in YYYY-MM-DD form")
+  .option("--actual <hours>", "Actual effort in hours")
+  .option("--consumer-config <path>", "Path to consumer config JSON")
+  .option("--dry-run", "Show the mutation without writing files")
+  .action(async (opts) => {
+    let actual: number | undefined;
+    if (opts.actual !== undefined) {
+      const n = Number(opts.actual);
+      if (!Number.isFinite(n)) {
+        throw new Error(
+          `--actual must be a valid finite number, got: "${opts.actual}"`,
+        );
+      }
+      actual = n;
+    }
+    const result = await finalizeWorkItem({
+      id: opts.id,
+      statusReason: opts.reason,
+      completedDate: opts.completedDate,
+      actual,
+      consumerConfig: opts.consumerConfig,
+      dryRun: opts.dryRun,
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+
+const record = program
+  .command("record")
+  .description("Canonical record creation commands");
+
+record
+  .command("create")
+  .description("Create an append-only record artifact such as a test-result")
+  .requiredOption("--summary <summary>", "Record summary")
+  .requiredOption("--observation <observation>", "Primary record observation")
+  .requiredOption(
+    "--subject <subject>",
+    "Subject wikilink or reference",
+    collectOption,
+  )
+  .option("--id <id>", "Canonical record id")
+  .option("--type <subtype>", "Record subtype, e.g. test-result")
+  .option("--status <status>", "Lifecycle status")
+  .option("--reason <reason>", "Status reason token/value")
+  .option("--outcome <outcome>", "Outcome token, e.g. pass|fail|mixed|noted")
+  .option("--recorded-at <timestamp>", "Record timestamp in ISO 8601 form")
+  .option("--artifact-ref <ref>", "Artifact reference", collectOption, [])
+  .option("--supporting-ref <ref>", "Supporting reference", collectOption, [])
+  .option("--finding <finding>", "Finding line", collectOption, [])
+  .option("--note <note>", "Additional note line", collectOption, [])
+  .option("--consumer-config <path>", "Path to consumer config JSON")
+  .option("--dry-run", "Show the mutation without writing files")
+  .action(async (opts) => {
+    const subjects = Array.isArray(opts.subject)
+      ? opts.subject
+      : [opts.subject];
+    const result = await createWorkRecord({
+      id: opts.id,
+      summary: opts.summary,
+      observation: opts.observation,
+      subjects,
+      subtype: opts.type,
+      status: opts.status,
+      statusReason: opts.reason,
+      outcome: opts.outcome,
+      recordedAt: opts.recordedAt,
+      artifactRefs: opts.artifactRef,
+      supportingRefs: opts.supportingRef,
+      findings: opts.finding,
+      notes: opts.note,
+      consumerConfig: opts.consumerConfig,
+      dryRun: opts.dryRun,
+    });
+    console.log(JSON.stringify(result, null, 2));
+  });
+
 // --- DOMAIN: governance ---
 const governance = program
   .command("governance")
   .description(
-    "Governance profiles (documentation systems and process models)"
+    "Governance profiles (documentation systems and process models)",
   );
 
 governance
@@ -222,8 +447,8 @@ governance
             version: p.version || "",
             category: p.category || "",
             form: p.sourceForm,
-          }))
-        )
+          })),
+        ),
       );
     }
   });
@@ -247,7 +472,7 @@ governance
           version: p.version || "",
           category: p.category || "",
           form: p.sourceForm,
-        }))
+        })),
       );
     } else if ("message" in (effective as any)) {
       console.log((effective as any).message);
@@ -257,13 +482,13 @@ governance
 governance
   .command("reconcile")
   .description(
-    "Reconcile conflicts between selected governance profiles (placeholder implementation)"
+    "Reconcile conflicts between selected governance profiles (placeholder implementation)",
   )
   .argument("<file>", "Markdown file path")
   .option(
     "--strategy <strategy>",
     "prompt|auto|prioritize|intersection|override|split|advisory",
-    "prompt"
+    "prompt",
   )
   .option("--dry-run", "Show plan without applying changes")
   .action(
@@ -273,13 +498,13 @@ governance
         dryRun: opts.dryRun,
       });
       console.log(JSON.stringify(plan, null, 2));
-    }
+    },
   );
 
 governance
   .command("migrate")
   .description(
-    "Migrate legacy governanceProfiles/reconciliation to new governance structure (placeholder)"
+    "Migrate legacy governanceProfiles/reconciliation to new governance structure (placeholder)",
   )
   .option("--write", "Apply changes (default dry-run)")
   .option("-d, --docs-dir <path>", "Path to the docs directory", "docs")
