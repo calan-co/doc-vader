@@ -13,6 +13,11 @@ concurrency:
   group: release-${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
 env:
   SHARED_RELEASE_REF: v1
   PACKAGE_NAME: '@calan-co/doc-vader'
