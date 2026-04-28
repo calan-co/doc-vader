@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   ci:
-    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-ci.yml@main
+    uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-ci.yml@v2
     with:
       node-version: '22'
       lint-command: pnpm run lint
