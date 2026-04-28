@@ -63,7 +63,7 @@ export async function validateFrontmatter({
   if (path.basename(baseSchemaId) === "latest")
     baseSchemaId = path.dirname(baseSchemaId);
   if (path.basename(baseSchemaId) === data.type)
-    baseSchemaId = path.join(baseSchemaId, "*");
+    baseSchemaId = path.posix.join(baseSchemaId, "*");
   // Naive lookup of existing schema file
   let validate = ajv.getSchema(baseSchemaId) as ValidateFunction | undefined;
   if (!validate) {
@@ -122,7 +122,8 @@ async function resolveSchemaPath(
   // Read available versions from schemaDir
   let availableVersions: string[] = [];
   try {
-    const files = await fs.readdir(path.join(schemaDir, basePath), {
+    const osBasePath = basePath.split("/").filter(Boolean);
+    const files = await fs.readdir(path.join(schemaDir, ...osBasePath), {
       recursive: true,
       withFileTypes: true,
     });
