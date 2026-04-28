@@ -41,6 +41,7 @@
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@types/node": "^24.10.0",
+    "@types/mdast": "^4.0.4",
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.0.8",
     "@wikimedia/jsonschema-tools": "^1.3.0",
@@ -50,6 +51,7 @@
     "nx": "^20.4.6",
     "sury": "^11.0.0-alpha.4",
     "typescript": "^5.9.3",
+    "tsx": "^4.20.6",
     "unified": "^11.0.5",
     "vitest": "^4.0.10"
   },
@@ -68,6 +70,10 @@
     "remark-parse": "^11.0.0",
     "remark-stringify": "^11.0.0",
     "semver": "^7.7.3",
-    "unist-util-position": "^5.0.0"
+    "unist-util-visit-parents": "^6.0.2",
+    "unified-lint-rule": "^2.1.2",
+    "unist-util-position": "^5.0.0",
+    "vfile": "^6.0.3",
+    "zod": "^3.25.76"
   }
 }

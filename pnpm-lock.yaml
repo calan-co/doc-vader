@@ -50,9 +50,21 @@ importers:
       semver:
         specifier: ^7.7.3
         version: 7.7.4
+      unified-lint-rule:
+        specifier: ^2.1.2
+        version: 2.1.2
       unist-util-position:
         specifier: ^5.0.0
         version: 5.0.0
+      unist-util-visit-parents:
+        specifier: ^6.0.2
+        version: 6.0.2
+      vfile:
+        specifier: ^6.0.3
+        version: 6.0.3
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@changesets/cli':
         specifier: ^2.31.0
@@ -63,6 +75,9 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^20.4.2
         version: 20.5.0
+      '@types/mdast':
+        specifier: ^4.0.4
+        version: 4.0.4
       '@types/node':
         specifier: ^24.10.0
         version: 24.11.0
@@ -90,6 +105,9 @@ importers:
       sury:
         specifier: ^11.0.0-alpha.4
         version: 11.0.0-alpha.4
+      tsx:
+        specifier: ^4.20.6
+        version: 4.21.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -98,7 +116,7 @@ importers:
         version: 11.0.5
       vitest:
         specifier: ^4.0.10
-        version: 4.0.18(@types/node@24.11.0)
+        version: 4.0.18(@types/node@24.11.0)(tsx@4.21.0)
 
 packages:
 
@@ -1467,7 +1485,6 @@ packages:
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
     dependencies:
       '@types/unist': 3.0.3
-    dev: false
 
   /@types/ms@2.1.0:
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
@@ -1513,7 +1530,7 @@ packages:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.18(@types/node@24.11.0)
+      vitest: 4.0.18(@types/node@24.11.0)(tsx@4.21.0)
     dev: true
 
   /@vitest/expect@4.0.18:
@@ -1541,7 +1558,7 @@ packages:
       '@vitest/spy': 4.0.18
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 7.3.1(@types/node@24.11.0)
+      vite: 7.3.1(@types/node@24.11.0)(tsx@4.21.0)
     dev: true
 
   /@vitest/pretty-format@4.0.18:
@@ -2757,6 +2774,12 @@ packages:
     dependencies:
       dunder-proto: 1.0.1
       es-object-atoms: 1.1.1
+    dev: true
+
+  /get-tsconfig@4.14.0:
+    resolution: {integrity: sha512-yTb+8DXzDREzgvYmh6s9vHsSVCHeC0G3PI5bEXNBHtmshPnO+S5O7qgLEOn0I5QvMy6kpZN8K1NKGyilLb93wA==}
+    dependencies:
+      resolve-pkg-maps: 1.0.0
     dev: true
 
   /git-raw-commits@5.0.1:
@@ -4451,6 +4474,10 @@ packages:
     engines: {node: '>=8'}
     dev: true
 
+  /resolve-pkg-maps@1.0.0:
+    resolution: {integrity: sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==}
+    dev: true
+
   /resolve.exports@2.0.3:
     resolution: {integrity: sha512-OcXjMsGdhL4XnbShKpAcSqPMzQoYkYyhbEaeSko47MjRP9NfEQMhZkXL1DoFlt9LWQn4YttrdnV6X2OiyzBi+A==}
     engines: {node: '>=10'}
@@ -4859,6 +4886,17 @@ packages:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
     dev: true
 
+  /tsx@4.21.0:
+    resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
+    engines: {node: '>=18.0.0'}
+    hasBin: true
+    dependencies:
+      esbuild: 0.27.3
+      get-tsconfig: 4.14.0
+    optionalDependencies:
+      fsevents: 2.3.3
+    dev: true
+
   /type-check@0.3.2:
     resolution: {integrity: sha512-ZCmOJdvOWDBYJlzAoFkC+Q0+bUyEOS1ltgp1MGU03fqHG+dbi9tBFU2Rd9QKiDZFAYrhPh2JUf7rZRIuHRKtOg==}
     engines: {node: '>= 0.8.0'}
@@ -5052,7 +5090,7 @@ packages:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  /vite@7.3.1(@types/node@24.11.0):
+  /vite@7.3.1(@types/node@24.11.0)(tsx@4.21.0):
     resolution: {integrity: sha512-w+N7Hifpc3gRjZ63vYBXA56dvvRlNWRczTdmCBBa+CotUzAPf5b7YMdMR/8CQoeYE5LX3W4wj6RYTgonm1b9DA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -5099,11 +5137,12 @@ packages:
       postcss: 8.5.6
       rollup: 4.59.0
       tinyglobby: 0.2.15
+      tsx: 4.21.0
     optionalDependencies:
       fsevents: 2.3.3
     dev: true
 
-  /vitest@4.0.18(@types/node@24.11.0):
+  /vitest@4.0.18(@types/node@24.11.0)(tsx@4.21.0):
     resolution: {integrity: sha512-hOQuK7h0FGKgBAas7v0mSAsnvrIgAvWmRFjmzpJ7SwFHH3g1k2u37JtYwOwmEKhK6ZO3v9ggDBBm0La1LCK4uQ==}
     engines: {node: ^20.0.0 || ^22.0.0 || >=24.0.0}
     hasBin: true
@@ -5156,7 +5195,7 @@ packages:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.3.1(@types/node@24.11.0)
+      vite: 7.3.1(@types/node@24.11.0)(tsx@4.21.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - jiti
@@ -5307,6 +5346,10 @@ packages:
   /yocto-queue@1.2.2:
     resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
     engines: {node: '>=12.20'}
+    dev: false
+
+  /zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
     dev: false
 
   /zwitch@2.0.4:
