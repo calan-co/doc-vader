@@ -1,30 +1,20 @@
 ---
-title: Changelog
-lastReviewed: 2025-10-21T00:00:00.000Z
-id: template
-type: work-item
-subtype: template
-lifecycle: draft
-status: proposed
+title: Changelog (internal docs history)
+lastReviewed: 2026-04-27T00:00:00.000Z
+id: docs-changelog
+type: document
+subtype: reference
+lifecycle: active
+status: approved
 ---
 
-## Changelog
+## Docs Changelog
+
+This file tracks significant changes to the `docs/` directory.
+For package release history, see the root [CHANGELOG.md](../../CHANGELOG.md).
 
 ## [Unreleased]
 
-- Initial MVP documentation structure
-- Added GETTING_STARTED, FAQ, TROUBLESHOOTING, CONTRIBUTING, AGENT_GUIDE, BACKEND_GUIDE, ROADMAP, SECURITY, SUPPORT
-
-## [0.1.0] - MVP
-
-- Core agent/workflow CRUD
-- CLI management
-- MCP tool infrastructure
-- REST/SSE compatibility
-
-## [0.2.0] - Next Release
-
-- Load/performance testing suite
-- Multi-instance event bus support
-- CLI autocompletion
-- Expanded documentation
+- Updated getting-started and FAQ to reflect doc-vader (removed Team-in-a-Box placeholder content)
+- Added `docs/how-to/getting-started.md` with install, CLI, and library quick-start
+- Added `docs/how-to/faq.md` covering general, install, usage, and troubleshooting topics
