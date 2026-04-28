@@ -20,7 +20,7 @@
     "docs-lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "sh staging/scripts/docs-lint.sh"
+        "command": "bash staging/scripts/docs-lint.sh"
       }
     },
     "docs-lint-fix": {
@@ -52,7 +52,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "sh staging/scripts/docs-lint.sh"
+        "command": "bash staging/scripts/docs-lint.sh"
       }
     }
   }
