@@ -205,6 +205,9 @@ backlog
   .option("--dry-run", "Show what would change without writing files")
   .option("--write", "Apply the migration")
   .action(async (opts) => {
+    if (opts.write && opts.dryRun) {
+      throw new Error("Use either --write or --dry-run, not both.");
+    }
     const result = await migrateBacklogWorkManagement({
       dir: opts.dir,
       consumerConfig: opts.consumerConfig,
@@ -354,7 +357,7 @@ record
   .description("Create an append-only record artifact such as a test-result")
   .requiredOption("--summary <summary>", "Record summary")
   .requiredOption("--observation <observation>", "Primary record observation")
-  .requiredOption("--subject <subject>", "Subject wikilink or reference", collectOption, [])
+  .requiredOption("--subject <subject>", "Subject wikilink or reference", collectOption)
   .option("--id <id>", "Canonical record id")
   .option("--type <subtype>", "Record subtype, e.g. test-result")
   .option("--status <status>", "Lifecycle status")
@@ -368,11 +371,12 @@ record
   .option("--consumer-config <path>", "Path to consumer config JSON")
   .option("--dry-run", "Show the mutation without writing files")
   .action(async (opts) => {
+    const subjects = Array.isArray(opts.subject) ? opts.subject : [opts.subject];
     const result = await createWorkRecord({
       id: opts.id,
       summary: opts.summary,
       observation: opts.observation,
-      subjects: opts.subject,
+      subjects,
       subtype: opts.type,
       status: opts.status,
       statusReason: opts.reason,
