@@ -153,6 +153,69 @@ Done.
     expect(migratedRecord).toContain("## Observation");
   });
 
+  it("skips legacy backlog items that collide on the same target basename", async () => {
+    const rootDir = await createTempRepo();
+    const legacyBacklog = path.join(rootDir, "backlog");
+
+    await writeMarkdown(
+      path.join(legacyBacklog, "001_sample_task.md"),
+      `---
+id: wi-001
+title: "1: Sample task"
+status: in-progress
+priority: high
+estimated: 3
+---
+
+## Goal
+
+Keep this item.
+`
+    );
+    await writeMarkdown(
+      path.join(legacyBacklog, "001 sample task.md"),
+      `---
+id: wi-001-duplicate
+title: "1: Sample task duplicate"
+status: in-progress
+priority: medium
+estimated: 1
+---
+
+## Goal
+
+This collides and should be skipped.
+`
+    );
+
+    const result = await migrateBacklog({ rootDir });
+
+    expect(result.migrated).toHaveLength(1);
+    expect(result.migrated[0]?.newPath).toContain("work-item-001-sample-task.md");
+
+    const migratedItem = await readFile(
+      path.join(rootDir, "backlog", "active", "work-item-001-sample-task.md"),
+      "utf8"
+    );
+    expect(migratedItem).toContain("id: work-item:001-sample-task");
+    expect(migratedItem).toMatch(/title: '1: Sample task( duplicate)?'/);
+    expect(migratedItem).toMatch(/summary: Sample task( duplicate)?/);
+
+    const legacyResults = await Promise.allSettled([
+      readFile(path.join(rootDir, "backlog", "001_sample_task.md"), "utf8"),
+      readFile(path.join(rootDir, "backlog", "001 sample task.md"), "utf8"),
+    ]);
+    const remainingLegacyItems = legacyResults
+      .filter(
+        (result): result is PromiseFulfilledResult<string> =>
+          result.status === "fulfilled",
+      )
+      .map((result) => result.value);
+
+    expect(remainingLegacyItems).toHaveLength(1);
+    expect(remainingLegacyItems[0]).toMatch(/Sample task( duplicate)?/);
+  });
+
   it("creates and links evidence records from workflow_run events", async () => {
     const rootDir = await createTempRepo();
     const workItemPath = path.join(rootDir, "backlog", "active", "work-item-sample.md");

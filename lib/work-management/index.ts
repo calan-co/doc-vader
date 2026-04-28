@@ -890,6 +890,7 @@ export async function migrateBacklog(
   const files = unique([...activeFiles, ...archiveFiles]);
   const basenameMap: Record<string, string> = {};
   const targetBasenameSet = new Set<string>();
+  const skippedLegacyPaths = new Set<string>();
 
   for (const legacyPath of files) {
     const slug = deriveLegacySlug(legacyPath);
@@ -899,6 +900,7 @@ export async function migrateBacklog(
       console.warn(
         `[migrateBacklog] Skipping "${legacyPath}": target basename "${targetBasename}" is already mapped by another entry`,
       );
+      skippedLegacyPaths.add(legacyPath);
       continue;
     }
     targetBasenameSet.add(targetBasename);
@@ -908,6 +910,10 @@ export async function migrateBacklog(
   const migrated: MigrationRecord[] = [];
 
   for (const legacyPath of files) {
+    if (skippedLegacyPaths.has(legacyPath)) {
+      continue;
+    }
+
     const isArchived = legacyPath.startsWith(legacyArchive);
     const legacyDoc = await readMarkdown(legacyPath);
     const slug = deriveLegacySlug(legacyPath);
