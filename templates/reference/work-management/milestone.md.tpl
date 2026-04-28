@@ -5,7 +5,6 @@ type: milestone
 ---
 
 ## Milestone Objective
-This should trigger a markdown lint error
 
 {# Describe the capability, date, or decision boundary this milestone is meant to
 make visible. #}
@@ -42,7 +41,7 @@ make visible. #}
 {# Add scheduling context, dependencies, or rationale that helps explain why the
 milestone matters. #}
 
-{% if notes | length > 0 %}
+{% if notes | type == "array" %}
 {% for note in notes %}
 
 - {{ note }}

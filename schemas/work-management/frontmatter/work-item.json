@@ -189,7 +189,7 @@
       },
       "then": {
         "type": "object",
-        "required": ["actual", "links"],
+        "required": ["actual", "completed_date", "links"],
         "properties": {
           "links": {
             "allOf": [

@@ -248,11 +248,19 @@ workItem
   .option("--consumer-config <path>", "Path to consumer config JSON")
   .option("--dry-run", "Show the mutation without writing files")
   .action(async (opts) => {
+    let actual: number | undefined;
+    if (opts.actual !== undefined) {
+      const n = Number(opts.actual);
+      if (!Number.isFinite(n)) {
+        throw new Error(`--actual must be a valid finite number, got: "${opts.actual}"`);
+      }
+      actual = n;
+    }
     const result = await transitionWorkItem({
       id: opts.id,
       status: opts.status,
       statusReason: opts.reason,
-      actual: opts.actual !== undefined ? Number(opts.actual) : undefined,
+      actual,
       assignee: opts.assignee,
       completedDate: opts.completedDate,
       consumerConfig: opts.consumerConfig,
@@ -271,6 +279,10 @@ workItem
   .option("--consumer-config <path>", "Path to consumer config JSON")
   .option("--dry-run", "Show the mutation without writing files")
   .action(async (kind: string, opts) => {
+    const allowedKinds = ["pr", "evidence", "reference"] as const;
+    if (!allowedKinds.includes(kind as typeof allowedKinds[number])) {
+      throw new Error(`Invalid link kind "${kind}". Must be one of: ${allowedKinds.join(", ")}`);
+    }
     const value = opts.url ?? opts.ref;
     if (!value) {
       throw new Error("Provide --url or --ref for work-item link.");

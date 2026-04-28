@@ -281,7 +281,7 @@ function normalizeLegacyCommitMap(value: unknown): Record<string, string> | unde
 
   const normalizedEntries = Object.entries(value as Record<string, unknown>).reduce<Array<readonly [string, string]>>(
     (entries, [sha, summary]) => {
-      if (!/^(?:[0-9a-f]{7}|[0-9a-f]{40})$/i.test(sha.trim())) {
+      if (!/^[0-9a-f]{7,40}$/i.test(sha.trim())) {
         return entries;
       }
       if (typeof summary !== "string") {
@@ -575,7 +575,11 @@ function buildRecordBody(options: CreateRecordOptions): string {
 
 async function createRecordInternal(rootDir: string, config: ResolvedConsumerConfig, options: CreateRecordOptions): Promise<CreateRecordResult> {
   const subtype = options.subtype ?? "test-result";
-  const slug = options.id ? options.id.replace(/^record:/, "") : slugify(options.summary);
+  const rawSlug = options.id ? options.id.replace(/^record:/, "") : slugify(options.summary);
+  if (!/^[a-zA-Z0-9_.-]+$/.test(rawSlug) || rawSlug.includes("..")) {
+    throw new Error(`Invalid record id "${rawSlug}": only alphanumerics, dashes, underscores, and dots are allowed`);
+  }
+  const slug = rawSlug;
   const recordId = options.id ?? buildRecordId(slug);
   const filePath = path.resolve(rootDir, config.roots.records, `${buildRecordBasename(slug)}.md`);
   const supportingRefs = unique((options.supportingRefs ?? []).map((value) => normalizeLink("reference", value)));
@@ -678,7 +682,14 @@ export async function recordWorkItemCommit(options: RecordCommitOptions): Promis
     ? { ...(document.frontmatter.commits as Record<string, unknown>) }
     : {};
 
-  commits[normalizeSha(options.sha)] = options.summary.trim();
+  if (!/^[0-9a-f]{7,40}$/i.test(options.sha.trim())) {
+    throw new Error(`Invalid commit SHA "${options.sha}": must be a hex string of 7–40 characters`);
+  }
+  const trimmedSummary = options.summary.trim();
+  if (trimmedSummary.length === 0) {
+    throw new Error("Commit summary must not be empty");
+  }
+  commits[normalizeSha(options.sha)] = trimmedSummary;
   document.frontmatter.commits = commits;
 
   if (!options.dryRun) {
@@ -755,10 +766,18 @@ export async function migrateBacklog(options: MigrateBacklogOptions): Promise<Mi
   const archiveFiles = (await findMarkdownFiles(legacyArchive)).filter((filePath) => path.basename(filePath) !== "AGENTS.md");
   const files = unique([...activeFiles, ...archiveFiles]);
   const basenameMap: Record<string, string> = {};
+  const targetBasenameSet = new Set<string>();
 
   for (const legacyPath of files) {
     const slug = deriveLegacySlug(legacyPath);
-    basenameMap[stripMarkdownExtension(path.basename(legacyPath))] = buildWorkItemBasename(slug);
+    const legacyBasename = stripMarkdownExtension(path.basename(legacyPath));
+    const targetBasename = buildWorkItemBasename(slug);
+    if (targetBasenameSet.has(targetBasename)) {
+      console.warn(`[migrateBacklog] Skipping "${legacyPath}": target basename "${targetBasename}" is already mapped by another entry`);
+      continue;
+    }
+    targetBasenameSet.add(targetBasename);
+    basenameMap[legacyBasename] = targetBasename;
   }
 
   const migrated: MigrationRecord[] = [];
