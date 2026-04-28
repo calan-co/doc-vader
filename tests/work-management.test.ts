@@ -188,13 +188,17 @@ This collides and should be skipped.
 `
     );
 
+    const underscoredLegacyPath = path.join(rootDir, "backlog", "001_sample_task.md");
+    const spacedLegacyPath = path.join(rootDir, "backlog", "001 sample task.md");
+    const [underscoredOriginal, spacedOriginal] = await Promise.all([
+      readFile(underscoredLegacyPath, "utf8"),
+      readFile(spacedLegacyPath, "utf8"),
+    ]);
+
     const result = await migrateBacklog({ rootDir });
 
     expect(result.migrated).toHaveLength(1);
     expect(result.migrated[0]?.newPath).toContain("work-item-001-sample-task.md");
-
-    const underscoredLegacyPath = path.join(rootDir, "backlog", "001_sample_task.md");
-    const spacedLegacyPath = path.join(rootDir, "backlog", "001 sample task.md");
     const migratedLegacyPath = result.migrated[0]!.legacyPath;
     expect([underscoredLegacyPath, spacedLegacyPath]).toContain(migratedLegacyPath);
 
@@ -213,7 +217,9 @@ This collides and should be skipped.
 
     const remainingLegacyPath =
       migratedLegacyPath === underscoredLegacyPath ? spacedLegacyPath : underscoredLegacyPath;
-    await expect(readFile(remainingLegacyPath, "utf8")).resolves.toBeDefined();
+    const remainingOriginal =
+      migratedLegacyPath === underscoredLegacyPath ? spacedOriginal : underscoredOriginal;
+    await expect(readFile(remainingLegacyPath, "utf8")).resolves.toEqual(remainingOriginal);
   });
 
   it("creates and links evidence records from workflow_run events", async () => {
