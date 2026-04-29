@@ -34,6 +34,7 @@ jobs:
     uses: ./.github/workflows/backlog-ingest-pull-request.yml
     with:
       consumer-config: .doc-vader/backlog-consumer.json
+      doc-vader-version: next
     secrets: inherit
 
   ingest-workflow-run:
@@ -45,6 +46,7 @@ jobs:
     uses: ./.github/workflows/backlog-ingest-workflow-run.yml
     with:
       consumer-config: .doc-vader/backlog-consumer.json
+      doc-vader-version: next
     secrets: inherit
 
   sweep:
@@ -55,4 +57,5 @@ jobs:
       dry-run: ${{ inputs.dry_run || false }}
       consumer-config: .doc-vader/backlog-consumer.json
       backlog-dir: backlog
+      doc-vader-version: next
     secrets: inherit
