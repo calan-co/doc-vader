@@ -16,7 +16,7 @@ on:
         type: string
         default: 'backlog'
       doc-vader-version:
-        description: 'Version of @calan-co/doc-vader to install (e.g. "latest", "0.1.0")'
+        description: 'Version of @calan-co/doc-vader to install (e.g. "latest", "next", "0.1.0")'
         type: string
         default: 'latest'
       commit-user-name:
@@ -171,12 +171,12 @@ jobs:
       - name: Commit sweep changes
         if: ${{ !inputs.dry-run }}
         run: |
-          if [ -z "$(git status --porcelain -- backlog .doc-vader)" ]; then
+          if [ -z "$(git status --porcelain -- ${{ inputs.backlog-dir }} .doc-vader)" ]; then
             echo "No backlog changes to commit."
             exit 0
           fi
           git config user.name "${{ inputs.commit-user-name }}"
           git config user.email "${{ inputs.commit-user-email }}"
-          git add backlog .doc-vader
+          git add ${{ inputs.backlog-dir }} .doc-vader
           git commit -m "chore(backlog): sweep eligible work item updates"
           git push

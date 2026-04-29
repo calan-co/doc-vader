@@ -7,8 +7,12 @@ on:
         description: 'Path to the backlog consumer config file'
         type: string
         default: '.doc-vader/backlog-consumer.json'
+      backlog-dir:
+        description: 'Directory containing backlog work-item Markdown files'
+        type: string
+        default: 'backlog'
       doc-vader-version:
-        description: 'Version of @calan-co/doc-vader to install (e.g. "latest", "0.1.0")'
+        description: 'Version of @calan-co/doc-vader to install (e.g. "latest", "next", "0.1.0")'
         type: string
         default: 'latest'
       commit-user-name:
@@ -38,7 +42,7 @@ jobs:
       - name: Checkout repository branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -63,11 +67,11 @@ jobs:
 
       - name: Commit backlog changes
         run: |
-          if [ -z "$(git status --porcelain -- backlog .doc-vader)" ]; then
+          if [ -z "$(git status --porcelain -- ${{ inputs.backlog-dir }} .doc-vader)" ]; then
             exit 0
           fi
           git config user.name "${{ inputs.commit-user-name }}"
           git config user.email "${{ inputs.commit-user-email }}"
-          git add backlog .doc-vader
+          git add ${{ inputs.backlog-dir }} .doc-vader
           git commit -m "chore(backlog): ingest workflow run event"
           git push
