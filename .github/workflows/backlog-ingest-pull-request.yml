@@ -1,0 +1,77 @@
+name: Backlog – Ingest Pull Request
+
+on:
+  workflow_call:
+    inputs:
+      consumer-config:
+        description: 'Path to the backlog consumer config file'
+        type: string
+        default: '.doc-vader/backlog-consumer.json'
+      backlog-dir:
+        description: 'Directory containing backlog work-item Markdown files'
+        type: string
+        default: 'backlog'
+      doc-vader-version:
+        description: 'Version of @calan-co/doc-vader to install (e.g. "latest", "next", "0.1.0")'
+        type: string
+        default: 'latest'
+      commit-user-name:
+        description: 'Git user name for automated backlog commits'
+        type: string
+        default: 'doc-vader[bot]'
+      commit-user-email:
+        description: 'Git user email for automated backlog commits'
+        type: string
+        default: '0+doc-vader[bot]@users.noreply.github.com'
+    secrets:
+      packages-read-token:
+        description: >
+          Token with read:packages scope for the GitHub Package Registry.
+          Defaults to the calling workflow's GITHUB_TOKEN when not supplied
+          (suitable for same-organisation repositories).
+        required: false
+
+jobs:
+  ingest:
+    name: Ingest Pull Request Event
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Checkout repository branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://npm.pkg.github.com
+
+      - name: Install doc-vader
+        run: npm install -g @calan-co/doc-vader@${{ inputs.doc-vader-version }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.packages-read-token || secrets.GITHUB_TOKEN }}
+
+      - name: Ingest pull request event
+        run: |
+          set -e
+          doc-vader backlog ingest-event \
+            --provider github \
+            --event "pull_request.${{ github.event.action }}" \
+            --payload "$GITHUB_EVENT_PATH" \
+            --consumer-config "${{ inputs.consumer-config }}"
+
+      - name: Commit backlog changes
+        run: |
+          if [ -z "$(git status --porcelain -- ${{ inputs.backlog-dir }} .doc-vader)" ]; then
+            exit 0
+          fi
+          git config user.name "${{ inputs.commit-user-name }}"
+          git config user.email "${{ inputs.commit-user-email }}"
+          git add ${{ inputs.backlog-dir }} .doc-vader
+          git commit -m "chore(backlog): ingest pull request event"
+          git push

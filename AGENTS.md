@@ -7,6 +7,19 @@
 - If a task references or edits `docs/rfcs/**`, MUST read `docs/rfcs/AGENTS.md` and `docs/rfcs/INTERACTION_PROTOCOL.md` before responding.
 - Any optimization activity targeting any `AGENTS.md` file MUST use the `writing-agents-md` skill before proposing or applying edits.
 
+## Safety Boundaries
+
+**NEVER modify, disable, or bypass any explicitly applied constraint without explicit written approval in the current conversation turn.** This includes:
+
+- GitHub branch protection rules or rulesets (e.g., `required_approving_review_count`, `require_last_push_approval`, bypass actors)
+- Repository secrets or environment variable configurations
+- Collaborator permissions or team access
+- CI/CD workflow triggers or required status checks
+- Local git hooks (pre-commit, pre-push, etc.)
+- Local file permissions or access controls
+
+If blocked by any such constraint, **stop and ask** — do not modify or work around it to proceed.
+
 ## Working with Documentation and Backlog Files
 
 ### State Consistency & File Freshness

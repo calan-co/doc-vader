@@ -1,0 +1,182 @@
+name: Backlog – Sweep
+
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        description: 'Preview eligible updates without writing changes'
+        type: boolean
+        default: false
+      consumer-config:
+        description: 'Path to the backlog consumer config file'
+        type: string
+        default: '.doc-vader/backlog-consumer.json'
+      backlog-dir:
+        description: 'Directory containing backlog work-item Markdown files'
+        type: string
+        default: 'backlog'
+      doc-vader-version:
+        description: 'Version of @calan-co/doc-vader to install (e.g. "latest", "next", "0.1.0")'
+        type: string
+        default: 'latest'
+      commit-user-name:
+        description: 'Git user name for automated backlog commits'
+        type: string
+        default: 'doc-vader[bot]'
+      commit-user-email:
+        description: 'Git user email for automated backlog commits'
+        type: string
+        default: '0+doc-vader[bot]@users.noreply.github.com'
+    secrets:
+      packages-read-token:
+        description: >
+          Token with read:packages scope for the GitHub Package Registry.
+          Defaults to the calling workflow's GITHUB_TOKEN when not supplied
+          (suitable for same-organisation repositories).
+        required: false
+
+jobs:
+  sweep:
+    name: Sweep Eligible Work Items
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      packages: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://npm.pkg.github.com
+
+      - name: Install doc-vader
+        run: npm install -g @calan-co/doc-vader@${{ inputs.doc-vader-version }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.packages-read-token || secrets.GITHUB_TOKEN }}
+
+      - name: Sweep and ingest merged PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          REPO: ${{ github.repository }}
+          BACKLOG_DIR: ${{ inputs.backlog-dir }}
+          CONSUMER_CONFIG: ${{ inputs.consumer-config }}
+        run: |
+          python3 << 'PYEOF'
+          import os, re, json, subprocess, tempfile
+
+          FRONTMATTER_RE = re.compile(r'\A---\r?\n(.*?)\n---(?:\r?\n|$)', re.DOTALL)
+          ELIGIBLE_STATUS_RE = re.compile(r'^status:\s+(ready-for-review|in-progress)\s*$', re.M)
+          PR_URL_RE = re.compile(r'https://github\.com/[^/\s]+/[^/\s]+/pull/(\d+)')
+
+          def parse_frontmatter(content):
+              """Return the raw YAML frontmatter string, or None if absent/malformed."""
+              m = FRONTMATTER_RE.match(content)
+              return m.group(1) if m else None
+
+          repo = os.environ['REPO']
+          dry_run = os.environ.get('DRY_RUN', 'false').lower() == 'true'
+          backlog_dir = os.environ['BACKLOG_DIR']
+          consumer_config = os.environ['CONSUMER_CONFIG']
+          processed = 0
+
+          for fname in sorted(os.listdir(backlog_dir)):
+              if not fname.endswith('.md'):
+                  continue
+              fpath = os.path.join(backlog_dir, fname)
+              with open(fpath, encoding='utf-8') as f:
+                  content = f.read()
+
+              frontmatter = parse_frontmatter(content)
+              if frontmatter is None:
+                  print(f'{fname}: no frontmatter block — skipping')
+                  continue
+
+              if not ELIGIBLE_STATUS_RE.search(frontmatter):
+                  continue
+
+              # Restrict PR URL scan to frontmatter so body examples don't trigger ingestion.
+              pr_nums = PR_URL_RE.findall(frontmatter)
+              if not pr_nums:
+                  continue
+
+              for pr_num in pr_nums:
+                  r = subprocess.run(
+                      ['gh', 'api', f'repos/{repo}/pulls/{pr_num}'],
+                      capture_output=True, text=True
+                  )
+                  if r.returncode != 0:
+                      print(f'  PR #{pr_num}: API error — {r.stderr.strip()}')
+                      continue
+                  pr = json.loads(r.stdout)
+                  if not pr.get('merged'):
+                      continue
+
+                  label = '(dry-run) ' if dry_run else ''
+                  print(f'{fname}: PR #{pr_num} merged — {label}ingesting pull_request.closed')
+                  processed += 1
+
+                  if dry_run:
+                      continue
+
+                  payload = {
+                      'action': 'closed',
+                      'pull_request': {
+                          'number': pr['number'],
+                          'html_url': pr['html_url'],
+                          'title': pr['title'],
+                          'state': 'closed',
+                          'merged': True,
+                          'merged_at': pr.get('merged_at'),
+                          'base': pr['base'],
+                          'head': pr['head'],
+                      },
+                      'repository': pr['base']['repo'],
+                  }
+                  with tempfile.NamedTemporaryFile(
+                      mode='w', suffix='.json', delete=False
+                  ) as f:
+                      json.dump(payload, f)
+                      payload_path = f.name
+
+                  try:
+                      result = subprocess.run(
+                          [
+                              'doc-vader',
+                              'backlog', 'ingest-event',
+                              '--provider', 'github',
+                              '--event', 'pull_request.closed',
+                              '--payload', payload_path,
+                              '--consumer-config', consumer_config,
+                          ],
+                          capture_output=True, text=True,
+                      )
+                      if result.returncode == 0:
+                          print(f'  ✓ ingested')
+                      else:
+                          print(f'  ✗ failed: {result.stderr.strip()}')
+                          print(result.stdout.strip())
+                  finally:
+                      os.unlink(payload_path)
+
+          print(f'\nSweep complete: {processed} eligible PR(s) found.')
+          PYEOF
+
+      - name: Commit sweep changes
+        if: ${{ !inputs.dry-run }}
+        run: |
+          if [ -z "$(git status --porcelain -- ${{ inputs.backlog-dir }} .doc-vader)" ]; then
+            echo "No backlog changes to commit."
+            exit 0
+          fi
+          git config user.name "${{ inputs.commit-user-name }}"
+          git config user.email "${{ inputs.commit-user-email }}"
+          git add ${{ inputs.backlog-dir }} .doc-vader
+          git commit -m "chore(backlog): sweep eligible work item updates"
+          git push

@@ -30,7 +30,7 @@ jobs:
       build-command: pnpm run build
       test-matrix-node-versions: '["22", "24"]'
       test-matrix-os: '["ubuntu-latest", "macos-latest", "windows-latest"]'
-      changeset-exempt-path-prefixes: 'docs/ backlog/ README.md CHANGELOG.md LICENSE .github/'
+      changeset-exempt-path-prefixes: 'docs/ backlog/ README.md CHANGELOG.md LICENSE .github/ .doc-vader/ AGENTS.md'
       require-changeset: true
       enable-lint: false
       enable-type-check: true
