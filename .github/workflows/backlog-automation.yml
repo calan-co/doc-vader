@@ -1,0 +1,57 @@
+name: Backlog Automation
+
+# Reference implementation for calan-co/.github/workflow-templates/backlog-automation.yml.
+# When updating reusable sub-workflow refs or trigger conditions, sync the starter template.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview eligible updates without writing changes'
+        required: false
+        default: false
+        type: boolean
+  pull_request:
+    types: [opened, edited, reopened, synchronize, closed]
+    branches:
+      - main
+      - staging
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  ingest-pull-request:
+    name: Ingest Pull Request Event
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/backlog-ingest-pull-request.yml
+    with:
+      consumer-config: .doc-vader/backlog-consumer.json
+    secrets: inherit
+
+  ingest-workflow-run:
+    name: Ingest Workflow Run Event
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.conclusion == 'success'
+    uses: ./.github/workflows/backlog-ingest-workflow-run.yml
+    with:
+      consumer-config: .doc-vader/backlog-consumer.json
+    secrets: inherit
+
+  sweep:
+    name: Sweep Eligible Work Items
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/backlog-sweep.yml
+    with:
+      dry-run: ${{ inputs.dry_run || false }}
+      consumer-config: .doc-vader/backlog-consumer.json
+      backlog-dir: backlog
+    secrets: inherit

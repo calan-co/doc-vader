@@ -1,0 +1,14 @@
+{
+  "roots": {
+    "backlog": "backlog",
+    "active": "backlog",
+    "archive": "backlog/archive",
+    "records": "backlog/records",
+    "audit": "backlog/audit"
+  },
+  "automation": {
+    "autoCloseOnMerge": true,
+    "autoEvidenceFromWorkflowRuns": true,
+    "preserveCommitMap": true
+  }
+}
