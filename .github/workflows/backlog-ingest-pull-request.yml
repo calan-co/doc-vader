@@ -54,6 +54,7 @@ jobs:
 
       - name: Ingest pull request event
         run: |
+          set -e
           doc-vader backlog ingest-event \
             --provider github \
             --event "pull_request.${{ github.event.action }}" \

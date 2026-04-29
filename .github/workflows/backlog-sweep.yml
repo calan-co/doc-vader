@@ -90,7 +90,8 @@ jobs:
               if not fname.endswith('.md'):
                   continue
               fpath = os.path.join(backlog_dir, fname)
-              content = open(fpath).read()
+              with open(fpath, encoding='utf-8') as f:
+                  content = f.read()
 
               frontmatter = parse_frontmatter(content)
               if frontmatter is None:
