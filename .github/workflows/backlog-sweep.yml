@@ -74,6 +74,7 @@ jobs:
 
           FRONTMATTER_RE = re.compile(r'\A---\r?\n(.*?)\n---(?:\r?\n|$)', re.DOTALL)
           ELIGIBLE_STATUS_RE = re.compile(r'^status:\s+(ready-for-review|in-progress)\s*$', re.M)
+          WORK_ITEM_ID_RE = re.compile(r'^id:\s+(work-item:[^\s]+)\s*$', re.M)
           PR_URL_RE = re.compile(r'https://github\.com/[^/\s]+/[^/\s]+/pull/(\d+)')
 
           def parse_frontmatter(content):
@@ -112,6 +113,12 @@ jobs:
               if not ELIGIBLE_STATUS_RE.search(frontmatter):
                   continue
 
+                subject_match = WORK_ITEM_ID_RE.search(frontmatter)
+                if subject_match is None:
+                  print(f'{fname}: no work item id in frontmatter - skipping')
+                  continue
+                subject = subject_match.group(1)
+
               # Restrict PR URL scan to frontmatter so body examples don't trigger ingestion.
               pr_nums = PR_URL_RE.findall(frontmatter)
               if not pr_nums:
@@ -138,6 +145,7 @@ jobs:
 
                   payload = {
                       'action': 'closed',
+                      'doc_vader_subjects': subject,
                       'pull_request': {
                           'number': pr['number'],
                           'html_url': pr['html_url'],
