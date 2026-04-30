@@ -87,6 +87,11 @@ jobs:
           consumer_config = os.environ['CONSUMER_CONFIG']
           processed = 0
 
+            if not os.path.isdir(backlog_dir):
+              raise FileNotFoundError(
+                f"BACKLOG_DIR does not exist or is not a directory: {backlog_dir}"
+              )
+
           md_files = []
           for dirpath, _dirnames, filenames in os.walk(backlog_dir):
               for filename in filenames:
