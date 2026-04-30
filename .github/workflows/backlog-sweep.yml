@@ -27,12 +27,24 @@ on:
         description: 'Git user email for automated backlog commits'
         type: string
         default: '0+doc-vader[bot]@users.noreply.github.com'
+      app-id:
+        description: >
+          GitHub App ID for the doc-vader app.
+          When provided alongside app-private-key, commits are made as doc-vader[bot]
+          and can bypass protected-branch ruleset restrictions.
+        type: string
+        default: ''
     secrets:
       packages-read-token:
         description: >
           Token with read:packages scope for the GitHub Package Registry.
           Defaults to the calling workflow's GITHUB_TOKEN when not supplied
           (suitable for same-organisation repositories).
+        required: false
+      app-private-key:
+        description: >
+          GitHub App private key (PEM) for the doc-vader app.
+          Required when app-id is provided.
         required: false
 
 jobs:
@@ -41,13 +53,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: read
+      pull-requests: write
       packages: read
     steps:
+      - name: Generate doc-vader app token
+        id: app-token
+        if: ${{ inputs.app-id != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ inputs.app-id }}
+          private-key: ${{ secrets.app-private-key }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -189,6 +210,8 @@ jobs:
 
       - name: Commit sweep changes
         if: ${{ !inputs.dry-run }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         run: |
           if [ -z "$(git status --porcelain -- ${{ inputs.backlog-dir }} .doc-vader)" ]; then
             echo "No backlog changes to commit."
@@ -198,4 +221,4 @@ jobs:
           git config user.email "${{ inputs.commit-user-email }}"
           git add ${{ inputs.backlog-dir }} .doc-vader
           git commit -m "chore(backlog): sweep eligible work item updates"
-          git push
+          git push origin HEAD:${{ github.ref_name }}
