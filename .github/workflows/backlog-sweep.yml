@@ -87,10 +87,20 @@ jobs:
           consumer_config = os.environ['CONSUMER_CONFIG']
           processed = 0
 
-          for fname in sorted(os.listdir(backlog_dir)):
-              if not fname.endswith('.md'):
-                  continue
-              fpath = os.path.join(backlog_dir, fname)
+          if not os.path.isdir(backlog_dir):
+              raise FileNotFoundError(
+                  f"BACKLOG_DIR does not exist or is not a directory: {backlog_dir}"
+              )
+
+          md_files = []
+          for dirpath, _dirnames, filenames in os.walk(backlog_dir):
+              for filename in filenames:
+                  if filename.endswith('.md'):
+                      md_files.append(os.path.join(dirpath, filename))
+          md_files.sort()
+
+          for fpath in md_files:
+              fname = os.path.relpath(fpath, backlog_dir)
               with open(fpath, encoding='utf-8') as f:
                   content = f.read()
 
