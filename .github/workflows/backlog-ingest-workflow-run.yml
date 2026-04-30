@@ -50,6 +50,7 @@ jobs:
         with:
           node-version: '24'
           registry-url: https://npm.pkg.github.com
+          scope: '@calan-co'
 
       - name: Install doc-vader
         run: npm install -g @calan-co/doc-vader@${{ inputs.doc-vader-version }}
