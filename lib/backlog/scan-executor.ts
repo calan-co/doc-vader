@@ -9,6 +9,7 @@ import type {
   ScanError,
 } from "./scan-types.js";
 import { evaluateConditions } from "./scan-conditions.js";
+import { normalizeResolverOrder, resolveSubjects } from "./scan-resolver.js";
 
 function toPosix(p: string): string {
   return p.replaceAll("\\", "/");
@@ -42,7 +43,11 @@ async function collectMarkdownFiles(dir: string, includeArchive: boolean): Promi
   return files;
 }
 
-function parseWorkItem(file: string, content: string): WorkItemScanResult {
+function parseWorkItem(
+  file: string,
+  content: string,
+  resolverOrder: ReturnType<typeof normalizeResolverOrder>,
+): WorkItemScanResult {
   let data: Record<string, unknown>;
   try {
     const parsed = matter(content);
@@ -65,6 +70,7 @@ function parseWorkItem(file: string, content: string): WorkItemScanResult {
   }
 
   const { conditions, errors } = evaluateConditions(data);
+  const subjectResolution = resolveSubjects(content, data, resolverOrder);
 
   return {
     file,
@@ -74,6 +80,7 @@ function parseWorkItem(file: string, content: string): WorkItemScanResult {
     title: typeof data["title"] === "string" ? data["title"] : null,
     conditions,
     errors,
+    subjectResolution,
   };
 }
 
@@ -87,6 +94,7 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
   const reportFormat = options.reportFormat ?? "text";
   const strict = options.strict ?? false;
   const debug = options.debug ?? false;
+  const resolverOrder = normalizeResolverOrder(options.resolverOrder);
 
   if (debug) {
     process.stderr.write(`[backlog scan] scanning ${backlogDir}\n`);
@@ -111,7 +119,7 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
     const rel = toPosix(path.relative(rootDir, file));
     try {
       const content = await fs.readFile(file, "utf8");
-      const result = parseWorkItem(rel, content);
+      const result = parseWorkItem(rel, content, resolverOrder);
       items.push(result);
     } catch (err) {
       items.push({
@@ -144,6 +152,7 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
       reportFormat,
       strict,
       debug,
+      resolverOrder,
     },
     summary: {
       totalFiles: items.length,

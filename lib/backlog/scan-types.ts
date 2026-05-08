@@ -2,6 +2,22 @@
 
 export type ScanReportFormat = "json" | "text";
 
+export type SubjectResolverName =
+  | "payload_subject_tokens"
+  | "linked_pull_requests";
+
+export interface SubjectResolutionAttempt {
+  strategy: SubjectResolverName;
+  subjectsFound: number;
+  error?: string;
+}
+
+export interface SubjectResolutionResult {
+  subjects: string[];
+  strategyUsed: SubjectResolverName | null;
+  attempts: SubjectResolutionAttempt[];
+}
+
 export interface BacklogScanOptions {
   /** Path to the backlog directory. Defaults to "backlog". */
   backlogDir?: string;
@@ -15,6 +31,8 @@ export interface BacklogScanOptions {
   strict?: boolean;
   /** Enable verbose debug logging. */
   debug?: boolean;
+  /** Optional resolver execution order. */
+  resolverOrder?: SubjectResolverName[];
 }
 
 // ---------- Condition taxonomy ----------
@@ -56,6 +74,7 @@ export interface WorkItemScanResult {
   title: string | null;
   conditions: ScanCondition[];
   errors: ScanError[];
+  subjectResolution?: SubjectResolutionResult;
 }
 
 // ---------- Top-level report ----------
@@ -63,7 +82,9 @@ export interface WorkItemScanResult {
 export interface BacklogScanReport {
   scanId: string;
   generatedAt: string;
-  options: Required<Pick<BacklogScanOptions, "backlogDir" | "reportFormat" | "strict" | "debug">>;
+  options: Required<Pick<BacklogScanOptions, "backlogDir" | "reportFormat" | "strict" | "debug">> & {
+    resolverOrder: SubjectResolverName[];
+  };
   summary: {
     totalFiles: number;
     filesWithErrors: number;

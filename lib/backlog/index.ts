@@ -33,5 +33,6 @@ export * from "./audit.js";
 export * from "./backlog.js";
 export * from "./scan-types.js";
 export * from "./scan-conditions.js";
+export * from "./scan-resolver.js";
 export * from "./scan-executor.js";
 export * from "./scan-reporter.js";

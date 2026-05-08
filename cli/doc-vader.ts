@@ -14,6 +14,7 @@ import {
   parse,
 } from "../lib/controllers/frontmatterController.js";
 import { lint as lintDoc } from "../lib/controllers/docController.js";
+import type { SubjectResolverName } from "../lib/backlog/scan-types.js";
 import {
   list as listBacklogItems,
   validate as validateBacklog,
@@ -255,6 +256,10 @@ backlog
     "Write report to file instead of stdout",
   )
   .option(
+    "--resolver-order <order>",
+    "Comma-separated resolver order (payload_subject_tokens,linked_pull_requests)",
+  )
+  .option(
     "--strict",
     "Exit 1 if any errors are found",
     false,
@@ -267,11 +272,19 @@ backlog
       );
     }
 
+    const resolverOrder = typeof opts.resolverOrder === "string"
+      ? opts.resolverOrder
+          .split(",")
+          .map((value: string) => value.trim())
+          .filter((value: string) => value.length > 0) as SubjectResolverName[]
+      : undefined;
+
     const report = await scanBacklog({
       backlogDir: opts.dir,
       reportFormat: opts.reportFormat,
       strict: opts.strict,
       debug: opts.debug,
+      resolverOrder,
     });
     const output = formatScanReport(report);
     if (opts.outputFile) {
