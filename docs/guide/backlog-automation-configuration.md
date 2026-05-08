@@ -42,7 +42,7 @@ Place your configuration in the root of your repository:
 
 ```json
 {
-  "$schema": "https://docs.doc-vader.example.com/schemas/backlog-consumer.json",
+  "$schema": "schemas/backlog-consumer.schema.json",
   "metadata": {
     "consumer": "my-org/my-repo",
     "version": "1.0"
@@ -57,7 +57,7 @@ Place your configuration in the root of your repository:
 
 ```json
 {
-  "$schema": "https://docs.doc-vader.example.com/schemas/backlog-consumer.json",
+  "$schema": "schemas/backlog-consumer.schema.json",
   "metadata": {
     "consumer": "my-org/my-repo",
     "version": "1.0"
