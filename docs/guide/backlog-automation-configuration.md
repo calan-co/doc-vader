@@ -32,7 +32,7 @@ Backlog automation in doc-vader enables:
 
 Place your configuration in the root of your repository:
 
-```text
+```
 .doc-vader/backlog-consumer.json
 ```
 
@@ -42,7 +42,7 @@ Place your configuration in the root of your repository:
 
 ```json
 {
-  "$schema": "schemas/backlog-consumer.schema.json",
+  "$schema": "https://docs.doc-vader.example.com/schemas/backlog-consumer.json",
   "metadata": {
     "consumer": "my-org/my-repo",
     "version": "1.0"
@@ -57,7 +57,7 @@ Place your configuration in the root of your repository:
 
 ```json
 {
-  "$schema": "schemas/backlog-consumer.schema.json",
+  "$schema": "https://docs.doc-vader.example.com/schemas/backlog-consumer.json",
   "metadata": {
     "consumer": "my-org/my-repo",
     "version": "1.0"
@@ -267,10 +267,10 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
       
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: 18
       
@@ -278,10 +278,10 @@ jobs:
         run: pnpm install
       
       - name: Run backlog scan
-        run: doc-vader backlog scan --generate-evidence --report-format json > /tmp/scan-report.json
+        run: doc-vader backlog scan --generate-evidence --output-format json > /tmp/scan-report.json
       
       - name: Upload scan report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: backlog-scan-report-${{ github.run_id }}
           path: /tmp/scan-report.json
@@ -303,7 +303,7 @@ doc-vader backlog scan \
   --resolver-order payload_subject_tokens,linked_pull_requests \
   --generate-evidence \
   --strict \
-  --report-format json > report.json
+  --output-format json > report.json
 ```
 
 ## Configuration Precedence
@@ -338,7 +338,7 @@ doc-vader backlog scan --resolver-order payload_subject_tokens
 **Solution**:
 ```bash
 # Check current scan without creating evidence
-doc-vader backlog scan --report-format json
+doc-vader backlog scan --output-format json
 
 # Look for errors in report (resolve_subject_failed, etc.)
 # Adjust resolver order if needed
@@ -358,7 +358,7 @@ doc-vader backlog scan --report-format json
 # Try adding linked_pull_requests strategy
 doc-vader backlog scan \
   --resolver-order payload_subject_tokens,linked_pull_requests \
-  --report-format json
+  --output-format json
 ```
 
 ### Performance Issues
@@ -368,15 +368,15 @@ doc-vader backlog scan \
 **Diagnosis**: Likely using linked_pull_requests for many events
 
 **Solution**:
-```json
+```bash
+# Use payload-only resolver for fast scans
+# Configure automation to use fast resolver by default
 {
   "automation": {
     "subjectResolutionOrder": ["payload_subject_tokens"]
   }
 }
-```
 
-```bash
 # Run comprehensive scans manually with CLI override
 doc-vader backlog scan \
   --resolver-order payload_subject_tokens,linked_pull_requests

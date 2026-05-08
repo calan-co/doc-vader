@@ -12,8 +12,8 @@ tags:
   - commands
 links:
   reference:
-    - "[[../../guide/backlog-automation-configuration.md]]"
-    - "[[../../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]"
+    - "[[backlog-automation-configuration.md]]"
+    - "[[../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]"
 ---
 
 # Backlog Scan CLI Reference
@@ -329,7 +329,7 @@ doc-vader backlog scan
       --output-file /tmp/scan-report.json
 
 - name: Upload report
-  uses: actions/upload-artifact@v4
+  uses: actions/upload-artifact@v3
   with:
     name: backlog-scan-report
     path: /tmp/scan-report.json
@@ -400,7 +400,8 @@ doc-vader backlog scan --report-format json | head -20
 
 ## See Also
 
-- [Backlog Automation Configuration Guide](../../guide/backlog-automation-configuration.md)
+- [Backlog Automation Configuration Guide](../guide/backlog-automation-configuration.md)
 - [Resolver Strategy Reference](./resolver-strategy-guide.md)
+- [Evidence Records](./backlog-evidence-records.md)
 - [Troubleshooting Guide](./backlog-automation-troubleshooting.md)
 
