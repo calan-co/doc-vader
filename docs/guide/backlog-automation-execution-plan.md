@@ -34,7 +34,7 @@ Efficient, coordinated implementation of vendor adapter pattern and backlog scan
 
 ### Phase Dependency Graph
 
-```
+```text
 Phase A (8h)        Phase B (6h)        Phase C (4h)        Phase D (3h)        Phase E (3h)
 ├─ Types            ├─ Provider         ├─ Evidence         ├─ Workflow         ├─ Config
 ├─ Executor         ├─ Resolver Chain   ├─ Linking          ├─ Thin Wrapper     ├─ Flags
@@ -47,7 +47,7 @@ Phase A (8h)        Phase B (6h)        Phase C (4h)        Phase D (3h)        
 
 ### Gantt Timeline (Optimized with Parallelization)
 
-```
+```text
 Day 1 (8h) - Phase A (Scan Infrastructure)
 ├─ 0-1h   : Setup: types definitions, test fixtures, mock provider
 ├─ 1-4h   : Core executor and reporter implementation
@@ -318,11 +318,13 @@ After each phase, validate:
 ## Resource Requirements
 
 ### Primary Developer (Dedicated for Phases A-E)
+
 - 24 hours total over 3 days
 - Must understand backlog automation context
 - Familiar with vendor API patterns and TypeScript interfaces
 
 ### Optional Parallel Resources
+
 - **Test/Infrastructure Specialist**: 4-6 hours for test setup and CI/CD
 - **Documentation Writer**: 4-6 hours for guides and examples
 - **Code Reviewer**: Available for phase gates and PR reviews

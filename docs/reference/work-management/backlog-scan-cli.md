@@ -12,7 +12,7 @@ tags:
   - commands
 links:
   reference:
-    - "[[backlog-automation-configuration.md]]"
+    - "[[../../guide/backlog-automation-configuration.md]]"
     - "[[../../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]"
 ---
 
@@ -402,6 +402,5 @@ doc-vader backlog scan --report-format json | head -20
 
 - [Backlog Automation Configuration Guide](../../guide/backlog-automation-configuration.md)
 - [Resolver Strategy Reference](./resolver-strategy-guide.md)
-- [Evidence Records](./backlog-evidence-records.md)
 - [Troubleshooting Guide](./backlog-automation-troubleshooting.md)
 

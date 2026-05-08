@@ -32,7 +32,7 @@ Backlog automation in doc-vader enables:
 
 Place your configuration in the root of your repository:
 
-```
+```text
 .doc-vader/backlog-consumer.json
 ```
 
