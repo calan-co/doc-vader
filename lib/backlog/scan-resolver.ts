@@ -32,8 +32,11 @@ function payloadSubjectTokensResolver(
 function extractPrLinksFromFrontmatter(raw: unknown): string[] {
   // Handle list-of-maps format: links: [{ pull_request: "url" }, ...]
   if (Array.isArray(raw)) {
-    return (raw as Record<string, unknown>[]).flatMap((entry) => {
-      const pr = entry["pull_request"];
+    return raw.flatMap((entry) => {
+      if (typeof entry !== "object" || entry === null) {
+        return [];
+      }
+      const pr = (entry as Record<string, unknown>)["pull_request"];
       return typeof pr === "string" && pr.length > 0 ? [pr] : [];
     });
   }
