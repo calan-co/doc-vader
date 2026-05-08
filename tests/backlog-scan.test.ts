@@ -3,7 +3,10 @@ import * as fsSync from "node:fs";
 import * as path from "node:path";
 import os from "node:os";
 import { scanBacklog } from "../lib/backlog/scan-executor.js";
-import { formatScanReportText, formatScanReportJson } from "../lib/backlog/scan-reporter.js";
+import {
+  formatScanReportText,
+  formatScanReportJson,
+} from "../lib/backlog/scan-reporter.js";
 import { evaluateConditions } from "../lib/backlog/scan-conditions.js";
 
 let testDir = "";
@@ -40,7 +43,9 @@ describe("scan-conditions", () => {
       status: "open",
       links: ["[[2.other]]"],
     });
-    expect(conditions.find((c) => c.code === "has_links_block")?.value).toBe(true);
+    expect(conditions.find((c) => c.code === "has_links_block")?.value).toBe(
+      true,
+    );
   });
 });
 
@@ -85,7 +90,9 @@ describe("scanBacklog", () => {
     const report = await scanBacklog({ rootDir: testDir });
     expect(report.summary.errorCount).toBe(2);
     expect(report.items[0]?.errors.map((e) => e.code)).toContain("missing_id");
-    expect(report.items[0]?.errors.map((e) => e.code)).toContain("missing_status");
+    expect(report.items[0]?.errors.map((e) => e.code)).toContain(
+      "missing_status",
+    );
   });
 
   it("strict mode + errors → exitCode 1", async () => {
@@ -95,32 +102,44 @@ describe("scanBacklog", () => {
   });
 
   it("strict mode + no errors → exitCode 0", async () => {
-    mkFile(
-      "backlog/4.good.md",
-      `---\nid: "4"\nstatus: open\n---\n`,
-    );
+    mkFile("backlog/4.good.md", `---\nid: "4"\nstatus: open\n---\n`);
     const report = await scanBacklog({ rootDir: testDir, strict: true });
     expect(report.exitCode).toBe(0);
   });
 
   it("files in audit/ subdir are skipped", async () => {
-    fsSync.mkdirSync(path.join(testDir, "backlog", "audit"), { recursive: true });
+    fsSync.mkdirSync(path.join(testDir, "backlog", "audit"), {
+      recursive: true,
+    });
     mkFile("backlog/audit/skipped.md", `---\ntitle: Should be skipped\n---\n`);
     const report = await scanBacklog({ rootDir: testDir });
     expect(report.summary.totalFiles).toBe(0);
   });
 
   it("archive subdir is skipped by default", async () => {
-    fsSync.mkdirSync(path.join(testDir, "backlog", "archive"), { recursive: true });
-    mkFile("backlog/archive/archived.md", `---\nid: "999"\nstatus: closed\n---\n`);
+    fsSync.mkdirSync(path.join(testDir, "backlog", "archive"), {
+      recursive: true,
+    });
+    mkFile(
+      "backlog/archive/archived.md",
+      `---\nid: "999"\nstatus: closed\n---\n`,
+    );
     const report = await scanBacklog({ rootDir: testDir });
     expect(report.summary.totalFiles).toBe(0);
   });
 
   it("archive subdir is included when includeArchive=true", async () => {
-    fsSync.mkdirSync(path.join(testDir, "backlog", "archive"), { recursive: true });
-    mkFile("backlog/archive/archived.md", `---\nid: "999"\nstatus: closed\n---\n`);
-    const report = await scanBacklog({ rootDir: testDir, includeArchive: true });
+    fsSync.mkdirSync(path.join(testDir, "backlog", "archive"), {
+      recursive: true,
+    });
+    mkFile(
+      "backlog/archive/archived.md",
+      `---\nid: "999"\nstatus: closed\n---\n`,
+    );
+    const report = await scanBacklog({
+      rootDir: testDir,
+      includeArchive: true,
+    });
     expect(report.summary.totalFiles).toBe(1);
   });
 
@@ -135,8 +154,84 @@ describe("scanBacklog", () => {
       resolverOrder: ["linked_pull_requests"],
     });
 
-    expect(report.items[0]?.subjectResolution?.strategyUsed).toBe("linked_pull_requests");
-    expect(report.items[0]?.subjectResolution?.subjects).toEqual(["work-item:005"]);
+    expect(report.items[0]?.subjectResolution?.strategyUsed).toBe(
+      "linked_pull_requests",
+    );
+    expect(report.items[0]?.subjectResolution?.subjects).toEqual([
+      "work-item:005",
+    ]);
+  });
+
+  it("resolver handles list-of-maps pull_request format in linked_pull_requests", async () => {
+    mkFile(
+      "backlog/5b.list-format.md",
+      `---\nid: "work-item:005b"\nstatus: ready\nlinks:\n  - pull_request: "https://github.com/calan-co/doc-vader/pull/19"\n---\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      resolverOrder: ["linked_pull_requests"],
+    });
+
+    const item = report.items.find((i) =>
+      i.subjectResolution?.subjects?.includes("work-item:005b"),
+    );
+    expect(item?.subjectResolution?.strategyUsed).toBe("linked_pull_requests");
+    expect(item?.subjectResolution?.subjects).toEqual(["work-item:005b"]);
+  });
+
+  it("payload_subject_tokens resolver extracts work-item tokens from content", async () => {
+    mkFile(
+      "backlog/6.token.md",
+      `---\nstatus: ready\n---\nThis closes work-item:token-a and work-item:token-b.\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      resolverOrder: ["payload_subject_tokens"],
+    });
+
+    const item = report.items.find((i) =>
+      i.subjectResolution?.subjects?.includes("work-item:token-a"),
+    );
+    expect(item?.subjectResolution?.strategyUsed).toBe(
+      "payload_subject_tokens",
+    );
+    expect(item?.subjectResolution?.subjects).toContain("work-item:token-a");
+    expect(item?.subjectResolution?.subjects).toContain("work-item:token-b");
+  });
+
+  it("payload_subject_tokens deduplicates repeated tokens", async () => {
+    mkFile(
+      "backlog/7.dedup.md",
+      `---\nstatus: ready\n---\nSee work-item:dedup-x. Also work-item:dedup-x again.\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      resolverOrder: ["payload_subject_tokens"],
+    });
+
+    const item = report.items.find((i) =>
+      i.subjectResolution?.subjects?.includes("work-item:dedup-x"),
+    );
+    expect(item?.subjectResolution?.subjects).toEqual(["work-item:dedup-x"]);
+  });
+
+  it("default resolver order prefers payload_subject_tokens over linked_pull_requests", async () => {
+    mkFile(
+      "backlog/8.both.md",
+      `---\nid: "work-item:eight"\nstatus: ready\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/19\n---\nThis covers work-item:eight-token.\n`,
+    );
+
+    const report = await scanBacklog({ rootDir: testDir });
+
+    const item = report.items.find((i) =>
+      i.subjectResolution?.subjects?.includes("work-item:eight-token"),
+    );
+    expect(item?.subjectResolution?.strategyUsed).toBe(
+      "payload_subject_tokens",
+    );
   });
 
   it("invalid resolver names fail fast", async () => {
@@ -148,7 +243,9 @@ describe("scanBacklog", () => {
 
 describe("scan reporters", () => {
   it("formatScanReportText includes summary line", async () => {
-    const rootDir = fsSync.mkdtempSync(path.join(os.tmpdir(), "doc-vader-scan-report-"));
+    const rootDir = fsSync.mkdtempSync(
+      path.join(os.tmpdir(), "doc-vader-scan-report-"),
+    );
     fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
     const report = await scanBacklog({ rootDir });
     const text = formatScanReportText(report);
@@ -158,7 +255,9 @@ describe("scan reporters", () => {
   });
 
   it("formatScanReportJson returns valid JSON", async () => {
-    const rootDir = fsSync.mkdtempSync(path.join(os.tmpdir(), "doc-vader-scan-report-"));
+    const rootDir = fsSync.mkdtempSync(
+      path.join(os.tmpdir(), "doc-vader-scan-report-"),
+    );
     fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
     const report = await scanBacklog({ rootDir });
     const json = formatScanReportJson(report);
