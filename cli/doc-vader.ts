@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 //import { program } from "@commander-js/extra-typings";
 
@@ -245,10 +245,10 @@ backlog
     "Scan backlog files and report structural integrity findings",
   )
   .option("-d, --dir <path>", "Path to the backlog directory", "backlog")
-  .option(
-    "--report-format <format>",
-    "Output format: text|json",
-    "text",
+  .addOption(
+    new Option("--report-format <format>", "Output format: text|json")
+      .choices(["text", "json"])
+      .default("text"),
   )
   .option(
     "--output-file <path>",
@@ -261,6 +261,12 @@ backlog
   )
   .option("--debug", "Enable verbose debug output", false)
   .action(async (opts) => {
+    if (opts.reportFormat !== "text" && opts.reportFormat !== "json") {
+      throw new Error(
+        `Invalid --report-format value: ${opts.reportFormat}. Expected text or json.`,
+      );
+    }
+
     const report = await scanBacklog({
       backlogDir: opts.dir,
       reportFormat: opts.reportFormat,
