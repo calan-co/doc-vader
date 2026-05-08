@@ -10,12 +10,20 @@ import type {
 } from "./scan-types.js";
 import { evaluateConditions } from "./scan-conditions.js";
 
-async function collectMarkdownFiles(dir: string): Promise<string[]> {
+function toPosix(p: string): string {
+  return p.replaceAll("\\", "/");
+}
+
+async function collectMarkdownFiles(dir: string, includeArchive: boolean): Promise<string[]> {
   let entries: import("node:fs").Dirent[];
   try {
     entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch {
-    return [];
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return [];
+    }
+    throw err;
   }
   const files: string[] = [];
   for (const entry of entries) {
@@ -23,7 +31,8 @@ async function collectMarkdownFiles(dir: string): Promise<string[]> {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === "audit") continue;
-      files.push(...(await collectMarkdownFiles(full)));
+      if (!includeArchive && entry.name === "archive") continue;
+      files.push(...(await collectMarkdownFiles(full, includeArchive)));
       continue;
     }
     if (entry.isFile() && entry.name.endsWith(".md")) {
@@ -72,8 +81,9 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
   const scanId = randomUUID();
   const generatedAt = new Date().toISOString();
 
-  const rootDir = options.rootDir ?? process.cwd();
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const backlogDir = path.resolve(rootDir, options.backlogDir ?? "backlog");
+  const includeArchive = options.includeArchive ?? false;
   const reportFormat = options.reportFormat ?? "text";
   const strict = options.strict ?? false;
   const debug = options.debug ?? false;
@@ -82,14 +92,43 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
     process.stderr.write(`[backlog scan] scanning ${backlogDir}\n`);
   }
 
-  const files = await collectMarkdownFiles(backlogDir);
+  try {
+    const stat = await fs.stat(backlogDir);
+    if (!stat.isDirectory()) {
+      throw new Error(`Backlog path is not a directory: ${backlogDir}`);
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(`Backlog directory not found: ${backlogDir}`);
+    }
+    throw err;
+  }
+
+  const files = await collectMarkdownFiles(backlogDir, includeArchive);
   const items: WorkItemScanResult[] = [];
 
   for (const file of files) {
-    const content = await fs.readFile(file, "utf8");
-    const rel = path.relative(rootDir, file);
-    const result = parseWorkItem(rel, content);
-    items.push(result);
+    const rel = toPosix(path.relative(rootDir, file));
+    try {
+      const content = await fs.readFile(file, "utf8");
+      const result = parseWorkItem(rel, content);
+      items.push(result);
+    } catch (err) {
+      items.push({
+        file: rel,
+        id: null,
+        status: null,
+        lifecycle: null,
+        title: null,
+        conditions: [{ code: "file_parsed", value: false }],
+        errors: [
+          {
+            code: "parse_failed",
+            message: `Failed to read file: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        ],
+      });
+    }
   }
 
   const allErrors: ScanError[] = items.flatMap((i) => i.errors);
@@ -100,7 +139,12 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
   return {
     scanId,
     generatedAt,
-    options: { backlogDir: path.relative(rootDir, backlogDir), reportFormat, strict, debug },
+    options: {
+      backlogDir: toPosix(path.relative(rootDir, backlogDir)),
+      reportFormat,
+      strict,
+      debug,
+    },
     summary: {
       totalFiles: items.length,
       filesWithErrors,

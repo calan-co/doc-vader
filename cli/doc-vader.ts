@@ -264,7 +264,6 @@ backlog
     const report = await scanBacklog({
       backlogDir: opts.dir,
       reportFormat: opts.reportFormat,
-      outputFile: opts.outputFile,
       strict: opts.strict,
       debug: opts.debug,
     });

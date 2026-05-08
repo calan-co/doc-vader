@@ -62,6 +62,12 @@ describe("scanBacklog", () => {
     expect(report.exitCode).toBe(0);
   });
 
+  it("missing backlog dir → throws clear error", async () => {
+    await expect(
+      scanBacklog({ rootDir: testDir, backlogDir: "does-not-exist" }),
+    ).rejects.toThrow(/Backlog directory not found/);
+  });
+
   it("valid work item → no errors", async () => {
     mkFile(
       "backlog/1.task.md",
@@ -103,21 +109,41 @@ describe("scanBacklog", () => {
     const report = await scanBacklog({ rootDir: testDir });
     expect(report.summary.totalFiles).toBe(0);
   });
+
+  it("archive subdir is skipped by default", async () => {
+    fsSync.mkdirSync(path.join(testDir, "backlog", "archive"), { recursive: true });
+    mkFile("backlog/archive/archived.md", `---\nid: "999"\nstatus: closed\n---\n`);
+    const report = await scanBacklog({ rootDir: testDir });
+    expect(report.summary.totalFiles).toBe(0);
+  });
+
+  it("archive subdir is included when includeArchive=true", async () => {
+    fsSync.mkdirSync(path.join(testDir, "backlog", "archive"), { recursive: true });
+    mkFile("backlog/archive/archived.md", `---\nid: "999"\nstatus: closed\n---\n`);
+    const report = await scanBacklog({ rootDir: testDir, includeArchive: true });
+    expect(report.summary.totalFiles).toBe(1);
+  });
 });
 
 describe("scan reporters", () => {
   it("formatScanReportText includes summary line", async () => {
-    const report = await scanBacklog({ rootDir: os.tmpdir() });
+    const rootDir = fsSync.mkdtempSync(path.join(os.tmpdir(), "doc-vader-scan-report-"));
+    fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
+    const report = await scanBacklog({ rootDir });
     const text = formatScanReportText(report);
     expect(text).toMatch(/Backlog Scan Report/);
     expect(text).toMatch(/Summary:/);
+    fsSync.rmSync(rootDir, { recursive: true, force: true });
   });
 
   it("formatScanReportJson returns valid JSON", async () => {
-    const report = await scanBacklog({ rootDir: os.tmpdir() });
+    const rootDir = fsSync.mkdtempSync(path.join(os.tmpdir(), "doc-vader-scan-report-"));
+    fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
+    const report = await scanBacklog({ rootDir });
     const json = formatScanReportJson(report);
     const parsed = JSON.parse(json);
     expect(parsed).toHaveProperty("scanId");
     expect(parsed).toHaveProperty("summary");
+    fsSync.rmSync(rootDir, { recursive: true, force: true });
   });
 });

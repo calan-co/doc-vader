@@ -7,10 +7,10 @@ export interface BacklogScanOptions {
   backlogDir?: string;
   /** Root directory for resolving relative paths. Defaults to cwd. */
   rootDir?: string;
+  /** Include backlog/archive files. Defaults to false. */
+  includeArchive?: boolean;
   /** Output format for the scan report. */
   reportFormat?: ScanReportFormat;
-  /** File path to write the report to instead of stdout. */
-  outputFile?: string;
   /** Exit with code 1 if any findings are present. */
   strict?: boolean;
   /** Enable verbose debug logging. */
