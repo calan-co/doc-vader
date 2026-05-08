@@ -37,15 +37,15 @@ function extractPrLinksFromFrontmatter(raw: unknown): string[] {
         return [];
       }
       const pr = (entry as Record<string, unknown>)["pull_request"];
-      return typeof pr === "string" && pr.length > 0 ? [pr] : [];
+      return typeof pr === "string" && pr.trim().length > 0 ? [pr.trim()] : [];
     });
   }
   // Handle object format: links: { pull_requests: ["url", ...] }
   if (typeof raw === "object" && raw !== null) {
     const links = raw as Record<string, unknown>;
     if (Array.isArray(links["pull_requests"])) {
-      return (links["pull_requests"] as unknown[]).filter(
-        (v): v is string => typeof v === "string" && v.length > 0,
+      return (links["pull_requests"] as unknown[]).flatMap(
+        (v) => typeof v === "string" && v.trim().length > 0 ? [v.trim()] : [],
       );
     }
   }
