@@ -77,7 +77,7 @@ Implement a **backlog scan lifecycle** that:
    - `backlog scan --generate-evidence`: Report + create evidence (workflow opt-in)
 
 6. **Replaces workflow Python logic** with thin wrapper:
-   - Workflow calls `doc-vader backlog scan --generate-evidence --output-format json`
+   - Workflow calls `doc-vader backlog scan --generate-evidence --report-format json`
    - Artifact stores JSON report for audit
 
 ## Scope
@@ -350,10 +350,10 @@ interface ScanOptions {
 ```yaml
 - name: Scan backlog for PRs to evidence
   run: |
-    doc-vader backlog scan --generate-evidence --output-format json > /tmp/scan-report.json
+    doc-vader backlog scan --generate-evidence --report-format json > /tmp/scan-report.json
 
 - name: Upload scan report
-  uses: actions/upload-artifact@v3
+  uses: actions/upload-artifact@v4
   with:
     name: backlog-scan-report
     path: /tmp/scan-report.json

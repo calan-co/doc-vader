@@ -133,8 +133,8 @@ jobs:
           stale_seconds="$((STALE_HOURS * 3600))"
           warned=0
 
-          shopt -s nullglob
-          for file in backlog/**/work-item-*.md; do
+          shopt -s nullglob globstar
+          for file in backlog/**/*.md; do
             status="$(awk '
               /^---$/ {delims++; next}
               delims == 1 && /^status:[[:space:]]*/ {
