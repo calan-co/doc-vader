@@ -9,10 +9,12 @@ export const DEFAULT_RESOLVER_ORDER: SubjectResolverName[] = [
   "linked_pull_requests",
 ];
 
-const SUPPORTED_RESOLVERS = new Set<SubjectResolverName>(DEFAULT_RESOLVER_ORDER);
+const SUPPORTED_RESOLVERS = new Set<SubjectResolverName>(
+  DEFAULT_RESOLVER_ORDER,
+);
 
 function extractUniqueSubjectTokens(input: string): string[] {
-  const matches = input.match(/work-item:[a-zA-Z0-9_.-]+/g) ?? [];
+  const matches = input.match(/work-item:[a-z0-9]+(?:-[a-z0-9]+)*/g) ?? [];
   return [...new Set(matches)];
 }
 
@@ -27,7 +29,9 @@ function payloadSubjectTokensResolver(
   };
 }
 
-function linkedPullRequestsResolver(data: Record<string, unknown>): SubjectResolutionAttempt & { subjects: string[] } {
+function linkedPullRequestsResolver(
+  data: Record<string, unknown>,
+): SubjectResolutionAttempt & { subjects: string[] } {
   const id = typeof data["id"] === "string" ? data["id"] : null;
   const links =
     typeof data["links"] === "object" && data["links"] !== null
@@ -38,7 +42,11 @@ function linkedPullRequestsResolver(data: Record<string, unknown>): SubjectResol
       ? (links["pull_requests"] as unknown[])
       : [];
 
-  const subjects = id && id.startsWith("work-item:") && pullRequests.length > 0 ? [id] : [];
+  const validPrLinks = pullRequests.filter(
+    (v): v is string => typeof v === "string" && v.length > 0,
+  );
+  const subjects =
+    id && id.startsWith("work-item:") && validPrLinks.length > 0 ? [id] : [];
   return {
     strategy: "linked_pull_requests",
     subjectsFound: subjects.length,
@@ -46,7 +54,9 @@ function linkedPullRequestsResolver(data: Record<string, unknown>): SubjectResol
   };
 }
 
-export function normalizeResolverOrder(order?: SubjectResolverName[]): SubjectResolverName[] {
+export function normalizeResolverOrder(
+  order?: SubjectResolverName[],
+): SubjectResolverName[] {
   if (!order || order.length === 0) {
     return [...DEFAULT_RESOLVER_ORDER];
   }
@@ -54,7 +64,11 @@ export function normalizeResolverOrder(order?: SubjectResolverName[]): SubjectRe
   const normalized: SubjectResolverName[] = [];
   for (const name of order) {
     if (!SUPPORTED_RESOLVERS.has(name)) {
-      throw new Error(`Unsupported resolver '${name}'. Supported resolvers: ${DEFAULT_RESOLVER_ORDER.join(", ")}`);
+      throw new Error(
+        `Unsupported resolver '${name}'. Supported resolvers: ${DEFAULT_RESOLVER_ORDER.join(
+          ", ",
+        )}`,
+      );
     }
     if (!normalized.includes(name)) {
       normalized.push(name);
@@ -74,7 +88,10 @@ export function resolveSubjects(
   for (const strategy of order) {
     if (strategy === "payload_subject_tokens") {
       const attempt = payloadSubjectTokensResolver(content);
-      attempts.push({ strategy: attempt.strategy, subjectsFound: attempt.subjectsFound });
+      attempts.push({
+        strategy: attempt.strategy,
+        subjectsFound: attempt.subjectsFound,
+      });
       if (attempt.subjects.length > 0) {
         return {
           subjects: attempt.subjects,
@@ -87,7 +104,10 @@ export function resolveSubjects(
 
     if (strategy === "linked_pull_requests") {
       const attempt = linkedPullRequestsResolver(data);
-      attempts.push({ strategy: attempt.strategy, subjectsFound: attempt.subjectsFound });
+      attempts.push({
+        strategy: attempt.strategy,
+        subjectsFound: attempt.subjectsFound,
+      });
       if (attempt.subjects.length > 0) {
         return {
           subjects: attempt.subjects,

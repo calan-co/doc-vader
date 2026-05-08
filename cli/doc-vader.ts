@@ -15,6 +15,7 @@ import {
 } from "../lib/controllers/frontmatterController.js";
 import { lint as lintDoc } from "../lib/controllers/docController.js";
 import type { SubjectResolverName } from "../lib/backlog/scan-types.js";
+import { DEFAULT_RESOLVER_ORDER } from "../lib/backlog/scan-resolver.js";
 import {
   list as listBacklogItems,
   validate as validateBacklog,
@@ -242,28 +243,19 @@ backlog
 
 backlog
   .command("scan")
-  .description(
-    "Scan backlog files and report structural integrity findings",
-  )
+  .description("Scan backlog files and report structural integrity findings")
   .option("-d, --dir <path>", "Path to the backlog directory", "backlog")
   .addOption(
     new Option("--report-format <format>", "Output format: text|json")
       .choices(["text", "json"])
       .default("text"),
   )
-  .option(
-    "--output-file <path>",
-    "Write report to file instead of stdout",
-  )
+  .option("--output-file <path>", "Write report to file instead of stdout")
   .option(
     "--resolver-order <order>",
-    "Comma-separated resolver order (payload_subject_tokens,linked_pull_requests)",
+    `Comma-separated resolver order (${DEFAULT_RESOLVER_ORDER.join(",")})`,
   )
-  .option(
-    "--strict",
-    "Exit 1 if any errors are found",
-    false,
-  )
+  .option("--strict", "Exit 1 if any errors are found", false)
   .option("--debug", "Enable verbose debug output", false)
   .action(async (opts) => {
     if (opts.reportFormat !== "text" && opts.reportFormat !== "json") {
@@ -272,12 +264,15 @@ backlog
       );
     }
 
-    const resolverOrder = typeof opts.resolverOrder === "string"
-      ? opts.resolverOrder
-          .split(",")
-          .map((value: string) => value.trim())
-          .filter((value: string) => value.length > 0) as SubjectResolverName[]
-      : undefined;
+    const resolverOrder =
+      typeof opts.resolverOrder === "string"
+        ? (opts.resolverOrder
+            .split(",")
+            .map((value: string) => value.trim())
+            .filter(
+              (value: string) => value.length > 0,
+            ) as SubjectResolverName[])
+        : undefined;
 
     const report = await scanBacklog({
       backlogDir: opts.dir,
