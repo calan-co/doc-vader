@@ -42,7 +42,8 @@ Implement a **backlog scan lifecycle** that:
    - **Evidence generation mode** (write): Create evidence records based on scan conditions (optional, off by default)
 
 2. **Defines scan state machine**:
-   ```
+
+  ```text
    Event → Parse → Check Conditions → Resolve Subject → Generate Report → [Optionally] Create Evidence
    ```
 
