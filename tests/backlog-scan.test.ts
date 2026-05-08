@@ -123,6 +123,27 @@ describe("scanBacklog", () => {
     const report = await scanBacklog({ rootDir: testDir, includeArchive: true });
     expect(report.summary.totalFiles).toBe(1);
   });
+
+  it("resolver order can infer subject from linked pull requests", async () => {
+    mkFile(
+      "backlog/5.linked.md",
+      `---\nid: "work-item:005"\nstatus: ready\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/18\n---\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      resolverOrder: ["linked_pull_requests"],
+    });
+
+    expect(report.items[0]?.subjectResolution?.strategyUsed).toBe("linked_pull_requests");
+    expect(report.items[0]?.subjectResolution?.subjects).toEqual(["work-item:005"]);
+  });
+
+  it("invalid resolver names fail fast", async () => {
+    await expect(
+      scanBacklog({ rootDir: testDir, resolverOrder: ["invalid" as never] }),
+    ).rejects.toThrow(/Unsupported resolver/);
+  });
 });
 
 describe("scan reporters", () => {
