@@ -2,8 +2,17 @@ name: Backlog Automation
 
 # Reference implementation for calan-co/.github/workflow-templates/backlog-automation.yml.
 # When updating reusable sub-workflow refs or trigger conditions, sync the starter template.
+#
+# Prerequisites:
+#   1. Create .doc-vader/backlog-consumer.json (see docs at https://github.com/calan-co/doc-vader).
+#   2. Set BACKLOG_AUTOMATION_ENABLED repository variable to 'true' to activate workflows.
+#   3. For optional app-auth mode, configure DOC_VADER_APP_ID (repository variable)
+#      and DOC_VADER_PRIVATE_KEY (repository secret).
+#   4. For package access outside calan-co org, configure PACKAGES_READ_TOKEN (repository secret).
 
 on:
+  schedule:
+    - cron: '17 9 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -30,32 +39,146 @@ jobs:
     name: Ingest Pull Request Event
     if: >
       github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.BACKLOG_AUTOMATION_ENABLED == 'true'
     uses: ./.github/workflows/backlog-ingest-pull-request.yml
     with:
       consumer-config: .doc-vader/backlog-consumer.json
       doc-vader-version: next
-    secrets: inherit
+    secrets:
+      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN }}
 
   ingest-workflow-run:
     name: Ingest Workflow Run Event
     if: >
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      vars.BACKLOG_AUTOMATION_ENABLED == 'true'
     uses: ./.github/workflows/backlog-ingest-workflow-run.yml
     with:
       consumer-config: .doc-vader/backlog-consumer.json
       doc-vader-version: next
-    secrets: inherit
+    secrets:
+      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN }}
 
   sweep:
     name: Sweep Eligible Work Items
-    if: github.event_name == 'workflow_dispatch'
+    if: >
+      (
+        github.event_name == 'workflow_dispatch' ||
+        github.event_name == 'schedule' ||
+        (
+          github.event_name == 'pull_request' &&
+          github.event.action == 'closed' &&
+          github.event.pull_request.merged == true &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        )
+      ) &&
+      vars.BACKLOG_AUTOMATION_ENABLED == 'true' &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          (github.base_ref == 'main' || github.base_ref == 'staging')
+        ) ||
+        (
+          github.event_name != 'pull_request' &&
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+        )
+      )
     uses: ./.github/workflows/backlog-sweep.yml
     with:
       dry-run: ${{ inputs.dry_run || false }}
       consumer-config: .doc-vader/backlog-consumer.json
       backlog-dir: backlog
       doc-vader-version: next
-    secrets: inherit
+      app-id: ${{ vars.DOC_VADER_APP_ID }}
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: read
+    secrets:
+      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN }}
+      app-private-key: ${{ secrets.DOC_VADER_PRIVATE_KEY }}
+
+  warn-stuck-ready-for-review:
+    name: Warn On Stuck Ready-For-Review Items
+    needs: [sweep]
+    if: >
+      needs.sweep.result == 'success' &&
+      vars.BACKLOG_AUTOMATION_ENABLED == 'true' &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        inputs.dry_run == false
+      ) &&
+      (
+        (
+          github.event_name == 'pull_request' &&
+          (github.base_ref == 'main' || github.base_ref == 'staging')
+        ) ||
+        (
+          github.event_name != 'pull_request' &&
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
+        )
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Warn on stale ready-for-review items
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STALE_HOURS: '24'
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          now_epoch="$(date +%s)"
+          stale_seconds="$((STALE_HOURS * 3600))"
+          warned=0
+
+          shopt -s nullglob globstar
+          for file in backlog/**/*.md; do
+            status="$(awk '
+              /^---$/ {delims++; next}
+              delims == 1 && /^status:[[:space:]]*/ {
+                sub(/^status:[[:space:]]*/, "", $0)
+                print $0
+                exit
+              }
+            ' "$file")"
+
+            if [[ "$status" != "ready-for-review" ]]; then
+              continue
+            fi
+
+            mapfile -t pr_numbers < <(grep -Eo "https://github.com/${REPO}/pull/[0-9]+" "$file" | sed -E 's#^.*/pull/##' | sort -u)
+            if ((${#pr_numbers[@]} == 0)); then
+              continue
+            fi
+
+            for pr in "${pr_numbers[@]}"; do
+              merged_at="$(gh api "repos/$REPO/pulls/$pr" -q '.merged_at // empty' || true)"
+              if [[ -z "$merged_at" ]]; then
+                continue
+              fi
+
+              merged_epoch="$(date -d "$merged_at" +%s)"
+              age_seconds="$((now_epoch - merged_epoch))"
+              if ((age_seconds < stale_seconds)); then
+                continue
+              fi
+
+              hours_old="$((age_seconds / 3600))"
+              echo "::warning file=$file,title=Stuck ready-for-review after merged PR::PR #$pr merged ${hours_old}h ago but work item is still 'ready-for-review'. Run backlog sweep and investigate close/archive transition." >&2
+              warned=1
+            done
+          done
+
+          if ((warned == 0)); then
+            echo "No stale ready-for-review items linked to merged PRs were detected."
+          fi
