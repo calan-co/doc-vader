@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
+import { Command, Option } from "commander";
 
 //import { program } from "@commander-js/extra-typings";
 
@@ -18,6 +18,8 @@ import {
   list as listBacklogItems,
   validate as validateBacklog,
   formatAuditReportText,
+  scanBacklog,
+  formatScanReport,
 } from "../lib/controllers/backlogController.js";
 import {
   listAvailable as governanceList,
@@ -235,6 +237,52 @@ backlog
       dryRun: opts.dryRun,
     });
     console.log(JSON.stringify(result, null, 2));
+  });
+
+backlog
+  .command("scan")
+  .description(
+    "Scan backlog files and report structural integrity findings",
+  )
+  .option("-d, --dir <path>", "Path to the backlog directory", "backlog")
+  .addOption(
+    new Option("--report-format <format>", "Output format: text|json")
+      .choices(["text", "json"])
+      .default("text"),
+  )
+  .option(
+    "--output-file <path>",
+    "Write report to file instead of stdout",
+  )
+  .option(
+    "--strict",
+    "Exit 1 if any errors are found",
+    false,
+  )
+  .option("--debug", "Enable verbose debug output", false)
+  .action(async (opts) => {
+    if (opts.reportFormat !== "text" && opts.reportFormat !== "json") {
+      throw new Error(
+        `Invalid --report-format value: ${opts.reportFormat}. Expected text or json.`,
+      );
+    }
+
+    const report = await scanBacklog({
+      backlogDir: opts.dir,
+      reportFormat: opts.reportFormat,
+      strict: opts.strict,
+      debug: opts.debug,
+    });
+    const output = formatScanReport(report);
+    if (opts.outputFile) {
+      const { promises: fs } = await import("node:fs");
+      await fs.writeFile(opts.outputFile, output, "utf8");
+    } else {
+      console.log(output);
+    }
+    if (report.exitCode !== 0) {
+      process.exit(report.exitCode);
+    }
   });
 
 const workItem = program
