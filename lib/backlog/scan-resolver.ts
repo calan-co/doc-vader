@@ -29,22 +29,34 @@ function payloadSubjectTokensResolver(
   };
 }
 
+function extractPrLinksFromFrontmatter(raw: unknown): string[] {
+  // Handle list-of-maps format: links: [{ pull_request: "url" }, ...]
+  if (Array.isArray(raw)) {
+    return raw.flatMap((entry) => {
+      if (typeof entry !== "object" || entry === null) {
+        return [];
+      }
+      const pr = (entry as Record<string, unknown>)["pull_request"];
+      return typeof pr === "string" && pr.trim().length > 0 ? [pr.trim()] : [];
+    });
+  }
+  // Handle object format: links: { pull_requests: ["url", ...] }
+  if (typeof raw === "object" && raw !== null) {
+    const links = raw as Record<string, unknown>;
+    if (Array.isArray(links["pull_requests"])) {
+      return (links["pull_requests"] as unknown[]).flatMap(
+        (v) => typeof v === "string" && v.trim().length > 0 ? [v.trim()] : [],
+      );
+    }
+  }
+  return [];
+}
+
 function linkedPullRequestsResolver(
   data: Record<string, unknown>,
 ): SubjectResolutionAttempt & { subjects: string[] } {
   const id = typeof data["id"] === "string" ? data["id"] : null;
-  const links =
-    typeof data["links"] === "object" && data["links"] !== null
-      ? (data["links"] as Record<string, unknown>)
-      : null;
-  const pullRequests =
-    links && Array.isArray(links["pull_requests"])
-      ? (links["pull_requests"] as unknown[])
-      : [];
-
-  const validPrLinks = pullRequests.filter(
-    (v): v is string => typeof v === "string" && v.length > 0,
-  );
+  const validPrLinks = extractPrLinksFromFrontmatter(data["links"]);
   const subjects =
     id && id.startsWith("work-item:") && validPrLinks.length > 0 ? [id] : [];
   return {
