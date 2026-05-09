@@ -1,20 +1,15 @@
 ---
-"$schema": schemas/work-management/frontmatter/milestone.json
-"$template": templates/reference/work-management/milestone.tpl.md
-id: milestone:pet-store-checkout-ready
+$schema: schemas/work-management/frontmatter/milestone.json
+$template: templates/reference/work-management/milestone.tpl.md
+id: mileston-1784
 title: Checkout Ready For Launch
 summary: Capability gate showing the purchase path is ready to support the first public release.
 owner: commerce-team
-assignee: qa-lead
 type: milestone
-subtype: capability
+subtype: generic
 lifecycle: active
 status: ready
 status_reason: scheduled
-portfolio: neighborhood-retail
-product: pet-store-digital
-component: checkout
-target_end_date: "2026-05-12"
 tags:
   - milestone
   - checkout

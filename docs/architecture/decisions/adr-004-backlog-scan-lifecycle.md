@@ -1,12 +1,11 @@
 ---
-"$schema": /frontmatter/document
-id: adr-004-backlog-scan-lifecycle
+$schema: /frontmatter/document
+id: adrbackl-1862
 title: Define backlog scan lifecycle with structured reporting
 type: document
-subtype: decision
-status: accepted
+subtype: generic
+status: ready
 lifecycle: active
-priority: high
 tags:
   - adr
   - architecture
@@ -15,12 +14,12 @@ tags:
   - reporting
 links:
   reference:
-    - "[[../../reference/work-management/overview.md]]"
+    - '[[../../reference/work-management/overview.md]]'
   implements:
-    - "[[../../../backlog/175.extended-rules-and-autofix-feature.md]]"
+    - '[[../../../backlog/175.extended-rules-and-autofix-feature.md]]'
   depends:
-    - "[[adr-002-vendor-adapter-pattern.md]]"
-    - "[[adr-003-multi-strategy-subject-resolution.md]]"
+    - '[[adr-002-vendor-adapter-pattern.md]]'
+    - '[[adr-003-multi-strategy-subject-resolution.md]]'
 ---
 
 ## Context and Problem Statement

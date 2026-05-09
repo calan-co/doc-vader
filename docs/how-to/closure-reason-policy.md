@@ -1,10 +1,10 @@
 ---
-id: closure-reason-policy
+id: closurer-3849
 title: Closure Reason Policy
 type: document
-subtype: policy
+subtype: generic
 lifecycle: active
-status: proposed
+status: ready
 ---
 
 ## Required Closure Fields

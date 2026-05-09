@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: API Reference Template Guide
-id: api-reference
+id: apirefer-1432
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 

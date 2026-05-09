@@ -1,20 +1,19 @@
 ---
-id: backlog-automation-troubleshooting
+id: backloga-63
 title: Backlog Automation Troubleshooting Guide
 type: document
 subtype: reference
 lifecycle: active
-status: active
-priority: high
+status: ready
 tags:
   - backlog-automation
   - troubleshooting
   - debugging
 links:
   reference:
-    - "[[backlog-scan-cli.md]]"
-    - "[[resolver-strategy-guide.md]]"
-    - "[[../../guide/backlog-automation-configuration.md]]"
+    - '[[backlog-scan-cli.md]]'
+    - '[[resolver-strategy-guide.md]]'
+    - '[[../../guide/backlog-automation-configuration.md]]'
 ---
 
 # Backlog Automation Troubleshooting Guide

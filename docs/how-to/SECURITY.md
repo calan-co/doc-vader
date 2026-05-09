@@ -1,15 +1,13 @@
 ---
 title: Security Policy
-lastReviewed: 2025-10-21T00:00:00.000Z
-docType: guide
-docSubType: policy
-id: guide-security-policy
+id: wi-74145
 summary: Security best practices, reporting, and review process for Team-in-a-Box.
-sensitivity: public
 type: work-item
-subtype: template
+subtype: task
 lifecycle: draft
 status: proposed
+priority: medium
+estimated: 4
 ---
 
 ## Best Practices

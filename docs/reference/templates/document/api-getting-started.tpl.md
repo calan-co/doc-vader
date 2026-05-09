@@ -1,5 +1,5 @@
 ---
-id: api-getting-started
+id: apigetti-4796
 title: API Getting Started Template
 type: document
 subtype: template

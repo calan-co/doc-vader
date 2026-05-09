@@ -1,19 +1,18 @@
 ---
-id: backlog-scan-cli-reference
+id: backlogs-223
 title: Backlog Scan CLI Reference
 type: document
 subtype: reference
 lifecycle: active
-status: active
-priority: high
+status: ready
 tags:
   - backlog-automation
   - cli
   - commands
 links:
   reference:
-    - "[[backlog-automation-configuration.md]]"
-    - "[[../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]"
+    - '[[backlog-automation-configuration.md]]'
+    - '[[../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]'
 ---
 
 # Backlog Scan CLI Reference

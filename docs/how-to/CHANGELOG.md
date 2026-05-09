@@ -1,11 +1,10 @@
 ---
 title: Changelog (internal docs history)
-lastReviewed: 2026-04-27T00:00:00.000Z
-id: docs-changelog
+id: docschan-8860
 type: document
 subtype: reference
 lifecycle: active
-status: approved
+status: ready
 ---
 
 ## Docs Changelog

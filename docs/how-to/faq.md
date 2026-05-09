@@ -1,9 +1,7 @@
 ---
 title: Frequently Asked Questions (FAQ)
-status: approved
-lastReviewed: 2026-04-27T00:00:00.000Z
-description: Answers to common questions about doc-vader.
-id: faq
+status: ready
+id: faq-4413
 type: document
 subtype: reference
 lifecycle: active

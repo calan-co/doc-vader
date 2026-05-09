@@ -1,17 +1,17 @@
 ---
-id: doc-vader-project-brief
+id: docvader-758
 title: Doc-Vader Project Brief
 type: document
 subtype: brief
 lifecycle: active
-status: proposed
+status: ready
 tags:
   - architecture
   - validation
   - backlog-hygiene
 links:
   project:
-    - "[[docs/how-to/implementation-plans/doc-vader-shared-engine-mvp.plan.md]]"
+    - '[[docs/how-to/implementation-plans/doc-vader-shared-engine-mvp.plan.md]]'
 ---
 
 ## Overview

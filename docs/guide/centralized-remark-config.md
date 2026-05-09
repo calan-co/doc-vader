@@ -1,5 +1,5 @@
 ---
-id: centralized-remark-config-guide
+id: centrali-2145
 title: Centralized Remark Configuration and Core Pipeline
 type: document
 subtype: guide

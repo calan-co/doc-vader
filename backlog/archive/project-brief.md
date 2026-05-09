@@ -1,12 +1,11 @@
 ---
-id: doc-vader-project-brief
+id: docvader-863
 title: Doc-Vader Project Brief
 type: project-brief
 status: closed
 status_reason: redundant
-lifecycle: ideation
-priority: high
-ordinal: 1000
+lifecycle: active
+subtype: generic
 ---
 
 ## Project Overview

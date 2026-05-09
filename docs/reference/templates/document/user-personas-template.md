@@ -2,13 +2,13 @@
 type: document
 subtype: reference
 title: User Personas Template Reference
-id: user-personas-template
+id: userpers-8363
 lifecycle: draft
 status: proposed
 links:
-  - howTo: "[[how-to/process-user-personas]]"
-  - reference: "[[templates/document/user-personas.tpl]]"
-  - explanation: "[[user-personas-concept]]"
+  - howTo: '[[how-to/process-user-personas]]'
+  - reference: '[[templates/document/user-personas.tpl]]'
+  - explanation: '[[user-personas-concept]]'
 ---
 
 This document defines the structure and required fields for user personas.

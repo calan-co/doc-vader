@@ -1,5 +1,5 @@
 ---
-id: changelog
+id: changelo-2062
 title: Changelog Template
 type: document
 subtype: template

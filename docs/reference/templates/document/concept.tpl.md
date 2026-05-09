@@ -1,16 +1,12 @@
 ---
 title: Concept Document Template
-source: https://www.thegooddocsproject.dev/template/concept
-intent: Explain a concept, context, or background information
-category: explanation
-docType: template
-docSubType: concept
-dateCreated: 2025-10-28T00:00:00.000Z
-status: proposed
+status: ready
 lifecycle: evergreen
-id: template
+id: wi-75167
 type: work-item
-subtype: template
+subtype: task
+priority: medium
+estimated: 4
 ---
 
 > If you need more information about how to fill in this template, read the accompanying [[guide-concept.md|guide]].

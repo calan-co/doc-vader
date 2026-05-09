@@ -1,24 +1,25 @@
 ---
-id: "218"
+id: wi-218
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Create Reusable JSON-LD Vocabulary Contexts
-description: |
-  Create reusable JSON-LD context files for vocabulary mapping.
-  Support Dublin Core, Schema.org, and custom vocabularies.
-  Store in contexts/ directory for reference in .doc.json configuration.
 summary: JSON-LD context definitions for vocabulary mapping
 priority: low
-audience: [developers]
+audience:
+  - developers
 governance:
-  profiles: [technical-decision]
-tags: [json-ld, vocabulary, contexts]
+  profiles:
+    - technical-decision
+tags:
+  - json-ld
+  - vocabulary
+  - contexts
 estimated: 3
 links:
   depends_on:
-    - "[[217-update_schemas_for_json_ld]]"
+    - '[[217-update_schemas_for_json_ld]]'
 ---
 
 ## Files to Create

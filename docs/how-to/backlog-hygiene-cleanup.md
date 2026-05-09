@@ -1,10 +1,10 @@
 ---
-id: backlog-hygiene-cleanup
+id: backlogh-8764
 title: Run Backlog Hygiene Cleanup
 type: document
-subtype: how-to
+subtype: generic
 lifecycle: active
-status: complete
+status: closed
 ---
 
 ## Goal

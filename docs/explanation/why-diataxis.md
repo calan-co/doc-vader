@@ -1,16 +1,16 @@
 ---
 title: Why Diátaxis-First for Backlog Management?
-docType: explanation
-created: "2025-10-28"
+created: '2025-10-28'
 status: proposed
 lifecycle: draft
 priority: medium
 tags:
   - explanation
   - diataxis
-id: template
+id: wi-5454
 type: work-item
-subtype: template
+subtype: task
+estimated: 4
 ---
 
 ## Background

@@ -1,19 +1,18 @@
 ---
-id: backlog-automation-configuration
+id: backloga-3593
 title: Backlog Automation Configuration Guide
 type: document
 subtype: guide
 lifecycle: active
-status: active
-priority: high
+status: ready
 tags:
   - backlog-automation
   - configuration
   - consumer-config
 links:
   reference:
-    - "[[../reference/work-management/backlog-scan-cli.md]]"
-    - "[[../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]"
+    - '[[../reference/work-management/backlog-scan-cli.md]]'
+    - '[[../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]'
 ---
 
 # Backlog Automation Configuration Guide

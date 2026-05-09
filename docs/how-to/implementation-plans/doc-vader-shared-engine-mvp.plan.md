@@ -1,10 +1,10 @@
 ---
-id: doc-vader-shared-engine-mvp-plan
+id: docvader-2673
 title: Doc-Vader Shared-Engine MVP Plan
 type: document
-subtype: plan
+subtype: generic
 lifecycle: active
-status: approved
+status: ready
 ---
 
 ## Summary

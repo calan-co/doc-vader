@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: Quickstart Template Guide
-id: quickstart
+id: quicksta-1951
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 

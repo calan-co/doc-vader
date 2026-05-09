@@ -4,15 +4,15 @@ title: Canonical Work-Management Foundation
 type: document
 subtype: reference
 lifecycle: active
-status: active
+status: ready
 links:
   reference:
-    - "[[foundation.md]]"
-    - "[[backlog-scan-cli.md]]"
-    - "[[../../guide/backlog-automation-configuration.md]]"
-    - "[[../../architecture/decisions/adr-002-vendor-adapter-pattern.md]]"
-    - "[[../../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]"
-    - "[[../../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]"
+    - '[[foundation.md]]'
+    - '[[backlog-scan-cli.md]]'
+    - '[[../../guide/backlog-automation-configuration.md]]'
+    - '[[../../architecture/decisions/adr-002-vendor-adapter-pattern.md]]'
+    - '[[../../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]'
+    - '[[../../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]'
 ---
 
 ## Summary

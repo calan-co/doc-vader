@@ -1,23 +1,25 @@
 ---
-id: "217"
+id: wi-217
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Update Schemas to Explicitly Support @context/@type
-description: |
-  Add explicit @context and @type property definitions to all frontmatter schemas (document and work-item). Do NOT use unevaluatedProperties: true.
-  Instead, explicitly define these properties with proper documentation.
 summary: Explicit @context/@type definitions in schemas
 priority: low
-audience: [developers]
+audience:
+  - developers
 governance:
-  profiles: [technical-decision]
-tags: [schemas, json-ld, properties]
+  profiles:
+    - technical-decision
+tags:
+  - schemas
+  - json-ld
+  - properties
 estimated: 2
 links:
   depends_on:
-    - "[[211-fix_jsonschema_tools_compatibility]]"
+    - '[[211-fix_jsonschema_tools_compatibility]]'
 ---
 
 ## Files to Update

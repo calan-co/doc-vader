@@ -1,24 +1,27 @@
 ---
-id: "221"
+id: wi-221
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Add Schema Test Fixtures
-description: |
-  Create positive and negative test cases for all schemas.
-  Store in test-cases/ subdirectories following Wikimedia jsonschema-tools conventions. Enables automated schema testing and provides examples for reuse.
 summary: Test fixture files for schema validation
 priority: medium
-audience: [developers, schema-authors]
+audience:
+  - developers
+  - schema-authors
 governance:
-  profiles: [testing]
-tags: [schemas, testing, fixtures]
+  profiles:
+    - testing
+tags:
+  - schemas
+  - testing
+  - fixtures
 estimated: 3
 links:
   depends_on:
-    - "[[217-update_schemas_for_json_ld]]"
-    - "[[220-extensible_subtypes]]"
+    - '[[217-update_schemas_for_json_ld]]'
+    - '[[220-extensible_subtypes]]'
 ---
 
 ## Directory Structure

@@ -1,5 +1,5 @@
 ---
-id: contributing
+id: contribu-5436
 title: Contributing Guide Template
 type: document
 subtype: template

@@ -1,12 +1,10 @@
 ---
-id: diataxis-template-decision
+id: diataxis-8014
 type: document
-subtype: decision
-title: >-
-  Diátaxis as Foundation, TGDP as Extension: Guidance for Documentation
-  Structure
+subtype: generic
+title: 'Diátaxis as Foundation, TGDP as Extension: Guidance for Documentation Structure'
 lifecycle: evergreen
-status: approved
+status: ready
 tags:
   - diataxis
   - tgdp
@@ -14,7 +12,7 @@ tags:
   - guidance
 links:
   how-to:
-    - "[[use-diataxis-and-tgdp-for-documentation]]"
+    - '[[use-diataxis-and-tgdp-for-documentation]]'
   reference:
     - https://diataxis-template.readthedocs.io/en/latest/
     - https://www.thegooddocsproject.dev/template
