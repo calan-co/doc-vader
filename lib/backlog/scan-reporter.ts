@@ -17,7 +17,8 @@ export function formatScanReportText(report: BacklogScanReport): string {
   lines.push(
     `Summary: ${report.summary.totalFiles} file(s)  |  ` +
       `${report.summary.filesWithErrors} with errors  |  ` +
-      `${report.summary.errorCount} error(s)`
+      `${report.summary.errorCount} error(s)  |  ` +
+      `${report.summary.evidenceRecordsCreated} evidence record(s) created`
   );
   lines.push(``);
 

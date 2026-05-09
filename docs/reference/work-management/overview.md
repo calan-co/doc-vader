@@ -24,14 +24,14 @@ autocomplete. Extracted JSON graph files are compiled outputs for machine use.
 
 ## Primary Types
 
-| Type | Responsibility | Typical subtype examples |
-| --- | --- | --- |
-| `project` | Durable initiative boundary and success model | `initiative`, `program` |
-| `release` | Shippable boundary with readiness gates and included scope | `launch`, `incremental`, `hotfix` |
-| `milestone` | Concrete capability, date, or decision target | `capability`, `date-gate`, `decision-gate` |
-| `work-item` | Executable unit of work with decomposition and dependency | `epic`, `feature`, `story`, `task`, `bug`, `spike` |
-| `plan` | Overlay artifact for planning perspective and sequencing | `strategic`, `operational`, `tactical`, `contingency` |
-| `record` | Append-only audit trail artifact | `evidence`, `test-result`, `comment`, `approval`, `audit-note` |
+| Type        | Responsibility                                             | Typical subtype examples                                       |
+| ----------- | ---------------------------------------------------------- | -------------------------------------------------------------- |
+| `project`   | Durable initiative boundary and success model              | `initiative`, `program`                                        |
+| `release`   | Shippable boundary with readiness gates and included scope | `launch`, `incremental`, `hotfix`                              |
+| `milestone` | Concrete capability, date, or decision target              | `capability`, `date-gate`, `decision-gate`                     |
+| `work-item` | Executable unit of work with decomposition and dependency  | `epic`, `feature`, `story`, `task`, `bug`, `spike`             |
+| `plan`      | Overlay artifact for planning perspective and sequencing   | `strategic`, `operational`, `tactical`, `contingency`          |
+| `record`    | Append-only audit trail artifact                           | `evidence`, `test-result`, `comment`, `approval`, `audit-note` |
 
 ## Work-Item Contract
 
@@ -113,14 +113,14 @@ links.
 Use schema.org as a vocabulary anchor and extend locally where the core model
 does not describe the domain cleanly.
 
-| Primary type | Base mapping | Notes |
-| --- | --- | --- |
-| `project` | `schema:Project` | Durable initiative boundary |
-| `release` | `schema:CreativeWork` + `dv:Release` | Release as an authored management artifact |
-| `milestone` | `schema:Intangible` + `dv:Milestone` | Target and gate semantics come from local extensions |
-| `work-item` | `schema:Action` + `dv:WorkItem` | Executable tracked unit of work |
-| `plan` | `schema:CreativeWork` + `schema:ItemList` + `dv:Plan` | Planning overlay rather than the work itself |
-| `record` | `schema:CreativeWork` + `dv:Record` | Specific subtypes may map to narrower schema.org types later |
+| Primary type | Base mapping                                          | Notes                                                        |
+| ------------ | ----------------------------------------------------- | ------------------------------------------------------------ |
+| `project`    | `schema:Project`                                      | Durable initiative boundary                                  |
+| `release`    | `schema:CreativeWork` + `dv:Release`                  | Release as an authored management artifact                   |
+| `milestone`  | `schema:Intangible` + `dv:Milestone`                  | Target and gate semantics come from local extensions         |
+| `work-item`  | `schema:Action` + `dv:WorkItem`                       | Executable tracked unit of work                              |
+| `plan`       | `schema:CreativeWork` + `schema:ItemList` + `dv:Plan` | Planning overlay rather than the work itself                 |
+| `record`     | `schema:CreativeWork` + `dv:Record`                   | Specific subtypes may map to narrower schema.org types later |
 
 ## Canonical Example Set
 
@@ -189,10 +189,7 @@ Enable backlog automation in `.doc-vader/backlog-consumer.json`:
   },
   "automation": {
     "autoEvidenceFromWorkflowRuns": true,
-    "subjectResolutionOrder": [
-      "payload_subject_tokens",
-      "linked_pull_requests"
-    ]
+    "subjectResolutionOrder": ["payload_subject_tokens", "linked_pull_requests"]
   }
 }
 ```

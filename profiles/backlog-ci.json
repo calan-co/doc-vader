@@ -1,8 +1,8 @@
 {
   "backlogValidation": {
     "format": "json",
-    "failOn": "warning",
-    "schemaMap": "schemas/schema-map.json",
+    "failOn": "error",
+    "schemaMap": "schemas/frontmatter/schema-map.json",
     "includeArchive": false
   }
 }

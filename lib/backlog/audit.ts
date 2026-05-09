@@ -90,6 +90,7 @@ export interface BacklogAuditReport {
   parse_errors: ParseErrorFinding[];
   no_inbound_active: NoInboundActiveFinding[];
   schema_violations: SchemaViolationFinding[];
+  schema_load_errors?: SchemaViolationFinding[];
   exit_code: number;
 }
 
@@ -495,6 +496,7 @@ export async function auditBacklog(
     .sort((a, b) => a.file.localeCompare(b.file));
 
   const schemaViolations: SchemaViolationFinding[] = [];
+  const schemaLoadErrors: SchemaViolationFinding[] = [];
   const ajv = new Ajv2020({
     allErrors: true,
     strict: false,
@@ -509,6 +511,24 @@ export async function auditBacklog(
   try {
     const docSchema = await loadJson(docSchemaPath);
     ajv.addSchema(docSchema, "/frontmatter/document/1.0.0");
+  } catch {
+    // Best effort.
+  }
+
+  // Pre-load support schemas for work-item validation
+  const baseSchemaPath = resolveLocalPath(
+    options.rootDir,
+    "schemas/frontmatter/support/base/current.json"
+  );
+  try {
+    const baseSchema = await loadJson(baseSchemaPath);
+    const schemaId = typeof baseSchema.$id === "string" ? baseSchema.$id : undefined;
+    if (schemaId) {
+      ajv.addSchema(baseSchema, schemaId);
+      // Also register with current.json URL for $ref resolution
+      const currentJsonId = schemaId.replace("/1.0.0.json", "/current.json");
+      ajv.addSchema(baseSchema, currentJsonId);
+    }
   } catch {
     // Best effort.
   }
@@ -561,7 +581,8 @@ export async function auditBacklog(
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      schemaViolations.push({
+      // Separate schema-load errors from validation errors
+      schemaLoadErrors.push({
         file: item.file,
         schema: schemaTarget,
         errors: [`(schema-load) ${message}`],
@@ -574,7 +595,7 @@ export async function auditBacklog(
     unresolved.length > 0 ||
     parseErrors.length > 0 ||
     schemaViolations.length > 0;
-  const hasWarnings = noInboundActive.length > 0;
+  const hasWarnings = noInboundActive.length > 0 || schemaLoadErrors.length > 0;
 
   const exitCode =
     options.failOn === "warning"
@@ -603,6 +624,9 @@ export async function auditBacklog(
     parse_errors: parseErrors.sort((a, b) => a.file.localeCompare(b.file)),
     no_inbound_active: noInboundActive,
     schema_violations: schemaViolations.sort((a, b) =>
+      a.file.localeCompare(b.file)
+    ),
+    schema_load_errors: schemaLoadErrors.sort((a, b) =>
       a.file.localeCompare(b.file)
     ),
     exit_code: exitCode,
