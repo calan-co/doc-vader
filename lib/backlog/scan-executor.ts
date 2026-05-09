@@ -155,7 +155,7 @@ async function generateEvidenceForItem(
     });
 
     return {
-      created: true,
+      created: !options.dryRun,
       recordIds: [record.id],
       linkedAt,
       errors: [],
@@ -183,6 +183,7 @@ export async function scanBacklog(
   const strict = options.strict ?? false;
   const debug = options.debug ?? false;
   const generateEvidence = options.generateEvidence ?? false;
+  const dryRun = options.dryRun ?? false;
   const consumerConfig = options.consumerConfig;
   const resolverOrder = normalizeResolverOrder(options.resolverOrder);
 
@@ -214,7 +215,7 @@ export async function scanBacklog(
         const evidenceGeneration = await generateEvidenceForItem(result, {
           rootDir,
           consumerConfig,
-          dryRun: false,
+          dryRun,
         });
         result.evidenceGeneration = evidenceGeneration;
         for (const message of evidenceGeneration.errors) {

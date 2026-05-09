@@ -159,7 +159,7 @@ Output: JSON report showing conditions, subjects, errors for all events
 ### Generate Evidence
 
 ```bash
-doc-vader backlog scan --generate-evidence --report-format json > scan-report.json
+doc-vader backlog scan --generate-evidence --report-format json --output-file scan-report.json
 ```
 
 Output: JSON report + evidence records created and linked to work items
@@ -168,12 +168,12 @@ Output: JSON report + evidence records created and linked to work items
 
 ```bash
 doc-vader backlog scan --resolver-order payload_subject_tokens --report-format text
-```
+  run: doc-vader backlog scan --generate-evidence --report-format json --output-file /tmp/scan-report.json
 
 Output: Text report using only payload token extraction (no API calls)
-
+  uses: actions/upload-artifact@v4
 ### Comprehensive Scan with API Fallback
-
+    name: backlog-scan-report-${{ github.run_id }}
 ```bash
 doc-vader backlog scan \
   --resolver-order payload_subject_tokens,linked_pull_requests \
@@ -329,7 +329,7 @@ doc-vader backlog scan
       --output-file /tmp/scan-report.json
 
 - name: Upload report
-  uses: actions/upload-artifact@v3
+  uses: actions/upload-artifact@v4
   with:
     name: backlog-scan-report
     path: /tmp/scan-report.json

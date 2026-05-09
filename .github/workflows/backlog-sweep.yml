@@ -82,131 +82,37 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.packages-read-token || secrets.GITHUB_TOKEN }}
 
-      - name: Sweep and ingest merged PRs
+        - name: Run backlog scan
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ inputs.dry-run }}
-          REPO: ${{ github.repository }}
           BACKLOG_DIR: ${{ inputs.backlog-dir }}
           CONSUMER_CONFIG: ${{ inputs.consumer-config }}
         run: |
-          python3 << 'PYEOF'
-          import os, re, json, subprocess, tempfile
+          set -euo pipefail
 
-          FRONTMATTER_RE = re.compile(r'\A---\r?\n(.*?)\n---(?:\r?\n|$)', re.DOTALL)
-          ELIGIBLE_STATUS_RE = re.compile(r'^status:\s+(ready-for-review|in-progress)\s*$', re.M)
-          WORK_ITEM_ID_RE = re.compile(r'^id:\s+(work-item:[^\s]+)\s*$', re.M)
-          PR_URL_RE = re.compile(r'https://github\.com/[^/\s]+/[^/\s]+/pull/(\d+)')
+          cmd=(
+          doc-vader
+          backlog scan
+          --dir "$BACKLOG_DIR"
+          --consumer-config "$CONSUMER_CONFIG"
+          --generate-evidence
+          --report-format json
+          --output-file /tmp/scan-report.json
+          )
 
-          def parse_frontmatter(content):
-              """Return the raw YAML frontmatter string, or None if absent/malformed."""
-              m = FRONTMATTER_RE.match(content)
-              return m.group(1) if m else None
+          if [[ "${DRY_RUN}" == "true" ]]; then
+          cmd+=(--dry-run)
+          fi
 
-          repo = os.environ['REPO']
-          dry_run = os.environ.get('DRY_RUN', 'false').lower() == 'true'
-          backlog_dir = os.environ['BACKLOG_DIR']
-          consumer_config = os.environ['CONSUMER_CONFIG']
-          processed = 0
+          "${cmd[@]}"
 
-          if not os.path.isdir(backlog_dir):
-              raise FileNotFoundError(
-                  f"BACKLOG_DIR does not exist or is not a directory: {backlog_dir}"
-              )
-
-          md_files = []
-          for dirpath, _dirnames, filenames in os.walk(backlog_dir):
-              for filename in filenames:
-                  if filename.endswith('.md'):
-                      md_files.append(os.path.join(dirpath, filename))
-          md_files.sort()
-
-          for fpath in md_files:
-              fname = os.path.relpath(fpath, backlog_dir)
-              with open(fpath, encoding='utf-8') as f:
-                  content = f.read()
-
-              frontmatter = parse_frontmatter(content)
-              if frontmatter is None:
-                  print(f'{fname}: no frontmatter block — skipping')
-                  continue
-
-              if not ELIGIBLE_STATUS_RE.search(frontmatter):
-                  continue
-
-              subject_match = WORK_ITEM_ID_RE.search(frontmatter)
-              if subject_match is None:
-                  print(f'{fname}: no work item id in frontmatter - skipping')
-                  continue
-              subject = subject_match.group(1)
-
-              # Restrict PR URL scan to frontmatter so body examples don't trigger ingestion.
-              pr_nums = PR_URL_RE.findall(frontmatter)
-              if not pr_nums:
-                  continue
-
-              for pr_num in pr_nums:
-                  r = subprocess.run(
-                      ['gh', 'api', f'repos/{repo}/pulls/{pr_num}'],
-                      capture_output=True, text=True
-                  )
-                  if r.returncode != 0:
-                      print(f'  PR #{pr_num}: API error — {r.stderr.strip()}')
-                      continue
-                  pr = json.loads(r.stdout)
-                  if not pr.get('merged'):
-                      continue
-
-                  label = '(dry-run) ' if dry_run else ''
-                  print(f'{fname}: PR #{pr_num} merged — {label}ingesting pull_request.closed')
-                  processed += 1
-
-                  if dry_run:
-                      continue
-
-                  payload = {
-                      'action': 'closed',
-                      'doc_vader_subjects': subject,
-                      'pull_request': {
-                          'number': pr['number'],
-                          'html_url': pr['html_url'],
-                          'title': pr['title'],
-                          'state': 'closed',
-                          'merged': True,
-                          'merged_at': pr.get('merged_at'),
-                          'base': pr['base'],
-                          'head': pr['head'],
-                      },
-                      'repository': pr['base']['repo'],
-                  }
-                  with tempfile.NamedTemporaryFile(
-                      mode='w', suffix='.json', delete=False
-                  ) as f:
-                      json.dump(payload, f)
-                      payload_path = f.name
-
-                  try:
-                      result = subprocess.run(
-                          [
-                              'doc-vader',
-                              'backlog', 'ingest-event',
-                              '--provider', 'github',
-                              '--event', 'pull_request.closed',
-                              '--payload', payload_path,
-                              '--consumer-config', consumer_config,
-                          ],
-                          capture_output=True, text=True,
-                      )
-                      if result.returncode == 0:
-                          print(f'  ✓ ingested')
-                      else:
-                          print(f'  ✗ failed: {result.stderr.strip()}')
-                          print(result.stdout.strip())
-                  finally:
-                      os.unlink(payload_path)
-
-          print(f'\nSweep complete: {processed} eligible PR(s) found.')
-          PYEOF
+        - name: Upload scan report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backlog-scan-report-${{ github.run_id }}
+          path: /tmp/scan-report.json
+          if-no-files-found: error
 
       - name: Commit sweep changes
         if: ${{ !inputs.dry-run }}

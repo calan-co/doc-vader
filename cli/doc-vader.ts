@@ -265,6 +265,7 @@ backlog
     "Create and link evidence records for resolved work items",
     false,
   )
+  .option("--dry-run", "Preview changes without writing files", false)
   .option("--strict", "Exit 1 if any errors are found", false)
   .option("--debug", "Enable verbose debug output", false)
   .action(async (opts) => {
@@ -291,6 +292,7 @@ backlog
       debug: opts.debug,
       resolverOrder,
       generateEvidence: opts.generateEvidence,
+      dryRun: opts.dryRun,
       consumerConfig: opts.consumerConfig,
     });
     const output = formatScanReport(report);

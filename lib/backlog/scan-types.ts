@@ -35,6 +35,8 @@ export interface BacklogScanOptions {
   resolverOrder?: SubjectResolverName[];
   /** Create and link evidence records for resolved subjects. */
   generateEvidence?: boolean;
+  /** Preview changes without writing files. */
+  dryRun?: boolean;
   /** Optional path to consumer config JSON. */
   consumerConfig?: string;
 }
