@@ -6,7 +6,8 @@ lifecycle: active
 status: proposed
 title: Update Code Defaults to Canonical Schema Paths
 description: |
-Update hardcoded schema paths in code from old structure (schemas/frontmatter/document/) to new canonical structure (schemas/frontmatter/by-type/document/). Affects ~8 files.
+description: |-
+  Update hardcoded schema paths in code from old structure (schemas/frontmatter/document/) to new canonical structure (schemas/frontmatter/by-type/document/). Affects ~8 files.
 summary: Migrate code defaults to new schema paths
 owner: ~
 audience: [developers]
