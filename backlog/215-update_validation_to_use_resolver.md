@@ -7,8 +7,6 @@ status: ready
 title: Update Validation Code to Use DRY Resolver
 summary: Refactor validation to use unified resolver
 priority: medium
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

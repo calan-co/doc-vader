@@ -7,8 +7,6 @@ status: ready
 title: Create DRY Schema Resolution Functions (lib/schema/resolver.ts)
 summary: Unified schema resolution with 4-level precedence
 priority: medium
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

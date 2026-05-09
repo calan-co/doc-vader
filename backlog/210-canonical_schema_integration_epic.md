@@ -7,9 +7,6 @@ status: in-progress
 title: Canonical Schema Integration with Configuration System
 summary: Schema/config/validation system unification - jsonschema-first approach
 priority: high
-audience:
-  - developers
-  - architects
 tags:
   - schemas
   - config

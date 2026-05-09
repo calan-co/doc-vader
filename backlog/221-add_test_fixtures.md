@@ -7,9 +7,6 @@ status: ready
 title: Add Schema Test Fixtures
 summary: Test fixture files for schema validation
 priority: medium
-audience:
-  - developers
-  - schema-authors
 governance:
   profiles:
     - testing

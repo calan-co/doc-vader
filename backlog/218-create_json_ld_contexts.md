@@ -7,8 +7,6 @@ status: ready
 title: Create Reusable JSON-LD Vocabulary Contexts
 summary: JSON-LD context definitions for vocabulary mapping
 priority: low
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

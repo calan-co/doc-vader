@@ -11,7 +11,8 @@ tags:
   - linting
   - remark
 links:
-  - decision: '[[../architecture/decisions/adr-001-remark-lint-unified-adoption.md]]'
+  decision:
+    - '[[../architecture/decisions/adr-001-remark-lint-unified-adoption.md]]'
 ---
 
 ## Overview

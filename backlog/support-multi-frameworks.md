@@ -7,8 +7,8 @@ priority: high
 type: work-item
 subtype: task
 links:
-  - related:
-      - '[[framework-reconciliation.md]]'
+  related:
+    - '[[framework-reconciliation.md]]'
 ordinal: 1000
 estimated: 4
 ---

@@ -7,9 +7,6 @@ lifecycle: active
 status: closed
 status_reason: obsolete
 priority: low
-classification:
-  diataxis: how-to
-  sensitivity: internal
 tags:
   - doc-vader
   - docs

@@ -10,12 +10,10 @@ tags:
   - how-to
   - guide
 links:
-  - related: '[[user-personas-concept.md]]'
-  - related: '[[user-personas-template.md]]'
-  - related: '[[user-personas-resources.md]]'
-classification:
-  diataxis: how-to
-  sensitivity: public
+  related:
+    - '[[user-personas-concept.md]]'
+    - '[[user-personas-template.md]]'
+    - '[[user-personas-resources.md]]'
 ---
 
 This guide provides a full, step-by-step process and best practices for researching, drafting, and maintaining user personas.

@@ -7,8 +7,6 @@ status: ready
 title: Update Schemas to Explicitly Support @context/@type
 summary: Explicit @context/@type definitions in schemas
 priority: low
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

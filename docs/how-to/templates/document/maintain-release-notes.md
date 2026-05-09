@@ -6,7 +6,8 @@ subtype: generic
 status: ready
 lifecycle: evergreen
 links:
-  - template: '[[release-notes.tpl]]'
+  template:
+    - '[[release-notes.tpl]]'
 ---
 
 ## How to create release notes

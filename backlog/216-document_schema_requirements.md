@@ -7,9 +7,6 @@ status: in-progress
 title: Document Minimal Schema Requirements (schemas/README.md)
 summary: Schema requirements documentation and examples
 priority: medium
-audience:
-  - developers
-  - schema-authors
 governance:
   profiles:
     - documentation

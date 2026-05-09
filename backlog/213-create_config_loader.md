@@ -7,8 +7,6 @@ status: ready
 title: Create Configuration Loader with Extends Support (lib/config/loader.ts)
 summary: Config loader with extends inheritance and deep merging
 priority: medium
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

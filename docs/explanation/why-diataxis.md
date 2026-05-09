@@ -1,6 +1,5 @@
 ---
 title: Why Diátaxis-First for Backlog Management?
-created: '2025-10-28'
 status: proposed
 lifecycle: draft
 priority: medium

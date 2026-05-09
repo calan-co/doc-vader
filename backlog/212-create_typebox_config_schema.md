@@ -7,8 +7,6 @@ status: ready
 title: Create TypeBox Configuration Schema (lib/config/schema.ts)
 summary: TypeBox schema definitions for .doc.json config
 priority: medium
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

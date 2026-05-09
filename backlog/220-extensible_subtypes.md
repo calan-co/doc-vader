@@ -7,8 +7,6 @@ status: ready
 title: Enable Extensible Subtypes via x-* Pattern
 summary: Extensible subtype namespace for custom document types
 priority: medium
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

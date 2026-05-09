@@ -7,9 +7,6 @@ lifecycle: active
 status: closed
 status_reason: obsolete
 priority: medium
-classification:
-  diataxis: how-to
-  sensitivity: internal
 tags:
   - parsers
   - precedence

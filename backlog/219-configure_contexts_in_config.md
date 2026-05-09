@@ -7,8 +7,6 @@ status: ready
 title: Configure Vocabulary Contexts in .doc.json
 summary: Vocabulary context configuration in .doc.json
 priority: low
-audience:
-  - developers
 governance:
   profiles:
     - technical-decision

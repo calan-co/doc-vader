@@ -7,8 +7,8 @@ priority: medium
 type: work-item
 subtype: task
 links:
-  - depends_on:
-      - '[[support-multi-frameworks.md]]'
+  depends_on:
+    - '[[support-multi-frameworks.md]]'
 ordinal: 1000
 estimated: 4
 ---
