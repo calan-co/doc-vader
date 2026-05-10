@@ -1,4 +1,13 @@
-# Backlog Progress Dashboard
+---
+title: Backlog Progress Dashboard
+id: bd-1
+type: document
+subtype: generic
+lifecycle: active
+status: ready
+---
+
+## Backlog Progress Dashboard
 
 | ID                                      | Title                                                                        | Type               | Status      | Assignee        | File                                                          |
 | --------------------------------------- | ---------------------------------------------------------------------------- | ------------------ | ----------- | --------------- | ------------------------------------------------------------- |

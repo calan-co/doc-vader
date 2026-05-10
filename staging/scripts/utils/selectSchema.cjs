@@ -27,6 +27,10 @@ function selectSchema(filePath, frontmatter) {
         "schemas/frontmatter/by-type/document/latest.json",
       );
     }
+
+    // Non-canonical types are intentionally out of scope for the current
+    // work-item/document validation gate.
+    return null;
   }
   
   // 2. Fallback to directory-based selection if type is not specified

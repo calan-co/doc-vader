@@ -38,7 +38,7 @@ rm -f "$LINT_LOG"
   # This will validate: markdown style, template compliance, naming conventions,
   # cross-references, and more via the remark plugins
   cd "$PROJECT_ROOT"
-  NODE_OPTIONS="--loader tsx/esm" node scripts/docs-remark-lint.ts $LINT_PATTERNS
+  node --import tsx/esm scripts/docs-remark-lint.ts $LINT_PATTERNS
   REMARK_RESULT=$?
   
   if [ $REMARK_RESULT -ne 0 ]; then
