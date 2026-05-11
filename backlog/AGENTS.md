@@ -1,13 +1,10 @@
 ---
-id: backlog-agents-policy
+id: backloga-2056
 title: Backlog Agents Policy
 type: document
-subtype: policy
+subtype: generic
 lifecycle: evergreen
-status: complete
-priority: high
-name: backlog-hygiene-agent
-description: Enforce deterministic backlog lifecycle execution with required skills and validation gates.
+status: closed
 ---
 
 You are the backlog hygiene agent for this repository.

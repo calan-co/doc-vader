@@ -5,53 +5,63 @@ subtype: epic
 lifecycle: active
 status: in-progress
 title: Canonical Schema Integration with Configuration System
-description: |
-  Complete schema integration and validation overhaul: adopt canonical schema structure (by-type/support/), implement TypeBox-based configuration system with extends support, add JSON-LD vocabulary mapping, and establish minimal schema requirements. This epic blocks all configuration-, schema-, and
-  validation-related work.
 summary: Schema/config/validation system unification - jsonschema-first approach
 priority: high
-audience: [developers, architects]
-tags: [schemas, config, validation, architecture]
+tags:
+  - schemas
+  - config
+  - validation
+  - architecture
 execution:
   phases:
-    - name: "Phase 1: Foundation"
+    - name: 'Phase 1: Foundation'
       mode: sequential
       status: not-started
-      items: ["211"]
-
-    - name: "Phase 2: Core Systems"
+      items:
+        - '211'
+    - name: 'Phase 2: Core Systems'
       mode: parallel
       status: not-started
       phases:
-        - name: "Configuration System Track"
+        - name: Configuration System Track
           mode: sequential
           status: not-started
-          items: ["212", "213", "214", "215"]
-
-        - name: "JSON-LD Schema Track"
+          items:
+            - '212'
+            - '213'
+            - '214'
+            - '215'
+        - name: JSON-LD Schema Track
           mode: sequential
           status: not-started
-          items: ["217", "218"]
-
-    - name: "Phase 3: Documentation & Integration"
+          items:
+            - '217'
+            - '218'
+    - name: 'Phase 3: Documentation & Integration'
       mode: sequential
       status: not-started
-      items: ["216", "219"]
-
-    - name: "Phase 4: Extensibility & Testing"
+      items:
+        - '216'
+        - '219'
+    - name: 'Phase 4: Extensibility & Testing'
       mode: parallel
       status: not-started
-      items: ["220", "221"]
-
-    - name: "Phase 5: Migration"
+      items:
+        - '220'
+        - '221'
+    - name: 'Phase 5: Migration'
       mode: sequential
       status: not-started
-      items: ["222", "223"]
-
-    - name: "Phase 6: Validation & Testing"
+      items:
+        - '222'
+        - '223'
+    - name: 'Phase 6: Validation & Testing'
       mode: parallel
       status: not-started
-      items: ["209", "224"]
+      items:
+        - '209'
+        - '224'
+estimated: 4
 ---
 
 ## Goal

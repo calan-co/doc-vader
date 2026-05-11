@@ -1,22 +1,19 @@
 ---
-# yaml-language-server: $schema=../schemas/work-item.frontmatter.schema.json
 id: wi-002
 title: Parser Precedence and Fenced Code Block Exclusion
 type: work-item
-subtype: feature
+subtype: task
 lifecycle: active
 status: closed
 status_reason: obsolete
 priority: medium
-classification:
-  diataxis: how-to
-  sensitivity: internal
 tags:
   - parsers
   - precedence
   - code-blocks
   - testing
 ordinal: 1000
+estimated: 4
 ---
 
 **Estimated Effort:** 1–2 hours  

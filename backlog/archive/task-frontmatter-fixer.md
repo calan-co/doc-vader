@@ -1,22 +1,19 @@
 ---
-# yaml-language-server: $schema=../schemas/work-item.frontmatter.schema.json
 id: wi-003
 title: Extend Diataxis Fixer to Auto-Generate Missing Frontmatter
 type: work-item
-subtype: tooling
+subtype: task
 lifecycle: active
 status: closed
 status_reason: obsolete
 priority: low
-classification:
-  diataxis: how-to
-  sensitivity: internal
 tags:
   - doc-vader
   - docs
   - automation
   - frontmatter
 ordinal: 1000
+estimated: 4
 ---
 
 **Estimated Effort:** 3-4 hours  

@@ -1,16 +1,13 @@
 ---
-id: "222"
+id: wi-222
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Update Code Defaults to Canonical Schema Paths
-description: |
-Update hardcoded schema paths in code from old structure (schemas/frontmatter/document/) to new canonical structure (schemas/frontmatter/by-type/document/). Affects ~8 files.
 summary: Migrate code defaults to new schema paths
-owner: ~
-audience: [developers]
-governance: refactor
+owner: change-manager
+priority: medium
 tags: [schema, paths, migration]
 estimated: 1
 links:
