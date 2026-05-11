@@ -216,6 +216,60 @@ function resolveLocalPath(rootDir: string, target: string): string {
   return path.resolve(rootDir, target);
 }
 
+const TEMPLJS_SCHEMA_PREFIX =
+  "https://raw.githubusercontent.com/templjs/templ.js/main/";
+
+function toSchemaAlias(rootDir: string, schemaPath: string): string {
+  const relativePath = path.relative(rootDir, schemaPath).split(path.sep).join("/");
+  return `${TEMPLJS_SCHEMA_PREFIX}${relativePath}`;
+}
+
+async function addSchemaWithAliases(
+  ajv: Ajv2020,
+  rootDir: string,
+  schemaPath: string,
+  schema?: Record<string, unknown>
+): Promise<void> {
+  const resolvedSchema = schema ?? (await loadJson(schemaPath));
+  const alias = toSchemaAlias(rootDir, schemaPath);
+  const schemaId = typeof resolvedSchema.$id === "string" ? resolvedSchema.$id : undefined;
+
+  if (!ajv.getSchema(alias)) {
+    const aliasSchema =
+      schemaId && schemaId !== alias
+        ? ({ ...resolvedSchema, $id: alias } as Record<string, unknown>)
+        : resolvedSchema;
+    ajv.addSchema(aliasSchema, alias);
+  }
+}
+
+async function preloadSchemaTree(
+  ajv: Ajv2020,
+  rootDir: string,
+  relativeDir: string
+): Promise<void> {
+  const schemaRoot = resolveLocalPath(rootDir, relativeDir);
+  async function walk(dir: string): Promise<void> {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const schemaPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(schemaPath);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+      try {
+        await addSchemaWithAliases(ajv, rootDir, schemaPath);
+      } catch {
+        // Best effort.
+      }
+    }
+  }
+
+  await walk(schemaRoot);
+}
+
 async function resolveSchemaMap(
   rootDir: string,
   schemaMapPath?: string
@@ -522,16 +576,15 @@ export async function auditBacklog(
   );
   try {
     const baseSchema = await loadJson(baseSchemaPath);
-    const schemaId = typeof baseSchema.$id === "string" ? baseSchema.$id : undefined;
-    if (schemaId) {
-      ajv.addSchema(baseSchema, schemaId);
-      // Also register with current.json URL for $ref resolution
-      const currentJsonId = schemaId.replace("/1.0.0.json", "/current.json");
-      ajv.addSchema(baseSchema, currentJsonId);
-    }
+    await addSchemaWithAliases(ajv, options.rootDir, baseSchemaPath, baseSchema);
   } catch {
     // Best effort.
   }
+
+  // Pre-load local contract and overlay schemas so Ajv never needs the remote
+  // templjs registry for base-schema $ref resolution.
+  await preloadSchemaTree(ajv, options.rootDir, "schemas/frontmatter/support/contracts");
+  await preloadSchemaTree(ajv, options.rootDir, "schemas/frontmatter/support/overlays");
 
   async function getValidator(schemaTarget: string) {
     const schemaPath = resolveLocalPath(options.rootDir, schemaTarget);
@@ -591,11 +644,13 @@ export async function auditBacklog(
   }
 
   const hasErrors =
-    duplicateIds.length > 0 ||
     unresolved.length > 0 ||
     parseErrors.length > 0 ||
     schemaViolations.length > 0;
-  const hasWarnings = noInboundActive.length > 0 || schemaLoadErrors.length > 0;
+  const hasWarnings =
+    duplicateIds.length > 0 ||
+    noInboundActive.length > 0 ||
+    schemaLoadErrors.length > 0;
 
   const exitCode =
     options.failOn === "warning"
