@@ -1,10 +1,10 @@
 ---
-id: templjs-consumer-migration
+id: templjsc-3798
 title: TemplJS Consumer Migration to Doc-Vader
 type: document
-subtype: how-to
+subtype: generic
 lifecycle: active
-status: proposed
+status: ready
 ---
 
 ## Goal

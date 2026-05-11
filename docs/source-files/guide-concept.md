@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: Concept Template Guide
-id: concept
+id: concept-2382
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 

@@ -1,15 +1,13 @@
 ---
 title: How-to Write Release Notes
-id: release-notes-how-to
-source: https://www.thegooddocsproject.dev/template/how-to
-intent: >-
-  Guide users through a series of steps to solve a specific problem or complete a task
+id: releasen-1525
 type: document
-subtype: how-to
-status: proposed
+subtype: generic
+status: ready
 lifecycle: evergreen
 links:
-  - template: "[[release-notes.tpl]]"
+  template:
+    - '[[release-notes.tpl]]'
 ---
 
 ## How to create release notes

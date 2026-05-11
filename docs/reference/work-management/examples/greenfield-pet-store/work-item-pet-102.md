@@ -1,7 +1,7 @@
 ---
-"$schema": schemas/work-management/frontmatter/work-item.json
-"$template": templates/reference/work-management/work-item.tpl.md
-id: work-item:pet-102
+$schema: schemas/work-management/frontmatter/work-item.json
+$template: templates/reference/work-management/work-item.tpl.md
+id: wi-102
 title: Deliver Checkout-Ready Purchase Path
 summary: Complete the browse-to-cart and checkout path needed for launch readiness.
 owner: commerce-team
@@ -14,10 +14,6 @@ status_reason: verification-pending
 priority: critical
 estimated: 8
 actual: 7
-portfolio: neighborhood-retail
-product: pet-store-digital
-component: checkout
-target_end_date: "2026-05-08"
 tags:
   - task
   - checkout
@@ -29,10 +25,10 @@ links:
   pull_requests:
     - https://github.com/example/pet-store/pull/57
   evidence:
-    - "[[record-pet-store-launch-dry-run.md]]"
+    - '[[record-pet-store-launch-dry-run.md]]'
   reference:
-    - "[[milestone-pet-store-checkout-ready.md]]"
-    - "[[release-pet-store-launch-01.md]]"
+    - '[[milestone-pet-store-checkout-ready.md]]'
+    - '[[release-pet-store-launch-01.md]]'
 ---
 
 ## Goal

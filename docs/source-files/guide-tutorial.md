@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: Tutorial Template Guide
-id: tutorial
+id: tutorial-1836
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 
