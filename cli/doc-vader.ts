@@ -252,9 +252,20 @@ backlog
   )
   .option("--output-file <path>", "Write report to file instead of stdout")
   .option(
+    "--consumer-config <path>",
+    "Path to consumer config JSON",
+    ".doc-vader/backlog-consumer.json",
+  )
+  .option(
     "--resolver-order <order>",
     `Comma-separated resolver order (${DEFAULT_RESOLVER_ORDER.join(",")})`,
   )
+  .option(
+    "--generate-evidence",
+    "Create and link evidence records for resolved work items",
+    false,
+  )
+  .option("--dry-run", "Preview changes without writing files", false)
   .option("--strict", "Exit 1 if any errors are found", false)
   .option("--debug", "Enable verbose debug output", false)
   .action(async (opts) => {
@@ -280,6 +291,9 @@ backlog
       strict: opts.strict,
       debug: opts.debug,
       resolverOrder,
+      generateEvidence: opts.generateEvidence,
+      dryRun: opts.dryRun,
+      consumerConfig: opts.consumerConfig,
     });
     const output = formatScanReport(report);
     if (opts.outputFile) {

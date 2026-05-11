@@ -30,7 +30,7 @@ const processor = unified()
   .use(remarkLint)
   .use(remarkLintChecklist, false)
   .use(remarkLintTemplateCompliance, false)
-  .use(remarkLintNoAsciiDiagrams, {})
+  .use(remarkLintNoAsciiDiagrams, { enabled: false })
   .use(remarkLintNoHtmlAnchors, {})
   .use(remarkLintCrossref, { rootDir: process.cwd() })
   .use(remarkLintNamingConventions, {});

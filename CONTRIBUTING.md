@@ -1,10 +1,10 @@
 ---
 title: Contributing Guide
-id: contributing-guide
+id: contribu-9611
 type: document
-subtype: rules
+subtype: generic
 lifecycle: active
-status: approved
+status: ready
 ---
 
 # Contributing to doc-vader

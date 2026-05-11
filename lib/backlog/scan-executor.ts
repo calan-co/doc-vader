@@ -10,12 +10,16 @@ import type {
 } from "./scan-types.js";
 import { evaluateConditions } from "./scan-conditions.js";
 import { normalizeResolverOrder, resolveSubjects } from "./scan-resolver.js";
+import { createRecord, linkWorkItem } from "../work-management/index.js";
 
 function toPosix(p: string): string {
   return p.replaceAll("\\", "/");
 }
 
-async function collectMarkdownFiles(dir: string, includeArchive: boolean): Promise<string[]> {
+async function collectMarkdownFiles(
+  dir: string,
+  includeArchive: boolean,
+): Promise<string[]> {
   let entries: import("node:fs").Dirent[];
   try {
     entries = await fs.readdir(dir, { withFileTypes: true });
@@ -63,7 +67,9 @@ function parseWorkItem(
       errors: [
         {
           code: "parse_failed",
-          message: `Failed to parse frontmatter: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to parse frontmatter: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
         },
       ],
     };
@@ -84,7 +90,89 @@ function parseWorkItem(
   };
 }
 
-export async function scanBacklog(options: BacklogScanOptions = {}): Promise<BacklogScanReport> {
+function toWorkItemSlug(id: string): string {
+  return id.replace(/^work-item:/, "");
+}
+
+async function generateEvidenceForItem(
+  item: WorkItemScanResult,
+  options: Required<Pick<BacklogScanOptions, "rootDir">> & {
+    consumerConfig?: string;
+    dryRun: boolean;
+  },
+): Promise<NonNullable<WorkItemScanResult["evidenceGeneration"]>> {
+  if (!item.id || !item.id.startsWith("work-item:")) {
+    return {
+      created: false,
+      recordIds: [],
+      errors: [],
+    };
+  }
+
+  const resolvedSubjects = item.subjectResolution?.subjects ?? [];
+  if (!resolvedSubjects.includes(item.id)) {
+    return {
+      created: false,
+      recordIds: [],
+      errors: [],
+    };
+  }
+
+  const workItemSlug = toWorkItemSlug(item.id);
+  const recordSlug = `scan-${workItemSlug}`;
+  const recordId = `record:${recordSlug}`;
+  const recordBasename = `record-${recordSlug}`;
+  const linkedAt = new Date().toISOString();
+
+  try {
+    const record = await createRecord({
+      rootDir: options.rootDir,
+      consumerConfig: options.consumerConfig,
+      id: recordId,
+      summary: `Backlog scan evidence for ${item.id}`,
+      subtype: "evidence",
+      status: "ready",
+      statusReason: "recorded",
+      outcome: item.errors.length > 0 ? "mixed" : "noted",
+      recordedAt: linkedAt,
+      observation:
+        item.errors.length > 0
+          ? `Backlog scan found ${item.errors.length} issue(s) in ${item.file}.`
+          : `Backlog scan completed without errors for ${item.file}.`,
+      findings: item.errors.map((error) => `[${error.code}] ${error.message}`),
+      subjects: [`[[work-item-${workItemSlug}]]`],
+      supportingRefs: [item.file],
+      dryRun: options.dryRun,
+    });
+
+    await linkWorkItem({
+      rootDir: options.rootDir,
+      consumerConfig: options.consumerConfig,
+      id: item.id,
+      kind: "evidence",
+      value: `[[${recordBasename}]]`,
+      dryRun: options.dryRun,
+    });
+
+    return {
+      created: !options.dryRun,
+      recordIds: [record.id],
+      linkedAt,
+      errors: [],
+    };
+  } catch (error) {
+    return {
+      created: false,
+      recordIds: [],
+      linkedAt,
+      errors: [error instanceof Error ? error.message : String(error)],
+    };
+  }
+}
+
+export async function scanBacklog(
+  options: BacklogScanOptions = {},
+): Promise<BacklogScanReport> {
   const scanId = randomUUID();
   const generatedAt = new Date().toISOString();
 
@@ -94,6 +182,9 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
   const reportFormat = options.reportFormat ?? "text";
   const strict = options.strict ?? false;
   const debug = options.debug ?? false;
+  const generateEvidence = options.generateEvidence ?? false;
+  const dryRun = options.dryRun ?? false;
+  const consumerConfig = options.consumerConfig;
   const resolverOrder = normalizeResolverOrder(options.resolverOrder);
 
   if (debug) {
@@ -120,6 +211,20 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
     try {
       const content = await fs.readFile(file, "utf8");
       const result = parseWorkItem(rel, content, resolverOrder);
+      if (generateEvidence) {
+        const evidenceGeneration = await generateEvidenceForItem(result, {
+          rootDir,
+          consumerConfig,
+          dryRun,
+        });
+        result.evidenceGeneration = evidenceGeneration;
+        for (const message of evidenceGeneration.errors) {
+          result.errors.push({
+            code: "evidence_generation_failed",
+            message,
+          });
+        }
+      }
       items.push(result);
     } catch (err) {
       items.push({
@@ -132,7 +237,9 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
         errors: [
           {
             code: "parse_failed",
-            message: `Failed to read file: ${err instanceof Error ? err.message : String(err)}`,
+            message: `Failed to read file: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
           },
         ],
       });
@@ -141,6 +248,11 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
 
   const allErrors: ScanError[] = items.flatMap((i) => i.errors);
   const filesWithErrors = items.filter((i) => i.errors.length > 0).length;
+  const evidenceRecordsCreated = items.reduce(
+    (count, item) =>
+      count + (item.evidenceGeneration?.created ? item.evidenceGeneration.recordIds.length : 0),
+    0,
+  );
 
   const exitCode = strict && allErrors.length > 0 ? 1 : 0;
 
@@ -158,6 +270,7 @@ export async function scanBacklog(options: BacklogScanOptions = {}): Promise<Bac
       totalFiles: items.length,
       filesWithErrors,
       errorCount: allErrors.length,
+      evidenceRecordsCreated,
     },
     items,
     exitCode,

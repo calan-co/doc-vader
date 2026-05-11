@@ -15,6 +15,27 @@ function mkFile(name: string, content: string) {
   fsSync.writeFileSync(path.join(testDir, name), content, "utf8");
 }
 
+function mkConsumerConfig() {
+  fsSync.mkdirSync(path.join(testDir, ".doc-vader"), { recursive: true });
+  fsSync.writeFileSync(
+    path.join(testDir, ".doc-vader", "backlog-consumer.json"),
+    JSON.stringify(
+      {
+        roots: {
+          backlog: "backlog",
+          active: "backlog",
+          archive: "backlog/archive",
+          records: "backlog/records",
+          audit: "backlog/audit",
+        },
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+
 describe("scan-conditions", () => {
   it("evaluateConditions: full valid frontmatter → no errors", () => {
     const { conditions, errors } = evaluateConditions({
@@ -238,6 +259,73 @@ describe("scanBacklog", () => {
     await expect(
       scanBacklog({ rootDir: testDir, resolverOrder: ["invalid" as never] }),
     ).rejects.toThrow(/Unsupported resolver/);
+  });
+
+  it("generate-evidence creates and links a deterministic evidence record", async () => {
+    mkConsumerConfig();
+    mkFile(
+      "backlog/9.evidence.md",
+      `---\nid: "work-item:009"\nstatus: ready\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/20\n---\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      generateEvidence: true,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+      resolverOrder: ["linked_pull_requests"],
+    });
+
+    expect(report.summary.evidenceRecordsCreated).toBe(1);
+    const item = report.items.find((i) => i.id === "work-item:009");
+    expect(item?.evidenceGeneration?.created).toBe(true);
+    expect(item?.evidenceGeneration?.recordIds).toContain("record:scan-009");
+
+    const workItemFile = fsSync.readFileSync(
+      path.join(testDir, "backlog", "9.evidence.md"),
+      "utf8",
+    );
+    expect(workItemFile).toContain("evidence:");
+    expect(workItemFile).toContain("[[record-scan-009]]");
+
+    const recordFile = fsSync.readFileSync(
+      path.join(testDir, "backlog", "records", "record-scan-009.md"),
+      "utf8",
+    );
+    expect(recordFile).toContain("id: record:scan-009");
+    expect(recordFile).toContain("subtype: evidence");
+  });
+
+  it("generate-evidence is idempotent for repeated scans", async () => {
+    mkConsumerConfig();
+    mkFile(
+      "backlog/10.idempotent.md",
+      `---\nid: "work-item:010"\nstatus: ready\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/21\n---\n`,
+    );
+
+    await scanBacklog({
+      rootDir: testDir,
+      generateEvidence: true,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+      resolverOrder: ["linked_pull_requests"],
+    });
+    await scanBacklog({
+      rootDir: testDir,
+      generateEvidence: true,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+      resolverOrder: ["linked_pull_requests"],
+    });
+
+    const workItemFile = fsSync.readFileSync(
+      path.join(testDir, "backlog", "10.idempotent.md"),
+      "utf8",
+    );
+    const evidenceMatches = workItemFile.match(/\[\[record-scan-010\]\]/g) ?? [];
+    expect(evidenceMatches).toHaveLength(1);
+
+    const recordFiles = fsSync
+      .readdirSync(path.join(testDir, "backlog", "records"))
+      .filter((name) => name === "record-scan-010.md");
+    expect(recordFiles).toHaveLength(1);
   });
 });
 

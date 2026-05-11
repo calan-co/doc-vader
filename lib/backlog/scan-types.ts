@@ -33,6 +33,12 @@ export interface BacklogScanOptions {
   debug?: boolean;
   /** Optional resolver execution order. */
   resolverOrder?: SubjectResolverName[];
+  /** Create and link evidence records for resolved subjects. */
+  generateEvidence?: boolean;
+  /** Preview changes without writing files. */
+  dryRun?: boolean;
+  /** Optional path to consumer config JSON. */
+  consumerConfig?: string;
 }
 
 // ---------- Condition taxonomy ----------
@@ -51,7 +57,8 @@ export type ScanErrorCode =
   | "missing_id"
   | "missing_status"
   | "invalid_lifecycle"
-  | "unresolved_wikilink";
+  | "unresolved_wikilink"
+  | "evidence_generation_failed";
 
 export interface ScanCondition {
   code: ScanConditionCode;
@@ -75,6 +82,12 @@ export interface WorkItemScanResult {
   conditions: ScanCondition[];
   errors: ScanError[];
   subjectResolution?: SubjectResolutionResult;
+  evidenceGeneration?: {
+    created: boolean;
+    recordIds: string[];
+    linkedAt?: string;
+    errors: string[];
+  };
 }
 
 // ---------- Top-level report ----------
@@ -82,13 +95,16 @@ export interface WorkItemScanResult {
 export interface BacklogScanReport {
   scanId: string;
   generatedAt: string;
-  options: Required<Pick<BacklogScanOptions, "backlogDir" | "reportFormat" | "strict" | "debug">> & {
+  options: Required<
+    Pick<BacklogScanOptions, "backlogDir" | "reportFormat" | "strict" | "debug">
+  > & {
     resolverOrder: SubjectResolverName[];
   };
   summary: {
     totalFiles: number;
     filesWithErrors: number;
     errorCount: number;
+    evidenceRecordsCreated: number;
   };
   items: WorkItemScanResult[];
   exitCode: number;
