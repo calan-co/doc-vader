@@ -1,10 +1,6 @@
 {
   "byType": {
-    "document": "./by-type/document/latest.json",
-    "work-item": "./by-type/work-item/latest.json"
-  },
-  "support": {
-    "base": "./support/base/current.json",
-    "statusTransitionPayload": "./support/payloads/status-transition-payload/current.json"
+    "document": "schemas/frontmatter/by-type/document/latest.json",
+    "work-item": "schemas/frontmatter/by-type/work-item/latest.json"
   }
 }

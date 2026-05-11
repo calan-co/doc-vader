@@ -4,7 +4,7 @@ import path from "path";
 import { vol } from "memfs";
 import "./helper/setupTests";
 
-const cliPath = path.resolve(__dirname, "../bin/doc-vader.js");
+const cliPath = path.resolve(__dirname, "../dist/cli/doc-vader.js");
 const runCli = (args = "") => {
   try {
     return execSync(`node ${cliPath} ${args}`, { encoding: "utf-8" });
