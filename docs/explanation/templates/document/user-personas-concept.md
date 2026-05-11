@@ -1,10 +1,8 @@
 ---
 type: document
-subtype: concept
-title: "User Personas: Concept and Rationale"
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
-id: user-personas-concept
+subtype: generic
+title: 'User Personas: Concept and Rationale'
+id: userpers-8923
 lifecycle: draft
 status: proposed
 ---

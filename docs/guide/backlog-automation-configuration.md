@@ -1,19 +1,18 @@
 ---
-id: backlog-automation-configuration
+id: backloga-3593
 title: Backlog Automation Configuration Guide
 type: document
 subtype: guide
 lifecycle: active
-status: active
-priority: high
+status: ready
 tags:
   - backlog-automation
   - configuration
   - consumer-config
 links:
   reference:
-    - "[[../reference/work-management/backlog-scan-cli.md]]"
-    - "[[../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]"
+    - '[[../reference/work-management/backlog-scan-cli.md]]'
+    - '[[../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]'
 ---
 
 # Backlog Automation Configuration Guide
@@ -278,10 +277,10 @@ jobs:
         run: pnpm install
       
       - name: Run backlog scan
-        run: doc-vader backlog scan --generate-evidence --output-format json > /tmp/scan-report.json
+        run: doc-vader backlog scan --generate-evidence --report-format json --output-file /tmp/scan-report.json
       
       - name: Upload scan report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backlog-scan-report-${{ github.run_id }}
           path: /tmp/scan-report.json
@@ -303,7 +302,7 @@ doc-vader backlog scan \
   --resolver-order payload_subject_tokens,linked_pull_requests \
   --generate-evidence \
   --strict \
-  --output-format json > report.json
+  --report-format json --output-file report.json
 ```
 
 ## Configuration Precedence
@@ -338,7 +337,7 @@ doc-vader backlog scan --resolver-order payload_subject_tokens
 **Solution**:
 ```bash
 # Check current scan without creating evidence
-doc-vader backlog scan --output-format json
+doc-vader backlog scan --report-format json
 
 # Look for errors in report (resolve_subject_failed, etc.)
 # Adjust resolver order if needed
@@ -358,7 +357,7 @@ doc-vader backlog scan --output-format json
 # Try adding linked_pull_requests strategy
 doc-vader backlog scan \
   --resolver-order payload_subject_tokens,linked_pull_requests \
-  --output-format json
+  --report-format json
 ```
 
 ### Performance Issues

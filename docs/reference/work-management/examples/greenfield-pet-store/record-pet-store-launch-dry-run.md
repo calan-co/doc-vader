@@ -1,12 +1,12 @@
 ---
-"$schema": schemas/work-management/frontmatter/record.json
-"$template": templates/reference/work-management/record.tpl.md
-id: record:pet-store-launch-dry-run
+$schema: schemas/work-management/frontmatter/record.json
+$template: templates/reference/work-management/record.tpl.md
+id: recordpe-9277
 title: Checkout Dry Run Before Launch
 summary: Test-result record capturing the final dry-run purchase flow before launch.
 owner: qa-lead
 type: record
-subtype: test-result
+subtype: generic
 lifecycle: active
 status: ready
 status_reason: recorded
@@ -16,7 +16,7 @@ tags:
   - checkout
 links:
   supporting_reference:
-    - "[[plan-pet-store-strategy]]"
+    - '[[plan-pet-store-strategy]]'
 ---
 
 ## Recorded At

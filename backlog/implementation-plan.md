@@ -1,8 +1,10 @@
 ---
 title: Doc-Vader Implementation Plan & Subagent Instructions
-date: 2025-11-18
-status: active
-ordinal: 1000
+status: proposed
+id: unknown-1778353027734
+type: document
+subtype: generic
+lifecycle: draft
 ---
 
 ## Implementation Order

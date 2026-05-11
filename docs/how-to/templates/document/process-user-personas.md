@@ -1,21 +1,19 @@
 ---
-id: user-personas-how-to
+id: userpers-9471
 title: How to Create and Use User Personas
 type: document
-subtype: how-to
+subtype: generic
 lifecycle: evergreen
-status: accepted
+status: ready
 tags:
   - user-personas
   - how-to
   - guide
 links:
-  - related: "[[user-personas-concept.md]]"
-  - related: "[[user-personas-template.md]]"
-  - related: "[[user-personas-resources.md]]"
-classification:
-  diataxis: how-to
-  sensitivity: public
+  related:
+    - '[[user-personas-concept.md]]'
+    - '[[user-personas-template.md]]'
+    - '[[user-personas-resources.md]]'
 ---
 
 This guide provides a full, step-by-step process and best practices for researching, drafting, and maintaining user personas.

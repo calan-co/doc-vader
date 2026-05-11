@@ -1,0 +1,1826 @@
+{
+  "timestamp": "2026-05-09T18:51:57.448Z",
+  "totalFiles": 176,
+  "fixed": 171,
+  "errors": 4,
+  "skipped": 1,
+  "results": [
+    {
+      "file": "docs/project-brief.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"doc-vader-project-brief\" → \"docvader-547\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/backlog-dashboard.md",
+      "fixed": false,
+      "changes": [],
+      "errors": [
+        "No frontmatter found"
+      ]
+    },
+    {
+      "file": "docs/source-files/guide-user-personas.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"user-personas\" → \"userpers-2156\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-tutorial.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"tutorial\" → \"tutorial-8587\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-troubleshooting.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"troubleshooting\" → \"troubles-1795\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-style-guide.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"style-guide\" → \"stylegui-6343\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-release-notes.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"guide-release-notes\" → \"guiderel-580\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-reference.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"reference\" → \"referenc-5059\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-readme.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"readme\" → \"readme-481\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-quickstart.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"quickstart\" → \"quicksta-6024\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-installation-guide.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"installation-guide\" → \"installa-6730\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-how-to.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"how-to\" → \"howto-523\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-decision.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"decision\" → \"decision-7978\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-contributing-guide.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"contributing-guide\" → \"contribu-9797\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-concept.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"concept\" → \"concept-1370\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/source-files/guide-api-reference.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"api-reference\" → \"apirefer-1088\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/resources/templates/document/user-personas.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: createdBy",
+        "Invalid subtype \"resources\" corrected to \"generic\"",
+        "Fixed document ID format: \"user-personas-resources\" → \"userpers-8017\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/remark-lint-unified-architecture.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: docType",
+        "Removed disallowed property: created",
+        "Removed disallowed property: priority",
+        "Fixed document ID format: \"remark-lint-unified-architecture\" → \"remarkli-1885\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/coding-standards.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"standard\" corrected to \"generic\"",
+        "Fixed document ID format: \"contribution-standards\" → \"contribu-6458\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/resolver-strategy-guide.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Unknown status \"active\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"resolver-strategy-guide\" → \"resolver-8314\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/overview.md",
+      "fixed": true,
+      "changes": [
+        "Unknown status \"active\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")"
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/backlog-scan-cli.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Unknown status \"active\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"backlog-scan-cli-reference\" → \"backlogs-5905\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/backlog-automation-troubleshooting.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Unknown status \"active\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"backlog-automation-troubleshooting\" → \"backloga-9041\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/work-item-pet-102.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: portfolio",
+        "Removed disallowed property: product",
+        "Removed disallowed property: component",
+        "Removed disallowed property: target_end_date",
+        "Fixed work-item ID format: \"work-item:pet-102\" → \"wi-102\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/work-item-pet-101.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: portfolio",
+        "Removed disallowed property: product",
+        "Removed disallowed property: component",
+        "Removed disallowed property: target_end_date",
+        "Fixed work-item ID format: \"work-item:pet-101\" → \"wi-101\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/work-item-pet-100.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: portfolio",
+        "Removed disallowed property: product",
+        "Removed disallowed property: component",
+        "Removed disallowed property: target_end_period",
+        "Fixed work-item ID format: \"work-item:pet-100\" → \"wi-100\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/release-pet-store-launch-01.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: assignee",
+        "Removed disallowed property: portfolio",
+        "Removed disallowed property: product",
+        "Removed disallowed property: component",
+        "Removed disallowed property: target_start_date",
+        "Removed disallowed property: target_end_date",
+        "Invalid subtype \"launch\" corrected to \"generic\"",
+        "Fixed document ID format: \"release:pet-store-launch-01\" → \"releasep-3550\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/record-pet-store-launch-dry-run.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"test-result\" corrected to \"generic\"",
+        "Fixed document ID format: \"record:pet-store-launch-dry-run\" → \"recordpe-6391\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/project-pet-store-website.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: assignee",
+        "Removed disallowed property: portfolio",
+        "Removed disallowed property: product",
+        "Removed disallowed property: component",
+        "Removed disallowed property: target_end_period",
+        "Invalid subtype \"initiative\" corrected to \"generic\"",
+        "Fixed document ID format: \"project:pet-store-website\" → \"projectp-3996\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/plan-pet-store-strategy.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: assignee",
+        "Removed disallowed property: portfolio",
+        "Removed disallowed property: product",
+        "Removed disallowed property: component",
+        "Removed disallowed property: target_start_date",
+        "Removed disallowed property: target_end_period",
+        "Invalid subtype \"strategic\" corrected to \"generic\"",
+        "Fixed document ID format: \"plan:pet-store-strategy\" → \"planpets-4943\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/work-management/examples/greenfield-pet-store/milestone-pet-store-checkout-ready.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: assignee",
+        "Removed disallowed property: portfolio",
+        "Removed disallowed property: product",
+        "Removed disallowed property: component",
+        "Removed disallowed property: target_end_date",
+        "Invalid subtype \"capability\" corrected to \"generic\"",
+        "Fixed document ID format: \"milestone:pet-store-checkout-ready\" → \"mileston-4330\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/templates/document/user-personas-template.md",
+      "fixed": true,
+      "changes": [
+        "Fixed document ID format: \"user-personas-template\" → \"userpers-451\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/templates/document/resources-user-personas.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"user-personas-resources\" → \"userpers-7686\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/templates/document/contributing.tpl.md",
+      "fixed": true,
+      "changes": [
+        "Fixed document ID format: \"contributing\" → \"contribu-4311\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/templates/document/concept.tpl.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: source",
+        "Removed disallowed property: intent",
+        "Removed disallowed property: category",
+        "Removed disallowed property: docType",
+        "Removed disallowed property: docSubType",
+        "Removed disallowed property: dateCreated",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"evergreen\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: priority=\"medium\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"template\" → \"wi-95127\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/templates/document/changelog.tpl.md",
+      "fixed": true,
+      "changes": [
+        "Fixed document ID format: \"changelog\" → \"changelo-4946\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/templates/document/api-reference.tpl.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: source",
+        "Removed disallowed property: intent",
+        "Removed disallowed property: category",
+        "Removed disallowed property: docType",
+        "Removed disallowed property: docSubType",
+        "Removed disallowed property: dateCreated",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"evergreen\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: priority=\"medium\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"template\" → \"wi-67627\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/reference/templates/document/api-getting-started.tpl.md",
+      "fixed": true,
+      "changes": [
+        "Fixed document ID format: \"api-getting-started\" → \"apigetti-2301\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/wiki-sync.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: docType",
+        "Removed disallowed property: phase",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: priority=\"medium\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"template\" → \"wi-39502\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/use-diataxis-and-tgdp-for-documentation.md",
+      "fixed": true,
+      "changes": [
+        "Unknown status \"approved\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"evergreen\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"diataxis-templates-how-to\" → \"diataxis-7850\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/troubleshooting.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: priority=\"medium\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"template\" → \"wi-15075\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/templjs-consumer-migration.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"templjs-consumer-migration\" → \"templjsc-2906\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/support.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Fixed document ID format: \"support\" → \"support-2848\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/pax-consumer-migration.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"pax-consumer-migration\" → \"paxconsu-3799\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/getting-started.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Unknown status \"approved\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"getting-started\" → \"gettings-978\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/faq.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: description",
+        "Unknown status \"approved\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"faq\" → \"faq-1514\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/closure-reason-policy.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"policy\" corrected to \"generic\"",
+        "Fixed document ID format: \"closure-reason-policy\" → \"closurer-8445\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/backlog-hygiene-cleanup.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"backlog-hygiene-cleanup\" → \"backlogh-5436\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/SECURITY.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: docType",
+        "Removed disallowed property: docSubType",
+        "Removed disallowed property: sensitivity",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: priority=\"medium\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"guide-security-policy\" → \"wi-76900\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/CHANGELOG.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Unknown status \"approved\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"docs-changelog\" → \"docschan-503\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/templates/document/process-user-personas.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: accepted → ready",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"user-personas-how-to\" → \"userpers-5105\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/templates/document/process-release-notes.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"process-release-notes-guide\" → \"processr-3416\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/templates/document/maintain-release-notes.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: source",
+        "Removed disallowed property: intent",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"evergreen\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"release-notes-how-to\" → \"releasen-4785\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/how-to/implementation-plans/doc-vader-shared-engine-mvp.plan.md",
+      "fixed": true,
+      "changes": [
+        "Unknown status \"approved\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"plan\" corrected to \"generic\"",
+        "Fixed document ID format: \"doc-vader-shared-engine-mvp-plan\" → \"docvader-1498\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/guide/centralized-remark-config.md",
+      "fixed": true,
+      "changes": [
+        "Fixed document ID format: \"centralized-remark-config-guide\" → \"centrali-4260\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/guide/backlog-automation-execution-plan.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Unknown status \"active\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"plan\" corrected to \"generic\"",
+        "Fixed document ID format: \"backlog-automation-execution-plan\" → \"backloga-4348\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/guide/backlog-automation-configuration.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Unknown status \"active\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed document ID format: \"backlog-automation-configuration\" → \"backloga-3345\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/explanation/why-diataxis.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: docType",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"template\" → \"wi-91131\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/explanation/documentation-frameworks.md",
+      "fixed": true,
+      "changes": [
+        "Fixed document ID format: \"documentation-frameworks-explanation\" → \"document-6011\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/explanation/diataxis-tgdp-foundation-extension.md",
+      "fixed": true,
+      "changes": [
+        "Unknown status \"approved\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"evergreen\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"decision\" corrected to \"generic\"",
+        "Fixed document ID format: \"diataxis-template-decision\" → \"diataxis-9612\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/explanation/templates/document/user-personas-concept.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: lastReviewed",
+        "Removed disallowed property: createdBy",
+        "Invalid subtype \"concept\" corrected to \"generic\"",
+        "Fixed document ID format: \"user-personas-concept\" → \"userpers-5737\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/architecture/decisions/adr-004-backlog-scan-lifecycle.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Mapped status: accepted → ready",
+        "Invalid subtype \"decision\" corrected to \"generic\"",
+        "Fixed document ID format: \"adr-004-backlog-scan-lifecycle\" → \"adrbackl-4847\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/architecture/decisions/adr-003-multi-strategy-subject-resolution.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Mapped status: accepted → ready",
+        "Invalid subtype \"decision\" corrected to \"generic\"",
+        "Fixed document ID format: \"adr-003-multi-strategy-subject-resolution\" → \"adrmulti-6897\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/architecture/decisions/adr-002-vendor-adapter-pattern.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Mapped status: accepted → ready",
+        "Invalid subtype \"decision\" corrected to \"generic\"",
+        "Fixed document ID format: \"adr-002-vendor-adapter-pattern\" → \"adrvendo-3025\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "docs/architecture/decisions/adr-001-remark-lint-unified-adoption.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Mapped status: complete → closed",
+        "Invalid subtype \"decision\" corrected to \"generic\"",
+        "Fixed document ID format: \"adr-001-remark-lint-unified-adoption\" → \"adrremar-7399\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/support-multi-frameworks.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"support-multi-frameworks\" → \"wi-54964\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/implementation-plan.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: date",
+        "Removed disallowed property: ordinal",
+        "Unknown status \"active\" defaulted to \"proposed\"",
+        "Added missing required field: id=unknown-1778352717430",
+        "Added missing required field: type=\"document\"",
+        "Added missing required field: subtype=\"generic\"",
+        "Added missing required field: lifecycle=\"draft\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/framework-reconciliation.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"framework-reconciliation\" → \"wi-95846\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/AGENTS.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Removed disallowed property: name",
+        "Removed disallowed property: description",
+        "Mapped status: complete → closed",
+        "Invalid subtype \"policy\" corrected to \"generic\"",
+        "Fixed document ID format: \"backlog-agents-policy\" → \"backloga-1232\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/37.frontmatter-json-schemas.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"37\" → \"wi-37\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/33.documentation-organization-strategy.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Mapped status: complete → closed",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"33\" → \"wi-33\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/227.story-create-doc-vader-github-app.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"227\" → \"wi-227\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/226.story-add-subject-aware-pr-closure-api.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"226\" → \"wi-226\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/225.story-require-all-linked-prs-merged-for-finalization.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"225\" → \"wi-225\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/224-execution_item_status_validity_lint.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"224\" → \"wi-224\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/223-migrate_schema_directives.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"223\" → \"wi-223\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/222-update_code_defaults.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: priority=\"medium\"",
+        "Fixed work-item ID format: \"222\" → \"wi-222\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/221-add_test_fixtures.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"221\" → \"wi-221\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/220-extensible_subtypes.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"220\" → \"wi-220\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/219-configure_contexts_in_config.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"219\" → \"wi-219\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/218-create_json_ld_contexts.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"218\" → \"wi-218\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/217-update_schemas_for_json_ld.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"217\" → \"wi-217\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/216-document_schema_requirements.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed work-item ID format: \"216\" → \"wi-216\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/215-update_validation_to_use_resolver.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"215\" → \"wi-215\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/214-create_dry_schema_resolver.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"214\" → \"wi-214\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/213-create_config_loader.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"213\" → \"wi-213\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/212-create_typebox_config_schema.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"212\" → \"wi-212\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/211-fix_jsonschema_tools_compatibility.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Added missing required field: priority=\"medium\"",
+        "Fixed work-item ID format: \"211\" → \"wi-211\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210.vendor-adapter-and-scan-lifecycle-epic.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"210\" → \"wi-210\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210.1.vendor-adapter-and-scan-lifecycle-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"210.1\" → \"wi-210\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210.1.5.phase-e-strict-mode-resolver-config-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"210.1.5\" → \"wi-210\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210.1.4.phase-d-workflow-thin-wrapper-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"210.1.4\" → \"wi-210\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210.1.3.phase-c-evidence-generation-mode-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"210.1.3\" → \"wi-210\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210.1.2.phase-b-pr-link-resolver-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed work-item ID format: \"210.1.2\" → \"wi-210\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210.1.1.phase-a-backlog-scan-command-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed work-item ID format: \"210.1.1\" → \"wi-210\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/210-canonical_schema_integration_epic.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Added missing required field: estimated=4"
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/209-execution_item_ownership_lint.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: description",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Fixed work-item ID format: \"209\" → \"wi-209\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.backlog-hygiene-cleanup-epic.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.4.schema-reconciliation-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.4\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.4.2.hygiene-ci-gate-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.4.2\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.4.1.reconcile-active-items-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.4.1\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.3.cleanup-unused-items-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.3\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.3.2.finalize-closed-items-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.3.2\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.3.1.close-unused-items-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.3.1\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.2.closure-model-alignment-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.2\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.2.2.update-work-item-closure-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.2.2\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.2.1.schema-status-reason-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.2.1\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.1.audit-backlog-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.1\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.1.2.address-audit-findings-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.1.2\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/208.1.1.run-auditing-backlog-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"208.1.1\" → \"wi-208\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/207.shared-engine-mvp-epic.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"207\" → \"wi-207\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/207.2.pax-consumer-migration-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"207.2\" → \"wi-207\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/207.1.templjs-consumer-migration-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"207.1\" → \"wi-207\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/192.task-move-deprecated-to-archived.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"192\" → \"wi-192\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/191.task-migrate-frontmatter-utils.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"191\" → \"wi-191\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/190.task-migrate-hierarchy-lint.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"190\" → \"wi-190\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/189.task-migrate-frontmatter-lint.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"189\" → \"wi-189\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/188.task-create-staging-inventory.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"188\" → \"wi-188\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/187.story-archive-deprecated-scripts.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"187\" → \"wi-187\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/186.story-migrate-validation-utils.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"186\" → \"wi-186\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/185.story-migrate-lint-scripts.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"185\" → \"wi-185\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/184.story-inventory-staging-scripts.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"184\" → \"wi-184\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/183.deprecate-obsolete-staging-scripts-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"183\" → \"wi-183\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/182.migrate-core-scripts-to-typescript-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"182\" → \"wi-182\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/181.audit-staging-scripts-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"181\" → \"wi-181\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/180.staging-script-consolidation-epic.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"180\" → \"wi-180\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/176.ci-integration-and-deprecation-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"176\" → \"wi-176\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/176.1.ci-and-deprecation-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"176.1\" → \"wi-176\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/176.1.1.npm-scripts-and-docs-task.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"176.1.1\" → \"wi-176\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/175.extended-rules-and-autofix-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"175\" → \"wi-175\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/175.1.policies-and-suggestions-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"175.1\" → \"wi-175\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/175.1.1.link-policy-plugin-task.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"175.1.1\" → \"wi-175\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/174.cross-file-graph-and-naming-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"174\" → \"wi-174\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/174.1.graph-and-naming-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"174.1\" → \"wi-174\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/173.diataxis-and-template-integration-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"173\" → \"wi-173\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/173.1.diataxis-template-story.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"173.1\" → \"wi-173\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/173.1.1.diataxis-classifier-plugin-task.md",
+      "fixed": true,
+      "changes": [
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"173.1.1\" → \"wi-173\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/172.frontmatter-schema-integration-feature.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: accepted → ready",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"draft\" requires status=\"proposed\" (was \"ready\")",
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"172\" → \"wi-172\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/172.2.schema-error-position-mapping-task.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"172.2\" → \"wi-172\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/172.1.unify-frontmatter-validation-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: accepted → ready",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"172.1\" → \"wi-172\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/172.1.1.implement-frontmatter-schema-plugin-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: accepted → ready",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"172.1.1\" → \"wi-172\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.remark-config-and-core-pipeline-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"171\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.2.story-refactor-docs-lint-to-remark-lint.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"171.2\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.2.4.task-update-docs-lint-sh-to-use-remark-lint-pipeline.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"171.2.4\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.2.3.task-create-missing-remark-lint-plugins.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"171.2.3\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.2.2.task-map-existing-lint-rules-to-plugins.md",
+      "fixed": true,
+      "changes": [
+        "Fixed work-item ID format: \"171.2.2\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.2.1.task-replace-markdownlint-with-remark-lint.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: completed → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"171.2.1\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.1.centralized-remark-config-story.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"171.1\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/171.1.1.remark-config-and-factory-task.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"171.1.1\" → \"wi-171\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/170.remark-lint-unified-adoption-epic.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"170\" → \"wi-170\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/156.lint-frontmatter-bug.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: complete → closed",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"156.lint-frontmatter-bug\" → \"wi-156\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/task-precedence-tests.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4"
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/task-frontmatter-fixer.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"tooling\" corrected to \"task\"",
+        "Added missing required field: estimated=4"
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/project-brief.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: priority",
+        "Removed disallowed property: ordinal",
+        "Invalid lifecycle \"ideation\" corrected to \"active\"",
+        "Added missing required field: subtype=\"generic\"",
+        "Fixed document ID format: \"doc-vader-project-brief\" → \"docvader-1016\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/52.finalize-metadata-enums-schema-validation-rules.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"52\" → \"wi-52\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/50.extended-asset-type-validation.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"50\" → \"wi-50\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/44.stories-reorganization-by-epic.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"44\" → \"wi-44\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/43.testing-strategy-physical-relocation.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"43\" → \"wi-43\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/4.enhanced-schema-validation-errors.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"4\" → \"wi-4\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/38.remark-lint-content-rules.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"38\" → \"wi-38\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/36.compliance-field-format-finalization.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: status_comment",
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"36\" → \"wi-36\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/34.operations-security-folder-decision.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"34\" → \"wi-34\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/31.folder-reorganization.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"31\" → \"wi-31\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/30.markdown-linting-commercialization.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: classifications",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"30\" → \"wi-30\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/27.decision-doc-context-enforcement.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: relations",
+        "Removed disallowed property: classifications",
+        "Invalid subtype \"template\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"27\" → \"wi-27\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/206.fix-linting-reporting-bug-task.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"206.fix-linting-reporting-bug-task\" → \"wi-206\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/205.improve-frontmatter-validation-task.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"205.improve-frontmatter-validation-task\" → \"wi-205\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/188.spike-core-linting-framework-scope-definition-story.md",
+      "fixed": true,
+      "changes": [
+        "Removed disallowed property: workItemType",
+        "Removed disallowed property: name",
+        "Removed disallowed property: annotations",
+        "Removed disallowed property: notes",
+        "Removed disallowed property: ordinal",
+        "Added missing required field: title=\"Untitled\"",
+        "Added missing required field: type=\"document\"",
+        "Added missing required field: subtype=\"generic\"",
+        "Added missing required field: lifecycle=\"draft\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/174.1.graph-and-naming-story 1.md",
+      "fixed": true,
+      "changes": [
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"174.1\" → \"wi-174\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "backlog/archive/160.template-compliance-feature.md",
+      "fixed": true,
+      "changes": [
+        "Invalid subtype \"feature\" corrected to \"task\"",
+        "Added missing required field: estimated=4",
+        "Fixed work-item ID format: \"160\" → \"wi-160\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "process-user-personas.md",
+      "fixed": true,
+      "changes": [
+        "Mapped status: accepted → ready",
+        "Invalid subtype \"how-to\" corrected to \"generic\"",
+        "Fixed document ID format: \"user-personas-how-to\" → \"userpers-9396\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "README.md",
+      "fixed": false,
+      "changes": [],
+      "errors": [
+        "No frontmatter found"
+      ]
+    },
+    {
+      "file": "CONTRIBUTING.md",
+      "fixed": true,
+      "changes": [
+        "Unknown status \"approved\" defaulted to \"proposed\"",
+        "Fixed lifecycle/status incompatibility: lifecycle=\"active\" requires status=\"ready\" (was \"proposed\")",
+        "Invalid subtype \"rules\" corrected to \"generic\"",
+        "Fixed document ID format: \"contributing-guide\" → \"contribu-3029\""
+      ],
+      "errors": []
+    },
+    {
+      "file": "CHANGELOG.md",
+      "fixed": false,
+      "changes": [],
+      "errors": [
+        "No frontmatter found"
+      ]
+    },
+    {
+      "file": "AGENTS.md",
+      "fixed": false,
+      "changes": [],
+      "errors": [
+        "No frontmatter found"
+      ]
+    }
+  ]
+}

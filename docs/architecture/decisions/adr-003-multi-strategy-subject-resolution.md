@@ -1,12 +1,11 @@
 ---
-"$schema": /frontmatter/document
-id: adr-003-multi-strategy-subject-resolution
+$schema: /frontmatter/document
+id: adrmulti-4913
 title: Implement multi-strategy subject resolution for evidence generation
 type: document
-subtype: decision
-status: accepted
+subtype: generic
+status: ready
 lifecycle: active
-priority: high
 tags:
   - adr
   - architecture
@@ -15,11 +14,11 @@ tags:
   - evidence-generation
 links:
   reference:
-    - "[[../../reference/work-management/overview.md]]"
+    - '[[../../reference/work-management/overview.md]]'
   implements:
-    - "[[../../../backlog/175.extended-rules-and-autofix-feature.md]]"
+    - '[[../../../backlog/175.extended-rules-and-autofix-feature.md]]'
   depends:
-    - "[[adr-002-vendor-adapter-pattern.md]]"
+    - '[[adr-002-vendor-adapter-pattern.md]]'
 ---
 
 ## Context and Problem Statement

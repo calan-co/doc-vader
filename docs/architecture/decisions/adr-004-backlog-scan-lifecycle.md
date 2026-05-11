@@ -1,12 +1,11 @@
 ---
-"$schema": /frontmatter/document
-id: adr-004-backlog-scan-lifecycle
+$schema: /frontmatter/document
+id: adrbackl-1862
 title: Define backlog scan lifecycle with structured reporting
 type: document
-subtype: decision
-status: accepted
+subtype: generic
+status: ready
 lifecycle: active
-priority: high
 tags:
   - adr
   - architecture
@@ -15,12 +14,12 @@ tags:
   - reporting
 links:
   reference:
-    - "[[../../reference/work-management/overview.md]]"
+    - '[[../../reference/work-management/overview.md]]'
   implements:
-    - "[[../../../backlog/175.extended-rules-and-autofix-feature.md]]"
+    - '[[../../../backlog/175.extended-rules-and-autofix-feature.md]]'
   depends:
-    - "[[adr-002-vendor-adapter-pattern.md]]"
-    - "[[adr-003-multi-strategy-subject-resolution.md]]"
+    - '[[adr-002-vendor-adapter-pattern.md]]'
+    - '[[adr-003-multi-strategy-subject-resolution.md]]'
 ---
 
 ## Context and Problem Statement
@@ -78,7 +77,7 @@ Implement a **backlog scan lifecycle** that:
    - `backlog scan --generate-evidence`: Report + create evidence (workflow opt-in)
 
 6. **Replaces workflow Python logic** with thin wrapper:
-   - Workflow calls `doc-vader backlog scan --generate-evidence --output-format json`
+  - Workflow calls `doc-vader backlog scan --generate-evidence --report-format json --output-file /tmp/scan-report.json`
    - Artifact stores JSON report for audit
 
 ## Scope
@@ -351,12 +350,12 @@ interface ScanOptions {
 ```yaml
 - name: Scan backlog for PRs to evidence
   run: |
-    doc-vader backlog scan --generate-evidence --output-format json > /tmp/scan-report.json
+    doc-vader backlog scan --generate-evidence --report-format json --output-file /tmp/scan-report.json
 
 - name: Upload scan report
-  uses: actions/upload-artifact@v3
+  uses: actions/upload-artifact@v4
   with:
-    name: backlog-scan-report
+    name: backlog-scan-report-${{ github.run_id }}
     path: /tmp/scan-report.json
 ```
 

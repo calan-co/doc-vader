@@ -1,21 +1,15 @@
 ---
-"$schema": schemas/work-management/frontmatter/plan.json
-"$template": templates/reference/work-management/plan.tpl.md
-id: "plan:pet-store-strategy"
+$schema: schemas/work-management/frontmatter/plan.json
+$template: templates/reference/work-management/plan.tpl.md
+id: planpets-1399
 title: Pet Store Launch Strategy
 summary: Strategic launch view showing the release anchor, checkout gate, and the work that determines launch credibility.
 owner: product-team
-assignee: delivery-lead
 type: plan
-subtype: strategic
+subtype: generic
 lifecycle: active
 status: ready
 status_reason: scheduled
-portfolio: neighborhood-retail
-product: pet-store-digital
-component: storefront
-target_start_date: "2026-02-01"
-target_end_period: 2026-Q2
 tags:
   - strategic
   - plan

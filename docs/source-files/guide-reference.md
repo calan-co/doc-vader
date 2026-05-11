@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: Reference Template Guide
-id: reference
+id: referenc-9177
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 This guide provides instructions for using the Reference Article Template from The Good Docs Project.

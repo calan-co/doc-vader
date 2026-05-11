@@ -1,10 +1,10 @@
 ---
-id: pax-consumer-migration
+id: paxconsu-6092
 title: PAX Consumer Migration to Doc-Vader
 type: document
-subtype: how-to
+subtype: generic
 lifecycle: active
-status: proposed
+status: ready
 ---
 
 ## Goal

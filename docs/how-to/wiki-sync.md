@@ -1,15 +1,15 @@
 ---
 title: Docs → Wiki Sync
 summary: One-way sync from BAIT docs to GitHub Wiki with Obsidian wikilink support.
-docType: guide
-phase: evergreen
 audience:
   - contributors
-id: template
+id: wi-23059
 type: work-item
-subtype: template
+subtype: task
 lifecycle: draft
 status: proposed
+priority: medium
+estimated: 4
 ---
 
 ## Overview

@@ -1,7 +1,7 @@
 ---
-"$schema": schemas/work-management/frontmatter/work-item.json
-"$template": templates/reference/work-management/work-item.tpl.md
-id: work-item:pet-100
+$schema: schemas/work-management/frontmatter/work-item.json
+$template: templates/reference/work-management/work-item.tpl.md
+id: wi-100
 title: Launch Pet Store Website MVP
 summary: Coordinate the minimum viable storefront launch across design, delivery, and launch readiness work.
 owner: delivery-lead
@@ -13,18 +13,14 @@ status: ready
 status_reason: prioritized
 priority: high
 estimated: 21
-portfolio: neighborhood-retail
-product: pet-store-digital
-component: storefront
-target_end_period: "2026-Q2"
 tags:
   - epic
   - launch
   - storefront
 links:
   reference:
-    - "[[release-pet-store-launch-01.md]]"
-    - "[[plan-pet-store-strategy.md]]"
+    - '[[release-pet-store-launch-01.md]]'
+    - '[[plan-pet-store-strategy.md]]'
 ---
 
 ## Goal

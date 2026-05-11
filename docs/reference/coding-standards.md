@@ -1,9 +1,8 @@
 ---
-# yaml-language-server: $schema=schemas/frontmatter/document/latest.json
 title: Contribution Standards
-id: contribution-standards
+id: contribu-5701
 type: document
-subtype: standard
+subtype: generic
 lifecycle: draft
 status: proposed
 ---
