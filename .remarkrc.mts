@@ -24,7 +24,7 @@ export default {
     [
       remarkLintNoAsciiDiagrams,
       {
-        /* options */
+        enabled: false,
       },
     ],
     [

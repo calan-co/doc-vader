@@ -22,10 +22,10 @@ jobs:
       node-version: '22'
       working-directory: .
       install-command: pnpm install --frozen-lockfile
-      lint-command: pnpm run lint || true
+      lint-command: pnpm run lint
       typecheck-command: pnpm exec tsc --noEmit
       docs-command: pnpm run docs:lint
-      backlog-command: pnpm run backlog:validate:ci || true
+      backlog-command: pnpm run backlog:validate:ci
       test-command: pnpm run build && pnpm run test -- --run
       build-command: pnpm run build
       test-matrix-node-versions: '["22", "24"]'

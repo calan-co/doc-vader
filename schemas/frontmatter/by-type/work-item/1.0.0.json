@@ -318,19 +318,7 @@
       },
       "then": {
         "type": "object",
-        "required": [
-          "links",
-          "actual",
-          "completed_date",
-          "test_results"
-        ],
         "properties": {
-          "links": {
-            "type": "object",
-            "required": [
-              "pull_requests"
-            ]
-          },
           "status": {
             "const": "closed"
           }

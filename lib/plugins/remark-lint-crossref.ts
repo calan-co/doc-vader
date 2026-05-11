@@ -138,12 +138,17 @@ const remarkLintCrossref = lintRule(
     visitParents(tree, "link", (node: any) => {
       // TODO: use linkity for robust URL handling
       const url: string = node.url;
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        return;
+      }
+
       if (
         url.startsWith("./") ||
         url.startsWith("../") ||
         url.endsWith(".md")
       ) {
-        const targetPath = path.resolve(rootDir, url.split("#")[0]);
+        const sourceDir = file.path ? path.dirname(file.path) : rootDir;
+        const targetPath = path.resolve(sourceDir, url.split("#")[0]);
         if (!fs.existsSync(targetPath)) {
           file.message(`Broken cross-reference: ${url}`, node);
         } else if (url.includes("#")) {
