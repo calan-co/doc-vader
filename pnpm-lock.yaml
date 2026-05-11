@@ -11,6 +11,9 @@ importers:
       '@commander-js/extra-typings':
         specifier: github:commander-js/extra-typings
         version: github.com/commander-js/extra-typings/647fa0b2c43ac5922a4f5c3890fe726fa68e70f9(commander@14.0.3)
+      '@segment/ajv-human-errors':
+        specifier: ^2.16.0
+        version: 2.16.0(ajv@8.18.0)
       ajv:
         specifier: ^8.17.1
         version: 8.18.0
@@ -1408,6 +1411,14 @@ packages:
     requiresBuild: true
     dev: true
     optional: true
+
+  /@segment/ajv-human-errors@2.16.0(ajv@8.18.0):
+    resolution: {integrity: sha512-cHNfZcbHrmuYOA7/Sn7HlIDHanamiRTZtngfxcAuFaKQjP7cSqsVHjLz38FI2FQ8JDLz3syGLaz10Gn2ddo7+w==}
+    peerDependencies:
+      ajv: ^8.0.0
+    dependencies:
+      ajv: 8.18.0
+    dev: false
 
   /@simple-libs/child-process-utils@1.0.2:
     resolution: {integrity: sha512-/4R8QKnd/8agJynkNdJmNw2MBxuFTRcNFnE5Sg/G+jkSsV8/UBgULMzhizWWW42p8L5H7flImV2ATi79Ove2Tw==}
