@@ -1,24 +1,24 @@
 ---
-id: "212"
+id: wi-212
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Create TypeBox Configuration Schema (lib/config/schema.ts)
-description: |
-  Define configuration schema using TypeBox (jsonschema-first approach).
-  Schema generates pure JSON Schema 2020-12 compatible with AJV.
-  Replaces Zod with TypeBox for better alignment with doc-vader's jsonschema-first nature.
 summary: TypeBox schema definitions for .doc.json config
 priority: medium
-audience: [developers]
 governance:
-  profiles: [technical-decision]
-tags: [config, typebox, schema, jsonschema]
+  profiles:
+    - technical-decision
+tags:
+  - config
+  - typebox
+  - schema
+  - jsonschema
 estimated: 2
 links:
   depends_on:
-    - "[[211-fix_jsonschema_tools_compatibility]]"
+    - '[[211-fix_jsonschema_tools_compatibility]]'
 ---
 
 ## File to Create

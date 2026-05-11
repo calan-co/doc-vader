@@ -1,16 +1,12 @@
 ---
-id: "211"
+id: wi-211
 type: work-item
 subtype: task
 lifecycle: active
 status: in-progress
 title: Fix jsonschema-tools Compatibility (Remove Custom Version Metadata)
-description: |
-Remove non-standard `version` and `$versioningScheme` properties from all schema files
-and encode version information in `$id` URI paths. This aligns schemas with JSON Schema 2020-12 standards and fixes pre-commit hook materialization errors.
 summary: Align schemas to JSON Schema 2020-12 (remove custom metadata)
-audience: [developers]
-governance: technical-decision
+priority: medium
 tags: [schemas, jsonschema-tools, standards]
 estimated: 3
 commits:

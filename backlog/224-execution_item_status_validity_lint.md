@@ -1,20 +1,21 @@
 ---
-id: "224"
+id: wi-224
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Create execution-item-status-validity lint rule
-description: |
-  Implement lint validation that ensures `current_phase` and `current_item` fields in epic execution blocks reference actual values from the phases hierarchy.
-  Prevents stale references that no longer exist in the execution plan.
 priority: medium
 estimated: 2
-tags: [validation, lint, execution, schemas]
+tags:
+  - validation
+  - lint
+  - execution
+  - schemas
 links:
   depends_on:
-    - "[[210-canonical_schema_integration_epic.md]]"
-    - "[[209-execution_item_ownership_lint.md]]"
+    - '[[210-canonical_schema_integration_epic.md]]'
+    - '[[209-execution_item_ownership_lint.md]]'
 ---
 
 ## Goal

@@ -1,27 +1,26 @@
 ---
-id: "216"
+id: wi-216
 type: work-item
 subtype: task
 lifecycle: active
 status: in-progress
 title: Document Minimal Schema Requirements (schemas/README.md)
-description: |
-  Create comprehensive documentation for creating doc-vader-compatible schemas.
-  Include minimal requirements, optional features, examples, and validation checklist.
-  Serve as reference for users creating custom schema types.
 summary: Schema requirements documentation and examples
 priority: medium
-audience: [developers, schema-authors]
 governance:
-  profiles: [documentation]
-tags: [schemas, documentation, guide]
+  profiles:
+    - documentation
+tags:
+  - schemas
+  - documentation
+  - guide
 estimated: 3
 links:
   depends_on:
-    - "[[211-fix_jsonschema_tools_compatibility]]"
-    - "[[215-update_validation_to_use_resolver]]"
+    - '[[211-fix_jsonschema_tools_compatibility]]'
+    - '[[215-update_validation_to_use_resolver]]'
 commits:
-  00a8da0: "feat(work-management): add canonical foundation package"
+  00a8da0: 'feat(work-management): add canonical foundation package'
 ---
 
 ## Files to Create

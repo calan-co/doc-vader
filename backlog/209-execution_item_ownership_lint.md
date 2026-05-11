@@ -1,15 +1,17 @@
 ---
-id: "209"
+id: wi-209
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Create execution-item-ownership lint rule
-description: |
-  Implement lint validation that ensures each work item can only be referenced in one epic's execution.phases hierarchy. Prevents duplicate ownership and ensures clear execution boundaries.
 priority: medium
 estimated: 2
-tags: [validation, lint, execution, schemas]
+tags:
+  - validation
+  - lint
+  - execution
+  - schemas
 ---
 
 ## Goal
