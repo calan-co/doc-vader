@@ -225,3 +225,7 @@ npm run docs:validate
 
 - 2026-02-27: Closed during backlog triage as obsolete. Evidence: `backlog/audit/auditing-backlog-report.json` listed this item in `no_inbound_active`, and this task references stale script paths and non-current scope.
 - Detail: This backlog item points to `.mjs` paths and legacy assumptions that no longer match the active codebase conventions.
+
+## Closure Note
+
+- 2026-05-11: Closed as  obsolete with evidence in backlog/audit/auditing-backlog-report.json

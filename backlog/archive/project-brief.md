@@ -70,3 +70,7 @@ Doc-Vader is a schema-driven documentation validation CLI supporting multiple do
 - 2026-02-27: Closed during backlog triage as redundant. Evidence: `backlog/audit/auditing-backlog-report.json` listed this item in `no_inbound_active`, and it is outside the current MVP critical path in `docs/how-to/implementation-plans/doc-vader-shared-engine-mvp.plan.md`.
 - Replacement: [[docs/project-brief.md]]
 - Detail: Canonical project brief has moved to docs and is maintained there.
+
+## Closure Note
+
+- 2026-05-11: Closed as  redundant with evidence in backlog/audit/auditing-backlog-report.json
