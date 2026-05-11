@@ -1,20 +1,18 @@
 ---
-id: remark-lint-unified-architecture
+id: remarkli-3929
 title: Remark-lint Unified Architecture (Doc-Vader)
 type: document
 subtype: reference
-docType: reference
-created: "2025-11-16"
 status: proposed
 lifecycle: draft
-priority: high
 tags:
   - reference
   - architecture
   - linting
   - remark
 links:
-  - decision: "[[../architecture/decisions/adr-001-remark-lint-unified-adoption.md]]"
+  decision:
+    - '[[../architecture/decisions/adr-001-remark-lint-unified-adoption.md]]'
 ---
 
 ## Overview

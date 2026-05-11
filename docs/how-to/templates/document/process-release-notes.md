@@ -2,11 +2,12 @@
 type: document
 subtype: guide
 title: Release Notes Template Guide
-id: process-release-notes-guide
+id: processr-8804
 lifecycle: active
-status: proposed
+status: ready
 links:
-  - related: "[[release-notes.tpl]]"
+  related:
+    - '[[release-notes.tpl]]'
 ---
 
 This guide explains how to use the Release Notes template from The Good Docs Project.

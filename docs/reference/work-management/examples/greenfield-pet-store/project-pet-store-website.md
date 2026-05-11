@@ -1,20 +1,15 @@
 ---
-"$schema": schemas/work-management/frontmatter/project.json
-"$template": templates/reference/work-management/project.tpl.md
-id: project:pet-store-website
+$schema: schemas/work-management/frontmatter/project.json
+$template: templates/reference/work-management/project.tpl.md
+id: projectp-7638
 title: Greenfield Pet Store Website
 summary: Launch the first public ecommerce experience for a neighborhood pet store.
 owner: product-team
-assignee: launch-manager
 type: project
-subtype: initiative
+subtype: generic
 lifecycle: active
 status: ready
 status_reason: prioritized
-portfolio: neighborhood-retail
-product: pet-store-digital
-component: storefront
-target_end_period: 2026-Q2
 tags:
   - pet-store
   - ecommerce

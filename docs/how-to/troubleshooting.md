@@ -1,11 +1,12 @@
 ---
 title: Troubleshooting Guide
-lastReviewed: 2025-10-21T00:00:00.000Z
-id: template
+id: wi-73714
 type: work-item
-subtype: template
+subtype: task
 lifecycle: draft
 status: proposed
+priority: medium
+estimated: 4
 ---
 
 ## Troubleshooting Guide

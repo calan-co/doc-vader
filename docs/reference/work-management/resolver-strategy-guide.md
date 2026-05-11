@@ -1,20 +1,19 @@
 ---
-id: resolver-strategy-guide
+id: resolver-2162
 title: Resolver Strategy Reference
 type: document
 subtype: reference
 lifecycle: active
-status: active
-priority: high
+status: ready
 tags:
   - backlog-automation
   - resolver
   - subject-resolution
 links:
   reference:
-    - "[[backlog-scan-cli.md]]"
-    - "[[../../guide/backlog-automation-configuration.md]]"
-    - "[[../../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]"
+    - '[[backlog-scan-cli.md]]'
+    - '[[../../guide/backlog-automation-configuration.md]]'
+    - '[[../../architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]'
 ---
 
 # Resolver Strategy Reference

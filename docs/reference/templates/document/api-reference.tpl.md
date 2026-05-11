@@ -1,18 +1,12 @@
 ---
 title: API Reference Template
-source: https://www.thegooddocsproject.dev/template/api-reference
-intent: >-
-  Provide API specifications and integration instructions to help users
-  understand the product
-category: reference
-docType: template
-docSubType: api
-dateCreated: 2025-10-28T00:00:00.000Z
-status: proposed
+status: ready
 lifecycle: evergreen
-id: template
+id: wi-54599
 type: work-item
-subtype: template
+subtype: task
+priority: medium
+estimated: 4
 ---
 
 > If you need more information about how to fill in this template, read the accompanying [[guide-api-reference.md|guide]].

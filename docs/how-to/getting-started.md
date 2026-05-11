@@ -1,11 +1,10 @@
 ---
 title: Getting Started
-lastReviewed: 2026-04-27T00:00:00.000Z
-id: getting-started
+id: gettings-3190
 type: document
-subtype: how-to
+subtype: generic
 lifecycle: active
-status: approved
+status: ready
 ---
 
 ## Getting Started with doc-vader

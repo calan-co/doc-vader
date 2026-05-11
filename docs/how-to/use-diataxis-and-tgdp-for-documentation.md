@@ -1,11 +1,10 @@
 ---
-# yaml-language-server: $schema=./schemas/frontmatter/document/latest.json
-id: diataxis-templates-how-to
+id: diataxis-5123
 type: document
-subtype: how-to
+subtype: generic
 title: How to Use Diátaxis and TGDP for Documentation Structure
 lifecycle: evergreen
-status: approved
+status: ready
 tags:
   - diataxis
   - tgdp
@@ -13,7 +12,7 @@ tags:
   - how-to
 links:
   explanation:
-    - "[[diataxis-tgdp-foundation-extension]]"
+    - '[[diataxis-tgdp-foundation-extension]]'
   reference:
     - https://diataxis-template.readthedocs.io/en/latest/
     - https://www.thegooddocsproject.dev/template
