@@ -1,21 +1,20 @@
 ---
-id: backlog-automation-execution-plan
+id: backloga-6999
 title: Backlog Automation Implementation Execution Plan
 type: document
-subtype: plan
-status: active
+subtype: generic
+status: ready
 lifecycle: active
-priority: high
 tags:
   - execution-plan
   - backlog-automation
   - phase-planning
 links:
   reference:
-    - "[[../../backlog/210.vendor-adapter-and-scan-lifecycle-epic.md]]"
-    - "[[../../docs/architecture/decisions/adr-002-vendor-adapter-pattern.md]]"
-    - "[[../../docs/architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]"
-    - "[[../../docs/architecture/decisions/adr-004-backlog-scan-lifecycle.md]]"
+    - '[[../../backlog/210.vendor-adapter-and-scan-lifecycle-epic.md]]'
+    - '[[../../docs/architecture/decisions/adr-002-vendor-adapter-pattern.md]]'
+    - '[[../../docs/architecture/decisions/adr-003-multi-strategy-subject-resolution.md]]'
+    - '[[../../docs/architecture/decisions/adr-004-backlog-scan-lifecycle.md]]'
 ---
 
 # Backlog Automation Implementation Execution Plan

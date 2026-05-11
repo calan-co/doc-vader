@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: Troubleshooting Template Guide
-id: troubleshooting
+id: troubles-5260
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 

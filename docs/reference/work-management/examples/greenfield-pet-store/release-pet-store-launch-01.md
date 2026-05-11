@@ -1,28 +1,22 @@
 ---
-"$schema": schemas/work-management/frontmatter/release.json
-"$template": templates/reference/work-management/release.tpl.md
-id: release:pet-store-launch-01
+$schema: schemas/work-management/frontmatter/release.json
+$template: templates/reference/work-management/release.tpl.md
+id: releasep-2713
 title: Pet Store Launch 01
 summary: First public launch boundary for browsing products and completing checkout online.
 owner: launch-manager
-assignee: delivery-lead
 type: release
-subtype: launch
+subtype: generic
 lifecycle: active
 status: ready
 status_reason: scheduled
-portfolio: neighborhood-retail
-product: pet-store-digital
-component: storefront
-target_start_date: "2026-05-18"
-target_end_date: "2026-05-20"
 tags:
   - launch
   - release
   - storefront
 links:
   machine_output:
-    - "[[greenfield-pet-store-website.graph.json]]"
+    - '[[greenfield-pet-store-website.graph.json]]'
 ---
 
 ## Release Objective

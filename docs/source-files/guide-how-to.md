@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: How-To Template Guide
-id: how-to
+id: howto-5794
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 

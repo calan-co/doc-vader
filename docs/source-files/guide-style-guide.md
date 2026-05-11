@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: Style Guide Template Guide
-id: style-guide
+id: stylegui-1129
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 

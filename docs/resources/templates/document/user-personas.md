@@ -1,9 +1,8 @@
 ---
 type: document
-subtype: resources
+subtype: generic
 title: User Personas Resources and Bibliography
-createdBy: GitHub Copilot
-id: user-personas-resources
+id: userpers-8259
 lifecycle: draft
 status: proposed
 ---

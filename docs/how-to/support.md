@@ -1,7 +1,6 @@
 ---
 title: Support
-lastReviewed: 2025-10-21T00:00:00.000Z
-id: support
+id: support-7306
 type: document
 subtype: template
 lifecycle: draft

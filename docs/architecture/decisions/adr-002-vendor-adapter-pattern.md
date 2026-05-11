@@ -1,12 +1,11 @@
 ---
-"$schema": /frontmatter/document
-id: adr-002-vendor-adapter-pattern
+$schema: /frontmatter/document
+id: adrvendo-7451
 title: Implement vendor adapter pattern for backlog automation
 type: document
-subtype: decision
-status: accepted
+subtype: generic
+status: ready
 lifecycle: active
-priority: high
 tags:
   - adr
   - architecture
@@ -14,9 +13,9 @@ tags:
   - vendor-abstraction
 links:
   reference:
-    - "[[../../reference/work-management/overview.md]]"
+    - '[[../../reference/work-management/overview.md]]'
   implements:
-    - "[[../../../backlog/175.extended-rules-and-autofix-feature.md]]"
+    - '[[../../../backlog/175.extended-rules-and-autofix-feature.md]]'
 ---
 
 ## Context and Problem Statement

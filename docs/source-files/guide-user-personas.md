@@ -2,11 +2,9 @@
 type: document
 subtype: guide
 title: User Personas Template Guide
-id: user-personas
+id: userpers-5703
 lifecycle: active
-status: proposed
-lastReviewed: 2025-11-05
-createdBy: GitHub Copilot
+status: ready
 ---
 
 

@@ -1,7 +1,7 @@
 ---
-"$schema": schemas/work-management/frontmatter/work-item.json
-"$template": templates/reference/work-management/work-item.tpl.md
-id: work-item:pet-101
+$schema: schemas/work-management/frontmatter/work-item.json
+$template: templates/reference/work-management/work-item.tpl.md
+id: wi-101
 title: Establish Storefront Foundation
 summary: Set up the storefront shell, deployment baseline, and launch-ready design primitives.
 owner: platform-team
@@ -14,10 +14,6 @@ status_reason: completed
 priority: high
 estimated: 13
 actual: 11
-portfolio: neighborhood-retail
-product: pet-store-digital
-component: storefront-shell
-target_end_date: "2026-04-15"
 tags:
   - task
   - foundation
@@ -31,7 +27,7 @@ links:
   evidence:
     - https://example.internal/pet-store/foundation-smoke-test
   reference:
-    - "[[project-pet-store-website]]"
+    - '[[project-pet-store-website]]'
 ---
 
 ## Goal
