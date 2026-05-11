@@ -1,15 +1,16 @@
 ---
-id: support-multi-frameworks
+id: wi-52469
 status: proposed
 title: Support Multiple Documentation Frameworks
 lifecycle: draft
 priority: high
 type: work-item
-subtype: feature
+subtype: task
 links:
-  - related:
-      - "[[framework-reconciliation.md]]"
+  related:
+    - '[[framework-reconciliation.md]]'
 ordinal: 1000
+estimated: 4
 ---
 
 ## Summary

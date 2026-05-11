@@ -1,23 +1,24 @@
 ---
-id: "220"
+id: wi-220
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Enable Extensible Subtypes via x-* Pattern
-description: |
-  Update document and work-item schemas to allow custom subtypes using x-* namespace (e.g., x-runbook, x-rfc). Update schema-map.json to support optional bySubtype routing for custom types.
 summary: Extensible subtype namespace for custom document types
 priority: medium
-audience: [developers]
 governance:
-  profiles: [technical-decision]
-tags: [schemas, extensibility, subtypes]
+  profiles:
+    - technical-decision
+tags:
+  - schemas
+  - extensibility
+  - subtypes
 estimated: 2
 links:
   depends_on:
-    - "[[216-document_schema_requirements]]"
-    - "[[219-configure_contexts_in_config]]"
+    - '[[216-document_schema_requirements]]'
+    - '[[219-configure_contexts_in_config]]'
 ---
 
 ## Files to Update

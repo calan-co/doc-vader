@@ -1,23 +1,24 @@
 ---
-id: "219"
+id: wi-219
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Configure Vocabulary Contexts in .doc.json
-description: |
-  Set up .doc.base.json with vocabularies configuration pointing to reusable JSON-LD contexts. Create example .doc.json showing how to override or extend contexts. Document precedence (inline > config > default).
 summary: Vocabulary context configuration in .doc.json
 priority: low
-audience: [developers]
 governance:
-  profiles: [technical-decision]
-tags: [config, json-ld, vocabulary]
+  profiles:
+    - technical-decision
+tags:
+  - config
+  - json-ld
+  - vocabulary
 estimated: 2
 links:
   depends_on:
-    - "[[213-create_config_loader]]"
-    - "[[218-create_json_ld_contexts]]"
+    - '[[213-create_config_loader]]'
+    - '[[218-create_json_ld_contexts]]'
 ---
 
 ## Files to Create/Update
