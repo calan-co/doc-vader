@@ -1,23 +1,24 @@
 ---
-id: "215"
+id: wi-215
 type: work-item
 subtype: task
 lifecycle: active
-status: proposed
+status: ready
 title: Update Validation Code to Use DRY Resolver
-description: |
-  Refactor validateFrontmatter() and determineSchemaTarget() to use the new resolveSchema() function. Eliminates duplication and ensures both code paths use consistent 4-level precedence.
 summary: Refactor validation to use unified resolver
 priority: medium
-audience: [developers]
 governance:
-  profiles: [technical-decision]
-tags: [validation, refactor, dry]
+  profiles:
+    - technical-decision
+tags:
+  - validation
+  - refactor
+  - dry
 estimated: 3
 links:
   depends_on:
-    - "[[211-fix_jsonschema_tools_compatibility]]"
-    - "[[214-create_dry_schema_resolver]]"
+    - '[[211-fix_jsonschema_tools_compatibility]]'
+    - '[[214-create_dry_schema_resolver]]'
 ---
 
 ## Files to Update
