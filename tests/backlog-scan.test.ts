@@ -278,20 +278,26 @@ describe("scanBacklog", () => {
     expect(report.summary.evidenceRecordsCreated).toBe(1);
     const item = report.items.find((i) => i.id === "work-item:009");
     expect(item?.evidenceGeneration?.created).toBe(true);
-    expect(item?.evidenceGeneration?.recordIds).toContain("record:scan-009");
+    expect(item?.evidenceGeneration?.recordIds[0]).toMatch(
+      /^record:\d{8}-\d{6}-009$/,
+    );
 
     const workItemFile = fsSync.readFileSync(
       path.join(testDir, "backlog", "9.evidence.md"),
       "utf8",
     );
     expect(workItemFile).toContain("evidence:");
-    expect(workItemFile).toContain("[[record-scan-009]]");
+    expect(workItemFile).toMatch(/\[\[record-\d{8}-\d{6}-009\]\]/);
+
+    const linkedRecordMatch = workItemFile.match(/\[\[(record-\d{8}-\d{6}-009)\]\]/);
+    expect(linkedRecordMatch).not.toBeNull();
+    const linkedRecordBasename = linkedRecordMatch?.[1] ?? "";
 
     const recordFile = fsSync.readFileSync(
-      path.join(testDir, "backlog", "records", "record-scan-009.md"),
+      path.join(testDir, "backlog", "records", `${linkedRecordBasename}.md`),
       "utf8",
     );
-    expect(recordFile).toContain("id: record:scan-009");
+    expect(recordFile).toMatch(/id: record:\d{8}-\d{6}-009/);
     expect(recordFile).toContain("subtype: evidence");
   });
 
@@ -319,12 +325,14 @@ describe("scanBacklog", () => {
       path.join(testDir, "backlog", "10.idempotent.md"),
       "utf8",
     );
-    const evidenceMatches = workItemFile.match(/\[\[record-scan-010\]\]/g) ?? [];
+    const evidenceMatches = workItemFile.match(
+      /\[\[record-\d{8}-\d{6}-010\]\]/g,
+    ) ?? [];
     expect(evidenceMatches).toHaveLength(1);
 
     const recordFiles = fsSync
       .readdirSync(path.join(testDir, "backlog", "records"))
-      .filter((name) => name === "record-scan-010.md");
+      .filter((name) => /^record-\d{8}-\d{6}-010\.md$/.test(name));
     expect(recordFiles).toHaveLength(1);
   });
 });
