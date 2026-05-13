@@ -19,9 +19,60 @@ import remarkLintNoAsciiDiagrams from "../lib/plugins/remark-lint-no-ascii-diagr
 import remarkLintNoHtmlAnchors from "../lib/plugins/remark-lint-no-html-anchors.js";
 import { VFile } from "vfile";
 
-const args = process.argv.slice(2);
-const patterns =
-  args.length > 0 ? args : ["docs/**/*.md", "*.md", "backlog/**/*.md"];
+type OutputFormat = "text" | "json";
+type FailOn = "error" | "warning";
+
+const rawArgs = process.argv.slice(2);
+let format: OutputFormat = "text";
+let failOn: FailOn = "error";
+const patterns: string[] = [];
+
+for (let i = 0; i < rawArgs.length; i++) {
+  const arg = rawArgs[i];
+  if (arg === "--format") {
+    const value = rawArgs[i + 1];
+    if (!value || (value !== "text" && value !== "json")) {
+      console.error("--format must be one of: text, json");
+      process.exit(2);
+    }
+    format = value;
+    i++;
+    continue;
+  }
+  if (arg.startsWith("--format=")) {
+    const value = arg.slice("--format=".length);
+    if (value !== "text" && value !== "json") {
+      console.error("--format must be one of: text, json");
+      process.exit(2);
+    }
+    format = value;
+    continue;
+  }
+  if (arg === "--fail-on") {
+    const value = rawArgs[i + 1];
+    if (!value || (value !== "error" && value !== "warning")) {
+      console.error("--fail-on must be one of: error, warning");
+      process.exit(2);
+    }
+    failOn = value;
+    i++;
+    continue;
+  }
+  if (arg.startsWith("--fail-on=")) {
+    const value = arg.slice("--fail-on=".length);
+    if (value !== "error" && value !== "warning") {
+      console.error("--fail-on must be one of: error, warning");
+      process.exit(2);
+    }
+    failOn = value;
+    continue;
+  }
+
+  patterns.push(arg);
+}
+
+const effectivePatterns =
+  patterns.length > 0 ? patterns : ["docs/**/*.md", "*.md", "backlog/**/*.md"];
 
 // Create processor with all plugins
 const processor = unified()
@@ -42,14 +93,14 @@ interface LintResult {
     column: number;
     message: string;
     source: string;
+    severity: "error" | "warning";
   }>;
 }
 
-async function lintFiles(patterns: string[]): Promise<LintResult[]> {
+async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
   const results: LintResult[] = [];
-  let processedCount = 0;
 
-  for (const pattern of patterns) {
+  for (const pattern of patternsToLint) {
     const files = await glob(pattern, {
       ignore: ["node_modules/**", ".git/**", "dist/**", "coverage/**"],
     });
@@ -70,11 +121,10 @@ async function lintFiles(patterns: string[]): Promise<LintResult[]> {
               column: msg.column || 1,
               message: msg.message,
               source: msg.source || "remark-lint",
+              severity: msg.fatal === true ? "error" : "warning",
             })),
           });
         }
-
-        processedCount++;
       } catch (err) {
         console.error(`Error processing ${file}:`, err);
         process.exit(1);
@@ -86,31 +136,59 @@ async function lintFiles(patterns: string[]): Promise<LintResult[]> {
 }
 
 // Main execution
-lintFiles(patterns)
+lintFiles(effectivePatterns)
   .then((results) => {
-    let hasErrors = false;
+    const allMessages = results.flatMap((result) => result.messages);
+    const warningCount = allMessages.filter(
+      (msg) => msg.severity === "warning",
+    ).length;
+    const errorCount = allMessages.filter(
+      (msg) => msg.severity === "error",
+    ).length;
+    const shouldFail =
+      failOn === "warning"
+        ? warningCount + errorCount > 0
+        : errorCount > 0;
+
+    if (format === "json") {
+      const payload = {
+        format,
+        failOn,
+        passed: !shouldFail,
+        summary: {
+          filesWithMessages: results.length,
+          errorCount,
+          warningCount,
+        },
+        patterns: effectivePatterns,
+        results,
+      };
+      console.log(JSON.stringify(payload, null, 2));
+      process.exit(shouldFail ? 1 : 0);
+    }
 
     if (results.length === 0) {
       console.log(
-        `✓ All files passed validation (processed files with patterns: ${patterns.join(", ")})`,
+        `✓ All files passed validation (processed files with patterns: ${effectivePatterns.join(", ")})`,
       );
       process.exit(0);
     }
 
-    // Print results in a format similar to linters
     for (const result of results) {
       for (const msg of result.messages) {
         console.error(
-          `${result.file}:${msg.line}:${msg.column} - ${msg.source}: ${msg.message}`,
+          `${result.file}:${msg.line}:${msg.column} - ${msg.source} (${msg.severity}): ${msg.message}`,
         );
-        hasErrors = true;
       }
     }
 
-    if (hasErrors) {
+    if (shouldFail) {
       console.error(`\n✗ Validation failed for ${results.length} file(s)`);
       process.exit(1);
     }
+
+    console.log(`\n✓ Validation passed with ${warningCount} warning(s)`);
+    process.exit(0);
   })
   .catch((err) => {
     console.error("Fatal error during linting:", err);

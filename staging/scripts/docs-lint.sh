@@ -15,6 +15,97 @@ HAS_ERRORS=0
 STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/docs-lint-status.XXXXXX")
 trap 'rm -f "$STATUS_FILE"' EXIT
 
+FORMAT="text"
+FAIL_ON="error"
+LINT_PATTERNS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --format)
+      FORMAT="$2"
+      shift 2
+      ;;
+    --format=*)
+      FORMAT="${1#*=}"
+      shift
+      ;;
+    --fail-on)
+      FAIL_ON="$2"
+      shift 2
+      ;;
+    --fail-on=*)
+      FAIL_ON="${1#*=}"
+      shift
+      ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: docs-lint.sh [--format text|json] [--fail-on error|warning] [patterns...]
+
+Options:
+  --format       Output format (default: text)
+  --fail-on      Failure threshold for remark-lint messages (default: error)
+EOF
+      exit 0
+      ;;
+    *)
+      LINT_PATTERNS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [[ "$FORMAT" != "text" && "$FORMAT" != "json" ]]; then
+  echo "--format must be one of: text, json" >&2
+  exit 2
+fi
+
+if [[ "$FAIL_ON" != "error" && "$FAIL_ON" != "warning" ]]; then
+  echo "--fail-on must be one of: error, warning" >&2
+  exit 2
+fi
+
+if [[ ${#LINT_PATTERNS[@]} -eq 0 ]]; then
+  LINT_PATTERNS=("docs/**/*.md" "*.md" "backlog/**/*.md")
+fi
+
+if [[ "$FORMAT" == "json" ]]; then
+  cd "$PROJECT_ROOT"
+
+  REMARK_OUTPUT=$(node --import tsx/esm scripts/docs-remark-lint.ts --format json --fail-on "$FAIL_ON" "${LINT_PATTERNS[@]}" 2>&1)
+  REMARK_RESULT=$?
+  FRONTMATTER_OUTPUT=$(node "$SCRIPT_DIR/lint/frontmatter-lint.cjs" 2>&1)
+  FRONTMATTER_RESULT=$?
+
+  if [[ $REMARK_RESULT -ne 0 || $FRONTMATTER_RESULT -ne 0 ]]; then
+    HAS_ERRORS=1
+  fi
+
+  REMARK_RESULT="$REMARK_RESULT" \
+  FRONTMATTER_RESULT="$FRONTMATTER_RESULT" \
+  HAS_ERRORS="$HAS_ERRORS" \
+  FAIL_ON="$FAIL_ON" \
+  REMARK_OUTPUT="$REMARK_OUTPUT" \
+  FRONTMATTER_OUTPUT="$FRONTMATTER_OUTPUT" \
+  node - <<'NODE'
+const payload = {
+  format: "json",
+  failOn: process.env.FAIL_ON,
+  passed: process.env.HAS_ERRORS === "0",
+  remark: {
+    exitCode: Number(process.env.REMARK_RESULT ?? "1"),
+    output: process.env.REMARK_OUTPUT ?? "",
+  },
+  frontmatter: {
+    exitCode: Number(process.env.FRONTMATTER_RESULT ?? "1"),
+    output: process.env.FRONTMATTER_OUTPUT ?? "",
+  },
+};
+console.log(JSON.stringify(payload, null, 2));
+NODE
+
+  exit $HAS_ERRORS
+fi
+
 echo "${BLUE}================================${NC}"
 echo "${BLUE}Documentation Validation${NC}"
 echo "${BLUE}(Unified Remark Pipeline)${NC}"
@@ -27,18 +118,12 @@ rm -f "$LINT_LOG"
 
 {
   echo "${YELLOW}Running unified remark-lint validation...${NC}"
-  
-  # Determine which files to lint
-  LINT_PATTERNS="docs/**/*.md *.md backlog/**/*.md"
-  if [ "$#" -gt 0 ]; then
-    LINT_PATTERNS="$@"
-  fi
-  
+
   # Run the remark-based linter using node directly
   # This will validate: markdown style, template compliance, naming conventions,
   # cross-references, and more via the remark plugins
   cd "$PROJECT_ROOT"
-  node --import tsx/esm scripts/docs-remark-lint.ts $LINT_PATTERNS
+  node --import tsx/esm scripts/docs-remark-lint.ts --fail-on "$FAIL_ON" "${LINT_PATTERNS[@]}"
   REMARK_RESULT=$?
   
   if [ $REMARK_RESULT -ne 0 ]; then
