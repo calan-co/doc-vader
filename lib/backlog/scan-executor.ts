@@ -107,11 +107,33 @@ function formatEvidenceTimestamp(date: Date): string {
 }
 
 function extractRecordIdFromEvidenceLink(link: string): string | null {
-  const match = link.match(/^\[\[record-([^\]]+)\]\]$/);
-  if (!match) {
+  const match = link.match(/^\[\[([^\]]+)\]\]$/);
+  if (!match || typeof match[1] !== "string") {
     return null;
   }
-  return `record:${match[1]}`;
+
+  const target = match[1]
+    .split("|")[0]
+    .split("#")[0]
+    .trim();
+
+  if (target.length === 0) {
+    return null;
+  }
+
+  const basename = target.split("/").pop() ?? "";
+  const withoutExtension = basename.replace(/\.md$/i, "");
+
+  if (!withoutExtension.startsWith("record-")) {
+    return null;
+  }
+
+  const slug = withoutExtension.slice("record-".length);
+  if (slug.length === 0) {
+    return null;
+  }
+
+  return `record:${slug}`;
 }
 
 async function findExistingEvidenceRecordId(

@@ -335,6 +335,36 @@ describe("scanBacklog", () => {
       .filter((name) => /^record-\d{8}-\d{6}-010\.md$/.test(name));
     expect(recordFiles).toHaveLength(1);
   });
+
+  it("generate-evidence reuses existing evidence links with path/alias/anchor", async () => {
+    mkConsumerConfig();
+    mkFile(
+      "backlog/11.existing-evidence.md",
+      `---\nid: "work-item:011"\nstatus: ready\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/22\n  evidence:\n    - "[[records/record-20260513-010101-011.md|Evidence]]"\n---\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      generateEvidence: true,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+      resolverOrder: ["linked_pull_requests"],
+    });
+
+    const item = report.items.find((i) => i.id === "work-item:011");
+    expect(item?.evidenceGeneration?.created).toBe(false);
+    expect(item?.evidenceGeneration?.recordIds).toEqual([
+      "record:20260513-010101-011",
+    ]);
+    expect(report.summary.evidenceRecordsCreated).toBe(0);
+
+    const recordsDir = path.join(testDir, "backlog", "records");
+    const recordFiles = fsSync.existsSync(recordsDir)
+      ? fsSync
+          .readdirSync(recordsDir)
+          .filter((name) => /^record-\d{8}-\d{6}-011\.md$/.test(name))
+      : [];
+    expect(recordFiles).toHaveLength(0);
+  });
 });
 
 describe("scan reporters", () => {
