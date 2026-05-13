@@ -95,6 +95,20 @@ describe("scan-conditions", () => {
       true,
     );
   });
+
+  it("evaluateConditions: valid_evidence true when status != closed and no evidence links", () => {
+    const { conditions } = evaluateConditions({
+      id: "work-item:200",
+      status: "in-progress",
+      lifecycle: "active",
+      links: {
+        pull_requests: ["https://github.com/example/repo/pull/1"],
+      },
+    });
+    expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
+      true,
+    );
+  });
 });
 
 describe("scanBacklog", () => {

@@ -355,17 +355,21 @@ export async function scanBacklog(
         const subjectResolved = result.subjectResolution.subjects.length > 0;
         result.conditions.push({ code: "subject_resolved", value: subjectResolved });
 
-        for (const attempt of result.subjectResolution.attempts) {
-          if (!attempt.error) {
-            continue;
+        // Only propagate attempt errors when overall resolution failed.
+        // Intermediate failures followed by a successful strategy are informational only.
+        if (!subjectResolved) {
+          for (const attempt of result.subjectResolution.attempts) {
+            if (!attempt.error) {
+              continue;
+            }
+            result.errors.push({
+              code:
+                attempt.strategy === "linked_pull_requests"
+                  ? "fetch_pr_metadata_failed"
+                  : "resolve_subject_failed",
+              message: attempt.error,
+            });
           }
-          result.errors.push({
-            code:
-              attempt.strategy === "linked_pull_requests"
-                ? "fetch_pr_metadata_failed"
-                : "resolve_subject_failed",
-            message: attempt.error,
-          });
         }
 
         if (debug && result.subjectResolution.strategyUsed) {
