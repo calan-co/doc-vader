@@ -69,7 +69,7 @@ if [[ ${#LINT_PATTERNS[@]} -eq 0 ]]; then
 fi
 
 if [[ "$FORMAT" == "json" ]]; then
-  cd "$PROJECT_ROOT"
+  cd "$PROJECT_ROOT" || { echo "Failed to cd to $PROJECT_ROOT"; exit 1; }
 
   REMARK_OUTPUT=$(node --import tsx/esm scripts/docs-remark-lint.ts --format json --fail-on "$FAIL_ON" "${LINT_PATTERNS[@]}" 2>&1)
   REMARK_RESULT=$?
