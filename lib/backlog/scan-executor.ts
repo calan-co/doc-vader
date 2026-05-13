@@ -56,6 +56,7 @@ function parseWorkItem(
   content: string,
   resolverOrder: ReturnType<typeof normalizeResolverOrder>,
   provider: BacklogAutomationProvider,
+  generatedAt: string,
 ): WorkItemScanResult {
   let data: Record<string, unknown>;
   try {
@@ -91,6 +92,11 @@ function parseWorkItem(
     status: typeof data["status"] === "string" ? data["status"] : null,
     lifecycle: typeof data["lifecycle"] === "string" ? data["lifecycle"] : null,
     title: typeof data["title"] === "string" ? data["title"] : null,
+    eventMetadata: {
+      id: typeof data["id"] === "string" ? data["id"] : file,
+      type: "work_item",
+      timestamp: generatedAt,
+    },
     conditions,
     errors,
     // Placeholder - will be filled in by resolver chain in async context
@@ -326,7 +332,13 @@ export async function scanBacklog(
     const rel = toPosix(path.relative(rootDir, file));
     try {
       const content = await fs.readFile(file, "utf8");
-      const result = parseWorkItem(rel, content, resolverOrder, provider);
+      const result = parseWorkItem(
+        rel,
+        content,
+        resolverOrder,
+        provider,
+        generatedAt,
+      );
 
       // Phase B: Resolve subjects using the resolver chain (now async)
       if (!result.conditions.find((c) => c.code === "file_parsed" && !c.value)) {

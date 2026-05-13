@@ -6,6 +6,19 @@ export type SubjectResolverName =
   | "payload_subject_tokens"
   | "linked_pull_requests";
 
+// Phase A compatibility contracts referenced by backlog work item copy.
+export interface ParsedWorkflowRun {
+  id: string;
+  type: "workflow_run" | "pull_request" | "work_item";
+  timestamp: string;
+}
+
+export interface ParsedEvent {
+  eventId: string;
+  eventType: string;
+  timestamp: string;
+}
+
 export interface SubjectResolutionAttempt {
   strategy: SubjectResolverName;
   subjectsFound: number;
@@ -49,7 +62,11 @@ export type ScanConditionCode =
   | "has_id"
   | "has_status"
   | "has_lifecycle"
-  | "has_links_block";
+  | "has_links_block"
+  | "pr_link_found"
+  | "pr_merged"
+  | "workflow_succeeded"
+  | "valid_status";
 
 /** Error condition code – something went wrong or is missing. */
 export type ScanErrorCode =
@@ -65,6 +82,8 @@ export interface ScanCondition {
   value: boolean;
 }
 
+export type ConditionEvaluation = ScanCondition;
+
 export interface ScanError {
   code: ScanErrorCode;
   message: string;
@@ -79,6 +98,7 @@ export interface WorkItemScanResult {
   status: string | null;
   lifecycle: string | null;
   title: string | null;
+  eventMetadata?: ParsedWorkflowRun;
   conditions: ScanCondition[];
   errors: ScanError[];
   subjectResolution?: SubjectResolutionResult;
@@ -88,6 +108,13 @@ export interface WorkItemScanResult {
     linkedAt?: string;
     errors: string[];
   };
+}
+
+export interface ScanState {
+  file: string;
+  parsed: ParsedEvent;
+  conditions: ConditionEvaluation[];
+  errors: ScanError[];
 }
 
 // ---------- Top-level report ----------
@@ -109,3 +136,5 @@ export interface BacklogScanReport {
   items: WorkItemScanResult[];
   exitCode: number;
 }
+
+export type ScanReport = BacklogScanReport;
