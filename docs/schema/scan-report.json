@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/schema/scan-report.json",
+  "title": "Backlog Scan Report",
+  "type": "object",
+  "required": [
+    "scanId",
+    "generatedAt",
+    "options",
+    "summary",
+    "items",
+    "exitCode"
+  ],
+  "properties": {
+    "scanId": { "type": "string" },
+    "generatedAt": { "type": "string" },
+    "options": {
+      "type": "object",
+      "required": ["backlogDir", "reportFormat", "strict", "debug", "resolverOrder"],
+      "properties": {
+        "backlogDir": { "type": "string" },
+        "reportFormat": { "enum": ["text", "json"] },
+        "strict": { "type": "boolean" },
+        "debug": { "type": "boolean" },
+        "resolverOrder": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "totalFiles",
+        "filesWithErrors",
+        "errorCount",
+        "evidenceRecordsCreated"
+      ],
+      "properties": {
+        "totalFiles": { "type": "integer" },
+        "filesWithErrors": { "type": "integer" },
+        "errorCount": { "type": "integer" },
+        "evidenceRecordsCreated": { "type": "integer" }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "id", "status", "lifecycle", "title", "conditions", "errors"],
+        "properties": {
+          "file": { "type": "string" },
+          "id": { "type": ["string", "null"] },
+          "status": { "type": ["string", "null"] },
+          "lifecycle": { "type": ["string", "null"] },
+          "title": { "type": ["string", "null"] },
+          "eventMetadata": {
+            "type": "object",
+            "required": ["id", "type", "timestamp"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string" },
+              "timestamp": { "type": "string" }
+            }
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "value"],
+              "properties": {
+                "code": { "type": "string" },
+                "value": { "type": "boolean" }
+              }
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["code", "message"],
+              "properties": {
+                "code": { "type": "string" },
+                "message": { "type": "string" },
+                "ref": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "exitCode": { "type": "integer" }
+  }
+}

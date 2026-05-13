@@ -2,10 +2,10 @@ import { describe, it, expect } from "vitest";
 import { execSync } from "child_process";
 import path from "path";
 
-const cliPath = path.resolve(__dirname, "../dist/cli/doc-vader.js");
+const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 const runCli = (args = "") => {
   try {
-    return execSync(`node ${cliPath} ${args}`, { encoding: "utf-8" });
+    return execSync(`pnpm tsx ${cliPath} ${args}`, { encoding: "utf-8" });
   } catch (err) {
     if (typeof err === "object" && err !== null) {
       // execSync throws a child_process.ExecSyncError which has stdout
@@ -65,5 +65,26 @@ describe("doc-vader CLI integration", () => {
   it("should run backlog command", () => {
     const output = runCli("backlog --list");
     expect(output).toMatch(/(backlog|error|success|list)/i);
+  });
+
+  it("should run backlog scan with fixtures in json mode", () => {
+    const output = runCli(
+      "backlog scan --dir tests/fixtures/backlog-scan --report-format json"
+    );
+    const parsed = JSON.parse(output);
+    expect(parsed.items.length).toBeGreaterThan(0);
+    expect(output).toMatch(/25519076107/);
+    const item = parsed.items.find((entry: { file: string }) =>
+      entry.file.includes("templjs-workflow-run-25519076107.md")
+    );
+    expect(item).toBeTruthy();
+    expect(item.eventMetadata?.id).toBe("work-item:175");
+    const conditionCodes = item.conditions.map(
+      (condition: { code: string }) => condition.code
+    );
+    expect(conditionCodes).toContain("pr_link_found");
+    expect(conditionCodes).toContain("pr_merged");
+    expect(conditionCodes).toContain("workflow_succeeded");
+    expect(conditionCodes).toContain("valid_status");
   });
 });

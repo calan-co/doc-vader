@@ -28,6 +28,40 @@ export function conditionHasLinksBlock(data: Record<string, unknown>): ScanCondi
   return { code: "has_links_block", value: hasLinks };
 }
 
+function extractLinkedPrs(data: Record<string, unknown>): string[] {
+  const links = data["links"];
+  if (typeof links !== "object" || links === null) {
+    return [];
+  }
+  const mapped = (links as Record<string, unknown>)["pull_requests"];
+  if (!Array.isArray(mapped)) {
+    return [];
+  }
+  return mapped.filter((v): v is string => typeof v === "string" && v.length > 0);
+}
+
+export function conditionPrLinkFound(data: Record<string, unknown>): ScanCondition {
+  return { code: "pr_link_found", value: extractLinkedPrs(data).length > 0 };
+}
+
+export function conditionPrMerged(data: Record<string, unknown>): ScanCondition {
+  const merged = data["pr_merged"];
+  return { code: "pr_merged", value: merged === true };
+}
+
+export function conditionWorkflowSucceeded(data: Record<string, unknown>): ScanCondition {
+  const succeeded = data["workflow_succeeded"];
+  return { code: "workflow_succeeded", value: succeeded === true };
+}
+
+export function conditionValidStatus(data: Record<string, unknown>): ScanCondition {
+  const status = data["status"];
+  return {
+    code: "valid_status",
+    value: typeof status === "string" && status.trim().length > 0,
+  };
+}
+
 /** Build condition list and error list for a parsed work item. */
 export function evaluateConditions(
   data: Record<string, unknown>
@@ -38,6 +72,10 @@ export function evaluateConditions(
     conditionHasStatus(data["status"]),
     conditionHasLifecycle(data["lifecycle"]),
     conditionHasLinksBlock(data),
+    conditionPrLinkFound(data),
+    conditionPrMerged(data),
+    conditionWorkflowSucceeded(data),
+    conditionValidStatus(data),
   ];
 
   const errors: ScanError[] = [];

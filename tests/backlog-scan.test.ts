@@ -68,6 +68,29 @@ describe("scan-conditions", () => {
       true,
     );
   });
+
+  it("evaluateConditions: Phase A PR/workflow condition taxonomy", () => {
+    const { conditions } = evaluateConditions({
+      id: "work-item:175",
+      status: "ready-for-review",
+      lifecycle: "active",
+      pr_merged: true,
+      workflow_succeeded: true,
+      links: {
+        pull_requests: ["https://github.com/templjs/templ.js/pull/123"],
+      },
+    });
+    expect(conditions.find((c) => c.code === "pr_link_found")?.value).toBe(
+      true,
+    );
+    expect(conditions.find((c) => c.code === "pr_merged")?.value).toBe(true);
+    expect(conditions.find((c) => c.code === "workflow_succeeded")?.value).toBe(
+      true,
+    );
+    expect(conditions.find((c) => c.code === "valid_status")?.value).toBe(
+      true,
+    );
+  });
 });
 
 describe("scanBacklog", () => {
@@ -104,6 +127,16 @@ describe("scanBacklog", () => {
     expect(report.summary.errorCount).toBe(0);
     expect(report.items[0]?.id).toBe("1");
     expect(report.items[0]?.status).toBe("open");
+    expect(report.items[0]?.eventMetadata?.id).toBe("1");
+    expect(report.items[0]?.eventMetadata?.type).toBe("work_item");
+    expect(typeof report.items[0]?.eventMetadata?.timestamp).toBe("string");
+  });
+
+  it("malformed frontmatter is reported as validation errors (not thrown)", async () => {
+    mkFile("backlog/2.malformed.md", "---\nid: [unterminated\nstatus: open\n---\n");
+    const report = await scanBacklog({ rootDir: testDir });
+    const item = report.items.find((i) => i.file.endsWith("2.malformed.md"));
+    expect((item?.errors.length ?? 0) > 0).toBe(true);
   });
 
   it("work item missing id and status → 2 errors", async () => {
