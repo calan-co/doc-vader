@@ -64,8 +64,7 @@ export class GitHubBacklogAutomationProvider implements BacklogAutomationProvide
     return {
       id: String(id),
       workflowName: name,
-      conclusion:
-        typeof conclusion === "string" ? conclusion : (conclusion as string | null),
+      conclusion: typeof conclusion === "string" ? conclusion : null,
       reference: htmlUrl,
     };
   }

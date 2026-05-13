@@ -126,6 +126,8 @@ export class LinkedPullRequestsResolver implements SubjectResolver {
     prLinks: string[],
     provider: BacklogAutomationProvider,
   ): Promise<SubjectResolutionAttempt & { subjects: string[] }> {
+    let lastError: string | undefined;
+
     // Try to fetch metadata for the first PR link
     // (could be extended to validate all links)
     for (const prLink of prLinks) {
@@ -147,7 +149,8 @@ export class LinkedPullRequestsResolver implements SubjectResolver {
           };
         }
       } catch (err) {
-        // Log but continue to next PR link
+        // Preserve error context and continue to next PR link
+        lastError = err instanceof Error ? err.message : String(err);
         continue;
       }
     }
@@ -156,6 +159,7 @@ export class LinkedPullRequestsResolver implements SubjectResolver {
       strategy: this.name(),
       subjectsFound: 0,
       subjects: [],
+      error: lastError,
     };
   }
 

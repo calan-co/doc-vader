@@ -85,7 +85,8 @@ export function getProviderForForge(
     return new GitHubBacklogAutomationProvider(authToken);
   }
 
-  // For other forges, fall back to GitHub for now
-  // (Phase C+ would add GitLab, Bitbucket, etc.)
-  return new GitHubBacklogAutomationProvider(authToken);
+  // Fail fast for unsupported forges (Phase C+ will add GitLab, Bitbucket, etc.)
+  throw new Error(
+    `Unsupported forge: ${forge}. Supported forges: github. Phase C will add GitLab, Bitbucket, and others.`,
+  );
 }
