@@ -352,6 +352,26 @@ export async function scanBacklog(
 
         result.subjectResolution = await resolverChain.resolveSubjects(context, resolverOrder);
 
+        const subjectResolved = result.subjectResolution.subjects.length > 0;
+        result.conditions.push({ code: "subject_resolved", value: subjectResolved });
+
+        // Only propagate attempt errors when overall resolution failed.
+        // Intermediate failures followed by a successful strategy are informational only.
+        if (!subjectResolved) {
+          for (const attempt of result.subjectResolution.attempts) {
+            if (!attempt.error) {
+              continue;
+            }
+            result.errors.push({
+              code:
+                attempt.strategy === "linked_pull_requests"
+                  ? "fetch_pr_metadata_failed"
+                  : "resolve_subject_failed",
+              message: attempt.error,
+            });
+          }
+        }
+
         if (debug && result.subjectResolution.strategyUsed) {
           process.stderr.write(
             `[backlog scan] Resolved ${result.id} using strategy: ${result.subjectResolution.strategyUsed}\n`,

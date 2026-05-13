@@ -78,6 +78,7 @@ describe("scan-conditions", () => {
       workflow_succeeded: true,
       links: {
         pull_requests: ["https://github.com/templjs/templ.js/pull/123"],
+        evidence: ["[[record-20260513-123000-175]]"],
       },
     });
     expect(conditions.find((c) => c.code === "pr_link_found")?.value).toBe(
@@ -88,6 +89,23 @@ describe("scan-conditions", () => {
       true,
     );
     expect(conditions.find((c) => c.code === "valid_status")?.value).toBe(
+      true,
+    );
+    expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
+      true,
+    );
+  });
+
+  it("evaluateConditions: valid_evidence true when status != closed and no evidence links", () => {
+    const { conditions } = evaluateConditions({
+      id: "work-item:200",
+      status: "in-progress",
+      lifecycle: "active",
+      links: {
+        pull_requests: ["https://github.com/example/repo/pull/1"],
+      },
+    });
+    expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
       true,
     );
   });
@@ -130,6 +148,10 @@ describe("scanBacklog", () => {
     expect(report.items[0]?.eventMetadata?.id).toBe("1");
     expect(report.items[0]?.eventMetadata?.type).toBe("work_item");
     expect(typeof report.items[0]?.eventMetadata?.timestamp).toBe("string");
+    expect(
+      report.items[0]?.conditions.find((c) => c.code === "subject_resolved")
+        ?.value,
+    ).toBe(false);
   });
 
   it("malformed frontmatter is reported as validation errors (not thrown)", async () => {

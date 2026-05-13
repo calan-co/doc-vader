@@ -78,6 +78,41 @@ export function conditionWorkflowSucceeded(data: Record<string, unknown>): ScanC
   return { code: "workflow_succeeded", value: succeeded === true };
 }
 
+function hasEvidenceEntry(raw: unknown): boolean {
+  if (Array.isArray(raw)) {
+    return raw.some((entry) => {
+      if (typeof entry !== "object" || entry === null) {
+        return false;
+      }
+      const evidence = (entry as Record<string, unknown>)["evidence"];
+      return typeof evidence === "string" && evidence.trim().length > 0;
+    });
+  }
+
+  if (typeof raw === "object" && raw !== null) {
+    const evidence = (raw as Record<string, unknown>)["evidence"];
+    if (Array.isArray(evidence)) {
+      return evidence.some(
+        (entry) => typeof entry === "string" && entry.trim().length > 0,
+      );
+    }
+    return typeof evidence === "string" && evidence.trim().length > 0;
+  }
+
+  return false;
+}
+
+export function conditionValidEvidence(data: Record<string, unknown>): ScanCondition {
+  // Evidence is only required for closed work items; all other statuses pass unconditionally.
+  if (data["status"] !== "closed") {
+    return { code: "valid_evidence", value: true };
+  }
+  return {
+    code: "valid_evidence",
+    value: hasEvidenceEntry(data["links"]),
+  };
+}
+
 export function conditionValidStatus(data: Record<string, unknown>): ScanCondition {
   const status = data["status"];
   return {
@@ -99,6 +134,7 @@ export function evaluateConditions(
     conditionPrLinkFound(data),
     conditionPrMerged(data),
     conditionWorkflowSucceeded(data),
+    conditionValidEvidence(data),
     conditionValidStatus(data),
   ];
 
