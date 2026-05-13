@@ -82,7 +82,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.packages-read-token || secrets.GITHUB_TOKEN }}
 
-        - name: Run backlog scan
+      - name: Run backlog scan
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ inputs.dry-run }}
@@ -92,22 +92,22 @@ jobs:
           set -euo pipefail
 
           cmd=(
-          doc-vader
-          backlog scan
-          --dir "$BACKLOG_DIR"
-          --consumer-config "$CONSUMER_CONFIG"
-          --generate-evidence
-          --report-format json
-          --output-file /tmp/scan-report.json
+            doc-vader
+            backlog scan
+            --dir "$BACKLOG_DIR"
+            --consumer-config "$CONSUMER_CONFIG"
+            --generate-evidence
+            --report-format json
+            --output-file /tmp/scan-report.json
           )
 
           if [[ "${DRY_RUN}" == "true" ]]; then
-          cmd+=(--dry-run)
+            cmd+=(--dry-run)
           fi
 
           "${cmd[@]}"
 
-        - name: Upload scan report
+      - name: Upload scan report
         uses: actions/upload-artifact@v4
         with:
           name: backlog-scan-report-${{ github.run_id }}
