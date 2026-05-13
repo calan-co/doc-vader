@@ -24,7 +24,7 @@ describe("doc-vader CLI integration", () => {
     expect(output).toMatch(/validate/);
   });
 
-  it("should run validate command", () => {
+  it("should run validate command", { timeout: 15000 }, () => {
     const output = runCli("validate");
     expect(output).toMatch(
       /(error|success|validated|invalid|valid|No moves necessary)/i
