@@ -136,7 +136,7 @@ describe("scanBacklog", () => {
     mkFile("backlog/2.malformed.md", "---\nid: [unterminated\nstatus: open\n---\n");
     const report = await scanBacklog({ rootDir: testDir });
     const item = report.items.find((i) => i.file.endsWith("2.malformed.md"));
-    expect((item?.errors.length ?? 0) > 0).toBe(true);
+    expect(item?.errors.some((e) => e.code === "missing_id")).toBe(true);
   });
 
   it("work item missing id and status → 2 errors", async () => {

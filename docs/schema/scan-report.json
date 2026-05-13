@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "docs/schema/scan-report.json",
+  "$id": "/docs/schema/scan-report.json",
   "title": "Backlog Scan Report",
   "type": "object",
   "required": [

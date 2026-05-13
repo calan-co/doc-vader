@@ -5,7 +5,7 @@ import path from "path";
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 const runCli = (args = "") => {
   try {
-    return execSync(`pnpm tsx ${cliPath} ${args}`, { encoding: "utf-8" });
+    return execSync(`pnpm exec tsx ${cliPath} ${args}`, { encoding: "utf-8" });
   } catch (err) {
     if (typeof err === "object" && err !== null) {
       // execSync throws a child_process.ExecSyncError which has stdout

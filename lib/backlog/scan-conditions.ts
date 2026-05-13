@@ -33,11 +33,35 @@ function extractLinkedPrs(data: Record<string, unknown>): string[] {
   if (typeof links !== "object" || links === null) {
     return [];
   }
+
+  // Handle list-of-maps format: links: [{ pull_request: "url" }, ...]
+  if (Array.isArray(links)) {
+    return links.flatMap((entry) => {
+      if (typeof entry !== "object" || entry === null) {
+        return [];
+      }
+      const pr = (entry as Record<string, unknown>)["pull_request"];
+      if (typeof pr !== "string") {
+        return [];
+      }
+      const trimmed = pr.trim();
+      return trimmed.length > 0 ? [trimmed] : [];
+    });
+  }
+
+  // Handle object format: links: { pull_requests: ["url", ...] }
   const mapped = (links as Record<string, unknown>)["pull_requests"];
   if (!Array.isArray(mapped)) {
     return [];
   }
-  return mapped.filter((v): v is string => typeof v === "string" && v.length > 0);
+
+  return mapped.flatMap((v) => {
+    if (typeof v !== "string") {
+      return [];
+    }
+    const trimmed = v.trim();
+    return trimmed.length > 0 ? [trimmed] : [];
+  });
 }
 
 export function conditionPrLinkFound(data: Record<string, unknown>): ScanCondition {
