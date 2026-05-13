@@ -14,7 +14,7 @@ import { normalizeResolverOrder } from "./scan-resolver.js";
 import { SubjectResolverChain, type SubjectResolverContext } from "./resolver.js";
 import { getProviderForForge } from "./provider-registry.js";
 import type { BacklogAutomationProvider } from "./provider.js";
-import { createRecord, linkWorkItem } from "../work-management/index.js";
+import { createRecord, linkWorkItem, loadConsumerConfig } from "../work-management/index.js";
 
 function toPosix(p: string): string {
   return p.replaceAll("\\", "/");
@@ -285,7 +285,19 @@ export async function scanBacklog(
   const generateEvidence = options.generateEvidence ?? false;
   const dryRun = options.dryRun ?? false;
   const consumerConfig = options.consumerConfig;
-  const resolverOrder = normalizeResolverOrder(options.resolverOrder);
+
+  // Resolve resolver order: CLI flag > consumer config > default
+  let resolverOrder: ReturnType<typeof normalizeResolverOrder>;
+  if (options.resolverOrder && options.resolverOrder.length > 0) {
+    resolverOrder = normalizeResolverOrder(options.resolverOrder);
+  } else if (consumerConfig) {
+    const loadedConfig = await loadConsumerConfig(rootDir, consumerConfig);
+    resolverOrder = normalizeResolverOrder(
+      loadedConfig.automation.subjectResolutionOrder,
+    );
+  } else {
+    resolverOrder = normalizeResolverOrder(undefined);
+  }
 
   if (debug) {
     process.stderr.write(`[backlog scan] scanning ${backlogDir}\n`);
