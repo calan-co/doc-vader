@@ -97,6 +97,7 @@ jobs:
             --dir "$BACKLOG_DIR"
             --consumer-config "$CONSUMER_CONFIG"
             --generate-evidence
+            --validate-archive-candidates
             --report-format json
             --output-file /tmp/scan-report.json
           )

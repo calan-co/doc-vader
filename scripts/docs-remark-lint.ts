@@ -1,12 +1,13 @@
 #!/usr/bin/env node
+/// <reference types="node" />
 /**
  * Unified remark-based documentation linting script
  * Replaces the collection of disparate linters (markdownlint-cli2, naming-conventions-lint, etc.)
  */
 
 import { glob } from "glob";
-import fs from "fs";
-import path from "path";
+import { readFileSync } from "node:fs";
+import process from "node:process";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -17,6 +18,8 @@ import remarkLintTemplateCompliance from "../lib/plugins/remark-lint-template-co
 import remarkLintNamingConventions from "../lib/plugins/remark-lint-naming-conventions.js";
 import remarkLintNoAsciiDiagrams from "../lib/plugins/remark-lint-no-ascii-diagrams.js";
 import remarkLintNoHtmlAnchors from "../lib/plugins/remark-lint-no-html-anchors.js";
+import remarkLintWorkItemArchiveReadiness from "../lib/plugins/remark-lint-work-item-archive-readiness.js";
+import remarkLintWorkItemClosureEvidence from "../lib/plugins/remark-lint-work-item-closure-evidence.js";
 import { VFile } from "vfile";
 
 type OutputFormat = "text" | "json";
@@ -83,6 +86,8 @@ const processor = unified()
   .use(remarkLintTemplateCompliance, false)
   .use(remarkLintNoAsciiDiagrams, { enabled: false })
   .use(remarkLintNoHtmlAnchors, {})
+  .use(remarkLintWorkItemArchiveReadiness, {})
+  .use(remarkLintWorkItemClosureEvidence, {})
   .use(remarkLintCrossref, { rootDir: process.cwd() })
   .use(remarkLintNamingConventions, {});
 
@@ -107,7 +112,7 @@ async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
 
     for (const file of files) {
       try {
-        const markdown = fs.readFileSync(file, "utf8");
+        const markdown = readFileSync(file, "utf8");
         const tree = processor.parse(markdown);
         const vfile = new VFile({ value: markdown, path: file });
 
@@ -146,9 +151,7 @@ lintFiles(effectivePatterns)
       (msg) => msg.severity === "error",
     ).length;
     const shouldFail =
-      failOn === "warning"
-        ? warningCount + errorCount > 0
-        : errorCount > 0;
+      failOn === "warning" ? warningCount + errorCount > 0 : errorCount > 0;
 
     if (format === "json") {
       const payload = {
@@ -169,7 +172,9 @@ lintFiles(effectivePatterns)
 
     if (results.length === 0) {
       console.log(
-        `✓ All files passed validation (processed files with patterns: ${effectivePatterns.join(", ")})`,
+        `✓ All files passed validation (processed files with patterns: ${effectivePatterns.join(
+          ", ",
+        )})`,
       );
       process.exit(0);
     }

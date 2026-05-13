@@ -265,6 +265,15 @@ backlog
     "Create and link evidence records for resolved work items",
     false,
   )
+  .option(
+    "--validate-archive-candidates",
+    "Validate ready-for-review/closed candidates and archive eligible work items",
+    false,
+  )
+  .option(
+    "--invalid-candidate-status <status>",
+    "Optional status to set on invalid candidates (use 'none' to disable updates)",
+  )
   .option("--dry-run", "Preview changes without writing files", false)
   .option("--strict", "Exit 1 if any errors are found", false)
   .option("--debug", "Enable verbose debug output", false)
@@ -292,6 +301,8 @@ backlog
       debug: opts.debug,
       resolverOrder,
       generateEvidence: opts.generateEvidence,
+      validateArchiveCandidates: opts.validateArchiveCandidates,
+      invalidCandidateStatus: opts.invalidCandidateStatus,
       dryRun: opts.dryRun,
       consumerConfig: opts.consumerConfig,
     });

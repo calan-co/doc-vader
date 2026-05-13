@@ -16,12 +16,22 @@
     "generatedAt": { "type": "string" },
     "options": {
       "type": "object",
-      "required": ["backlogDir", "reportFormat", "strict", "debug", "resolverOrder"],
+      "required": [
+        "backlogDir",
+        "reportFormat",
+        "strict",
+        "debug",
+        "resolverOrder",
+        "validateArchiveCandidates",
+        "invalidCandidateStatus"
+      ],
       "properties": {
         "backlogDir": { "type": "string" },
         "reportFormat": { "enum": ["text", "json"] },
         "strict": { "type": "boolean" },
         "debug": { "type": "boolean" },
+        "validateArchiveCandidates": { "type": "boolean" },
+        "invalidCandidateStatus": { "type": ["string", "null"] },
         "resolverOrder": {
           "type": "array",
           "items": { "type": "string" }
@@ -34,20 +44,36 @@
         "totalFiles",
         "filesWithErrors",
         "errorCount",
-        "evidenceRecordsCreated"
+        "evidenceRecordsCreated",
+        "candidateItemsEvaluated",
+        "candidatesArchived",
+        "candidateDiscrepancies",
+        "invalidStatusUpdates"
       ],
       "properties": {
         "totalFiles": { "type": "integer" },
         "filesWithErrors": { "type": "integer" },
         "errorCount": { "type": "integer" },
-        "evidenceRecordsCreated": { "type": "integer" }
+        "evidenceRecordsCreated": { "type": "integer" },
+        "candidateItemsEvaluated": { "type": "integer" },
+        "candidatesArchived": { "type": "integer" },
+        "candidateDiscrepancies": { "type": "integer" },
+        "invalidStatusUpdates": { "type": "integer" }
       }
     },
     "items": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["file", "id", "status", "lifecycle", "title", "conditions", "errors"],
+        "required": [
+          "file",
+          "id",
+          "status",
+          "lifecycle",
+          "title",
+          "conditions",
+          "errors"
+        ],
         "properties": {
           "file": { "type": "string" },
           "id": { "type": ["string", "null"] },
@@ -83,6 +109,19 @@
                 "code": { "type": "string" },
                 "message": { "type": "string" },
                 "ref": { "type": "string" }
+              }
+            }
+          },
+          "candidateValidation": {
+            "type": "object",
+            "required": ["eligible", "archived", "discrepancies"],
+            "properties": {
+              "eligible": { "type": "boolean" },
+              "archived": { "type": "boolean" },
+              "updatedStatus": { "type": "string" },
+              "discrepancies": {
+                "type": "array",
+                "items": { "type": "string" }
               }
             }
           }

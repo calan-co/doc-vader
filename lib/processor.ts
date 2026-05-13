@@ -11,12 +11,20 @@ import remarkLintCrossref, {
 import remarkLintTemplateCompliance, {
   Options as TemplateComplianceOptions,
 } from "./plugins/remark-lint-template-compliance.js";
+import remarkLintWorkItemArchiveReadiness, {
+  Options as WorkItemArchiveReadinessOptions,
+} from "./plugins/remark-lint-work-item-archive-readiness.js";
+import remarkLintWorkItemClosureEvidence, {
+  Options as WorkItemClosureEvidenceOptions,
+} from "./plugins/remark-lint-work-item-closure-evidence.js";
 import remarkGfm from "remark-gfm";
 
 export interface TiabProcessorOptions {
   checklist?: Readonly<ChecklistOptions>;
   crossref?: Readonly<CrossrefOptions>;
   templateCompliance?: Readonly<TemplateComplianceOptions>;
+  workItemArchiveReadiness?: Readonly<WorkItemArchiveReadinessOptions>;
+  workItemClosureEvidence?: Readonly<WorkItemClosureEvidenceOptions>;
 }
 
 export function createTiabProcessor(options: TiabProcessorOptions = {}) {
@@ -26,5 +34,7 @@ export function createTiabProcessor(options: TiabProcessorOptions = {}) {
     .use(remarkLintChecklist, options.checklist)
     .use(remarkLintCrossref, options.crossref)
     .use(remarkLintTemplateCompliance, options.templateCompliance)
+    .use(remarkLintWorkItemArchiveReadiness, options.workItemArchiveReadiness)
+    .use(remarkLintWorkItemClosureEvidence, options.workItemClosureEvidence)
     .use(remarkStringify);
 }

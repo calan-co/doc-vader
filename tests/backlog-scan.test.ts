@@ -15,7 +15,7 @@ function mkFile(name: string, content: string) {
   fsSync.writeFileSync(path.join(testDir, name), content, "utf8");
 }
 
-function mkConsumerConfig() {
+function mkConsumerConfig(automation: Record<string, unknown> = {}) {
   fsSync.mkdirSync(path.join(testDir, ".doc-vader"), { recursive: true });
   fsSync.writeFileSync(
     path.join(testDir, ".doc-vader", "backlog-consumer.json"),
@@ -28,6 +28,7 @@ function mkConsumerConfig() {
           records: "backlog/records",
           audit: "backlog/audit",
         },
+        automation,
       },
       null,
       2,
@@ -88,9 +89,7 @@ describe("scan-conditions", () => {
     expect(conditions.find((c) => c.code === "workflow_succeeded")?.value).toBe(
       true,
     );
-    expect(conditions.find((c) => c.code === "valid_status")?.value).toBe(
-      true,
-    );
+    expect(conditions.find((c) => c.code === "valid_status")?.value).toBe(true);
     expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
       true,
     );
@@ -155,7 +154,10 @@ describe("scanBacklog", () => {
   });
 
   it("malformed frontmatter is reported as validation errors (not thrown)", async () => {
-    mkFile("backlog/2.malformed.md", "---\nid: [unterminated\nstatus: open\n---\n");
+    mkFile(
+      "backlog/2.malformed.md",
+      "---\nid: [unterminated\nstatus: open\n---\n",
+    );
     const report = await scanBacklog({ rootDir: testDir });
     const item = report.items.find((i) => i.file.endsWith("2.malformed.md"));
     expect(item?.errors.some((e) => e.code === "missing_id")).toBe(true);
@@ -344,7 +346,9 @@ describe("scanBacklog", () => {
     expect(workItemFile).toContain("evidence:");
     expect(workItemFile).toMatch(/\[\[record-\d{8}-\d{6}-009\]\]/);
 
-    const linkedRecordMatch = workItemFile.match(/\[\[(record-\d{8}-\d{6}-009)\]\]/);
+    const linkedRecordMatch = workItemFile.match(
+      /\[\[(record-\d{8}-\d{6}-009)\]\]/,
+    );
     expect(linkedRecordMatch).not.toBeNull();
     const linkedRecordBasename = linkedRecordMatch?.[1] ?? "";
 
@@ -380,9 +384,8 @@ describe("scanBacklog", () => {
       path.join(testDir, "backlog", "10.idempotent.md"),
       "utf8",
     );
-    const evidenceMatches = workItemFile.match(
-      /\[\[record-\d{8}-\d{6}-010\]\]/g,
-    ) ?? [];
+    const evidenceMatches =
+      workItemFile.match(/\[\[record-\d{8}-\d{6}-010\]\]/g) ?? [];
     expect(evidenceMatches).toHaveLength(1);
 
     const recordFiles = fsSync
@@ -447,4 +450,141 @@ describe("scan reporters", () => {
     expect(parsed).toHaveProperty("summary");
     fsSync.rmSync(rootDir, { recursive: true, force: true });
   });
+});
+
+describe("candidate validation and archival", () => {
+  beforeEach(() => {
+    testDir = fsSync.mkdtempSync(path.join(os.tmpdir(), "doc-vader-scan-"));
+    fsSync.mkdirSync(path.join(testDir, "backlog"), { recursive: true });
+  });
+
+  afterEach(() => {
+    fsSync.rmSync(testDir, { recursive: true, force: true });
+    testDir = "";
+  });
+
+  it(
+    "validate-archive-candidates archives eligible ready-for-review items",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({ validateArchiveCandidates: true });
+      mkFile(
+        "backlog/12.archive-ready.md",
+        `---
+id: "work-item:012"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: Archive candidate
+actual: 8
+completed_date: "2026-01-01"
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/12"
+  evidence:
+    - "[[record-20260101-000000-012]]"
+---
+# Work item
+
+## Closure Notes
+- Evidence and implementation complete.
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+      });
+
+      expect(report.summary.candidateItemsEvaluated).toBe(1);
+      expect(report.summary.candidatesArchived).toBe(1);
+      expect(report.summary.candidateDiscrepancies).toBe(0);
+      const item = report.items.find((entry) => entry.id === "work-item:012");
+      expect(item?.candidateValidation?.eligible).toBe(true);
+
+      const archived = path.join(
+        testDir,
+        "backlog",
+        "archive",
+        "12.archive-ready.md",
+      );
+      expect(fsSync.existsSync(archived)).toBe(true);
+    },
+  );
+
+  it(
+    "validate-archive-candidates reports discrepancies and updates invalid status from config",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({
+        validateArchiveCandidates: true,
+        invalidCandidateStatus: "in-progress",
+      });
+      mkFile(
+        "backlog/13.invalid-ready.md",
+        `---
+id: "work-item:013"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: Invalid candidate
+---
+# Work item
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+      });
+
+      expect(report.summary.candidateItemsEvaluated).toBe(1);
+      expect(report.summary.candidatesArchived).toBe(0);
+      expect(report.summary.candidateDiscrepancies).toBeGreaterThan(0);
+      expect(report.summary.invalidStatusUpdates).toBe(1);
+
+      const item = report.items.find((entry) => entry.id === "work-item:013");
+      expect(item?.candidateValidation?.eligible).toBe(false);
+      expect(item?.candidateValidation?.updatedStatus).toBe("in-progress");
+
+      const updatedFile = fsSync.readFileSync(
+        path.join(testDir, "backlog", "13.invalid-ready.md"),
+        "utf8",
+      );
+      expect(updatedFile).toContain("status: in-progress");
+    },
+  );
+
+  it(
+    "invalid-candidate-status override takes precedence over config",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({
+        validateArchiveCandidates: true,
+        invalidCandidateStatus: "in-progress",
+      });
+      mkFile(
+        "backlog/14.invalid-override.md",
+        `---
+id: "work-item:014"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: Invalid candidate override
+---
+# Work item
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+        invalidCandidateStatus: "ready",
+      });
+
+      const item = report.items.find((entry) => entry.id === "work-item:014");
+      expect(item?.candidateValidation?.updatedStatus).toBe("ready");
+      expect(report.options.invalidCandidateStatus).toBe("ready");
+    },
+  );
 });

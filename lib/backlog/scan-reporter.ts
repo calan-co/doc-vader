@@ -18,7 +18,13 @@ export function formatScanReportText(report: BacklogScanReport): string {
     `Summary: ${report.summary.totalFiles} file(s)  |  ` +
       `${report.summary.filesWithErrors} with errors  |  ` +
       `${report.summary.errorCount} error(s)  |  ` +
-      `${report.summary.evidenceRecordsCreated} evidence record(s) created`
+      `${report.summary.evidenceRecordsCreated} evidence record(s) created`,
+  );
+  lines.push(
+    `         ${report.summary.candidateItemsEvaluated} candidate(s) evaluated  |  ` +
+      `${report.summary.candidatesArchived} archived  |  ` +
+      `${report.summary.candidateDiscrepancies} discrepancy note(s)  |  ` +
+      `${report.summary.invalidStatusUpdates} invalid status update(s)`,
   );
   lines.push(``);
 
