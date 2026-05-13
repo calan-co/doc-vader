@@ -102,6 +102,87 @@ function toWorkItemSlug(id: string): string {
   return id.replace(/^work-item:/, "");
 }
 
+function formatEvidenceTimestamp(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "-");
+}
+
+function extractRecordIdFromEvidenceLink(link: string): string | null {
+  const match = link.match(/^\[\[([^\]]+)\]\]$/);
+  if (!match || typeof match[1] !== "string") {
+    return null;
+  }
+
+  const target = match[1]
+    .split("|")[0]
+    .split("#")[0]
+    .trim();
+
+  if (target.length === 0) {
+    return null;
+  }
+
+  const basename = target.split("/").pop() ?? "";
+  const withoutExtension = basename.replace(/\.md$/i, "");
+
+  if (!withoutExtension.startsWith("record-")) {
+    return null;
+  }
+
+  const slug = withoutExtension.slice("record-".length);
+  if (slug.length === 0) {
+    return null;
+  }
+
+  return `record:${slug}`;
+}
+
+async function findExistingEvidenceRecordId(
+  workItemFilePath: string,
+): Promise<string | null> {
+  try {
+    const content = await fs.readFile(workItemFilePath, "utf8");
+    const frontmatter = matter(content).data as Record<string, unknown>;
+    const links = frontmatter["links"];
+
+    // Handle object shape: links: { evidence: ["[[record-...]]"] }
+    if (typeof links === "object" && links !== null && !Array.isArray(links)) {
+      const evidence = (links as Record<string, unknown>)["evidence"];
+      if (Array.isArray(evidence)) {
+        for (const value of evidence) {
+          if (typeof value !== "string") {
+            continue;
+          }
+          const recordId = extractRecordIdFromEvidenceLink(value);
+          if (recordId) {
+            return recordId;
+          }
+        }
+      }
+    }
+
+    // Handle list-of-maps shape: links: [{ evidence: "[[record-...]]" }]
+    if (Array.isArray(links)) {
+      for (const entry of links) {
+        if (typeof entry !== "object" || entry === null) {
+          continue;
+        }
+        const evidence = (entry as Record<string, unknown>)["evidence"];
+        if (typeof evidence !== "string") {
+          continue;
+        }
+        const recordId = extractRecordIdFromEvidenceLink(evidence);
+        if (recordId) {
+          return recordId;
+        }
+      }
+    }
+  } catch {
+    // Best effort check; fall through to record creation.
+  }
+
+  return null;
+}
+
 async function generateEvidenceForItem(
   item: WorkItemScanResult,
   options: Required<Pick<BacklogScanOptions, "rootDir">> & {
@@ -126,11 +207,22 @@ async function generateEvidenceForItem(
     };
   }
 
+  const existingRecordId = await findExistingEvidenceRecordId(
+    path.resolve(options.rootDir, item.file),
+  );
+  if (existingRecordId) {
+    return {
+      created: false,
+      recordIds: [existingRecordId],
+      errors: [],
+    };
+  }
+
   const workItemSlug = toWorkItemSlug(item.id);
-  const recordSlug = `scan-${workItemSlug}`;
+  const linkedAt = new Date().toISOString();
+  const recordSlug = `${formatEvidenceTimestamp(new Date(linkedAt))}-${workItemSlug}`;
   const recordId = `record:${recordSlug}`;
   const recordBasename = `record-${recordSlug}`;
-  const linkedAt = new Date().toISOString();
 
   try {
     const record = await createRecord({
