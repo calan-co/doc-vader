@@ -27,14 +27,14 @@ describe("doc-vader CLI integration", () => {
   it("should run validate command", { timeout: 15000 }, () => {
     const output = runCli("validate");
     expect(output).toMatch(
-      /(error|success|validated|invalid|valid|No moves necessary)/i
+      /(error|success|validated|invalid|valid|No moves necessary)/i,
     );
   });
 
   it("should run docs-diataxis command", () => {
     const output = runCli("docs-diataxis");
     expect(output).toMatch(
-      /(analyze|error|success|diataxis|No moves necessary)/i
+      /(analyze|error|success|diataxis|No moves necessary)/i,
     );
   });
 
@@ -51,14 +51,14 @@ describe("doc-vader CLI integration", () => {
   it("should run validate-docs command", () => {
     const output = runCli("validate-docs");
     expect(output).toMatch(
-      /(validate|error|success|structure|content|No moves necessary)/i
+      /(validate|error|success|structure|content|No moves necessary)/i,
     );
   });
 
   it("should run validate-frontmatter command", () => {
     const output = runCli("validate-frontmatter");
     expect(output).toMatch(
-      /(frontmatter|error|success|validate|No moves necessary)/i
+      /(frontmatter|error|success|validate|No moves necessary)/i,
     );
   });
 
@@ -69,18 +69,18 @@ describe("doc-vader CLI integration", () => {
 
   it("should run backlog scan with fixtures in json mode", () => {
     const output = runCli(
-      "backlog scan --dir tests/fixtures/backlog-scan --report-format json"
+      "backlog scan --dir tests/fixtures/backlog-scan --report-format json",
     );
     const parsed = JSON.parse(output);
     expect(parsed.items.length).toBeGreaterThan(0);
     expect(output).toMatch(/25519076107/);
     const item = parsed.items.find((entry: { file: string }) =>
-      entry.file.includes("templjs-workflow-run-25519076107.md")
+      entry.file.includes("templjs-workflow-run-25519076107.md"),
     );
     expect(item).toBeTruthy();
     expect(item.eventMetadata?.id).toBe("work-item:175");
     const conditionCodes = item.conditions.map(
-      (condition: { code: string }) => condition.code
+      (condition: { code: string }) => condition.code,
     );
     expect(conditionCodes).toContain("pr_link_found");
     expect(conditionCodes).toContain("pr_merged");
