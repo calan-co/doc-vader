@@ -63,9 +63,11 @@ export type ScanConditionCode =
   | "has_status"
   | "has_lifecycle"
   | "has_links_block"
+  | "subject_resolved"
   | "pr_link_found"
   | "pr_merged"
   | "workflow_succeeded"
+  | "valid_evidence"
   | "valid_status";
 
 /** Error condition code – something went wrong or is missing. */
@@ -73,6 +75,8 @@ export type ScanErrorCode =
   | "parse_failed"
   | "missing_id"
   | "missing_status"
+  | "resolve_subject_failed"
+  | "fetch_pr_metadata_failed"
   | "invalid_lifecycle"
   | "unresolved_wikilink"
   | "evidence_generation_failed";
