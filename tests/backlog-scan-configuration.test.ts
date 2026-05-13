@@ -110,6 +110,19 @@ describe("resolver order configuration", () => {
     ).rejects.toThrow(/unsupported resolver/i);
   });
 
+  it("missing consumer config file falls back to default resolver order", async () => {
+    mkFile("backlog/1.task.md", VALID_ITEM);
+    // Point to a non-existent file; should not throw, should fall back to defaults
+    const report = await scanBacklog({
+      rootDir: testDir,
+      consumerConfig: ".doc-vader/nonexistent-consumer.json",
+    });
+    expect(report.options.resolverOrder).toEqual([
+      "payload_subject_tokens",
+      "linked_pull_requests",
+    ]);
+  });
+
   it("empty subjectResolutionOrder in config falls back to default resolver order", async () => {
     mkFile("backlog/1.task.md", VALID_ITEM);
     mkConsumerConfig({ subjectResolutionOrder: [] });

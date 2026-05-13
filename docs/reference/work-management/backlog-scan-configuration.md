@@ -26,6 +26,8 @@ This guide covers the `backlog scan` configuration system: the consumer config f
 
 The consumer config file (`.doc-vader/backlog-consumer.json` by default) lets you define persistent scan settings for a repository.
 
+> **Missing file behavior**: If the config file does not exist, the scan silently falls back to built-in defaults. This means repositories without a `.doc-vader/backlog-consumer.json` file work out-of-the-box without any configuration required. Only non-`ENOENT` read errors (e.g., permission denied, malformed JSON) are propagated as failures.
+
 ### `automation.subjectResolutionOrder`
 
 Override the default resolver chain order. When set, this value is used unless a `--resolver-order` CLI flag is also provided.

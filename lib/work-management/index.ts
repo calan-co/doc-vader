@@ -431,7 +431,20 @@ export async function loadConsumerConfig(
 
   const loaded = await readJsonFile<ConsumerConfig>(
     path.resolve(rootDir, configPath),
-  );
+  ).catch((err: unknown) => {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (err as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      return null;
+    }
+    throw err;
+  });
+
+  if (loaded === null) {
+    return fallback;
+  }
   return {
     roots: {
       ...fallback.roots,
