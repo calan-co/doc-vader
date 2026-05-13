@@ -399,7 +399,7 @@ doc-vader backlog scan --report-format json | head -20
 
 ## See Also
 
-- [Backlog Automation Configuration Guide](../guide/backlog-automation-configuration.md)
+- [Backlog Automation Configuration Guide](../../guide/backlog-automation-configuration.md)
 - [Resolver Strategy Reference](./resolver-strategy-guide.md)
 - [Evidence Records](./backlog-evidence-records.md)
 - [Troubleshooting Guide](./backlog-automation-troubleshooting.md)
