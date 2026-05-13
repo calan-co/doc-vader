@@ -436,9 +436,26 @@ export async function scanBacklog(
       }
 
       if (shouldValidateArchiveCandidates) {
+        let contentForCandidateValidation = content;
+        if (generateEvidence && !dryRun) {
+          try {
+            contentForCandidateValidation = await fs.readFile(
+              path.resolve(rootDir, rel),
+              "utf8",
+            );
+          } catch (err) {
+            result.errors.push({
+              code: "candidate_validation_failed",
+              message: `[candidate-validation] Failed to reload file after evidence generation: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            });
+          }
+        }
+
         const context = parseWorkItemContext({
           path: path.resolve(rootDir, rel),
-          value: content,
+          value: contentForCandidateValidation,
         });
         const shouldEvaluate =
           context.isActiveBacklogWorkItem &&
@@ -480,7 +497,8 @@ export async function scanBacklog(
                 archived: false,
                 discrepancies: [message],
               };
-              candidateDiscrepancies += 1;
+              candidateDiscrepancies +=
+                result.candidateValidation.discrepancies.length;
             }
           } else {
             const discrepancies = issues.map((issue) => issue.message);
