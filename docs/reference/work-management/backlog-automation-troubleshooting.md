@@ -20,6 +20,58 @@ links:
 
 This guide helps diagnose and resolve common issues with backlog automation.
 
+## Debugging Scan Failures via Workflow Artifacts
+
+When `.github/workflows/backlog-sweep.yml` runs, it uploads a JSON artifact named:
+
+- `backlog-scan-report-{run-id}`
+
+Use this artifact as the source of truth for scan decisions and failures.
+
+### Retrieve the artifact
+
+1. Open the GitHub Actions run for the backlog automation workflow.
+2. Download artifact `backlog-scan-report-{run-id}`.
+3. Extract and inspect `scan-report.json`.
+
+### Inspect summary and errors
+
+```bash
+jq '.summary' scan-report.json
+jq '.items[] | select(.errors | length > 0) | {file, errors}' scan-report.json
+```
+
+### Trace evidence generation outcomes
+
+```bash
+jq '.items[] | select(.evidenceGeneration != null) | {
+  file,
+  id,
+  evidenceGeneration
+}' scan-report.json
+```
+
+Look for:
+
+- `evidenceGeneration.created`: whether a new record was created
+- `evidenceGeneration.recordIds`: record IDs created or reused
+- `evidenceGeneration.errors`: linking/creation failures
+
+### Common triage flow
+
+1. Confirm workflow command used `--generate-evidence`.
+2. Check `summary.errorCount` and failing item-level errors.
+3. Validate resolver outcome (`subjectResolution`) for affected work items.
+4. Re-run scan locally with debug output:
+
+```bash
+doc-vader backlog scan \
+  --generate-evidence \
+  --report-format json \
+  --debug \
+  --output-file /tmp/scan-report.json
+```
+
 ## Common Issues
 
 ### Evidence Not Being Generated
