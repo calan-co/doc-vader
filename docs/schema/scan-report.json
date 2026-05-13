@@ -22,7 +22,8 @@
         "strict",
         "debug",
         "resolverOrder",
-        "validateArchiveCandidates"
+        "validateArchiveCandidates",
+        "invalidCandidateStatus"
       ],
       "properties": {
         "backlogDir": { "type": "string" },
