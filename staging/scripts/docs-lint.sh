@@ -22,6 +22,10 @@ LINT_PATTERNS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --format)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then
+        echo "--format requires a value: text or json" >&2
+        exit 2
+      fi
       FORMAT="$2"
       shift 2
       ;;
@@ -30,6 +34,10 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --fail-on)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then
+        echo "--fail-on requires a value: error or warning" >&2
+        exit 2
+      fi
       FAIL_ON="$2"
       shift 2
       ;;
