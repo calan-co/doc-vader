@@ -2,6 +2,7 @@ import matter from "gray-matter";
 import yaml from "js-yaml";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
+import type { SubjectResolverName } from "../backlog/scan-types.js";
 
 export type LinkKind = "pr" | "evidence" | "reference";
 export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "subversion";
@@ -26,6 +27,7 @@ interface ConsumerAutomation {
   autoCloseOnMerge?: boolean;
   autoEvidenceFromWorkflowRuns?: boolean;
   preserveCommitMap?: boolean;
+  subjectResolutionOrder?: SubjectResolverName[];
 }
 
 interface ConsumerMigration {
@@ -35,7 +37,7 @@ interface ConsumerMigration {
 
 interface ResolvedConsumerConfig {
   roots: ConsumerRoots;
-  automation: Required<ConsumerAutomation>;
+  automation: Required<Omit<ConsumerAutomation, 'subjectResolutionOrder'>> & Pick<ConsumerAutomation, 'subjectResolutionOrder'>;
   migration: Required<ConsumerMigration>;
 }
 
@@ -405,7 +407,7 @@ async function findMarkdownFiles(dirPath: string): Promise<string[]> {
   return files.sort();
 }
 
-async function loadConsumerConfig(
+export async function loadConsumerConfig(
   rootDir: string,
   configPath?: string,
 ): Promise<ResolvedConsumerConfig> {
@@ -415,6 +417,7 @@ async function loadConsumerConfig(
       autoCloseOnMerge: false,
       autoEvidenceFromWorkflowRuns: true,
       preserveCommitMap: true,
+      subjectResolutionOrder: undefined,
     },
     migration: {
       legacyActive: DEFAULT_ROOTS.backlog,
