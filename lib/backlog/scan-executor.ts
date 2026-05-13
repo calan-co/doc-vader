@@ -11,10 +11,24 @@ import type {
 } from "./scan-types.js";
 import { evaluateConditions } from "./scan-conditions.js";
 import { normalizeResolverOrder } from "./scan-resolver.js";
-import { SubjectResolverChain, type SubjectResolverContext } from "./resolver.js";
+import {
+  SubjectResolverChain,
+  type SubjectResolverContext,
+} from "./resolver.js";
 import { getProviderForForge } from "./provider-registry.js";
 import type { BacklogAutomationProvider } from "./provider.js";
-import { createRecord, linkWorkItem, loadConsumerConfig } from "../work-management/index.js";
+import {
+  createRecord,
+  finalizeWorkItem,
+  linkWorkItem,
+  loadConsumerConfig,
+  transitionWorkItem,
+} from "../work-management/index.js";
+import {
+  parseWorkItemContext,
+  validateArchiveReadiness,
+  validateClosedWorkItemEvidence,
+} from "../plugins/work-item-validation.js";
 
 function toPosix(p: string): string {
   return p.replaceAll("\\", "/");
@@ -109,7 +123,11 @@ function toWorkItemSlug(id: string): string {
 }
 
 function formatEvidenceTimestamp(date: Date): string {
-  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "").replace("T", "-");
+  return date
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "")
+    .replace("T", "-");
 }
 
 function extractRecordIdFromEvidenceLink(link: string): string | null {
@@ -118,10 +136,7 @@ function extractRecordIdFromEvidenceLink(link: string): string | null {
     return null;
   }
 
-  const target = match[1]
-    .split("|")[0]
-    .split("#")[0]
-    .trim();
+  const target = match[1].split("|")[0].split("#")[0].trim();
 
   if (target.length === 0) {
     return null;
@@ -226,7 +241,9 @@ async function generateEvidenceForItem(
 
   const workItemSlug = toWorkItemSlug(item.id);
   const linkedAt = new Date().toISOString();
-  const recordSlug = `${formatEvidenceTimestamp(new Date(linkedAt))}-${workItemSlug}`;
+  const recordSlug = `${formatEvidenceTimestamp(
+    new Date(linkedAt),
+  )}-${workItemSlug}`;
   const recordId = `record:${recordSlug}`;
   const recordBasename = `record-${recordSlug}`;
 
@@ -289,21 +306,37 @@ export async function scanBacklog(
   const strict = options.strict ?? false;
   const debug = options.debug ?? false;
   const generateEvidence = options.generateEvidence ?? false;
+  const validateArchiveCandidates = options.validateArchiveCandidates ?? false;
   const dryRun = options.dryRun ?? false;
   const consumerConfig = options.consumerConfig;
+
+  const loadedConfig = await loadConsumerConfig(rootDir, consumerConfig);
 
   // Resolve resolver order: CLI flag > consumer config > default
   let resolverOrder: ReturnType<typeof normalizeResolverOrder>;
   if (options.resolverOrder && options.resolverOrder.length > 0) {
     resolverOrder = normalizeResolverOrder(options.resolverOrder);
-  } else if (consumerConfig) {
-    const loadedConfig = await loadConsumerConfig(rootDir, consumerConfig);
+  } else {
     resolverOrder = normalizeResolverOrder(
       loadedConfig.automation.subjectResolutionOrder,
     );
-  } else {
-    resolverOrder = normalizeResolverOrder(undefined);
   }
+
+  const shouldValidateArchiveCandidates =
+    validateArchiveCandidates ||
+    loadedConfig.automation.validateArchiveCandidates;
+  const invalidCandidateStatus = options.invalidCandidateStatus;
+  const configuredInvalidStatus =
+    loadedConfig.automation.invalidCandidateStatus;
+  const effectiveInvalidStatus =
+    typeof invalidCandidateStatus === "string"
+      ? invalidCandidateStatus
+      : configuredInvalidStatus;
+
+  let candidateItemsEvaluated = 0;
+  let candidatesArchived = 0;
+  let candidateDiscrepancies = 0;
+  let invalidStatusUpdates = 0;
 
   if (debug) {
     process.stderr.write(`[backlog scan] scanning ${backlogDir}\n`);
@@ -341,7 +374,9 @@ export async function scanBacklog(
       );
 
       // Phase B: Resolve subjects using the resolver chain (now async)
-      if (!result.conditions.find((c) => c.code === "file_parsed" && !c.value)) {
+      if (
+        !result.conditions.find((c) => c.code === "file_parsed" && !c.value)
+      ) {
         const data = matter(content).data as Record<string, unknown>;
         const context: SubjectResolverContext = {
           content,
@@ -350,10 +385,16 @@ export async function scanBacklog(
           provider,
         };
 
-        result.subjectResolution = await resolverChain.resolveSubjects(context, resolverOrder);
+        result.subjectResolution = await resolverChain.resolveSubjects(
+          context,
+          resolverOrder,
+        );
 
         const subjectResolved = result.subjectResolution.subjects.length > 0;
-        result.conditions.push({ code: "subject_resolved", value: subjectResolved });
+        result.conditions.push({
+          code: "subject_resolved",
+          value: subjectResolved,
+        });
 
         // Only propagate attempt errors when overall resolution failed.
         // Intermediate failures followed by a successful strategy are informational only.
@@ -393,6 +434,100 @@ export async function scanBacklog(
           });
         }
       }
+
+      if (shouldValidateArchiveCandidates) {
+        const context = parseWorkItemContext({
+          path: path.resolve(rootDir, rel),
+          value: content,
+        });
+        const shouldEvaluate =
+          context.isActiveBacklogWorkItem &&
+          (context.status === "ready-for-review" ||
+            context.status === "closed");
+
+        if (shouldEvaluate) {
+          candidateItemsEvaluated += 1;
+          const issues = [
+            ...validateArchiveReadiness(context, [
+              "ready-for-review",
+              "closed",
+            ]),
+            ...validateClosedWorkItemEvidence(context),
+          ];
+
+          if (issues.length === 0 && result.id) {
+            try {
+              await finalizeWorkItem({
+                rootDir,
+                consumerConfig,
+                id: result.id,
+                dryRun,
+              });
+              result.candidateValidation = {
+                eligible: true,
+                archived: !dryRun,
+                discrepancies: [],
+              };
+              candidatesArchived += 1;
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              result.errors.push({
+                code: "candidate_validation_failed",
+                message: `[candidate-validation] ${message}`,
+              });
+              result.candidateValidation = {
+                eligible: false,
+                archived: false,
+                discrepancies: [message],
+              };
+              candidateDiscrepancies += 1;
+            }
+          } else {
+            const discrepancies = issues.map((issue) => issue.message);
+            result.candidateValidation = {
+              eligible: false,
+              archived: false,
+              discrepancies,
+            };
+            candidateDiscrepancies += discrepancies.length;
+            for (const discrepancy of discrepancies) {
+              result.errors.push({
+                code: "candidate_validation_failed",
+                message: discrepancy,
+              });
+            }
+
+            if (
+              result.id &&
+              typeof effectiveInvalidStatus === "string" &&
+              effectiveInvalidStatus.trim().length > 0 &&
+              effectiveInvalidStatus !== "none"
+            ) {
+              try {
+                await transitionWorkItem({
+                  rootDir,
+                  consumerConfig,
+                  id: result.id,
+                  status: effectiveInvalidStatus,
+                  statusReason: "validation-failed",
+                  dryRun,
+                });
+                result.candidateValidation.updatedStatus =
+                  effectiveInvalidStatus;
+                invalidStatusUpdates += 1;
+              } catch (err) {
+                result.errors.push({
+                  code: "candidate_status_update_failed",
+                  message: `[candidate-validation] Failed to update invalid status: ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                });
+              }
+            }
+          }
+        }
+      }
+
       items.push(result);
     } catch (err) {
       items.push({
@@ -418,7 +553,10 @@ export async function scanBacklog(
   const filesWithErrors = items.filter((i) => i.errors.length > 0).length;
   const evidenceRecordsCreated = items.reduce(
     (count, item) =>
-      count + (item.evidenceGeneration?.created ? item.evidenceGeneration.recordIds.length : 0),
+      count +
+      (item.evidenceGeneration?.created
+        ? item.evidenceGeneration.recordIds.length
+        : 0),
     0,
   );
 
@@ -432,6 +570,8 @@ export async function scanBacklog(
       reportFormat,
       strict,
       debug,
+      validateArchiveCandidates: shouldValidateArchiveCandidates,
+      invalidCandidateStatus: effectiveInvalidStatus ?? null,
       resolverOrder,
     },
     summary: {
@@ -439,6 +579,10 @@ export async function scanBacklog(
       filesWithErrors,
       errorCount: allErrors.length,
       evidenceRecordsCreated,
+      candidateItemsEvaluated,
+      candidatesArchived,
+      candidateDiscrepancies,
+      invalidStatusUpdates,
     },
     items,
     exitCode,

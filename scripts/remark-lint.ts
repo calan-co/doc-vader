@@ -2,12 +2,12 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkLint from "remark-lint";
 import remarkFrontmatterSchema from "remark-lint-frontmatter-schema";
-import checklist from "../lib/plugins/remark-lint-checklist.ts";
-import crossref from "../lib/plugins/remark-lint-crossref.ts";
-import templateCompliance from "../lib/plugins/remark-lint-template-compliance.ts";
+import checklist from "../lib/plugins/remark-lint-checklist.js";
+import crossref from "../lib/plugins/remark-lint-crossref.js";
+import templateCompliance from "../lib/plugins/remark-lint-template-compliance.js";
 import fs from "fs";
 import path from "path";
-import { run as runUtil, createProcessor } from "../lib/plugins/tests/utils.ts";
+import { run as runUtil, createProcessor } from "../lib/plugins/tests/utils.js";
 
 const filePath = process.argv[2];
 if (!filePath) {
@@ -40,7 +40,7 @@ runUtil(markdown, processor)
     if (file.messages.length) {
       file.messages.forEach((m) => {
         console.error(
-          `${filePath}:${m.line || 1}:${m.column || 1} - ${m.message}`
+          `${filePath}:${m.line || 1}:${m.column || 1} - ${m.message}`,
         );
       });
       process.exit(2);

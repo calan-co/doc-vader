@@ -5,6 +5,8 @@ import remarkLintTemplateCompliance from "./lib/plugins/remark-lint-template-com
 import remarkLintNamingConventions from "./lib/plugins/remark-lint-naming-conventions.js";
 import remarkLintNoAsciiDiagrams from "./lib/plugins/remark-lint-no-ascii-diagrams.js";
 import remarkLintNoHtmlAnchors from "./lib/plugins/remark-lint-no-html-anchors.js";
+import remarkLintWorkItemArchiveReadiness from "./lib/plugins/remark-lint-work-item-archive-readiness.js";
+import remarkLintWorkItemClosureEvidence from "./lib/plugins/remark-lint-work-item-closure-evidence.js";
 
 export default {
   plugins: [
@@ -29,6 +31,18 @@ export default {
     ],
     [
       remarkLintNoHtmlAnchors,
+      {
+        /* options */
+      },
+    ],
+    [
+      remarkLintWorkItemArchiveReadiness,
+      {
+        /* options */
+      },
+    ],
+    [
+      remarkLintWorkItemClosureEvidence,
       {
         /* options */
       },

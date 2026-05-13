@@ -2,12 +2,18 @@ import type { ScanCondition, ScanError } from "./scan-types.js";
 
 /** Presence of an `id` field. */
 export function conditionHasId(id: unknown): ScanCondition {
-  return { code: "has_id", value: typeof id === "string" && id.trim().length > 0 };
+  return {
+    code: "has_id",
+    value: typeof id === "string" && id.trim().length > 0,
+  };
 }
 
 /** Presence of a `status` field. */
 export function conditionHasStatus(status: unknown): ScanCondition {
-  return { code: "has_status", value: typeof status === "string" && status.trim().length > 0 };
+  return {
+    code: "has_status",
+    value: typeof status === "string" && status.trim().length > 0,
+  };
 }
 
 /** Presence of a `lifecycle` field. */
@@ -19,12 +25,16 @@ export function conditionHasLifecycle(lifecycle: unknown): ScanCondition {
 }
 
 /** Presence of any wikilinks in the `links` / `dependencies` block. */
-export function conditionHasLinksBlock(data: Record<string, unknown>): ScanCondition {
+export function conditionHasLinksBlock(
+  data: Record<string, unknown>,
+): ScanCondition {
   const links = data["links"] ?? data["dependencies"] ?? data["refs"];
   const hasLinks =
     links !== undefined &&
     links !== null &&
-    (Array.isArray(links) ? links.length > 0 : typeof links === "string" && links.trim().length > 0);
+    (Array.isArray(links)
+      ? links.length > 0
+      : typeof links === "string" && links.trim().length > 0);
   return { code: "has_links_block", value: hasLinks };
 }
 
@@ -64,16 +74,22 @@ function extractLinkedPrs(data: Record<string, unknown>): string[] {
   });
 }
 
-export function conditionPrLinkFound(data: Record<string, unknown>): ScanCondition {
+export function conditionPrLinkFound(
+  data: Record<string, unknown>,
+): ScanCondition {
   return { code: "pr_link_found", value: extractLinkedPrs(data).length > 0 };
 }
 
-export function conditionPrMerged(data: Record<string, unknown>): ScanCondition {
+export function conditionPrMerged(
+  data: Record<string, unknown>,
+): ScanCondition {
   const merged = data["pr_merged"];
   return { code: "pr_merged", value: merged === true };
 }
 
-export function conditionWorkflowSucceeded(data: Record<string, unknown>): ScanCondition {
+export function conditionWorkflowSucceeded(
+  data: Record<string, unknown>,
+): ScanCondition {
   const succeeded = data["workflow_succeeded"];
   return { code: "workflow_succeeded", value: succeeded === true };
 }
@@ -102,7 +118,9 @@ function hasEvidenceEntry(raw: unknown): boolean {
   return false;
 }
 
-export function conditionValidEvidence(data: Record<string, unknown>): ScanCondition {
+export function conditionValidEvidence(
+  data: Record<string, unknown>,
+): ScanCondition {
   // Evidence is only required for closed work items; all other statuses pass unconditionally.
   if (data["status"] !== "closed") {
     return { code: "valid_evidence", value: true };
@@ -113,7 +131,9 @@ export function conditionValidEvidence(data: Record<string, unknown>): ScanCondi
   };
 }
 
-export function conditionValidStatus(data: Record<string, unknown>): ScanCondition {
+export function conditionValidStatus(
+  data: Record<string, unknown>,
+): ScanCondition {
   const status = data["status"];
   return {
     code: "valid_status",
@@ -122,9 +142,10 @@ export function conditionValidStatus(data: Record<string, unknown>): ScanConditi
 }
 
 /** Build condition list and error list for a parsed work item. */
-export function evaluateConditions(
-  data: Record<string, unknown>
-): { conditions: ScanCondition[]; errors: ScanError[] } {
+export function evaluateConditions(data: Record<string, unknown>): {
+  conditions: ScanCondition[];
+  errors: ScanError[];
+} {
   const conditions: ScanCondition[] = [
     { code: "file_parsed", value: true },
     conditionHasId(data["id"]),
@@ -141,10 +162,16 @@ export function evaluateConditions(
   const errors: ScanError[] = [];
 
   if (!conditions.find((c) => c.code === "has_id")!.value) {
-    errors.push({ code: "missing_id", message: "Frontmatter is missing required field: id" });
+    errors.push({
+      code: "missing_id",
+      message: "Frontmatter is missing required field: id",
+    });
   }
   if (!conditions.find((c) => c.code === "has_status")!.value) {
-    errors.push({ code: "missing_status", message: "Frontmatter is missing required field: status" });
+    errors.push({
+      code: "missing_status",
+      message: "Frontmatter is missing required field: status",
+    });
   }
 
   return { conditions, errors };

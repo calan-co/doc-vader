@@ -28,6 +28,8 @@ interface ConsumerAutomation {
   autoEvidenceFromWorkflowRuns?: boolean;
   preserveCommitMap?: boolean;
   subjectResolutionOrder?: SubjectResolverName[];
+  validateArchiveCandidates?: boolean;
+  invalidCandidateStatus?: string;
 }
 
 interface ConsumerMigration {
@@ -37,7 +39,16 @@ interface ConsumerMigration {
 
 interface ResolvedConsumerConfig {
   roots: ConsumerRoots;
-  automation: Required<Omit<ConsumerAutomation, 'subjectResolutionOrder'>> & Pick<ConsumerAutomation, 'subjectResolutionOrder'>;
+  automation: Required<
+    Omit<
+      ConsumerAutomation,
+      "subjectResolutionOrder" | "invalidCandidateStatus"
+    >
+  > &
+    Pick<
+      ConsumerAutomation,
+      "subjectResolutionOrder" | "invalidCandidateStatus"
+    >;
   migration: Required<ConsumerMigration>;
 }
 
@@ -417,7 +428,9 @@ export async function loadConsumerConfig(
       autoCloseOnMerge: false,
       autoEvidenceFromWorkflowRuns: true,
       preserveCommitMap: true,
+      validateArchiveCandidates: false,
       subjectResolutionOrder: undefined,
+      invalidCandidateStatus: undefined,
     },
     migration: {
       legacyActive: DEFAULT_ROOTS.backlog,

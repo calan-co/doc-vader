@@ -52,6 +52,17 @@ export interface BacklogScanOptions {
   dryRun?: boolean;
   /** Optional path to consumer config JSON. */
   consumerConfig?: string;
+  /** Validate and archive eligible ready-for-review/closed candidates. */
+  validateArchiveCandidates?: boolean;
+  /** Optional status to set when candidate validation fails. Use "none" to disable updates. */
+  invalidCandidateStatus?: string;
+}
+
+export interface CandidateValidationResult {
+  eligible: boolean;
+  archived: boolean;
+  updatedStatus?: string;
+  discrepancies: string[];
 }
 
 // ---------- Condition taxonomy ----------
@@ -79,7 +90,9 @@ export type ScanErrorCode =
   | "fetch_pr_metadata_failed"
   | "invalid_lifecycle"
   | "unresolved_wikilink"
-  | "evidence_generation_failed";
+  | "evidence_generation_failed"
+  | "candidate_validation_failed"
+  | "candidate_status_update_failed";
 
 export interface ScanCondition {
   code: ScanConditionCode;
@@ -112,6 +125,7 @@ export interface WorkItemScanResult {
     linkedAt?: string;
     errors: string[];
   };
+  candidateValidation?: CandidateValidationResult;
 }
 
 export interface ScanState {
@@ -129,6 +143,8 @@ export interface BacklogScanReport {
   options: Required<
     Pick<BacklogScanOptions, "backlogDir" | "reportFormat" | "strict" | "debug">
   > & {
+    validateArchiveCandidates: boolean;
+    invalidCandidateStatus: string | null;
     resolverOrder: SubjectResolverName[];
   };
   summary: {
@@ -136,6 +152,10 @@ export interface BacklogScanReport {
     filesWithErrors: number;
     errorCount: number;
     evidenceRecordsCreated: number;
+    candidateItemsEvaluated: number;
+    candidatesArchived: number;
+    candidateDiscrepancies: number;
+    invalidStatusUpdates: number;
   };
   items: WorkItemScanResult[];
   exitCode: number;
