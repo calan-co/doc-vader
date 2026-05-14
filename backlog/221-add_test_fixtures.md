@@ -145,7 +145,3 @@ Optional (future):
 - Add test runner to CI/CD
 - Run schema validation against test-cases
 - Report coverage of schema features
-
-## Related
-
-- [[223-migrate_schema_directives]]

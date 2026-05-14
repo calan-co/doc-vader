@@ -106,7 +106,3 @@ migrate().catch(console.error);
 - [ ] Backlog audit runs without schema errors
 - [ ] Documentation frontmatter valid
 - [ ] No broken wikilinks from update
-
-## Related
-
-- [[224-execution_item_status_validity_lint]]
