@@ -62,7 +62,8 @@
         },
         "completed_date": {
           "type": "string",
-          "description": "Completion date in YYYY-MM-DD format."
+          "description": "Completion date in YYYY-MM-DD format.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
         }
       },
       "allOf": [

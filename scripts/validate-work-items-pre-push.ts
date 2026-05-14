@@ -263,7 +263,8 @@ function changedFilesForPush(): string[] {
 
 function sectionBody(markdown: string, heading: string): string | null {
   const lines = markdown.split(/\r?\n/);
-  const headingPattern = new RegExp(`^##\\s+${heading}\\s*$`, "i");
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const headingPattern = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "i");
   const headingIndex = lines.findIndex((line) => headingPattern.test(line));
 
   if (headingIndex < 0) {

@@ -1143,8 +1143,8 @@ export async function migrateBacklog(
 }
 
 const WORK_ITEM_TOKEN_PATTERNS: RegExp[] = [
-  /work-item:[a-z0-9]+(?:-[a-z0-9]+)*/g,
-  /wi-\d+/g,
+  /\bwork-item:[a-z0-9]+(?:-[a-z0-9]+)*\b/g,
+  /\bwi-\d+\b/g,
 ];
 
 function extractGithubSubjects(payload: Record<string, unknown>): string[] {
