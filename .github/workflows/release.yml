@@ -31,6 +31,8 @@ jobs:
       package-name: '@calan-co/doc-vader'
       registry-url: https://npm.pkg.github.com
       node-version: '22'
+      version-pr-commit: 'chore(release): version package'
+      version-pr-title: 'chore(release): version package'
 
   publish-staging-prerelease:
     if: github.event_name == 'push' && github.ref_name == 'staging'
