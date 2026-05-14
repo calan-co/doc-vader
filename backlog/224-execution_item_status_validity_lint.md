@@ -219,6 +219,10 @@ execution:
 
 **Invalid scenario 3 - Nested phase mismatch:**
 
+## Related
+
+- [[226.story-add-subject-aware-pr-closure-api]]
+
 ```yaml
 execution:
   current_phase: "Phase 2a" # ❌ Nested phase name not recognized
