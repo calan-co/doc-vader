@@ -302,6 +302,7 @@ async function generateEvidenceForItem(
   options: Required<Pick<BacklogScanOptions, "rootDir">> & {
     consumerConfig?: string;
     dryRun: boolean;
+    force?: boolean;
   },
 ): Promise<NonNullable<WorkItemScanResult["evidenceGeneration"]>> {
   if (!item.id || !item.id.startsWith("work-item:")) {
@@ -313,7 +314,7 @@ async function generateEvidenceForItem(
   }
 
   const resolvedSubjects = item.subjectResolution?.subjects ?? [];
-  if (!resolvedSubjects.includes(item.id)) {
+  if (!options.force && !resolvedSubjects.includes(item.id)) {
     return {
       created: false,
       recordIds: [],
@@ -384,6 +385,35 @@ async function generateEvidenceForItem(
       errors: [error instanceof Error ? error.message : String(error)],
     };
   }
+}
+
+function hasEvidenceLinks(frontmatter: Record<string, unknown>): boolean {
+  const links = frontmatter["links"];
+
+  // Handle object shape: links: { evidence: ["[[record-...]]"] }
+  if (typeof links === "object" && links !== null && !Array.isArray(links)) {
+    const evidence = (links as Record<string, unknown>)["evidence"];
+    if (Array.isArray(evidence)) {
+      return evidence.some(
+        (value) => typeof value === "string" && value.trim().length > 0,
+      );
+    }
+  }
+
+  // Handle list-of-maps shape: links: [{ evidence: "[[record-...]]" }]
+  if (Array.isArray(links)) {
+    for (const entry of links) {
+      if (typeof entry !== "object" || entry === null) {
+        continue;
+      }
+      const evidence = (entry as Record<string, unknown>)["evidence"];
+      if (typeof evidence === "string" && evidence.trim().length > 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 export async function scanBacklog(
@@ -557,6 +587,44 @@ export async function scanBacklog(
             context.status === "closed");
 
         if (shouldEvaluate) {
+          // Candidate sweep should backfill missing evidence links before archive checks,
+          // even when subject resolution didn't map this item from event payloads.
+          if (generateEvidence && result.id && !hasEvidenceLinks(context.frontmatter)) {
+            const forcedEvidenceGeneration = await generateEvidenceForItem(result, {
+              rootDir,
+              consumerConfig,
+              dryRun,
+              force: true,
+            });
+            result.evidenceGeneration = forcedEvidenceGeneration;
+            for (const message of forcedEvidenceGeneration.errors) {
+              result.errors.push({
+                code: "evidence_generation_failed",
+                message,
+              });
+            }
+
+            if (!dryRun) {
+              try {
+                contentForCandidateValidation = await fs.readFile(
+                  path.resolve(rootDir, rel),
+                  "utf8",
+                );
+                context.frontmatter = matter(contentForCandidateValidation).data as Record<
+                  string,
+                  unknown
+                >;
+              } catch (err) {
+                result.errors.push({
+                  code: "candidate_validation_failed",
+                  message: `[candidate-validation] Failed to reload file after forced evidence generation: ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                });
+              }
+            }
+          }
+
           candidateItemsEvaluated += 1;
           const issues = [
             ...validateArchiveReadiness(context, [
