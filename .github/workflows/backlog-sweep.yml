@@ -126,7 +126,11 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
         run: |
-          if [ -z "$(git status --porcelain -- ${{ inputs.backlog-dir }} .doc-vader)" ]; then
+          set -euo pipefail
+
+          backlog_dir="${{ inputs.backlog-dir }}"
+
+          if [ -z "$(git status --porcelain -- "$backlog_dir" .doc-vader)" ]; then
             echo "No backlog changes to commit."
             exit 0
           fi
@@ -136,10 +140,20 @@ jobs:
 
           git config user.name "${{ inputs.commit-user-name }}"
           git config user.email "${{ inputs.commit-user-email }}"
-          git add ${{ inputs.backlog-dir }} .doc-vader
+          git add "$backlog_dir" .doc-vader
           git commit -m "chore(backlog): sweep eligible work item updates"
 
-          # Protected branches require PR-based updates; push to automation branch.
+          if [ -n "${{ steps.app-token.outputs.token || '' }}" ]; then
+            echo "App token detected; attempting direct push to ${base_branch}."
+            if git push origin HEAD:${base_branch}; then
+              echo "Direct push to ${base_branch} succeeded."
+              exit 0
+            fi
+
+            echo "Direct push to ${base_branch} was rejected; falling back to PR workflow."
+          fi
+
+          # Fallback path for protected branches or non-bypass credentials.
           git push --force-with-lease origin HEAD:${automation_branch}
 
           existing_pr="$(gh pr list --base "$base_branch" --head "$automation_branch" --state open --json number --jq '.[0].number')"
