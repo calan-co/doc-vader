@@ -27,6 +27,7 @@
     "backlog:validate:ci": "nx run doc-vader:backlog-validate-ci",
     "backlog:validate:ci:raw": "nx run doc-vader:backlog-validate-ci-raw",
     "hooks:commit-msg": "commitlint --edit",
+    "hooks:pre-push": "pnpm exec tsx scripts/validate-work-items-pre-push.ts",
     "lint": "nx run doc-vader:lint"
   },
   "keywords": [],

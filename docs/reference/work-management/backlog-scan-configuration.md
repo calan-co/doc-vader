@@ -28,6 +28,36 @@ The consumer config file (`.doc-vader/backlog-consumer.json` by default) lets yo
 
 > **Missing file behavior**: If the config file does not exist, the scan silently falls back to built-in defaults. This means repositories without a `.doc-vader/backlog-consumer.json` file work out-of-the-box without any configuration required. Only non-`ENOENT` read errors (e.g., permission denied, malformed JSON) are propagated as failures.
 
+The same consumer config file is also used by local pre-push validation (`pnpm run hooks:pre-push`) through `automation.prePushValidation`.
+
+### `automation.prePushValidation`
+
+Configure changed-file validation policy and severity.
+
+```json
+{
+  "automation": {
+    "prePushValidation": {
+      "schemas": {
+        "baseline": "schemas/frontmatter/work-item/1.0.0.json",
+        "changed": "schemas/frontmatter/work-item/latest.json",
+        "archive": "schemas/frontmatter/work-item/1.0.0.json"
+      },
+      "severity": {
+        "baseline": "error",
+        "changed": "error",
+        "archive": "warn",
+        "checklist": "error"
+      }
+    }
+  }
+}
+```
+
+Severity values: `none|info|warn|error`.
+
+Schema values may use local paths, `/frontmatter/...` aliases, `file://` URIs, or `https://` URLs.
+
 ### `automation.subjectResolutionOrder`
 
 Override the default resolver chain order. When set, this value is used unless a `--resolver-order` CLI flag is also provided.

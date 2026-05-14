@@ -53,19 +53,16 @@
         },
         "status_reason": {
           "type": "string",
-          "enum": [
-            "success",
-            "obsolete",
-            "redundant",
-            "superseded",
-            "cancelled"
-          ],
           "description": "Required when status is 'closed' to capture why the work item was closed."
         },
         "ordinal": {
           "type": "integer",
           "maximum": 9007199254740991,
           "minimum": -9007199254740991
+        },
+        "completed_date": {
+          "type": "string",
+          "description": "Completion date in YYYY-MM-DD format."
         }
       },
       "allOf": [
@@ -74,7 +71,34 @@
             "required": ["status"],
             "properties": { "status": { "const": "closed" } }
           },
-          "then": { "required": ["status_reason"] }
+          "then": {
+            "required": ["status_reason"],
+            "properties": {
+              "status_reason": {
+                "enum": [
+                  "success",
+                  "completed",
+                  "obsolete",
+                  "redundant",
+                  "superseded",
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["completed_date"]
+          },
+          "then": {
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "const": "closed"
+              }
+            }
+          }
         }
       ]
     }

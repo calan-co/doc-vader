@@ -37,6 +37,20 @@ Scans backlog automation triggers (workflow completion events, PR updates) to:
 
 ## Options
 
+## Related Local Policy: Pre-Push Validation
+
+`backlog scan` and local pre-push validation are separate workflows:
+
+- `backlog scan` analyzes automation events and can generate evidence records.
+- Pre-push validation checks changed backlog work items before git push.
+
+Pre-push validation is configured in `.doc-vader/backlog-consumer.json` under `automation.prePushValidation`.
+
+See:
+
+- `backlog-scan-configuration.md` for full `automation.prePushValidation` schema and severity settings.
+- `backlog-automation-configuration.md` for rollout guidance and precedence rules.
+
 ### `--generate-evidence`
 
 Create evidence records for resolved work items.

@@ -289,6 +289,74 @@ links:
     expect(recordFile).toContain("pass");
   });
 
+  it("links pull requests for deterministic wi-* token matches in pull_request events", async () => {
+    const rootDir = await createTempRepo();
+    const workItemPath = path.join(rootDir, "backlog", "active", "work-item-wi-60276.md");
+    await writeMarkdown(
+      workItemPath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: wi-60276
+title: Deterministic matching sample
+summary: Validate pull-request ingestion subject matching.
+type: work-item
+subtype: task
+lifecycle: active
+status: ready-for-review
+status_reason: awaiting-review
+priority: high
+estimated: 3
+actual: 3
+---
+
+## Goal
+
+- Validate deterministic matching.
+`
+    );
+
+    const payloadPath = path.join(rootDir, "pull-request.json");
+    await writeFile(
+      payloadPath,
+      JSON.stringify(
+        {
+          pull_request: {
+            number: 43,
+            html_url: "https://github.com/calan-co/doc-vader/pull/43",
+            merged: false,
+            title: "chore(backlog): reconcile wi-60276 metadata",
+            body: "Tracks wi-60276 and related backlog updates.",
+          },
+        },
+        null,
+        2
+      ),
+      "utf8"
+    );
+
+    const result = await ingestEvent({
+      rootDir,
+      provider: "github",
+      event: "pull_request.edited",
+      payloadPath,
+    });
+
+    expect(result.subjects).toContain("wi-60276");
+    expect(
+      result.actions.some(
+        (action) =>
+          action.type === "link" &&
+          action.subject === "wi-60276" &&
+          action.kind === "pr" &&
+          action.value === "https://github.com/calan-co/doc-vader/pull/43",
+      ),
+    ).toBe(true);
+
+    const updatedWorkItem = await readFile(workItemPath, "utf8");
+    expect(updatedWorkItem).toContain("pull_requests:");
+    expect(updatedWorkItem).toContain("https://github.com/calan-co/doc-vader/pull/43");
+  });
+
   it("refuses to finalize a work item without evidence", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(

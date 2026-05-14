@@ -23,6 +23,10 @@
             "additionalProperties": true
           }
         },
+        "completed_date": {
+          "description": "Completion date in YYYY-MM-DD format.",
+          "type": "string"
+        },
         "created": {
           "oneOf": [
             {
@@ -95,14 +99,7 @@
         },
         "status_reason": {
           "description": "Required when status is 'closed' to capture why the work item was closed.",
-          "type": "string",
-          "enum": [
-            "success",
-            "obsolete",
-            "redundant",
-            "superseded",
-            "cancelled"
-          ]
+          "type": "string"
         },
         "workItemType": {
           "type": "string"
@@ -123,7 +120,36 @@
           "then": {
             "required": [
               "status_reason"
+            ],
+            "properties": {
+              "status_reason": {
+                "enum": [
+                  "success",
+                  "completed",
+                  "obsolete",
+                  "redundant",
+                  "superseded",
+                  "cancelled"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "completed_date"
             ]
+          },
+          "then": {
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "closed"
+              }
+            }
           }
         }
       ]
