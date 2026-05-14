@@ -751,8 +751,10 @@ See [[other]] for prior context.
       const item = report.items.find((entry) => entry.id === "work-item:019");
       // Candidate has no inbound active references pointing to it — should be
       // blocked only by missing finalization prereqs, not by the reference guard.
-      expect(item?.candidateValidation?.discrepancies ?? []).not.toContain(
-        expect.stringContaining("Cannot archive while referenced"),
+      expect(item?.candidateValidation?.discrepancies ?? []).not.toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("Cannot archive while referenced"),
+        ]),
       );
     },
   );

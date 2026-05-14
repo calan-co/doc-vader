@@ -136,8 +136,8 @@ function extractWikiTargets(content: string): string[] {
  *
  * Matching is basename-only (strip extension, strip path prefix from target).
  * When multiple files share the same basename, they are sorted by:
- *   1. Alphabetical path order (primary) — naturally promotes shallower paths
- *   2. Depth distance from source file (secondary tiebreaker)
+  *   1. Depth distance from source file (primary) — nearest-by-depth wins
+  *   2. Alphabetical path order (secondary tiebreaker)
  *
  * Only files present in `allRelFiles` are candidates (archive files are included
  * in the pool so links to them resolve correctly rather than falling through to
@@ -160,21 +160,22 @@ function resolveWikiLink(
   const sourceDir = path.posix.dirname(sourceRelPath);
   const sourceDepth = sourceDir === "." ? 0 : sourceDir.split("/").length;
 
-  return [...matches].sort((a, b) => {
-    // Primary: alphabetical — shorter/shallower paths naturally sort first
-    const alpha = a.localeCompare(b);
-    if (alpha !== 0) return alpha;
-    // Secondary: absolute depth difference from source
-    const aDir = path.posix.dirname(a);
-    const bDir = path.posix.dirname(b);
-    const distA = Math.abs(
-      (aDir === "." ? 0 : aDir.split("/").length) - sourceDepth,
-    );
-    const distB = Math.abs(
-      (bDir === "." ? 0 : bDir.split("/").length) - sourceDepth,
-    );
-    return distA - distB;
-  })[0] ?? null;
+  return (
+    [...matches].sort((a, b) => {
+      // Primary: absolute depth distance from source (nearest wins)
+      const aDir = path.posix.dirname(a);
+      const bDir = path.posix.dirname(b);
+      const distA = Math.abs(
+        (aDir === "." ? 0 : aDir.split("/").length) - sourceDepth,
+      );
+      const distB = Math.abs(
+        (bDir === "." ? 0 : bDir.split("/").length) - sourceDepth,
+      );
+      if (distA !== distB) return distA - distB;
+      // Secondary: alphabetical tiebreaker
+      return a.localeCompare(b);
+    })[0] ?? null
+  );
 }
 
 async function findActiveInboundReferences(
@@ -203,7 +204,8 @@ async function findActiveInboundReferences(
     const wikiTargets = extractWikiTargets(content);
     if (
       wikiTargets.some(
-        (target) => resolveWikiLink(target, relFile, files) === candidateRelPath,
+        (target) =>
+          resolveWikiLink(target, relFile, files) === candidateRelPath,
       )
     ) {
       inbound.push(relFile);
@@ -572,7 +574,9 @@ export async function scanBacklog(
             );
 
             if (inboundReferences.length > 0) {
-              const message = `[candidate-validation] Cannot archive while referenced by active backlog items: ${inboundReferences.join(", ")}`;
+              const message = `[candidate-validation] Cannot archive while referenced by active backlog items: ${inboundReferences.join(
+                ", ",
+              )}`;
               result.errors.push({
                 code: "candidate_validation_failed",
                 message,
@@ -598,7 +602,8 @@ export async function scanBacklog(
                 };
                 candidatesArchived += 1;
               } catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
+                const message =
+                  err instanceof Error ? err.message : String(err);
                 result.errors.push({
                   code: "candidate_validation_failed",
                   message: `[candidate-validation] ${message}`,
