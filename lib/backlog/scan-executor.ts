@@ -122,6 +122,10 @@ function toWorkItemSlug(id: string): string {
   return id.replace(/^work-item:/, "");
 }
 
+function isEvidenceEligibleWorkItemId(id: string): boolean {
+  return id.startsWith("work-item:") || id.startsWith("wi-");
+}
+
 function extractWikiTargets(content: string): string[] {
   const links = [...content.matchAll(/\[\[([^\]]+)\]\]/g)];
   return links
@@ -305,7 +309,7 @@ async function generateEvidenceForItem(
     force?: boolean;
   },
 ): Promise<NonNullable<WorkItemScanResult["evidenceGeneration"]>> {
-  if (!item.id || !item.id.startsWith("work-item:")) {
+  if (!item.id || !isEvidenceEligibleWorkItemId(item.id)) {
     return {
       created: false,
       recordIds: [],
