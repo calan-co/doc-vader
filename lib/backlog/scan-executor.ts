@@ -586,7 +586,8 @@ export async function scanBacklog(
                 archived: false,
                 discrepancies: [message],
               };
-              candidateDiscrepancies += 1;
+              candidateDiscrepancies +=
+                result.candidateValidation.discrepancies.length;
             } else {
               try {
                 await finalizeWorkItem({
