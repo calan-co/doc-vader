@@ -17,9 +17,11 @@ const latestSchemaPath = path.join(repoRoot, "schemas/frontmatter/work-item/late
 let testDir = "";
 
 function run(command: string, args: string[], cwd: string, env?: Record<string, string>) {
+  const shouldUseShell = process.platform === "win32" && command.toLowerCase().endsWith(".cmd");
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
+    shell: shouldUseShell,
     env: {
       ...process.env,
       ...(env ?? {}),
