@@ -477,10 +477,40 @@ export async function loadConsumerConfig(
 function ensureWorkItemLinks(
   frontmatter: Frontmatter,
 ): Record<string, unknown> {
-  const links =
-    typeof frontmatter.links === "object" && frontmatter.links !== null
-      ? { ...(frontmatter.links as Record<string, unknown>) }
-      : {};
+  const rawLinks = frontmatter.links;
+  const links: Record<string, unknown> = {};
+
+  if (Array.isArray(rawLinks)) {
+    for (const entry of rawLinks) {
+      if (typeof entry !== "object" || entry === null) {
+        continue;
+      }
+
+      for (const [key, value] of Object.entries(entry)) {
+        if (typeof value !== "string" || value.trim().length === 0) {
+          continue;
+        }
+
+        if (key === "pull_request") {
+          const current = Array.isArray(links.pull_requests)
+            ? (links.pull_requests as unknown[])
+            : [];
+          links.pull_requests = [...current, value.trim()];
+          continue;
+        }
+
+        if (key === "evidence") {
+          const current = Array.isArray(links.evidence)
+            ? (links.evidence as unknown[])
+            : [];
+          links.evidence = [...current, value.trim()];
+        }
+      }
+    }
+  } else if (typeof rawLinks === "object" && rawLinks !== null) {
+    Object.assign(links, rawLinks as Record<string, unknown>);
+  }
+
   frontmatter.links = links;
   return links;
 }
