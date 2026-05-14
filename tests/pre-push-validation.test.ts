@@ -8,7 +8,10 @@ import addFormats from "ajv-formats";
 
 const repoRoot = path.resolve(__dirname, "..");
 const scriptPath = path.join(repoRoot, "scripts/validate-work-items-pre-push.ts");
-const tsxPath = path.join(repoRoot, "node_modules/.bin/tsx");
+const tsxPath =
+  process.platform === "win32"
+    ? path.join(repoRoot, "node_modules/.bin/tsx.cmd")
+    : path.join(repoRoot, "node_modules/.bin/tsx");
 const latestSchemaPath = path.join(repoRoot, "schemas/frontmatter/work-item/latest.json");
 
 let testDir = "";
