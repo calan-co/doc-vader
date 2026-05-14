@@ -667,6 +667,53 @@ links:
   );
 
   it(
+    "validate-archive-candidates auto-generates missing evidence for wi-prefixed candidates",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({ validateArchiveCandidates: true });
+      mkFile(
+        "backlog/22.wi-ready-missing-evidence.md",
+        `---
+id: wi-22
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: WI ready missing evidence
+actual: 2
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/22"
+---
+# Work item
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+        generateEvidence: true,
+      });
+
+      expect(report.summary.candidateItemsEvaluated).toBe(1);
+      expect(report.summary.evidenceRecordsCreated).toBe(1);
+      expect(report.summary.candidatesArchived).toBe(1);
+
+      const archived = path.join(
+        testDir,
+        "backlog",
+        "archive",
+        "22.wi-ready-missing-evidence.md",
+      );
+      expect(fsSync.existsSync(archived)).toBe(true);
+
+      const archivedContent = fsSync.readFileSync(archived, "utf8");
+      expect(archivedContent).toContain("evidence:");
+      expect(archivedContent).toContain("[[record-");
+      expect(archivedContent).toContain("wi-22");
+    },
+  );
+
+  it(
     "inbound-reference guard resolves wikilinks to nested subfolder when basename exists there",
     { timeout: 15000 },
     async () => {
