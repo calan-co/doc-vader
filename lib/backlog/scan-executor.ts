@@ -326,9 +326,33 @@ async function generateEvidenceForItem(
     path.resolve(options.rootDir, item.file),
   );
   if (existingRecordId) {
+    const linkedAt = new Date().toISOString();
+    const existingRecordSlug = existingRecordId.replace(/^record:/, "");
+    const existingRecordBasename = `record-${existingRecordSlug}`;
+
+    try {
+      // Ensure canonical links.evidence array exists for downstream archive/finalize validators.
+      await linkWorkItem({
+        rootDir: options.rootDir,
+        consumerConfig: options.consumerConfig,
+        id: item.id,
+        kind: "evidence",
+        value: `[[${existingRecordBasename}]]`,
+        dryRun: options.dryRun,
+      });
+    } catch (error) {
+      return {
+        created: false,
+        recordIds: [existingRecordId],
+        linkedAt,
+        errors: [error instanceof Error ? error.message : String(error)],
+      };
+    }
+
     return {
       created: false,
       recordIds: [existingRecordId],
+      linkedAt,
       errors: [],
     };
   }
@@ -397,19 +421,6 @@ function hasEvidenceLinks(frontmatter: Record<string, unknown>): boolean {
       return evidence.some(
         (value) => typeof value === "string" && value.trim().length > 0,
       );
-    }
-  }
-
-  // Handle list-of-maps shape: links: [{ evidence: "[[record-...]]" }]
-  if (Array.isArray(links)) {
-    for (const entry of links) {
-      if (typeof entry !== "object" || entry === null) {
-        continue;
-      }
-      const evidence = (entry as Record<string, unknown>)["evidence"];
-      if (typeof evidence === "string" && evidence.trim().length > 0) {
-        return true;
-      }
     }
   }
 

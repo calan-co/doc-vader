@@ -634,8 +634,8 @@ lifecycle: active
 title: Ready missing evidence
 actual: 1
 links:
-  pull_requests:
-    - "https://github.com/calan-co/doc-vader/pull/21"
+  - pull_request: "https://github.com/calan-co/doc-vader/pull/21"
+  - evidence: "[[record-20260514-140000-021]]"
 ---
 # Work item
 `,
@@ -645,10 +645,11 @@ links:
         rootDir: testDir,
         consumerConfig: ".doc-vader/backlog-consumer.json",
         generateEvidence: true,
+        resolverOrder: ["payload_subject_tokens"],
       });
 
       expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.evidenceRecordsCreated).toBe(1);
+      expect(report.summary.evidenceRecordsCreated).toBe(0);
       expect(report.summary.candidatesArchived).toBe(1);
 
       const archived = path.join(
