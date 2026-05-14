@@ -122,6 +122,97 @@ function toWorkItemSlug(id: string): string {
   return id.replace(/^work-item:/, "");
 }
 
+function extractWikiTargets(content: string): string[] {
+  const links = [...content.matchAll(/\[\[([^\]]+)\]\]/g)];
+  return links
+    .map((match) => (typeof match[1] === "string" ? match[1] : ""))
+    .map((target) => target.split("|")[0].split("#")[0].trim())
+    .filter((target) => target.length > 0)
+    .map((target) => target.replace(/\.md$/i, ""));
+}
+
+/**
+ * Resolve a wikilink target to the best matching file in the known file pool.
+ *
+ * Matching is basename-only (strip extension, strip path prefix from target).
+ * When multiple files share the same basename, they are sorted by:
+ *   1. Alphabetical path order (primary) — naturally promotes shallower paths
+ *   2. Depth distance from source file (secondary tiebreaker)
+ *
+ * Only files present in `allRelFiles` are candidates (archive files are included
+ * in the pool so links to them resolve correctly rather than falling through to
+ * an active file of the same name).
+ */
+function resolveWikiLink(
+  target: string,
+  sourceRelPath: string,
+  allRelFiles: string[],
+): string | null {
+  const targetBasename = path.posix.basename(target.replace(/\.md$/i, ""));
+
+  const matches = allRelFiles.filter(
+    (f) => path.posix.basename(f.replace(/\.md$/i, "")) === targetBasename,
+  );
+
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+
+  const sourceDir = path.posix.dirname(sourceRelPath);
+  const sourceDepth = sourceDir === "." ? 0 : sourceDir.split("/").length;
+
+  return [...matches].sort((a, b) => {
+    // Primary: alphabetical — shorter/shallower paths naturally sort first
+    const alpha = a.localeCompare(b);
+    if (alpha !== 0) return alpha;
+    // Secondary: absolute depth difference from source
+    const aDir = path.posix.dirname(a);
+    const bDir = path.posix.dirname(b);
+    const distA = Math.abs(
+      (aDir === "." ? 0 : aDir.split("/").length) - sourceDepth,
+    );
+    const distB = Math.abs(
+      (bDir === "." ? 0 : bDir.split("/").length) - sourceDepth,
+    );
+    return distA - distB;
+  })[0] ?? null;
+}
+
+async function findActiveInboundReferences(
+  rootDir: string,
+  files: string[],
+  candidateRelPath: string,
+): Promise<string[]> {
+  const inbound: string[] = [];
+
+  for (const relFile of files) {
+    if (relFile === candidateRelPath) {
+      continue;
+    }
+
+    if (relFile.includes("backlog/archive/")) {
+      continue;
+    }
+
+    let content: string;
+    try {
+      content = await fs.readFile(path.resolve(rootDir, relFile), "utf8");
+    } catch {
+      continue;
+    }
+
+    const wikiTargets = extractWikiTargets(content);
+    if (
+      wikiTargets.some(
+        (target) => resolveWikiLink(target, relFile, files) === candidateRelPath,
+      )
+    ) {
+      inbound.push(relFile);
+    }
+  }
+
+  return inbound;
+}
+
 function formatEvidenceTimestamp(date: Date): string {
   return date
     .toISOString()
@@ -359,6 +450,7 @@ export async function scanBacklog(
   }
 
   const files = await collectMarkdownFiles(backlogDir, includeArchive);
+  const relFiles = files.map((file) => toPosix(path.relative(rootDir, file)));
   const items: WorkItemScanResult[] = [];
 
   for (const file of files) {
@@ -473,32 +565,52 @@ export async function scanBacklog(
           ];
 
           if (issues.length === 0 && result.id) {
-            try {
-              await finalizeWorkItem({
-                rootDir,
-                consumerConfig,
-                id: result.id,
-                dryRun,
-              });
-              result.candidateValidation = {
-                eligible: true,
-                archived: !dryRun,
-                discrepancies: [],
-              };
-              candidatesArchived += 1;
-            } catch (err) {
-              const message = err instanceof Error ? err.message : String(err);
+            const inboundReferences = await findActiveInboundReferences(
+              rootDir,
+              relFiles,
+              rel,
+            );
+
+            if (inboundReferences.length > 0) {
+              const message = `[candidate-validation] Cannot archive while referenced by active backlog items: ${inboundReferences.join(", ")}`;
               result.errors.push({
                 code: "candidate_validation_failed",
-                message: `[candidate-validation] ${message}`,
+                message,
               });
               result.candidateValidation = {
                 eligible: false,
                 archived: false,
                 discrepancies: [message],
               };
-              candidateDiscrepancies +=
-                result.candidateValidation.discrepancies.length;
+              candidateDiscrepancies += 1;
+            } else {
+              try {
+                await finalizeWorkItem({
+                  rootDir,
+                  consumerConfig,
+                  id: result.id,
+                  dryRun,
+                });
+                result.candidateValidation = {
+                  eligible: true,
+                  archived: !dryRun,
+                  discrepancies: [],
+                };
+                candidatesArchived += 1;
+              } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                result.errors.push({
+                  code: "candidate_validation_failed",
+                  message: `[candidate-validation] ${message}`,
+                });
+                result.candidateValidation = {
+                  eligible: false,
+                  archived: false,
+                  discrepancies: [message],
+                };
+                candidateDiscrepancies +=
+                  result.candidateValidation.discrepancies.length;
+              }
             }
           } else {
             const discrepancies = issues.map((issue) => issue.message);
