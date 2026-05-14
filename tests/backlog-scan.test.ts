@@ -513,6 +513,70 @@ links:
   );
 
   it(
+    "validate-archive-candidates does not archive when active items still reference candidate",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({ validateArchiveCandidates: true });
+      mkFile(
+        "backlog/15.referenced-ready.md",
+        `---
+id: "work-item:015"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: Referenced candidate
+actual: 3
+completed_date: "2026-01-02"
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/15"
+  evidence:
+    - "[[record-20260102-000000-015]]"
+---
+# Work item
+`,
+      );
+      mkFile(
+        "backlog/16.depends-on-15.md",
+        `---
+id: "work-item:016"
+type: work-item
+status: in-progress
+lifecycle: active
+title: Dependency
+depends_on:
+  - "[[15.referenced-ready]]"
+---
+# Work item
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+      });
+
+      expect(report.summary.candidateItemsEvaluated).toBe(1);
+      expect(report.summary.candidatesArchived).toBe(0);
+      expect(report.summary.candidateDiscrepancies).toBe(1);
+
+      const item = report.items.find((entry) => entry.id === "work-item:015");
+      expect(item?.candidateValidation?.eligible).toBe(false);
+      expect(item?.candidateValidation?.discrepancies[0]).toContain(
+        "Cannot archive while referenced by active backlog items",
+      );
+
+      const archived = path.join(
+        testDir,
+        "backlog",
+        "archive",
+        "15.referenced-ready.md",
+      );
+      expect(fsSync.existsSync(archived)).toBe(false);
+    },
+  );
+
+  it(
     "validate-archive-candidates reports discrepancies and updates invalid status from config",
     { timeout: 15000 },
     async () => {
@@ -552,6 +616,146 @@ title: Invalid candidate
         "utf8",
       );
       expect(updatedFile).toContain("status: in-progress");
+    },
+  );
+
+  it(
+    "inbound-reference guard resolves wikilinks to nested subfolder when basename exists there",
+    { timeout: 15000 },
+    async () => {
+      // Candidate is in the root backlog folder.
+      // The referencing file uses a bare wikilink that resolves to the same-folder
+      // file first (alphabetically / shortest path wins).
+      mkConsumerConfig({ validateArchiveCandidates: true });
+      mkFile(
+        "backlog/17.nested-ref-candidate.md",
+        `---
+id: "work-item:017"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: Nested ref candidate
+actual: 2
+completed_date: "2026-01-03"
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/17"
+  evidence:
+    - "[[record-20260103-000000-017]]"
+---
+# Work item
+`,
+      );
+
+      // A file in a subdirectory contains a bare wikilink targeting the candidate's basename.
+      // Resolution should prefer the same-folder file (backlog/17.nested-ref-candidate.md)
+      // over any deeper copy, so this counts as an inbound reference.
+      fsSync.mkdirSync(path.join(testDir, "backlog", "sprint-10"), {
+        recursive: true,
+      });
+      mkFile(
+        "backlog/sprint-10/18.referencing-from-subdir.md",
+        `---
+id: "work-item:018"
+type: work-item
+status: in-progress
+lifecycle: active
+title: Referencing from subdir
+---
+
+Depends on [[17.nested-ref-candidate]] work.
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+      });
+
+      expect(report.summary.candidateItemsEvaluated).toBe(1);
+      expect(report.summary.candidatesArchived).toBe(0);
+      expect(report.summary.candidateDiscrepancies).toBe(1);
+      const item = report.items.find((entry) => entry.id === "work-item:017");
+      expect(item?.candidateValidation?.discrepancies[0]).toContain(
+        "Cannot archive while referenced by active backlog items",
+      );
+    },
+  );
+
+  it(
+    "inbound-reference guard does not block archival when same-name file in archive absorbs the wikilink",
+    { timeout: 15000 },
+    async () => {
+      // If an active file links [[X]] and an archive copy of X exists, the
+      // resolver picks the archive copy (alphabetically 'archive/...' < 'sprint/..'
+      // but also alphabetically the bare filename sorts before archive sub-path,
+      // so here we create ONLY an archive copy of the name to force resolution there).
+      mkConsumerConfig({ validateArchiveCandidates: true });
+
+      // Candidate has a *different* basename so the wikilink cannot hit it.
+      mkFile(
+        "backlog/19.no-inbound-candidate.md",
+        `---
+id: "work-item:019"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: No inbound candidate
+actual: 2
+completed_date: "2026-01-04"
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/19"
+  evidence:
+    - "[[record-20260104-000000-019]]"
+---
+# Work item
+`,
+      );
+
+      // An archive copy of a *different* file exists.  The active referencing file
+      // links to it — this must NOT block archival of our candidate.
+      fsSync.mkdirSync(path.join(testDir, "backlog", "archive"), {
+        recursive: true,
+      });
+      mkFile(
+        "backlog/archive/other.md",
+        `---
+id: "work-item:other"
+type: work-item
+status: closed
+lifecycle: archived
+title: Other archived
+---
+`,
+      );
+      mkFile(
+        "backlog/20.references-archived-only.md",
+        `---
+id: "work-item:020"
+type: work-item
+status: in-progress
+lifecycle: active
+title: References archived only
+---
+
+See [[other]] for prior context.
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+      });
+
+      const item = report.items.find((entry) => entry.id === "work-item:019");
+      // Candidate has no inbound active references pointing to it — should be
+      // blocked only by missing finalization prereqs, not by the reference guard.
+      expect(item?.candidateValidation?.discrepancies ?? []).not.toEqual(
+        expect.arrayContaining([
+          expect.stringContaining("Cannot archive while referenced"),
+        ]),
+      );
     },
   );
 
