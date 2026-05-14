@@ -128,7 +128,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "$(git status --porcelain -- ${{ inputs.backlog-dir }} .doc-vader)" ]; then
+          backlog_dir="${{ inputs.backlog-dir }}"
+
+          if [ -z "$(git status --porcelain -- "$backlog_dir" .doc-vader)" ]; then
             echo "No backlog changes to commit."
             exit 0
           fi
@@ -138,7 +140,7 @@ jobs:
 
           git config user.name "${{ inputs.commit-user-name }}"
           git config user.email "${{ inputs.commit-user-email }}"
-          git add ${{ inputs.backlog-dir }} .doc-vader
+          git add "$backlog_dir" .doc-vader
           git commit -m "chore(backlog): sweep eligible work item updates"
 
           if [ -n "${{ steps.app-token.outputs.token || '' }}" ]; then
