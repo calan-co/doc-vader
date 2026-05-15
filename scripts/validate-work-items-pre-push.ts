@@ -2,6 +2,7 @@ import matter from "gray-matter";
 import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
@@ -153,6 +154,7 @@ function loadConfig(): ValidationConfig {
   );
 
   const archiveSeverity = normalizeSeverity(
+    process.env.DOC_VADER_PREPUSH_SEVERITY_ARCHIVE ||
     consumerConfig.severity?.archive,
     DEFAULT_CONFIG.archiveSeverity,
   );
@@ -174,7 +176,7 @@ function resolveSchemaSpec(spec: string): string {
   }
 
   if (spec.startsWith("file://")) {
-    return new URL(spec).pathname;
+    return fileURLToPath(spec);
   }
 
   if (spec.startsWith("/frontmatter/")) {
@@ -240,10 +242,39 @@ function tryRunGit(args: string[]): string | null {
 }
 
 function changedFilesForPush(): string[] {
-  const upstream =
-    tryRunGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]) ??
-    "origin/staging";
-  const mergeBase = runGit(["merge-base", "HEAD", upstream]);
+  const upstream = tryRunGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
+  const configuredBase = process.env.DOC_VADER_PREPUSH_BASE_REF?.trim() || null;
+  const remoteDefault = tryRunGit(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+
+  const comparisonCandidates = [
+    upstream,
+    configuredBase,
+    remoteDefault,
+    "origin/staging",
+    "origin/main",
+    "staging",
+    "main",
+  ].filter((value): value is string => Boolean(value));
+
+  const comparisonRef = comparisonCandidates.find((candidate) =>
+    tryRunGit(["rev-parse", "--verify", candidate]) !== null,
+  );
+
+  if (!comparisonRef) {
+    console.warn(
+      "pre-push(work-item): unable to determine comparison ref; skipping changed-file detection.",
+    );
+    return [];
+  }
+
+  const mergeBase = tryRunGit(["merge-base", "HEAD", comparisonRef]);
+  if (!mergeBase) {
+    console.warn(
+      `pre-push(work-item): unable to compute merge-base for '${comparisonRef}'; skipping changed-file detection.`,
+    );
+    return [];
+  }
+
   const output = runGit([
     "diff",
     "--name-only",

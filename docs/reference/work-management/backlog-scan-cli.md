@@ -11,7 +11,7 @@ tags:
   - commands
 links:
   reference:
-    - '[[backlog-automation-configuration.md]]'
+    - '[[../../guide/backlog-automation-configuration.md]]'
     - '[[../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]'
 ---
 
@@ -49,7 +49,7 @@ Pre-push validation is configured in `.doc-vader/backlog-consumer.json` under `a
 See:
 
 - `backlog-scan-configuration.md` for full `automation.prePushValidation` schema and severity settings.
-- `backlog-automation-configuration.md` for rollout guidance and precedence rules.
+- `../../guide/backlog-automation-configuration.md` for rollout guidance and precedence rules.
 
 ### `--generate-evidence`
 

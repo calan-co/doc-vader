@@ -206,6 +206,41 @@ type: work-item
     expect(result.code).toBe(0);
     expect(result.stderr).toMatch(/warnings/i);
   });
+
+  it("honors DOC_VADER_PREPUSH_SEVERITY_ARCHIVE over config", () => {
+    writeConsumerConfig({
+      automation: {
+        prePushValidation: {
+          schemas: {
+            baseline: latestSchemaPath,
+            changed: latestSchemaPath,
+            archive: latestSchemaPath,
+          },
+          severity: {
+            baseline: "none",
+            changed: "none",
+            archive: "warn",
+            checklist: "none",
+          },
+        },
+      },
+    });
+
+    commitWorkItem(
+      "backlog/archive/304.test-integration.md",
+      `---
+id: wi-304
+status: ready-for-review
+type: work-item
+---\n\n## Tasks\n\n- [x] done\n\n## Acceptance Criteria\n\n- [x] done\n`,
+    );
+
+    const result = runValidator({
+      DOC_VADER_PREPUSH_SEVERITY_ARCHIVE: "error",
+    });
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/validation failed/i);
+  });
 });
 
 describe("pre-push validation e2e", () => {
