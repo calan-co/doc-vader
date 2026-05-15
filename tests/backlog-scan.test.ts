@@ -513,7 +513,7 @@ links:
   );
 
   it(
-    "validate-archive-candidates does not archive when active items still reference candidate",
+    "validate-archive-candidates archives candidates even when other active items reference them",
     { timeout: 15000 },
     async () => {
       mkConsumerConfig({ validateArchiveCandidates: true });
@@ -557,14 +557,12 @@ depends_on:
       });
 
       expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.candidatesArchived).toBe(0);
-      expect(report.summary.candidateDiscrepancies).toBe(1);
+      expect(report.summary.candidatesArchived).toBe(1);
+      expect(report.summary.candidateDiscrepancies).toBe(0);
 
       const item = report.items.find((entry) => entry.id === "work-item:015");
-      expect(item?.candidateValidation?.eligible).toBe(false);
-      expect(item?.candidateValidation?.discrepancies[0]).toContain(
-        "Cannot archive while referenced by active backlog items",
-      );
+      expect(item?.candidateValidation?.eligible).toBe(true);
+      expect(item?.candidateValidation?.discrepancies.length).toBe(0);
 
       const archived = path.join(
         testDir,
@@ -572,7 +570,7 @@ depends_on:
         "archive",
         "15.referenced-ready.md",
       );
-      expect(fsSync.existsSync(archived)).toBe(false);
+      expect(fsSync.existsSync(archived)).toBe(true);
     },
   );
 
@@ -714,7 +712,7 @@ links:
   );
 
   it(
-    "inbound-reference guard resolves wikilinks to nested subfolder when basename exists there",
+    "validate-archive-candidates archives candidate even with nested wikilink references",
     { timeout: 15000 },
     async () => {
       // Candidate is in the root backlog folder.
@@ -767,12 +765,10 @@ Depends on [[17.nested-ref-candidate]] work.
       });
 
       expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.candidatesArchived).toBe(0);
-      expect(report.summary.candidateDiscrepancies).toBe(1);
+      expect(report.summary.candidatesArchived).toBe(1);
+      expect(report.summary.candidateDiscrepancies).toBe(0);
       const item = report.items.find((entry) => entry.id === "work-item:017");
-      expect(item?.candidateValidation?.discrepancies[0]).toContain(
-        "Cannot archive while referenced by active backlog items",
-      );
+      expect(item?.candidateValidation?.eligible).toBe(true);
     },
   );
 
