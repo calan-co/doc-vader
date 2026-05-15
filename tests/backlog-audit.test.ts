@@ -82,4 +82,29 @@ describe("auditBacklog", () => {
     expect(report.totals.no_inbound_active).toBe(1);
     expect(report.exit_code).toBe(1);
   });
+
+  it("resolves wikilinks to archived backlog targets even when includeArchive is false", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-archive-resolution-");
+    cleanupDirs.push(tmp);
+
+    await writeFile(
+      path.join(tmp, "archive", "old-item.md"),
+      `---\nid: "old"\ntitle: Old\ntype: work-item\nsubtype: task\nlifecycle: archived\nstatus: closed\npriority: low\n---\n`
+    );
+
+    await writeFile(
+      path.join(tmp, "3.active.md"),
+      `---\nid: "3"\ntitle: Active\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: in-progress\npriority: high\nlinks:\n  depends_on:\n    - "[[old-item]]"\n---\n`
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      failOn: "error",
+      format: "json",
+      includeArchive: false,
+    });
+
+    expect(report.totals.unresolved_wikilinks).toBe(0);
+  });
 });
