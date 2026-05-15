@@ -28,7 +28,6 @@
  * ```ts
  * export interface Options {
  *   enabled?: boolean;
- *   strict?: boolean;
  *   schemaDir?: string;
  * }
  * ```
@@ -37,10 +36,9 @@
  *
  * * `enabled` (`boolean`, optional, default: true)
  *   — whether to enable this plugin
- * * `strict` (`boolean`, optional, default: false)
- *   — whether to treat validation errors as errors (true) or messages (false)
- * * `schemaDir` (`string`, optional, default: 'schemas')
- *   — directory containing JSON schema files
+ * * `schemaDir` (`string`, optional, default: 'schemas/frontmatter')
+ *   — directory containing JSON schema files; schemas are resolved at
+ *     `{schemaDir}/by-type/{type}/latest.json`
  *
  * ## Recommendation
  *
@@ -54,91 +52,188 @@
  */
 
 import { lintRule } from "unified-lint-rule";
-import Ajv from "ajv/dist/2020.js";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import matter from "gray-matter";
 import type { Plugin } from "unified";
 import type { Root } from "mdast";
 
 export const optionsSchema = z.object({
   enabled: z.boolean().optional().default(true),
-  strict: z.boolean().optional().default(false),
-  schemaDir: z.string().optional().default("schemas"),
+  schemaDir: z.string().optional().default("schemas/frontmatter"),
 });
 
 export type Options = z.input<typeof optionsSchema>;
 
+interface ValidationError {
+  path: string;
+  message: string;
+  keyword: string;
+}
+
 interface CacheEntry {
   timestamp: number;
-  errors: any[] | null;
+  errors: ValidationError[] | null;
 }
 
 const validationCache = new Map<string, CacheEntry>();
 
-async function loadSchema(schemaPath: string): Promise<any> {
+// Cache Ajv instances (one per resolved schema directory) so support schemas
+// are only loaded once and compiled validators are reused.
+const ajvInstanceCache = new Map<string, InstanceType<typeof Ajv2020>>();
+
+// Only allow safe, non-traversing name segments for schema type resolution.
+const SAFE_NAME_RE = /^[a-zA-Z0-9_-]+$/;
+
+/**
+ * Load a JSON file from disk.
+ * Returns `null` when the file does not exist (ENOENT).
+ * Re-throws for permission errors, JSON parse errors, and other I/O failures
+ * so that broken schemas surface rather than silently disabling validation.
+ */
+async function loadSchemaFile(schemaPath: string): Promise<any> {
+  let content: string;
   try {
-    const content = await fs.readFile(schemaPath, "utf8");
-    return JSON.parse(content);
-  } catch {
-    return null;
+    content = await fs.readFile(schemaPath, "utf8");
+  } catch (err: any) {
+    if (err?.code === "ENOENT") return null;
+    throw err;
   }
+  return JSON.parse(content);
 }
 
-async function getSchemaForFile(
+/**
+ * Recursively walk `supportDir` and register every JSON schema found under
+ * its own `$id` so that Ajv can resolve external `$ref`s without network
+ * access.
+ */
+async function preloadSupportSchemas(
+  ajv: InstanceType<typeof Ajv2020>,
+  supportDir: string,
+): Promise<void> {
+  async function walk(dir: string): Promise<void> {
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // Support dir may not exist; that's fine.
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith(".json")) {
+        try {
+          const schema = await loadSchemaFile(fullPath);
+          if (schema?.$id && !ajv.getSchema(schema.$id)) {
+            ajv.addSchema(schema, schema.$id);
+          }
+        } catch {
+          // Best effort — a broken support schema should not halt all validation.
+        }
+      }
+    }
+  }
+  await walk(supportDir);
+}
+
+/**
+ * Return (or lazily create) a configured Ajv 2020 instance for `schemaDir`.
+ * The instance has formats registered and all support schemas preloaded so
+ * external `$ref`s resolve locally.
+ */
+async function getAjv(
+  schemaDir: string,
+): Promise<InstanceType<typeof Ajv2020>> {
+  if (ajvInstanceCache.has(schemaDir)) {
+    return ajvInstanceCache.get(schemaDir)!;
+  }
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict: false,
+    validateSchema: false,
+  });
+  addFormats(ajv);
+  await preloadSupportSchemas(ajv, path.join(schemaDir, "support"));
+  ajvInstanceCache.set(schemaDir, ajv);
+  return ajv;
+}
+
+/**
+ * Resolve the schema for a given `type` value.
+ * Layout: `{schemaDir}/by-type/{type}/latest.json`.
+ * Falls back to `{schemaDir}/default.json` when no type-specific schema is
+ * found.  Returns `null` when neither exists.
+ * Throws when `type` contains path-traversal characters.
+ */
+async function resolveSchema(
   type: string | null,
   schemaDir: string,
 ): Promise<any> {
-  // Try type-specific schema first
-  if (type) {
-    const typeSchemaPath = path.join(schemaDir, `${type}.json`);
-    const schema = await loadSchema(typeSchemaPath);
+  if (type !== null) {
+    if (!SAFE_NAME_RE.test(type)) {
+      throw new Error(
+        `Invalid frontmatter type "${type}": only alphanumeric characters, hyphens, and underscores are allowed`,
+      );
+    }
+    const typedPath = path.join(schemaDir, "by-type", type, "latest.json");
+    const schema = await loadSchemaFile(typedPath);
     if (schema) return schema;
   }
-
-  // Try default schema
-  const defaultSchemaPath = path.join(schemaDir, "default.json");
-  return await loadSchema(defaultSchemaPath);
+  const defaultPath = path.join(schemaDir, "default.json");
+  return await loadSchemaFile(defaultPath);
 }
 
-async function validateFrontmatter(
+/**
+ * Validate `frontmatter` against the appropriate schema for its `type`.
+ * Returns an array of `ValidationError` objects on failure, or `null` when
+ * validation passes or no schema is found.
+ * Results are memoised by `filePath` + mtime.
+ */
+async function runValidation(
   filePath: string,
   frontmatter: Record<string, unknown>,
-  options: Options,
-): Promise<any[] | null> {
-  const rootDir = process.cwd();
-  const schemaDir = path.resolve(rootDir, options.schemaDir || "schemas");
-  const type = (frontmatter.type as string) || null;
-
-  // Check cache based on file mtime
+  schemaDir: string,
+): Promise<ValidationError[] | null> {
+  // Check mtime-keyed cache.
+  let cacheKey: string | undefined;
   try {
     const stat = await fs.stat(filePath);
-    const cacheKey = `${filePath}:${stat.mtime.getTime()}`;
+    cacheKey = `${filePath}:${stat.mtime.getTime()}`;
     if (validationCache.has(cacheKey)) {
       return validationCache.get(cacheKey)!.errors;
     }
   } catch {
-    // File may not exist or be readable; continue without cache
+    // In-memory VFiles have no on-disk path; skip caching.
   }
 
-  const schema = await getSchemaForFile(type, schemaDir);
-  if (!schema) {
-    return null;
-  }
+  const type = typeof frontmatter.type === "string" ? frontmatter.type : null;
+  const schema = await resolveSchema(type, schemaDir);
+  if (!schema) return null;
 
-  const ajv = new Ajv({ allErrors: true });
+  const ajv = await getAjv(schemaDir);
   const validate = ajv.compile(schema);
   const valid = validate(frontmatter);
 
-  if (!valid && validate.errors) {
-    return validate.errors.map((err) => ({
-      path: err.instancePath || "(root)",
-      message: err.message,
-      keyword: err.keyword,
-    }));
+  const errors: ValidationError[] | null =
+    !valid && validate.errors
+      ? validate.errors.map((err) => ({
+          path: err.instancePath || "(root)",
+          message: err.message ?? "unknown error",
+          keyword: err.keyword,
+        }))
+      : null;
+
+  // Populate the cache now that we have a result.
+  if (cacheKey !== undefined) {
+    validationCache.set(cacheKey, { timestamp: Date.now(), errors });
   }
 
-  return null;
+  return errors;
 }
 
 const remarkFrontmatterSchema = lintRule(
@@ -146,12 +241,11 @@ const remarkFrontmatterSchema = lintRule(
     origin: "remark-lint:frontmatter-schema",
     url: "https://github.com/remarkjs/remark-lint",
   },
-  function (tree: any, file: any, options?: Options) {
-    if (options === undefined) return;
-
-    let parsedOptions: Options;
+  async function (tree: any, file: any, options?: Options) {
+    // Apply defaults when options is omitted so `unified().use(plugin)` works.
+    let parsedOptions: z.output<typeof optionsSchema>;
     try {
-      parsedOptions = optionsSchema.parse(options);
+      parsedOptions = optionsSchema.parse(options ?? {});
     } catch (err: unknown) {
       const reason = err instanceof Error ? err.message : String(err);
       file.message(`Invalid frontmatter-schema options: ${reason}`);
@@ -160,29 +254,41 @@ const remarkFrontmatterSchema = lintRule(
 
     if (!parsedOptions.enabled) return;
 
-    // Extract frontmatter from file data (populated by plugins)
-    const frontmatter = (file.data?.frontmatter || {}) as Record<
-      string,
-      unknown
-    >;
+    // Parse frontmatter directly from the file's raw content so the plugin is
+    // self-contained and does not depend on other pipeline members populating
+    // `file.data.frontmatter`.
+    const rawContent = String(file.value ?? "");
+    if (!rawContent.trimStart().startsWith("---")) return;
+
+    let frontmatter: Record<string, unknown>;
+    try {
+      const parsed = matter(rawContent);
+      frontmatter = parsed.data as Record<string, unknown>;
+    } catch {
+      file.message("[frontmatter-schema] Failed to parse frontmatter YAML");
+      return;
+    }
+
     if (Object.keys(frontmatter).length === 0) return;
 
-    // Validate frontmatter
-    const filePath = file.path || (file.history && file.history[0]);
-    if (!filePath) return;
+    const filePath = file.path ?? file.history?.[0] ?? "";
+    const schemaDir = path.resolve(process.cwd(), parsedOptions.schemaDir);
 
-    // Run async validation synchronously where possible (cache hits)
-    // Note: For initial implementation, we'll just report missing schema gracefully
-    validateFrontmatter(filePath, frontmatter, parsedOptions).then((errors) => {
-      if (errors && errors.length > 0) {
-        errors.forEach((error) => {
-          const message = `[frontmatter-schema] ${error.path}: ${error.message}`;
-          file.message(message, {
-            source: "remark-lint:frontmatter-schema",
-          });
-        });
-      }
-    });
+    let errors: ValidationError[] | null;
+    try {
+      errors = await runValidation(filePath, frontmatter, schemaDir);
+    } catch (err: unknown) {
+      const reason = err instanceof Error ? err.message : String(err);
+      file.message(`[frontmatter-schema] Validation error: ${reason}`);
+      return;
+    }
+
+    if (!errors || errors.length === 0) return;
+
+    for (const error of errors) {
+      const msg = `[frontmatter-schema] ${error.path}: ${error.message}`;
+      file.message(msg, { source: "remark-lint:frontmatter-schema" });
+    }
   },
 ) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
