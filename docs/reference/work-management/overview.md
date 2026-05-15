@@ -189,10 +189,25 @@ Enable backlog automation in `.doc-vader/backlog-consumer.json`:
   },
   "automation": {
     "autoEvidenceFromWorkflowRuns": true,
-    "subjectResolutionOrder": ["payload_subject_tokens", "linked_pull_requests"]
+    "subjectResolutionOrder": ["payload_subject_tokens", "linked_pull_requests"],
+    "prePushValidation": {
+      "schemas": {
+        "baseline": "schemas/frontmatter/work-item/1.0.0.json",
+        "changed": "schemas/frontmatter/work-item/latest.json",
+        "archive": "schemas/frontmatter/work-item/1.0.0.json"
+      },
+      "severity": {
+        "baseline": "error",
+        "changed": "error",
+        "archive": "warn",
+        "checklist": "error"
+      }
+    }
   }
 }
 ```
+
+Local pre-push validation reads the same `automation.prePushValidation` block and supports severity values `none|info|warn|error`.
 
 ### CLI Commands
 

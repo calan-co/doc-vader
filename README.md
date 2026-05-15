@@ -184,6 +184,46 @@ See the [reference documentation](docs/reference/) for full API details.
 
 Pass `--consumer-config <path>` to any `work-item`, `backlog`, or `record` command to provide a JSON configuration file that overrides default path resolution and schema routing.
 
+Local pre-push validation also reads `.doc-vader/backlog-consumer.json`.
+
+Example:
+
+```json
+{
+  "automation": {
+    "prePushValidation": {
+      "schemas": {
+        "baseline": "schemas/frontmatter/work-item/1.0.0.json",
+        "changed": "schemas/frontmatter/work-item/latest.json",
+        "archive": "schemas/frontmatter/work-item/1.0.0.json"
+      },
+      "severity": {
+        "baseline": "error",
+        "changed": "error",
+        "archive": "warn",
+        "checklist": "error"
+      }
+    }
+  }
+}
+```
+
+Severity values are `none|info|warn|error`.
+
+Pre-push schema settings support local paths, `/frontmatter/...` aliases, `file://` URIs, and `https://` URLs.
+
+Run manually:
+
+```bash
+pnpm run hooks:pre-push
+```
+
+Configuration precedence is:
+
+1. Environment variables
+2. `.doc-vader/backlog-consumer.json`
+3. Built-in defaults
+
 ### Profiles
 
 Validation profiles control which rules and severity levels are applied:
