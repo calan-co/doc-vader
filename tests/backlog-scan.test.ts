@@ -544,8 +544,9 @@ type: work-item
 status: in-progress
 lifecycle: active
 title: Dependency
-depends_on:
-  - "[[15.referenced-ready]]"
+links:
+  depends_on:
+    - "[[15.referenced-ready]]"
 ---
 # Work item
 `,
@@ -712,12 +713,11 @@ links:
   );
 
   it(
-    "validate-archive-candidates archives candidate even with nested wikilink references",
+    "validate-archive-candidates archives candidate even with nested frontmatter wikilink references",
     { timeout: 15000 },
     async () => {
       // Candidate is in the root backlog folder.
-      // The referencing file uses a bare wikilink that resolves to the same-folder
-      // file first (alphabetically / shortest path wins).
+      // The referencing file declares dependency via frontmatter `links.depends_on`.
       mkConsumerConfig({ validateArchiveCandidates: true });
       mkFile(
         "backlog/17.nested-ref-candidate.md",
@@ -739,9 +739,7 @@ links:
 `,
       );
 
-      // A file in a subdirectory contains a bare wikilink targeting the candidate's basename.
-      // Resolution should prefer the same-folder file (backlog/17.nested-ref-candidate.md)
-      // over any deeper copy, so this counts as an inbound reference.
+      // A file in a subdirectory references the candidate by basename in frontmatter links.
       fsSync.mkdirSync(path.join(testDir, "backlog", "sprint-10"), {
         recursive: true,
       });
@@ -753,9 +751,11 @@ type: work-item
 status: in-progress
 lifecycle: active
 title: Referencing from subdir
+links:
+  depends_on:
+    - "[[17.nested-ref-candidate]]"
 ---
-
-Depends on [[17.nested-ref-candidate]] work.
+# Work item
 `,
       );
 
