@@ -114,12 +114,14 @@ const BUILTIN_PROFILES: Record<string, Partial<BacklogAuditOptions>> = {
 };
 
 function toErrorLines(errors: ErrorObject[] | null | undefined): string[] {
-  return (errors ?? []).map((e) => `${e.instancePath || "(root)"} ${e.message}`);
+  return (errors ?? []).map(
+    (e) => `${e.instancePath || "(root)"} ${e.message}`,
+  );
 }
 
 async function findMarkdownFiles(
   dir: string,
-  includeArchive: boolean
+  includeArchive: boolean,
 ): Promise<string[]> {
   const entries = await fs.readdir(dir, { withFileTypes: true });
   const files: string[] = [];
@@ -208,7 +210,7 @@ function resolveLocalPath(rootDir: string, target: string): string {
   if (target.startsWith("/frontmatter/")) {
     const rel = path.join(
       "schemas",
-      target.replace(/^\//, "") + (target.endsWith(".json") ? "" : ".json")
+      target.replace(/^\//, "") + (target.endsWith(".json") ? "" : ".json"),
     );
     return path.resolve(rootDir, rel);
   }
@@ -220,7 +222,10 @@ const TEMPLJS_SCHEMA_PREFIX =
   "https://raw.githubusercontent.com/templjs/templ.js/main/";
 
 function toSchemaAlias(rootDir: string, schemaPath: string): string {
-  const relativePath = path.relative(rootDir, schemaPath).split(path.sep).join("/");
+  const relativePath = path
+    .relative(rootDir, schemaPath)
+    .split(path.sep)
+    .join("/");
   return `${TEMPLJS_SCHEMA_PREFIX}${relativePath}`;
 }
 
@@ -228,11 +233,12 @@ async function addSchemaWithAliases(
   ajv: Ajv2020,
   rootDir: string,
   schemaPath: string,
-  schema?: Record<string, unknown>
+  schema?: Record<string, unknown>,
 ): Promise<void> {
   const resolvedSchema = schema ?? (await loadJson(schemaPath));
   const alias = toSchemaAlias(rootDir, schemaPath);
-  const schemaId = typeof resolvedSchema.$id === "string" ? resolvedSchema.$id : undefined;
+  const schemaId =
+    typeof resolvedSchema.$id === "string" ? resolvedSchema.$id : undefined;
 
   if (!ajv.getSchema(alias)) {
     const aliasSchema =
@@ -246,7 +252,7 @@ async function addSchemaWithAliases(
 async function preloadSchemaTree(
   ajv: Ajv2020,
   rootDir: string,
-  relativeDir: string
+  relativeDir: string,
 ): Promise<void> {
   const schemaRoot = resolveLocalPath(rootDir, relativeDir);
   async function walk(dir: string): Promise<void> {
@@ -272,7 +278,7 @@ async function preloadSchemaTree(
 
 async function resolveSchemaMap(
   rootDir: string,
-  schemaMapPath?: string
+  schemaMapPath?: string,
 ): Promise<SchemaMapConfig> {
   const defaults: SchemaMapConfig = {
     byType: {
@@ -294,7 +300,7 @@ async function resolveSchemaMap(
 
 function determineSchemaTarget(
   item: BacklogItem,
-  schemaMap: SchemaMapConfig
+  schemaMap: SchemaMapConfig,
 ): string | null {
   if (item.subtype && schemaMap.bySubtype?.[item.subtype]) {
     return schemaMap.bySubtype[item.subtype];
@@ -312,7 +318,7 @@ function determineSchemaTarget(
 
 function mergeOptions(
   cliOptions: BacklogAuditOptions,
-  profileOptions?: Partial<BacklogAuditOptions>
+  profileOptions?: Partial<BacklogAuditOptions>,
 ): ResolvedOptions {
   const merged: BacklogAuditOptions = { ...(profileOptions || {}) };
   for (const [key, value] of Object.entries(cliOptions)) {
@@ -334,7 +340,7 @@ function mergeOptions(
 
 async function resolveProfile(
   profile: string | undefined,
-  rootDir: string
+  rootDir: string,
 ): Promise<Partial<BacklogAuditOptions> | undefined> {
   if (!profile) return undefined;
   if (BUILTIN_PROFILES[profile]) return BUILTIN_PROFILES[profile];
@@ -379,7 +385,7 @@ export function formatAuditReportText(report: BacklogAuditReport): string {
   lines.push("Backlog Audit Report");
   lines.push("===================");
   lines.push(
-    `files=${report.totals.files} duplicate_ids=${report.totals.duplicate_ids} unresolved_wikilinks=${report.totals.unresolved_wikilinks} parse_errors=${report.totals.parse_errors} schema_violations=${report.totals.schema_violations} no_inbound_active=${report.totals.no_inbound_active}`
+    `files=${report.totals.files} duplicate_ids=${report.totals.duplicate_ids} unresolved_wikilinks=${report.totals.unresolved_wikilinks} parse_errors=${report.totals.parse_errors} schema_violations=${report.totals.schema_violations} no_inbound_active=${report.totals.no_inbound_active}`,
   );
   if (report.duplicate_ids.length) {
     lines.push("");
@@ -410,7 +416,9 @@ export function formatAuditReportText(report: BacklogAuditReport): string {
     lines.push("No-Inbound Active Candidates:");
     for (const finding of report.no_inbound_active) {
       lines.push(
-        `- ${finding.file} | status=${finding.status ?? ""} | id=${finding.id ?? ""}`
+        `- ${finding.file} | status=${finding.status ?? ""} | id=${
+          finding.id ?? ""
+        }`,
       );
     }
   }
@@ -420,14 +428,17 @@ export function formatAuditReportText(report: BacklogAuditReport): string {
 }
 
 export async function auditBacklog(
-  cliOptions: BacklogAuditOptions = {}
+  cliOptions: BacklogAuditOptions = {},
 ): Promise<BacklogAuditReport> {
   const rootDir = path.resolve(cliOptions.rootDir || process.cwd());
   const profileOptions = await resolveProfile(cliOptions.profile, rootDir);
   const options = mergeOptions({ ...cliOptions, rootDir }, profileOptions);
   const schemaMap = await resolveSchemaMap(options.rootDir, options.schemaMap);
 
-  const files = await findMarkdownFiles(options.backlogDir, options.includeArchive);
+  const files = await findMarkdownFiles(
+    options.backlogDir,
+    options.includeArchive,
+  );
   // Keep scan scope configurable, but always include archive files in wikilink
   // resolution so links to archived work items remain resolvable.
   const resolutionFiles = await findMarkdownFiles(options.backlogDir, true);
@@ -542,7 +553,10 @@ export async function auditBacklog(
   const noInboundActive = items
     .filter((item) => {
       const status = (item.status || "").toLowerCase();
-      return ACTIVE_STATUSES.has(status) && (inbound.get(item.file)?.length || 0) === 0;
+      return (
+        ACTIVE_STATUSES.has(status) &&
+        (inbound.get(item.file)?.length || 0) === 0
+      );
     })
     .map((item) => ({
       file: item.file,
@@ -563,7 +577,7 @@ export async function auditBacklog(
 
   const docSchemaPath = resolveLocalPath(
     options.rootDir,
-    "schemas/frontmatter/document/current.json"
+    "schemas/frontmatter/document/current.json",
   );
   try {
     const docSchema = await loadJson(docSchemaPath);
@@ -575,19 +589,32 @@ export async function auditBacklog(
   // Pre-load support schemas for work-item validation
   const baseSchemaPath = resolveLocalPath(
     options.rootDir,
-    "schemas/frontmatter/support/base/current.json"
+    "schemas/frontmatter/support/base/current.json",
   );
   try {
     const baseSchema = await loadJson(baseSchemaPath);
-    await addSchemaWithAliases(ajv, options.rootDir, baseSchemaPath, baseSchema);
+    await addSchemaWithAliases(
+      ajv,
+      options.rootDir,
+      baseSchemaPath,
+      baseSchema,
+    );
   } catch {
     // Best effort.
   }
 
   // Pre-load local contract and overlay schemas so Ajv never needs the remote
   // templjs registry for base-schema $ref resolution.
-  await preloadSchemaTree(ajv, options.rootDir, "schemas/frontmatter/support/contracts");
-  await preloadSchemaTree(ajv, options.rootDir, "schemas/frontmatter/support/overlays");
+  await preloadSchemaTree(
+    ajv,
+    options.rootDir,
+    "schemas/frontmatter/support/contracts",
+  );
+  await preloadSchemaTree(
+    ajv,
+    options.rootDir,
+    "schemas/frontmatter/support/overlays",
+  );
 
   async function getValidator(schemaTarget: string) {
     const schemaPath = resolveLocalPath(options.rootDir, schemaTarget);
@@ -677,15 +704,15 @@ export async function auditBacklog(
     },
     duplicate_ids: duplicateIds,
     unresolved_wikilinks: unresolved.sort((a, b) =>
-      `${a.file}:${a.ref}`.localeCompare(`${b.file}:${b.ref}`)
+      `${a.file}:${a.ref}`.localeCompare(`${b.file}:${b.ref}`),
     ),
     parse_errors: parseErrors.sort((a, b) => a.file.localeCompare(b.file)),
     no_inbound_active: noInboundActive,
     schema_violations: schemaViolations.sort((a, b) =>
-      a.file.localeCompare(b.file)
+      a.file.localeCompare(b.file),
     ),
     schema_load_errors: schemaLoadErrors.sort((a, b) =>
-      a.file.localeCompare(b.file)
+      a.file.localeCompare(b.file),
     ),
     exit_code: exitCode,
   };

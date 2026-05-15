@@ -126,6 +126,62 @@ function isEvidenceEligibleWorkItemId(id: string): boolean {
   return id.startsWith("work-item:") || id.startsWith("wi-");
 }
 
+function extractWikiTargets(content: string): string[] {
+  const links = [...content.matchAll(/\[\[([^\]]+)\]\]/g)];
+  return links
+    .map((match) => (typeof match[1] === "string" ? match[1] : ""))
+    .map((target) => target.split("|")[0].split("#")[0].trim())
+    .filter((target) => target.length > 0)
+    .map((target) => target.replace(/\.md$/i, ""));
+}
+
+/**
+ * Resolve a wikilink target to the best matching file in the known file pool.
+ *
+ * Matching is basename-only (strip extension, strip path prefix from target).
+ * When multiple files share the same basename, they are sorted by:
+ *   1. Depth distance from source file (primary) — nearest-by-depth wins
+ *   2. Alphabetical path order (secondary tiebreaker)
+ *
+ * Only files present in `allRelFiles` are candidates (archive files are included
+ * in the pool so links to them resolve correctly rather than falling through to
+ * an active file of the same name).
+ */
+function resolveWikiLink(
+  target: string,
+  sourceRelPath: string,
+  allRelFiles: string[],
+): string | null {
+  const targetBasename = path.posix.basename(target.replace(/\.md$/i, ""));
+
+  const matches = allRelFiles.filter(
+    (f) => path.posix.basename(f.replace(/\.md$/i, "")) === targetBasename,
+  );
+
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0];
+
+  const sourceDir = path.posix.dirname(sourceRelPath);
+  const sourceDepth = sourceDir === "." ? 0 : sourceDir.split("/").length;
+
+  return (
+    [...matches].sort((a, b) => {
+      // Primary: absolute depth distance from source (nearest wins)
+      const aDir = path.posix.dirname(a);
+      const bDir = path.posix.dirname(b);
+      const distA = Math.abs(
+        (aDir === "." ? 0 : aDir.split("/").length) - sourceDepth,
+      );
+      const distB = Math.abs(
+        (bDir === "." ? 0 : bDir.split("/").length) - sourceDepth,
+      );
+      if (distA !== distB) return distA - distB;
+      // Secondary: alphabetical tiebreaker
+      return a.localeCompare(b);
+    })[0] ?? null
+  );
+}
+
 function formatEvidenceTimestamp(date: Date): string {
   return date
     .toISOString()
@@ -511,13 +567,20 @@ export async function scanBacklog(
         if (shouldEvaluate) {
           // Candidate sweep should backfill missing evidence links before archive checks,
           // even when subject resolution didn't map this item from event payloads.
-          if (generateEvidence && result.id && !hasEvidenceLinks(context.frontmatter)) {
-            const forcedEvidenceGeneration = await generateEvidenceForItem(result, {
-              rootDir,
-              consumerConfig,
-              dryRun,
-              force: true,
-            });
+          if (
+            generateEvidence &&
+            result.id &&
+            !hasEvidenceLinks(context.frontmatter)
+          ) {
+            const forcedEvidenceGeneration = await generateEvidenceForItem(
+              result,
+              {
+                rootDir,
+                consumerConfig,
+                dryRun,
+                force: true,
+              },
+            );
             result.evidenceGeneration = forcedEvidenceGeneration;
             for (const message of forcedEvidenceGeneration.errors) {
               result.errors.push({
@@ -532,10 +595,8 @@ export async function scanBacklog(
                   path.resolve(rootDir, rel),
                   "utf8",
                 );
-                context.frontmatter = matter(contentForCandidateValidation).data as Record<
-                  string,
-                  unknown
-                >;
+                context.frontmatter = matter(contentForCandidateValidation)
+                  .data as Record<string, unknown>;
               } catch (err) {
                 result.errors.push({
                   code: "candidate_validation_failed",
@@ -571,8 +632,7 @@ export async function scanBacklog(
               };
               candidatesArchived += 1;
             } catch (err) {
-              const message =
-                err instanceof Error ? err.message : String(err);
+              const message = err instanceof Error ? err.message : String(err);
               result.errors.push({
                 code: "candidate_validation_failed",
                 message: `[candidate-validation] ${message}`,
