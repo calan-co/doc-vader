@@ -18,7 +18,7 @@ on:
       dry_run:
         description: 'Preview eligible updates without writing changes'
         required: false
-        default: false
+        default: true
         type: boolean
   pull_request:
     types: [opened, edited, reopened, synchronize, closed]
@@ -39,14 +39,16 @@ jobs:
     name: Ingest Pull Request Event
     if: >
       github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.BACKLOG_AUTOMATION_ENABLED == 'true'
-    uses: ./.github/workflows/backlog-ingest-pull-request.yml
+    uses: calan-co/doc-vader/.github/workflows/backlog-ingest-pull-request.yml@v1
     with:
       consumer-config: .doc-vader/backlog-consumer.json
       doc-vader-version: next
     secrets:
-      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN }}
+      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
 
   ingest-workflow-run:
     name: Ingest Workflow Run Event
@@ -55,12 +57,12 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.conclusion == 'success' &&
       vars.BACKLOG_AUTOMATION_ENABLED == 'true'
-    uses: ./.github/workflows/backlog-ingest-workflow-run.yml
+    uses: calan-co/doc-vader/.github/workflows/backlog-ingest-workflow-run.yml@v1
     with:
       consumer-config: .doc-vader/backlog-consumer.json
       doc-vader-version: next
     secrets:
-      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN }}
+      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
 
   sweep:
     name: Sweep Eligible Work Items
@@ -86,7 +88,7 @@ jobs:
           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
         )
       )
-    uses: ./.github/workflows/backlog-sweep.yml
+    uses: calan-co/doc-vader/.github/workflows/backlog-sweep.yml@v1
     with:
       dry-run: ${{ inputs.dry_run || false }}
       consumer-config: .doc-vader/backlog-consumer.json
@@ -98,7 +100,7 @@ jobs:
       pull-requests: write
       packages: read
     secrets:
-      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN }}
+      packages-read-token: ${{ secrets.PACKAGES_READ_TOKEN || secrets.GITHUB_TOKEN }}
       app-private-key: ${{ secrets.DOC_VADER_PRIVATE_KEY }}
 
   warn-stuck-ready-for-review:
