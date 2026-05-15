@@ -64,3 +64,12 @@ See below for the prioritized list:
 - Document all decisions, changes, and completion status in this file or a linked dashboard.
 - Assign subagents based on task type and expertise.
 - Ensure all deliverables and acceptance criteria are met before marking a task complete.
+
+## Linked Work Items
+
+- [[221-add_test_fixtures]]
+- [[223-migrate_schema_directives]]
+- [[224-execution_item_status_validity_lint]]
+- [[226.story-add-subject-aware-pr-closure-api]]
+- [[227.story-create-doc-vader-github-app]]
+- [[record-20260514-215633-wi-228]]
