@@ -179,6 +179,70 @@ Comprehensive scans (all strategies):
 }
 ```
 
+### `prePushValidation`
+
+**Type**: `object`  
+**Description**: Configure changed-file validation used by local pre-push hooks.
+
+`prePushValidation` supports schema routing and severity controls for baseline, changed, and archive work items.
+
+```json
+{
+  "automation": {
+    "prePushValidation": {
+      "schemas": {
+        "baseline": "schemas/frontmatter/work-item/1.0.0.json",
+        "changed": "schemas/frontmatter/work-item/latest.json",
+        "archive": "schemas/frontmatter/work-item/1.0.0.json"
+      },
+      "severity": {
+        "baseline": "error",
+        "changed": "error",
+        "archive": "warn",
+        "checklist": "error"
+      }
+    }
+  }
+}
+```
+
+#### `prePushValidation.schemas`
+
+- `baseline`: schema used as compatibility baseline (defaults to `work-item/1.0.0.json`)
+- `changed`: stricter schema for newly changed active items (defaults to `work-item/latest.json`)
+- `archive`: schema for changed archive items (defaults to baseline)
+
+Schema values may be:
+
+- relative or absolute file paths
+- `/frontmatter/...` aliases
+- `file://...` URIs
+- `https://...` URLs
+
+#### `prePushValidation.severity`
+
+Supported values for each key are `none`, `info`, `warn`, `error`.
+
+- `baseline`: severity for baseline schema violations
+- `changed`: severity for changed-schema violations
+- `archive`: severity for archive-schema violations
+- `checklist`: severity for Tasks/Acceptance Criteria checklist violations
+
+Recommended rollout profile:
+
+- baseline=`error`
+- changed=`error`
+- archive=`warn`
+- checklist=`error`
+
+#### Precedence
+
+Pre-push validation resolves configuration in this order:
+
+1. Environment variables (for temporary override)
+2. `automation.prePushValidation` in `.doc-vader/backlog-consumer.json`
+3. Built-in defaults
+
 ## Resolver Strategy Reference
 
 | Strategy | Speed | Coverage | Requirements | Best For |

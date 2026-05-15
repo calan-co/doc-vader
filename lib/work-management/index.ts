@@ -1142,6 +1142,11 @@ export async function migrateBacklog(
   return { dryRun: Boolean(options.dryRun), migrated, basenameMap };
 }
 
+const WORK_ITEM_TOKEN_PATTERNS: RegExp[] = [
+  /\bwork-item:[a-z0-9]+(?:-[a-z0-9]+)*\b/g,
+  /\bwi-\d+\b/g,
+];
+
 function extractGithubSubjects(payload: Record<string, unknown>): string[] {
   const subjects = new Set<string>();
   const maybeStrings = [
@@ -1159,9 +1164,14 @@ function extractGithubSubjects(payload: Record<string, unknown>): string[] {
     if (typeof value !== "string") {
       continue;
     }
-    const matches = value.match(/work-item:[a-z0-9]+(?:-[a-z0-9]+)*/g) ?? [];
-    for (const match of matches) {
-      subjects.add(match);
+
+    // Deterministic extraction order: evaluate patterns in fixed order and
+    // preserve first-seen token order while de-duplicating.
+    for (const pattern of WORK_ITEM_TOKEN_PATTERNS) {
+      const matches = value.match(pattern) ?? [];
+      for (const match of matches) {
+        subjects.add(match);
+      }
     }
   }
 

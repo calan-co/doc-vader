@@ -9,6 +9,19 @@
   "automation": {
     "autoCloseOnMerge": true,
     "autoEvidenceFromWorkflowRuns": true,
-    "preserveCommitMap": true
+    "preserveCommitMap": true,
+    "prePushValidation": {
+      "schemas": {
+        "baseline": "schemas/frontmatter/work-item/1.0.0.json",
+        "changed": "schemas/frontmatter/work-item/latest.json",
+        "archive": "schemas/frontmatter/work-item/1.0.0.json"
+      },
+      "severity": {
+        "baseline": "error",
+        "changed": "error",
+        "archive": "warn",
+        "checklist": "error"
+      }
+    }
   }
 }
