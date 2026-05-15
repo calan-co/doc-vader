@@ -192,7 +192,15 @@ function resolveSchemaSpec(spec: string): string {
 
 async function loadSchemaObject(spec: string): Promise<Record<string, unknown>> {
   if (/^https?:\/\//i.test(spec)) {
-    const response = await fetch(spec);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    let response: Response;
+    try {
+      response = await fetch(spec, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+
     if (!response.ok) {
       throw new Error(`failed to load schema URL ${spec}: ${response.status} ${response.statusText}`);
     }
