@@ -428,12 +428,15 @@ export async function auditBacklog(
   const schemaMap = await resolveSchemaMap(options.rootDir, options.schemaMap);
 
   const files = await findMarkdownFiles(options.backlogDir, options.includeArchive);
+  // Keep scan scope configurable, but always include archive files in wikilink
+  // resolution so links to archived work items remain resolvable.
+  const resolutionFiles = await findMarkdownFiles(options.backlogDir, true);
   const items: BacklogItem[] = [];
   const idToFiles = new Map<string, string[]>();
   const basenameToFile = new Map<string, string>();
   const parseErrors: ParseErrorFinding[] = [];
 
-  for (const absFile of files) {
+  for (const absFile of resolutionFiles) {
     const rel = path.relative(options.rootDir, absFile).replaceAll("\\", "/");
     basenameToFile.set(path.basename(absFile, ".md"), rel);
   }
