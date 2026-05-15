@@ -9,6 +9,8 @@ name: Backlog Automation
 #   3. For optional app-auth mode, configure DOC_VADER_APP_ID (repository variable)
 #      and DOC_VADER_PRIVATE_KEY (repository secret).
 #   4. For package access outside calan-co org, configure PACKAGES_READ_TOKEN (repository secret).
+#      The GITHUB_TOKEN fallback is best-effort for same-org consumers only and is not
+#      a reliable substitute for cross-org package reads.
 
 on:
   schedule:
@@ -21,7 +23,7 @@ on:
         default: true
         type: boolean
   pull_request:
-    types: [opened, edited, reopened, synchronize, closed]
+    types: [closed]
     branches:
       - main
       - staging
