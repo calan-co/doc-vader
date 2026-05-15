@@ -1,4 +1,5 @@
 // .remarkrc.mts - ESM config for unified remark pipeline
+import remarkFrontmatterSchema from "./lib/plugins/remark-frontmatter-schema.js";
 import remarkLintChecklist from "./lib/plugins/remark-lint-checklist.js";
 import remarkLintCrossref from "./lib/plugins/remark-lint-crossref.js";
 import remarkLintTemplateCompliance from "./lib/plugins/remark-lint-template-compliance.js";
@@ -10,6 +11,15 @@ import remarkLintWorkItemClosureEvidence from "./lib/plugins/remark-lint-work-it
 
 export default {
   plugins: [
+    // Layer 1: Frontmatter validation
+    [
+      remarkFrontmatterSchema,
+      {
+        enabled: true,
+        strict: false,
+        schemaDir: "schemas/frontmatter",
+      },
+    ],
     // Layer 2: Template and content compliance
     [
       remarkLintChecklist,
