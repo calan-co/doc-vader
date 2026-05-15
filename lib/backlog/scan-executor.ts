@@ -140,8 +140,8 @@ function extractWikiTargets(content: string): string[] {
  *
  * Matching is basename-only (strip extension, strip path prefix from target).
  * When multiple files share the same basename, they are sorted by:
-  *   1. Depth distance from source file (primary) — nearest-by-depth wins
-  *   2. Alphabetical path order (secondary tiebreaker)
+ *   1. Depth distance from source file (primary) — nearest-by-depth wins
+ *   2. Alphabetical path order (secondary tiebreaker)
  *
  * Only files present in `allRelFiles` are candidates (archive files are included
  * in the pool so links to them resolve correctly rather than falling through to
@@ -180,43 +180,6 @@ function resolveWikiLink(
       return a.localeCompare(b);
     })[0] ?? null
   );
-}
-
-async function findActiveInboundReferences(
-  rootDir: string,
-  files: string[],
-  candidateRelPath: string,
-): Promise<string[]> {
-  const inbound: string[] = [];
-
-  for (const relFile of files) {
-    if (relFile === candidateRelPath) {
-      continue;
-    }
-
-    if (relFile.includes("backlog/archive/")) {
-      continue;
-    }
-
-    let content: string;
-    try {
-      content = await fs.readFile(path.resolve(rootDir, relFile), "utf8");
-    } catch {
-      continue;
-    }
-
-    const wikiTargets = extractWikiTargets(content);
-    if (
-      wikiTargets.some(
-        (target) =>
-          resolveWikiLink(target, relFile, files) === candidateRelPath,
-      )
-    ) {
-      inbound.push(relFile);
-    }
-  }
-
-  return inbound;
 }
 
 function formatEvidenceTimestamp(date: Date): string {
@@ -604,13 +567,20 @@ export async function scanBacklog(
         if (shouldEvaluate) {
           // Candidate sweep should backfill missing evidence links before archive checks,
           // even when subject resolution didn't map this item from event payloads.
-          if (generateEvidence && result.id && !hasEvidenceLinks(context.frontmatter)) {
-            const forcedEvidenceGeneration = await generateEvidenceForItem(result, {
-              rootDir,
-              consumerConfig,
-              dryRun,
-              force: true,
-            });
+          if (
+            generateEvidence &&
+            result.id &&
+            !hasEvidenceLinks(context.frontmatter)
+          ) {
+            const forcedEvidenceGeneration = await generateEvidenceForItem(
+              result,
+              {
+                rootDir,
+                consumerConfig,
+                dryRun,
+                force: true,
+              },
+            );
             result.evidenceGeneration = forcedEvidenceGeneration;
             for (const message of forcedEvidenceGeneration.errors) {
               result.errors.push({
@@ -625,10 +595,8 @@ export async function scanBacklog(
                   path.resolve(rootDir, rel),
                   "utf8",
                 );
-                context.frontmatter = matter(contentForCandidateValidation).data as Record<
-                  string,
-                  unknown
-                >;
+                context.frontmatter = matter(contentForCandidateValidation)
+                  .data as Record<string, unknown>;
               } catch (err) {
                 result.errors.push({
                   code: "candidate_validation_failed",
@@ -650,19 +618,24 @@ export async function scanBacklog(
           ];
 
           if (issues.length === 0 && result.id) {
-            const inboundReferences = await findActiveInboundReferences(
-              rootDir,
-              relFiles,
-              rel,
-            );
-
-            if (inboundReferences.length > 0) {
-              const message = `[candidate-validation] Cannot archive while referenced by active backlog items: ${inboundReferences.join(
-                ", ",
-              )}`;
+            try {
+              await finalizeWorkItem({
+                rootDir,
+                consumerConfig,
+                id: result.id,
+                dryRun,
+              });
+              result.candidateValidation = {
+                eligible: true,
+                archived: !dryRun,
+                discrepancies: [],
+              };
+              candidatesArchived += 1;
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
               result.errors.push({
                 code: "candidate_validation_failed",
-                message,
+                message: `[candidate-validation] ${message}`,
               });
               result.candidateValidation = {
                 eligible: false,
@@ -671,35 +644,6 @@ export async function scanBacklog(
               };
               candidateDiscrepancies +=
                 result.candidateValidation.discrepancies.length;
-            } else {
-              try {
-                await finalizeWorkItem({
-                  rootDir,
-                  consumerConfig,
-                  id: result.id,
-                  dryRun,
-                });
-                result.candidateValidation = {
-                  eligible: true,
-                  archived: !dryRun,
-                  discrepancies: [],
-                };
-                candidatesArchived += 1;
-              } catch (err) {
-                const message =
-                  err instanceof Error ? err.message : String(err);
-                result.errors.push({
-                  code: "candidate_validation_failed",
-                  message: `[candidate-validation] ${message}`,
-                });
-                result.candidateValidation = {
-                  eligible: false,
-                  archived: false,
-                  discrepancies: [message],
-                };
-                candidateDiscrepancies +=
-                  result.candidateValidation.discrepancies.length;
-              }
             }
           } else {
             const discrepancies = issues.map((issue) => issue.message);
