@@ -15,6 +15,10 @@ on:
         description: 'Version of @calan-co/doc-vader to install (e.g. "latest", "next", "0.1.0")'
         type: string
         default: 'latest'
+      app-id:
+        description: 'GitHub App ID for the doc-vader app'
+        type: string
+        default: ''
       commit-user-name:
         description: 'Git user name for automated backlog commits'
         type: string
@@ -30,6 +34,11 @@ on:
           Defaults to the calling workflow's GITHUB_TOKEN when not supplied
           (suitable for same-organisation repositories).
         required: false
+      app-private-key:
+        description: >
+          GitHub App private key (PEM) for the doc-vader app.
+          Required when app-id is provided.
+        required: false
 
 jobs:
   ingest:
@@ -39,11 +48,20 @@ jobs:
       contents: write
       packages: read
     steps:
+      - name: Generate doc-vader app token
+        id: app-token
+        if: ${{ inputs.app-id != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ inputs.app-id }}
+          private-key: ${{ secrets.app-private-key }}
+
       - name: Checkout repository branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
