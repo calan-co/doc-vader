@@ -86,8 +86,6 @@ export type ScanErrorCode =
   | "parse_failed"
   | "missing_id"
   | "missing_status"
-  | "missing-required-field"
-  | "invalid-required-field-value"
   | "resolve_subject_failed"
   | "fetch_pr_metadata_failed"
   | "invalid_lifecycle"

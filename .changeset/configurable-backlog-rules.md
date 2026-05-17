@@ -1,5 +1,5 @@
 ---
-"doc-vader": minor
+"@calan-co/doc-vader": minor
 ---
 
 Make backlog scan subject matching and candidate validation rules configurable through `.doc-vader/backlog-consumer.json`.
