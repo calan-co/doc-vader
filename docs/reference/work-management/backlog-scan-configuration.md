@@ -98,6 +98,82 @@ Override the default resolver chain order. When set, this value is used unless a
 }
 ```
 
+### `automation.workItemMatchPatterns`
+
+Define which ID prefixes are treated as work-item tokens during subject resolution.
+
+**Type**: `string[]`  
+**Default**: `["work-item:"]`
+
+Each pattern is treated as a prefix, and scan token matching extracts values shaped like:
+
+- `<pattern><slug>` where `<slug>` matches `a-z0-9` plus hyphen groups
+
+**Examples**:
+
+```json
+{
+  "automation": {
+    "workItemMatchPatterns": ["work-item:", "wi-"]
+  }
+}
+```
+
+### `automation.pullRequestPath`
+
+Configure where pull request links are read from frontmatter.
+
+**Type**: `string` (dotted path)  
+**Default**: `"links.pull_requests"`
+
+The parser supports both:
+
+- object-array shape: `links.pull_requests: ["https://..."]`
+- list-of-maps shape: `links: [{ pull_request: "https://..." }]`
+
+**Example**:
+
+```json
+{
+  "automation": {
+    "pullRequestPath": "links.prs"
+  }
+}
+```
+
+### `automation.requiredCandidateFields`
+
+Configure required fields for archive candidate validation.
+
+**Type**: `Array<string | { field: string, values?: string[] }>`  
+**Default**:
+
+```json
+[
+  "actual",
+  { "field": "status", "values": ["ready-for-review", "closed"] }
+]
+```
+
+Notes:
+
+- Pull request links are always required and validated independently via `automation.pullRequestPath`.
+- `actual` is validated as numeric when present in `requiredCandidateFields`.
+- Any rule with `values` enforces value membership.
+
+**Example** (stricter status gate):
+
+```json
+{
+  "automation": {
+    "requiredCandidateFields": [
+      "actual",
+      { "field": "status", "values": ["closed"] }
+    ]
+  }
+}
+```
+
 ---
 
 ## CLI Flags
@@ -109,13 +185,10 @@ CLI flags override the consumer config for a single run.
 Override `automation.subjectResolutionOrder` for this run.
 
 ```bash
-# Single resolver (fastest)
 doc-vader backlog scan --resolver-order payload_subject_tokens
 
-# Full chain (most thorough)
 doc-vader backlog scan --resolver-order payload_subject_tokens,linked_pull_requests
 
-# Override config to enable comprehensive scan
 doc-vader backlog scan \
   --consumer-config .doc-vader/backlog-consumer.json \
   --resolver-order payload_subject_tokens,linked_pull_requests
@@ -126,7 +199,6 @@ doc-vader backlog scan \
 Exit with code 1 if any work items have scan errors or unmet conditions.
 
 ```bash
-# Fail fast in CI
 doc-vader backlog scan --strict --generate-evidence
 ```
 
@@ -145,7 +217,6 @@ When resolving which resolver order to use, the following precedence applies (hi
 **Example**: Config sets `["payload_subject_tokens"]` but CLI specifies `["linked_pull_requests"]`:
 
 ```bash
-# Effective order: ["linked_pull_requests"] — CLI wins
 doc-vader backlog scan \
   --consumer-config .doc-vader/backlog-consumer.json \
   --resolver-order linked_pull_requests

@@ -71,6 +71,7 @@ function parseWorkItem(
   resolverOrder: ReturnType<typeof normalizeResolverOrder>,
   provider: BacklogAutomationProvider,
   generatedAt: string,
+  pullRequestPath?: string,
 ): WorkItemScanResult {
   let data: Record<string, unknown>;
   try {
@@ -95,7 +96,7 @@ function parseWorkItem(
     };
   }
 
-  const { conditions, errors } = evaluateConditions(data);
+  const { conditions, errors } = evaluateConditions(data, { pullRequestPath });
 
   // For Phase B, we'll compute subject resolution asynchronously later
   // Return a partial result and resolve subjects in the executor loop
@@ -473,6 +474,7 @@ export async function scanBacklog(
         resolverOrder,
         provider,
         generatedAt,
+        loadedConfig.automation.pullRequestPath,
       );
 
       // Phase B: Resolve subjects using the resolver chain (now async)
@@ -485,6 +487,9 @@ export async function scanBacklog(
           data,
           id: result.id,
           provider,
+          workItemMatchPatterns:
+            loadedConfig.automation.workItemMatchPatterns,
+          pullRequestPath: loadedConfig.automation.pullRequestPath,
         };
 
         result.subjectResolution = await resolverChain.resolveSubjects(
@@ -613,7 +618,10 @@ export async function scanBacklog(
             ...validateArchiveReadiness(context, [
               "ready-for-review",
               "closed",
-            ]),
+            ], {
+              pullRequestPath: loadedConfig.automation.pullRequestPath,
+              requiredFields: loadedConfig.automation.requiredCandidateFields,
+            }),
             ...validateClosedWorkItemEvidence(context),
           ];
 

@@ -11,6 +11,12 @@ import type {
   SubjectResolutionResult,
 } from "./scan-types.js";
 import type { BacklogAutomationProvider, PRIdentity } from "./provider.js";
+import {
+  extractStringValuesAtPath,
+  extractSubjectTokens,
+  matchesWorkItemId,
+  normalizePullRequestPath,
+} from "./configurable-rules.js";
 
 /**
  * SubjectResolver interface - each strategy resolves subjects using different approaches.
@@ -40,6 +46,10 @@ export interface SubjectResolverContext {
   id: string | null;
   /** Provider for vendor-specific operations */
   provider: BacklogAutomationProvider;
+  /** Configured work-item matching patterns (defaults to work-item:) */
+  workItemMatchPatterns?: string[];
+  /** Configured frontmatter path for pull request links */
+  pullRequestPath?: string;
 }
 
 /**
@@ -56,7 +66,10 @@ export class PayloadSubjectTokensResolver implements SubjectResolver {
   }
 
   async resolve(context: SubjectResolverContext): Promise<SubjectResolutionAttempt & { subjects: string[] }> {
-    const subjects = this.extractUniqueSubjectTokens(context.content);
+    const subjects = this.extractUniqueSubjectTokens(
+      context.content,
+      context.workItemMatchPatterns,
+    );
     return {
       strategy: this.name(),
       subjectsFound: subjects.length,
@@ -64,11 +77,8 @@ export class PayloadSubjectTokensResolver implements SubjectResolver {
     };
   }
 
-  private extractUniqueSubjectTokens(input: string): string[] {
-    const matches =
-      input.match(/\b(?:work-item:[a-z0-9]+(?:-[a-z0-9]+)*|wi-[a-z0-9]+(?:-[a-z0-9]+)*)\b/gi) ??
-      [];
-    return [...new Set(matches.map((match) => match.toLowerCase()))];
+  private extractUniqueSubjectTokens(input: string, patterns?: string[]): string[] {
+    return extractSubjectTokens(input, patterns);
   }
 }
 
@@ -92,7 +102,7 @@ export class LinkedPullRequestsResolver implements SubjectResolver {
     const { id, data, provider } = context;
 
     // Only resolve if we have a valid work-item ID
-    if (!id || !id.startsWith("work-item:")) {
+    if (!id || !matchesWorkItemId(id, context.workItemMatchPatterns)) {
       return {
         strategy: this.name(),
         subjectsFound: 0,
@@ -101,7 +111,10 @@ export class LinkedPullRequestsResolver implements SubjectResolver {
     }
 
     // Extract PR links from frontmatter
-    const prLinks = this.extractPrLinksFromFrontmatter(data["links"]);
+    const prLinks = this.extractPrLinksFromFrontmatter(
+      data,
+      context.pullRequestPath,
+    );
     if (prLinks.length === 0) {
       return {
         strategy: this.name(),
@@ -165,27 +178,12 @@ export class LinkedPullRequestsResolver implements SubjectResolver {
     };
   }
 
-  private extractPrLinksFromFrontmatter(raw: unknown): string[] {
-    // Handle list-of-maps format: links: [{ pull_request: "url" }, ...]
-    if (Array.isArray(raw)) {
-      return raw.flatMap((entry) => {
-        if (typeof entry !== "object" || entry === null) {
-          return [];
-        }
-        const pr = (entry as Record<string, unknown>)["pull_request"];
-        return typeof pr === "string" && pr.trim().length > 0 ? [pr.trim()] : [];
-      });
-    }
-    // Handle object format: links: { pull_requests: ["url", ...] }
-    if (typeof raw === "object" && raw !== null) {
-      const links = raw as Record<string, unknown>;
-      if (Array.isArray(links["pull_requests"])) {
-        return (links["pull_requests"] as unknown[]).flatMap((v) =>
-          typeof v === "string" && v.trim().length > 0 ? [v.trim()] : [],
-        );
-      }
-    }
-    return [];
+  private extractPrLinksFromFrontmatter(
+    frontmatter: Record<string, unknown>,
+    configuredPath?: string,
+  ): string[] {
+    const pullRequestPath = normalizePullRequestPath(configuredPath);
+    return extractStringValuesAtPath(frontmatter, pullRequestPath);
   }
 }
 

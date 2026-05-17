@@ -3,6 +3,12 @@ import type {
   SubjectResolutionResult,
   SubjectResolverName,
 } from "./scan-types.js";
+import {
+  extractStringValuesAtPath,
+  extractSubjectTokens,
+  matchesWorkItemId,
+  normalizePullRequestPath,
+} from "./configurable-rules.js";
 
 export const DEFAULT_RESOLVER_ORDER: SubjectResolverName[] = [
   "payload_subject_tokens",
@@ -13,17 +19,15 @@ const SUPPORTED_RESOLVERS = new Set<SubjectResolverName>(
   DEFAULT_RESOLVER_ORDER,
 );
 
-function extractUniqueSubjectTokens(input: string): string[] {
-  const matches =
-    input.match(/\b(?:work-item:[a-z0-9]+(?:-[a-z0-9]+)*|wi-[a-z0-9]+(?:-[a-z0-9]+)*)\b/gi) ??
-    [];
-  return [...new Set(matches.map((match) => match.toLowerCase()))];
+function extractUniqueSubjectTokens(input: string, patterns?: string[]): string[] {
+  return extractSubjectTokens(input, patterns);
 }
 
 function payloadSubjectTokensResolver(
   content: string,
+  workItemMatchPatterns?: string[],
 ): SubjectResolutionAttempt & { subjects: string[] } {
-  const subjects = extractUniqueSubjectTokens(content);
+  const subjects = extractUniqueSubjectTokens(content, workItemMatchPatterns);
   return {
     strategy: "payload_subject_tokens",
     subjectsFound: subjects.length,
@@ -31,36 +35,24 @@ function payloadSubjectTokensResolver(
   };
 }
 
-function extractPrLinksFromFrontmatter(raw: unknown): string[] {
-  // Handle list-of-maps format: links: [{ pull_request: "url" }, ...]
-  if (Array.isArray(raw)) {
-    return raw.flatMap((entry) => {
-      if (typeof entry !== "object" || entry === null) {
-        return [];
-      }
-      const pr = (entry as Record<string, unknown>)["pull_request"];
-      return typeof pr === "string" && pr.trim().length > 0 ? [pr.trim()] : [];
-    });
-  }
-  // Handle object format: links: { pull_requests: ["url", ...] }
-  if (typeof raw === "object" && raw !== null) {
-    const links = raw as Record<string, unknown>;
-    if (Array.isArray(links["pull_requests"])) {
-      return (links["pull_requests"] as unknown[]).flatMap(
-        (v) => typeof v === "string" && v.trim().length > 0 ? [v.trim()] : [],
-      );
-    }
-  }
-  return [];
+function extractPrLinksFromFrontmatter(
+  data: Record<string, unknown>,
+  pullRequestPath?: string,
+): string[] {
+  return extractStringValuesAtPath(data, normalizePullRequestPath(pullRequestPath));
 }
 
 function linkedPullRequestsResolver(
   data: Record<string, unknown>,
+  pullRequestPath?: string,
+  workItemMatchPatterns?: string[],
 ): SubjectResolutionAttempt & { subjects: string[] } {
   const id = typeof data["id"] === "string" ? data["id"] : null;
-  const validPrLinks = extractPrLinksFromFrontmatter(data["links"]);
+  const validPrLinks = extractPrLinksFromFrontmatter(data, pullRequestPath);
   const subjects =
-    id && id.startsWith("work-item:") && validPrLinks.length > 0 ? [id] : [];
+    id && matchesWorkItemId(id, workItemMatchPatterns) && validPrLinks.length > 0
+      ? [id]
+      : [];
   return {
     strategy: "linked_pull_requests",
     subjectsFound: subjects.length,
@@ -96,12 +88,19 @@ export function resolveSubjects(
   content: string,
   data: Record<string, unknown>,
   order: SubjectResolverName[],
+  options?: {
+    pullRequestPath?: string;
+    workItemMatchPatterns?: string[];
+  },
 ): SubjectResolutionResult {
   const attempts: SubjectResolutionAttempt[] = [];
 
   for (const strategy of order) {
     if (strategy === "payload_subject_tokens") {
-      const attempt = payloadSubjectTokensResolver(content);
+      const attempt = payloadSubjectTokensResolver(
+        content,
+        options?.workItemMatchPatterns,
+      );
       attempts.push({
         strategy: attempt.strategy,
         subjectsFound: attempt.subjectsFound,
@@ -117,7 +116,11 @@ export function resolveSubjects(
     }
 
     if (strategy === "linked_pull_requests") {
-      const attempt = linkedPullRequestsResolver(data);
+      const attempt = linkedPullRequestsResolver(
+        data,
+        options?.pullRequestPath,
+        options?.workItemMatchPatterns,
+      );
       attempts.push({
         strategy: attempt.strategy,
         subjectsFound: attempt.subjectsFound,

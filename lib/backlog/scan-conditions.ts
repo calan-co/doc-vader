@@ -1,4 +1,8 @@
 import type { ScanCondition, ScanError } from "./scan-types.js";
+import {
+  extractStringValuesAtPath,
+  normalizePullRequestPath,
+} from "./configurable-rules.js";
 
 /** Presence of an `id` field. */
 export function conditionHasId(id: unknown): ScanCondition {
@@ -38,46 +42,22 @@ export function conditionHasLinksBlock(
   return { code: "has_links_block", value: hasLinks };
 }
 
-function extractLinkedPrs(data: Record<string, unknown>): string[] {
-  const links = data["links"];
-  if (typeof links !== "object" || links === null) {
-    return [];
-  }
-
-  // Handle list-of-maps format: links: [{ pull_request: "url" }, ...]
-  if (Array.isArray(links)) {
-    return links.flatMap((entry) => {
-      if (typeof entry !== "object" || entry === null) {
-        return [];
-      }
-      const pr = (entry as Record<string, unknown>)["pull_request"];
-      if (typeof pr !== "string") {
-        return [];
-      }
-      const trimmed = pr.trim();
-      return trimmed.length > 0 ? [trimmed] : [];
-    });
-  }
-
-  // Handle object format: links: { pull_requests: ["url", ...] }
-  const mapped = (links as Record<string, unknown>)["pull_requests"];
-  if (!Array.isArray(mapped)) {
-    return [];
-  }
-
-  return mapped.flatMap((v) => {
-    if (typeof v !== "string") {
-      return [];
-    }
-    const trimmed = v.trim();
-    return trimmed.length > 0 ? [trimmed] : [];
-  });
+function extractLinkedPrs(
+  data: Record<string, unknown>,
+  pullRequestPath?: string,
+): string[] {
+  const normalizedPath = normalizePullRequestPath(pullRequestPath);
+  return extractStringValuesAtPath(data, normalizedPath);
 }
 
 export function conditionPrLinkFound(
   data: Record<string, unknown>,
+  pullRequestPath?: string,
 ): ScanCondition {
-  return { code: "pr_link_found", value: extractLinkedPrs(data).length > 0 };
+  return {
+    code: "pr_link_found",
+    value: extractLinkedPrs(data, pullRequestPath).length > 0,
+  };
 }
 
 export function conditionPrMerged(
@@ -142,7 +122,10 @@ export function conditionValidStatus(
 }
 
 /** Build condition list and error list for a parsed work item. */
-export function evaluateConditions(data: Record<string, unknown>): {
+export function evaluateConditions(
+  data: Record<string, unknown>,
+  options?: { pullRequestPath?: string },
+): {
   conditions: ScanCondition[];
   errors: ScanError[];
 } {
@@ -152,7 +135,7 @@ export function evaluateConditions(data: Record<string, unknown>): {
     conditionHasStatus(data["status"]),
     conditionHasLifecycle(data["lifecycle"]),
     conditionHasLinksBlock(data),
-    conditionPrLinkFound(data),
+    conditionPrLinkFound(data, options?.pullRequestPath),
     conditionPrMerged(data),
     conditionWorkflowSucceeded(data),
     conditionValidEvidence(data),

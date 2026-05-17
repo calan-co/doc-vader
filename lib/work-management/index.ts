@@ -3,6 +3,12 @@ import yaml from "js-yaml";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import type { SubjectResolverName } from "../backlog/scan-types.js";
+import {
+  normalizePullRequestPath,
+  normalizeRequiredFieldRules,
+  normalizeWorkItemMatchPatterns,
+  type RequiredFieldRule,
+} from "../backlog/configurable-rules.js";
 
 export type LinkKind = "pr" | "evidence" | "reference";
 export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "subversion";
@@ -30,6 +36,9 @@ interface ConsumerAutomation {
   subjectResolutionOrder?: SubjectResolverName[];
   validateArchiveCandidates?: boolean;
   invalidCandidateStatus?: string;
+  workItemMatchPatterns?: string[];
+  pullRequestPath?: string;
+  requiredCandidateFields?: Array<string | RequiredFieldRule>;
 }
 
 interface ConsumerMigration {
@@ -431,6 +440,9 @@ export async function loadConsumerConfig(
       validateArchiveCandidates: false,
       subjectResolutionOrder: undefined,
       invalidCandidateStatus: undefined,
+      workItemMatchPatterns: normalizeWorkItemMatchPatterns(undefined),
+      pullRequestPath: normalizePullRequestPath(undefined),
+      requiredCandidateFields: normalizeRequiredFieldRules(undefined),
     },
     migration: {
       legacyActive: DEFAULT_ROOTS.backlog,
@@ -466,6 +478,15 @@ export async function loadConsumerConfig(
     automation: {
       ...fallback.automation,
       ...(loaded.automation ?? {}),
+      workItemMatchPatterns: normalizeWorkItemMatchPatterns(
+        loaded.automation?.workItemMatchPatterns,
+      ),
+      pullRequestPath: normalizePullRequestPath(
+        loaded.automation?.pullRequestPath,
+      ),
+      requiredCandidateFields: normalizeRequiredFieldRules(
+        loaded.automation?.requiredCandidateFields,
+      ),
     },
     migration: {
       ...fallback.migration,

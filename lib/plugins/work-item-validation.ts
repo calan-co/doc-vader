@@ -1,4 +1,11 @@
 import matter from "gray-matter";
+import {
+  extractStringValuesAtPath,
+  getValueByPath,
+  normalizePullRequestPath,
+  normalizeRequiredFieldRules,
+  type RequiredFieldRule,
+} from "../backlog/configurable-rules.js";
 
 export type WorkItemValidationStatus = "ready-for-review" | "closed";
 
@@ -15,6 +22,11 @@ export interface WorkItemContext {
 export interface ValidationIssue {
   code: string;
   message: string;
+}
+
+export interface ArchiveReadinessOptions {
+  pullRequestPath?: string;
+  requiredFields?: RequiredFieldRule[];
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -65,6 +77,7 @@ export function hasClosureEvidenceNote(body: string): boolean {
 export function validateArchiveReadiness(
   context: WorkItemContext,
   statuses: readonly WorkItemValidationStatus[],
+  options?: ArchiveReadinessOptions,
 ): ValidationIssue[] {
   if (!context.isActiveBacklogWorkItem) return [];
   if (
@@ -75,16 +88,19 @@ export function validateArchiveReadiness(
   }
 
   const issues: ValidationIssue[] = [];
+  const pullRequestPath = normalizePullRequestPath(options?.pullRequestPath);
+  const pullRequests = extractStringValuesAtPath(
+    context.frontmatter,
+    pullRequestPath,
+  );
   const links = asRecord(context.frontmatter.links);
-  const pullRequests = asArray(links.pull_requests).filter(hasNonEmptyString);
   const evidence = asArray(links.evidence).filter(hasNonEmptyString);
-  const actual = context.frontmatter.actual;
 
   if (pullRequests.length === 0) {
     issues.push({
       code: "missing-pull-requests",
       message:
-        "[work-item-archive-readiness] Missing links.pull_requests for archive candidate.",
+        `[work-item-archive-readiness] Missing ${pullRequestPath} for archive candidate.`,
     });
   }
 
@@ -96,12 +112,39 @@ export function validateArchiveReadiness(
     });
   }
 
-  if (typeof actual !== "number" || Number.isNaN(actual)) {
-    issues.push({
-      code: "missing-actual",
-      message:
-        "[work-item-archive-readiness] Missing numeric actual effort for archive candidate.",
-    });
+  const requiredFields = normalizeRequiredFieldRules(options?.requiredFields);
+  for (const requiredField of requiredFields) {
+    const value = getValueByPath(context.frontmatter, requiredField.field);
+
+    if (requiredField.field === "actual") {
+      if (typeof value !== "number" || Number.isNaN(value)) {
+        issues.push({
+          code: "missing-actual",
+          message:
+            "[work-item-archive-readiness] Missing numeric actual effort for archive candidate.",
+        });
+      }
+      continue;
+    }
+
+    if (typeof value !== "string" || value.trim().length === 0) {
+      issues.push({
+        code: "missing-required-field",
+        message: `[work-item-archive-readiness] Missing required field '${requiredField.field}' for archive candidate.`,
+      });
+      continue;
+    }
+
+    if (
+      requiredField.values &&
+      requiredField.values.length > 0 &&
+      !requiredField.values.includes(value.trim())
+    ) {
+      issues.push({
+        code: "invalid-required-field-value",
+        message: `[work-item-archive-readiness] Field '${requiredField.field}' must be one of: ${requiredField.values.join(", ")}.`,
+      });
+    }
   }
 
   return issues;
