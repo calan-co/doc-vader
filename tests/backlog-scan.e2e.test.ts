@@ -10,7 +10,8 @@ const cliPath = path.join(repoRoot, "cli", "doc-vader.ts");
 let testDir = "";
 
 function runCli(args: string[]): { code: number; stdout: string; stderr: string } {
-  const tsxCliPath = require.resolve("tsx/dist/cli.mjs");
+  const tsxPackageJsonPath = require.resolve("tsx/package.json");
+  const tsxCliPath = path.join(path.dirname(tsxPackageJsonPath), "dist", "cli.mjs");
   const result = spawnSync(
     process.execPath,
     [tsxCliPath, cliPath, ...args],
