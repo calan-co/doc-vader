@@ -37,6 +37,29 @@ permissions:
   packages: read
 
 jobs:
+  log-automation-context:
+    name: Log Automation Context
+    if: vars.BACKLOG_AUTOMATION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log trigger and dry-run context
+        run: |
+          set -euo pipefail
+
+          event_name="${{ github.event_name }}"
+          action_name="${{ github.event.action || '' }}"
+          ref_name="${{ github.ref }}"
+          base_ref="${{ github.base_ref || '' }}"
+          head_ref="${{ github.head_ref || '' }}"
+          dry_run_input="${{ inputs.dry_run || '' }}"
+
+          effective_dry_run="false"
+          if [[ "$event_name" == "workflow_dispatch" && "$dry_run_input" == "true" ]]; then
+            effective_dry_run="true"
+          fi
+
+          echo "::notice title=Backlog Automation Context::event=${event_name}, action=${action_name:-n/a}, ref=${ref_name:-n/a}, base_ref=${base_ref:-n/a}, head_ref=${head_ref:-n/a}, dry_run_input=${dry_run_input:-n/a}, effective_dry_run=${effective_dry_run}"
+
   ingest-pull-request:
     name: Ingest Pull Request Event
     if: >
@@ -156,7 +179,7 @@ jobs:
               }
             ' "$file")"
 
-            if [[ "$status" != "ready-for-review" ]]; then
+            if [[ "$status" != "ready-for-review" && "$status" != "closed" ]]; then
               continue
             fi
 
@@ -178,11 +201,11 @@ jobs:
               fi
 
               hours_old="$((age_seconds / 3600))"
-              echo "::warning file=$file,title=Stuck ready-for-review after merged PR::PR #$pr merged ${hours_old}h ago but work item is still 'ready-for-review'. Run backlog sweep and investigate close/archive transition." >&2
+              echo "::warning file=$file,title=Stale candidate after merged PR::PR #$pr merged ${hours_old}h ago but work item is still '$status'. Run backlog sweep and investigate close/archive transition." >&2
               warned=1
             done
           done
 
           if ((warned == 0)); then
-            echo "No stale ready-for-review items linked to merged PRs were detected."
+            echo "No stale ready-for-review/closed items linked to merged PRs were detected."
           fi

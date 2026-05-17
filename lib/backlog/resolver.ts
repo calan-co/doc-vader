@@ -65,8 +65,10 @@ export class PayloadSubjectTokensResolver implements SubjectResolver {
   }
 
   private extractUniqueSubjectTokens(input: string): string[] {
-    const matches = input.match(/\bwork-item:[a-z0-9]+(?:-[a-z0-9]+)*\b/g) ?? [];
-    return [...new Set(matches)];
+    const matches =
+      input.match(/\b(?:work-item:[a-z0-9]+(?:-[a-z0-9]+)*|wi-[a-z0-9]+(?:-[a-z0-9]+)*)\b/gi) ??
+      [];
+    return [...new Set(matches.map((match) => match.toLowerCase()))];
   }
 }
 

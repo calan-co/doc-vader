@@ -14,8 +14,10 @@ const SUPPORTED_RESOLVERS = new Set<SubjectResolverName>(
 );
 
 function extractUniqueSubjectTokens(input: string): string[] {
-  const matches = input.match(/work-item:[a-z0-9]+(?:-[a-z0-9]+)*/g) ?? [];
-  return [...new Set(matches)];
+  const matches =
+    input.match(/\b(?:work-item:[a-z0-9]+(?:-[a-z0-9]+)*|wi-[a-z0-9]+(?:-[a-z0-9]+)*)\b/gi) ??
+    [];
+  return [...new Set(matches.map((match) => match.toLowerCase()))];
 }
 
 function payloadSubjectTokensResolver(
