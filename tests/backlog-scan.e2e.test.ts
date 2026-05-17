@@ -10,10 +10,15 @@ const cliPath = path.join(repoRoot, "cli", "doc-vader.ts");
 let testDir = "";
 
 function runCli(args: string[]): { code: number; stdout: string; stderr: string } {
-  const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const tsxBin = path.join(
+    repoRoot,
+    "node_modules",
+    ".bin",
+    process.platform === "win32" ? "tsx.cmd" : "tsx",
+  );
   const result = spawnSync(
-    pnpmCommand,
-    ["exec", "tsx", cliPath, ...args],
+    tsxBin,
+    [cliPath, ...args],
     {
       cwd: repoRoot,
       encoding: "utf8",
