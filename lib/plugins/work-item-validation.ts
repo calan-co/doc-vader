@@ -26,7 +26,7 @@ export interface ValidationIssue {
 
 export interface ArchiveReadinessOptions {
   pullRequestPath?: string;
-  requiredFields?: RequiredFieldRule[];
+  requiredFields?: Array<string | RequiredFieldRule>;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

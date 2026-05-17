@@ -57,17 +57,17 @@ export function normalizeRequiredFieldRules(raw: unknown): RequiredFieldRule[] {
       continue;
     }
 
+    const entryRecord = entry as Record<string, unknown>;
+
     const field =
-      typeof (entry as Record<string, unknown>).field === "string"
-        ? (entry as Record<string, unknown>).field.trim()
+      typeof entryRecord.field === "string"
+        ? entryRecord.field.trim()
         : "";
     if (field.length === 0) {
       continue;
     }
 
-    const values = normalizeStringArray(
-      (entry as Record<string, unknown>).values,
-    );
+    const values = normalizeStringArray(entryRecord.values);
     normalized.push(values.length > 0 ? { field, values } : { field });
   }
 
