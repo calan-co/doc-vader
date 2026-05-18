@@ -46,6 +46,8 @@ temp/
 *.old
 *.log
 auditing-backlog-report*.json
+*_output.txt
+validation_full.txt
 
 # Husky generated internals
 .husky/_/

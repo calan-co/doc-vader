@@ -72,4 +72,5 @@ See below for the prioritized list:
 - [[224-execution_item_status_validity_lint]]
 - [[226.story-add-subject-aware-pr-closure-api]]
 - [[227.story-create-doc-vader-github-app]]
+- [[plans/rc-release-candidate-implementation-plan.md]]
 - [[record-20260514-215633-wi-228]]
