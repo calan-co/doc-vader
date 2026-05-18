@@ -25,6 +25,32 @@
         "document"
       ]
     },
+    "@context": {
+      "description": "JSON-LD context URI or inline context object providing vocabulary mappings for document properties.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "@type": {
+      "description": "JSON-LD type annotation. May be a single type URI or an array of type URIs.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      ]
+    },
     "audience": {
       "description": "List of intended audiences.",
       "type": "array",
@@ -506,7 +532,6 @@
       "minItems": 1
     }
   },
-  "$versioningScheme": "semver",
   "definitions": {
     "link": {
       "description": "Link to a related document or resource.",

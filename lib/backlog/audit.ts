@@ -1,4 +1,5 @@
 import Ajv2020 from "ajv/dist/2020.js";
+import { resolveSchema } from "../schema/resolver.js";
 import type { ErrorObject } from "ajv";
 import matter from "gray-matter";
 import { promises as fs } from "node:fs";
@@ -316,24 +317,6 @@ async function resolveSchemaMap(
   }
 
   return merged;
-}
-
-function determineSchemaTarget(
-  item: BacklogItem,
-  schemaMap: SchemaMapConfig,
-): string | null {
-  if (item.subtype && schemaMap.bySubtype?.[item.subtype]) {
-    return schemaMap.bySubtype[item.subtype];
-  }
-  if (item.type && schemaMap.byType?.[item.type]) {
-    return schemaMap.byType[item.type];
-  }
-  if (!schemaMap.default) return null;
-  if (!item.type) return schemaMap.default;
-  if (item.type === "work-item" || item.type === "document") {
-    return schemaMap.default;
-  }
-  return null;
 }
 
 function mergeOptions(
@@ -725,7 +708,25 @@ export async function auditBacklog(
   for (const item of items) {
     if (item.parseError) continue;
     if (!item.type) continue;
-    const schemaTarget = determineSchemaTarget(item, schemaMap);
+    const schemaRef = resolveSchema({
+      data: {
+        type: item.type ?? undefined,
+        subtype: item.subtype ?? undefined,
+        $schema: typeof item.data.$schema === "string" ? item.data.$schema : undefined,
+        schema: typeof item.data.schema === "string" || typeof item.data.schema === "object"
+          ? (item.data.schema as string | object)
+          : undefined,
+        $inlineSchema: typeof item.data.$inlineSchema === "object" && item.data.$inlineSchema !== null
+          ? (item.data.$inlineSchema as object)
+          : undefined,
+      },
+      schemaMap,
+    });
+    if (!schemaRef) continue;
+    // Inline schema objects are not yet handled by getValidator (path-based);
+    // skip silently and continue to next item.
+    if (typeof schemaRef !== "string") continue;
+    const schemaTarget = schemaRef;
     if (!schemaTarget) continue;
     try {
       const validate = await getValidator(schemaTarget);
