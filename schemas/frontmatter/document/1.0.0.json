@@ -277,8 +277,6 @@
                             "fields",
                             "sensitivity",
                             "naming",
-                            "ready",
-                            "ready",
                             "other"
                           ]
                         },
@@ -528,6 +526,7 @@
     "uri": {
       "description": "Uri to an external resource.",
       "type": "string",
+      "maxLength": 256,
       "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$"
     },
     "wikilink": {

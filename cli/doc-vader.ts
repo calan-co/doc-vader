@@ -162,8 +162,8 @@ backlog
   .option("--format <format>", "Output format: text|json")
   .option("--fail-on <level>", "Fail level for exit code: error|warning")
   .option(
-    "--profile <nameOrPath>",
-    "Validation profile name (default|strict|ci) or JSON profile path",
+    "--profile <nameOrPath...>",
+    "Validation profile name(s) or JSON profile path(s); repeat or use comma-separated values (default|strict|ci)",
     collectCsvOption,
     [],
   )

@@ -143,8 +143,7 @@ export async function reconcile(
 
   const trace = decisions.map(
     (d) =>
-      `category=${d.category}; candidates=${d.candidates.join(",",
-      )}; winner=${d.winner}; reason=${d.reason}`,
+      `category=${d.category}; candidates=${d.candidates.join(",")}; winner=${d.winner}; reason=${d.reason}`,
   );
 
   return {

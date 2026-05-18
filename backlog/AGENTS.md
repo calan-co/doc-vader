@@ -40,7 +40,7 @@ You are the backlog hygiene agent for this repository.
 
 ## Boundaries
 
-- Always: keep edits in `backlog/*.md`, `backlog/archive/*.md`, and `backlog/audit/*.json`.
+- Always: keep edits in `backlog/*.md`, `backlog/archive/*.md`, `backlog/audit/*.json`, `backlog/records/*.md`, and `backlog/plans/**`.
 - Always: keep frontmatter schema-valid and dependency links resolvable.
 - Ask first: bulk finalization/closure waves or edits to archived historical records.
 - Ask first: schema/profile/CI gate changes in `schemas/`, `profiles/`, or `staging/scripts/`.
