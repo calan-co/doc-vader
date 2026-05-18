@@ -130,7 +130,7 @@ export interface ProjectRegistry {
 
 Invalidation flow:
 
-```
+```text
 scan(roots)
   → for each file:
       if cached mtime === current mtime → reuse entry
@@ -142,7 +142,7 @@ scan(roots)
 
 Each registry error is surfaced as a remark-lint `VFile` message with:
 
-```
+```text
 code:     "tiab:registry:<kind>"
 severity: configurable (default: "error" for missing-target/duplicate-id, "warn" for ambiguous/cycle)
 position: line/column of the link or frontmatter field that triggered the check

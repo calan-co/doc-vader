@@ -89,8 +89,7 @@ describe("createTiabProcessor – checklist plugin", () => {
     const checklistMessages = file.messages.filter((m) =>
       m.ruleId?.includes("checklist"),
     );
-    // Either zero messages or the plugin emits its own guard message — both acceptable
-    expect(Array.isArray(checklistMessages)).toBe(true);
+    expect(checklistMessages.length).toBe(0);
   });
 
   it("emits a message when a required checklist item is missing", async () => {
@@ -217,7 +216,7 @@ describe("Epic 170 Phase 1 – exit-gate baseline", () => {
     expect(elapsed).toBeLessThan(500);
   });
 
-  it("full parse + run completes in under 2000 ms for a 200-line document", async () => {
+  it("full parse + run completes in under 2000 ms for a ~160-line document", async () => {
     const lines = Array.from(
       { length: 40 },
       (_, i) => `## Section ${i + 1}\n\nParagraph content for section ${i + 1}.\n`,

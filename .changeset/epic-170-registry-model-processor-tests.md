@@ -1,5 +1,5 @@
 ---
-"doc-vader": patch
+"@calan-co/doc-vader": patch
 ---
 
 feat(epic-170): cross-file registry model doc and unified processor test suite (WI-228, WI-229)
