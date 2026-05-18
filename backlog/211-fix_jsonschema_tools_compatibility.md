@@ -1,16 +1,22 @@
 ---
 id: wi-211
+title: Fix jsonschema-tools Compatibility (Remove Custom Version Metadata)
+summary: Align schemas to JSON Schema 2020-12 (remove custom metadata)
 type: work-item
 subtype: task
 lifecycle: active
 status: in-progress
-title: Fix jsonschema-tools Compatibility (Remove Custom Version Metadata)
-summary: Align schemas to JSON Schema 2020-12 (remove custom metadata)
 priority: medium
-tags: [schemas, jsonschema-tools, standards]
 estimated: 3
 commits:
-  00a8da0: "feat(work-management): add canonical foundation package"
+  00a8da0: 'feat(work-management): add canonical foundation package'
+links:
+  evidence:
+    - '[[record-20260518-124800-211]]'
+tags:
+  - schemas
+  - jsonschema-tools
+  - standards
 ---
 
 ## Changes

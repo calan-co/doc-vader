@@ -1,12 +1,16 @@
 ---
 id: wi-60315
+title: Canonical Schema Integration with Configuration System
+summary: Schema/config/validation system unification - jsonschema-first approach
 type: work-item
 subtype: epic
 lifecycle: active
 status: in-progress
-title: Canonical Schema Integration with Configuration System
-summary: Schema/config/validation system unification - jsonschema-first approach
 priority: high
+estimated: 4
+links:
+  evidence:
+    - '[[record-20260518-124800-60315]]'
 tags:
   - schemas
   - config
@@ -61,7 +65,6 @@ execution:
       items:
         - '209'
         - '224'
-estimated: 4
 ---
 
 ## Goal

@@ -1,18 +1,23 @@
 ---
 id: wi-222
+title: Update Code Defaults to Canonical Schema Paths
+summary: Migrate code defaults to new schema paths
+owner: change-manager
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Update Code Defaults to Canonical Schema Paths
-summary: Migrate code defaults to new schema paths
-owner: change-manager
 priority: medium
-tags: [schema, paths, migration]
 estimated: 1
 links:
   depends_on:
-    - "[[216-document_schema_requirements]]"
+    - '[[216-document_schema_requirements]]'
+  evidence:
+    - '[[record-20260518-124800-222]]'
+tags:
+  - schema
+  - paths
+  - migration
 ---
 
 ## Files to Update

@@ -1,25 +1,27 @@
 ---
 id: wi-214
+title: Create DRY Schema Resolution Functions (lib/schema/resolver.ts)
+summary: Unified schema resolution with 4-level precedence
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Create DRY Schema Resolution Functions (lib/schema/resolver.ts)
-summary: Unified schema resolution with 4-level precedence
 priority: medium
-governance:
-  profiles:
-    - technical-decision
-tags:
-  - schema
-  - resolver
-  - validation
-  - dry
 estimated: 2
 links:
   depends_on:
     - '[[211-fix_jsonschema_tools_compatibility]]'
     - '[[213-create_config_loader]]'
+  evidence:
+    - '[[record-20260518-124800-214]]'
+tags:
+  - schema
+  - resolver
+  - validation
+  - dry
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## File to Create

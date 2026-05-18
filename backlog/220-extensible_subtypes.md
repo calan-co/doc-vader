@@ -1,24 +1,26 @@
 ---
 id: wi-220
+title: Enable Extensible Subtypes via x-* Pattern
+summary: Extensible subtype namespace for custom document types
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Enable Extensible Subtypes via x-* Pattern
-summary: Extensible subtype namespace for custom document types
 priority: medium
-governance:
-  profiles:
-    - technical-decision
-tags:
-  - schemas
-  - extensibility
-  - subtypes
 estimated: 2
 links:
   depends_on:
     - '[[216-document_schema_requirements]]'
     - '[[219-configure_contexts_in_config]]'
+  evidence:
+    - '[[record-20260518-124800-220]]'
+tags:
+  - schemas
+  - extensibility
+  - subtypes
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## Files to Update

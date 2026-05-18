@@ -1,24 +1,26 @@
 ---
 id: wi-215
+title: Update Validation Code to Use DRY Resolver
+summary: Refactor validation to use unified resolver
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Update Validation Code to Use DRY Resolver
-summary: Refactor validation to use unified resolver
 priority: medium
-governance:
-  profiles:
-    - technical-decision
-tags:
-  - validation
-  - refactor
-  - dry
 estimated: 3
 links:
   depends_on:
     - '[[211-fix_jsonschema_tools_compatibility]]'
     - '[[214-create_dry_schema_resolver]]'
+  evidence:
+    - '[[record-20260518-124800-215]]'
+tags:
+  - validation
+  - refactor
+  - dry
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## Files to Update
