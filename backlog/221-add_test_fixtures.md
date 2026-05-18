@@ -1,24 +1,26 @@
 ---
 id: wi-221
+title: Add Schema Test Fixtures
+summary: Test fixture files for schema validation
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Add Schema Test Fixtures
-summary: Test fixture files for schema validation
 priority: medium
-governance:
-  profiles:
-    - testing
-tags:
-  - schemas
-  - testing
-  - fixtures
 estimated: 3
 links:
   depends_on:
     - '[[217-update_schemas_for_json_ld]]'
     - '[[220-extensible_subtypes]]'
+  evidence:
+    - '[[record-20260518-124800-221]]'
+tags:
+  - schemas
+  - testing
+  - fixtures
+governance:
+  profiles:
+    - testing
 ---
 
 ## Directory Structure

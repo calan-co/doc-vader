@@ -1,23 +1,25 @@
 ---
 id: wi-218
+title: Create Reusable JSON-LD Vocabulary Contexts
+summary: JSON-LD context definitions for vocabulary mapping
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Create Reusable JSON-LD Vocabulary Contexts
-summary: JSON-LD context definitions for vocabulary mapping
 priority: low
-governance:
-  profiles:
-    - technical-decision
-tags:
-  - json-ld
-  - vocabulary
-  - contexts
 estimated: 3
 links:
   depends_on:
     - '[[217-update_schemas_for_json_ld]]'
+  evidence:
+    - '[[record-20260518-124800-218]]'
+tags:
+  - json-ld
+  - vocabulary
+  - contexts
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## Files to Create

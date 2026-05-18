@@ -1,26 +1,28 @@
 ---
 id: wi-223
+title: Migrate Frontmatter Schema Directives to New Paths
+summary: Bulk migrate markdown frontmatter schema directives
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Migrate Frontmatter Schema Directives to New Paths
-summary: Bulk migrate markdown frontmatter schema directives
 priority: low
-audience:
-  - contributors
-governance:
-  profiles:
-    - migration
+estimated: 2
+links:
+  depends_on:
+    - '[[222-update_code_defaults]]'
+  evidence:
+    - '[[record-20260518-124800-223]]'
 tags:
   - schema
   - paths
   - migration
   - bulk-update
-estimated: 2
-links:
-  depends_on:
-    - '[[222-update_code_defaults]]'
+audience:
+  - contributors
+governance:
+  profiles:
+    - migration
 ---
 
 ## Files to Update

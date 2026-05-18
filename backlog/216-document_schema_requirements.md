@@ -1,26 +1,28 @@
 ---
 id: wi-216
+title: Document Minimal Schema Requirements (schemas/README.md)
+summary: Schema requirements documentation and examples
 type: work-item
 subtype: task
 lifecycle: active
 status: in-progress
-title: Document Minimal Schema Requirements (schemas/README.md)
-summary: Schema requirements documentation and examples
 priority: medium
-governance:
-  profiles:
-    - documentation
-tags:
-  - schemas
-  - documentation
-  - guide
 estimated: 3
+commits:
+  00a8da0: 'feat(work-management): add canonical foundation package'
 links:
   depends_on:
     - '[[211-fix_jsonschema_tools_compatibility]]'
     - '[[215-update_validation_to_use_resolver]]'
-commits:
-  00a8da0: 'feat(work-management): add canonical foundation package'
+  evidence:
+    - '[[record-20260518-124800-216]]'
+tags:
+  - schemas
+  - documentation
+  - guide
+governance:
+  profiles:
+    - documentation
 ---
 
 ## Files to Create

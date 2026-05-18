@@ -1,23 +1,25 @@
 ---
 id: wi-217
+title: Update Schemas to Explicitly Support @context/@type
+summary: Explicit @context/@type definitions in schemas
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Update Schemas to Explicitly Support @context/@type
-summary: Explicit @context/@type definitions in schemas
 priority: low
-governance:
-  profiles:
-    - technical-decision
-tags:
-  - schemas
-  - json-ld
-  - properties
 estimated: 2
 links:
   depends_on:
     - '[[211-fix_jsonschema_tools_compatibility]]'
+  evidence:
+    - '[[record-20260518-124800-217]]'
+tags:
+  - schemas
+  - json-ld
+  - properties
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## Files to Update

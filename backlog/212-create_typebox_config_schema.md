@@ -1,24 +1,26 @@
 ---
 id: wi-212
+title: Create TypeBox Configuration Schema (lib/config/schema.ts)
+summary: TypeBox schema definitions for .doc.json config
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Create TypeBox Configuration Schema (lib/config/schema.ts)
-summary: TypeBox schema definitions for .doc.json config
 priority: medium
-governance:
-  profiles:
-    - technical-decision
+estimated: 2
+links:
+  depends_on:
+    - '[[211-fix_jsonschema_tools_compatibility]]'
+  evidence:
+    - '[[record-20260518-124800-212]]'
 tags:
   - config
   - typebox
   - schema
   - jsonschema
-estimated: 2
-links:
-  depends_on:
-    - '[[211-fix_jsonschema_tools_compatibility]]'
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## File to Create

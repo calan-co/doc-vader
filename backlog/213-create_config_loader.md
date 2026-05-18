@@ -1,25 +1,27 @@
 ---
 id: wi-213
+title: Create Configuration Loader with Extends Support (lib/config/loader.ts)
+summary: Config loader with extends inheritance and deep merging
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Create Configuration Loader with Extends Support (lib/config/loader.ts)
-summary: Config loader with extends inheritance and deep merging
 priority: medium
-governance:
-  profiles:
-    - technical-decision
-tags:
-  - config
-  - typebox
-  - ajv
-  - loader
 estimated: 3
 links:
   depends_on:
     - '[[211-fix_jsonschema_tools_compatibility]]'
     - '[[212-create_typebox_config_schema]]'
+  evidence:
+    - '[[record-20260518-124800-213]]'
+tags:
+  - config
+  - typebox
+  - ajv
+  - loader
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## File to Create

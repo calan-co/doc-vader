@@ -1,21 +1,23 @@
 ---
 id: wi-224
+title: Create execution-item-status-validity lint rule
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Create execution-item-status-validity lint rule
 priority: medium
 estimated: 2
+links:
+  depends_on:
+    - '[[210-canonical_schema_integration_epic.md]]'
+    - '[[209-execution_item_ownership_lint.md]]'
+  evidence:
+    - '[[record-20260518-124800-224]]'
 tags:
   - validation
   - lint
   - execution
   - schemas
-links:
-  depends_on:
-    - '[[210-canonical_schema_integration_epic.md]]'
-    - '[[209-execution_item_ownership_lint.md]]'
 ---
 
 ## Goal

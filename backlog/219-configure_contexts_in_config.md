@@ -1,24 +1,26 @@
 ---
 id: wi-219
+title: Configure Vocabulary Contexts in .doc.json
+summary: Vocabulary context configuration in .doc.json
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Configure Vocabulary Contexts in .doc.json
-summary: Vocabulary context configuration in .doc.json
 priority: low
-governance:
-  profiles:
-    - technical-decision
-tags:
-  - config
-  - json-ld
-  - vocabulary
 estimated: 2
 links:
   depends_on:
     - '[[213-create_config_loader]]'
     - '[[218-create_json_ld_contexts]]'
+  evidence:
+    - '[[record-20260518-124800-219]]'
+tags:
+  - config
+  - json-ld
+  - vocabulary
+governance:
+  profiles:
+    - technical-decision
 ---
 
 ## Files to Create/Update

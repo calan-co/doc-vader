@@ -1,12 +1,15 @@
 ---
 id: wi-209
+title: Create execution-item-ownership lint rule
 type: work-item
 subtype: task
 lifecycle: active
 status: ready
-title: Create execution-item-ownership lint rule
 priority: medium
 estimated: 2
+links:
+  evidence:
+    - '[[record-20260518-124800-209]]'
 tags:
   - validation
   - lint

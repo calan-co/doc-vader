@@ -1,16 +1,18 @@
 ---
 id: wi-60275
-status: proposed
 title: Framework Reconciliation Workflow
-lifecycle: draft
-priority: medium
 type: work-item
 subtype: task
+lifecycle: draft
+status: proposed
+priority: medium
+estimated: 4
 links:
   depends_on:
     - '[[support-multi-frameworks.md]]'
+  evidence:
+    - '[[record-20260518-124800-60275]]'
 ordinal: 1000
-estimated: 4
 ---
 
 ## Summary
