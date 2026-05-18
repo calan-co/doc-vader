@@ -58,6 +58,7 @@
   "dependencies": {
     "@commander-js/extra-typings": "github:commander-js/extra-typings",
     "@segment/ajv-human-errors": "^2.16.0",
+    "@sinclair/typebox": "^0.34.49",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "commander": "^14.0.2",
