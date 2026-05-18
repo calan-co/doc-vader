@@ -14,6 +14,9 @@ importers:
       '@segment/ajv-human-errors':
         specifier: ^2.16.0
         version: 2.16.0(ajv@8.18.0)
+      '@sinclair/typebox':
+        specifier: ^0.34.49
+        version: 0.34.49
       ajv:
         specifier: ^8.17.1
         version: 8.18.0
@@ -1435,6 +1438,10 @@ packages:
   /@sinclair/typebox@0.27.10:
     resolution: {integrity: sha512-MTBk/3jGLNB2tVxv6uLlFh1iu64iYOQ2PbdOSK3NW8JZsmlaOh2q6sdtKowBhfw8QFLmYNzTW4/oK4uATIi6ZA==}
     dev: true
+
+  /@sinclair/typebox@0.34.49:
+    resolution: {integrity: sha512-brySQQs7Jtn0joV8Xh9ZV/hZb9Ozb0pmazDIASBkYKCjXrXU3mpcFahmK/z4YDhGkQvP9mWJbVyahdtU5wQA+A==}
+    dev: false
 
   /@standard-schema/spec@1.1.0:
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}

@@ -1,3 +1,6 @@
 #!/usr/bin/env sh
 
+# unset GIT_DIR so jsonschema-tools can find the git root itself.
+unset GIT_DIR
+
 pnpm exec jsonschema-tools materialize-modified --staged

@@ -1,11 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "/frontmatter/document/1.0.0",
-  "$versioningScheme": "semver",
   "title": "frontmatter/document",
   "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",
   "type": "object",
-  "required": ["id", "title", "type", "subtype", "lifecycle", "status"],
+  "required": [
+    "id",
+    "title",
+    "type",
+    "subtype",
+    "lifecycle",
+    "status"
+  ],
   "unevaluatedProperties": true,
   "definitions": {
     "note": {
@@ -24,8 +30,12 @@
     },
     "link": {
       "anyOf": [
-        { "$ref": "#/definitions/uri" },
-        { "$ref": "#/definitions/wikilink" }
+        {
+          "$ref": "#/definitions/uri"
+        },
+        {
+          "$ref": "#/definitions/wikilink"
+        }
       ],
       "description": "Link to a related document or resource."
     }
@@ -35,7 +45,9 @@
       "description": "Allow custom properties starting with $ for tooling purposes."
     }
   },
-  "propertyNames": { "maxLength": 128 },
+  "propertyNames": {
+    "maxLength": 128
+  },
   "properties": {
     "id": {
       "type": "string",
@@ -55,7 +67,10 @@
     },
     "type": {
       "type": "string",
-      "enum": ["work-item", "document"],
+      "enum": [
+        "work-item",
+        "document"
+      ],
       "description": "High-level type of the document (e.g., work-item, document)."
     },
     "subtype": {
@@ -84,13 +99,21 @@
               "type": "array",
               "items": {
                 "oneOf": [
-                  { "$ref": "#/definitions/link" },
+                  {
+                    "$ref": "#/definitions/link"
+                  },
                   {
                     "type": "object",
-                    "required": ["ref"],
+                    "required": [
+                      "ref"
+                    ],
                     "properties": {
-                      "ref": { "$ref": "#/definitions/link" },
-                      "note": { "$ref": "#/definitions/note" }
+                      "ref": {
+                        "$ref": "#/definitions/link"
+                      },
+                      "note": {
+                        "$ref": "#/definitions/note"
+                      }
                     },
                     "additionalProperties": false
                   }
@@ -98,7 +121,10 @@
               }
             }
           },
-          "propertyNames": { "pattern": "^.+$", "maxLength": 128 },
+          "propertyNames": {
+            "pattern": "^.+$",
+            "maxLength": 128
+          },
           "additionalProperties": false,
           "minProperties": 1
         },
@@ -112,18 +138,28 @@
             "patternProperties": {
               "^.+$": {
                 "oneOf": [
-                  { "$ref": "#/definitions/link" },
+                  {
+                    "$ref": "#/definitions/link"
+                  },
                   {
                     "type": "array",
                     "items": {
                       "oneOf": [
-                        { "$ref": "#/definitions/link" },
+                        {
+                          "$ref": "#/definitions/link"
+                        },
                         {
                           "type": "object",
-                          "required": ["ref"],
+                          "required": [
+                            "ref"
+                          ],
                           "properties": {
-                            "ref": { "$ref": "#/definitions/link" },
-                            "note": { "$ref": "#/definitions/note" }
+                            "ref": {
+                              "$ref": "#/definitions/link"
+                            },
+                            "note": {
+                              "$ref": "#/definitions/note"
+                            }
                           },
                           "additionalProperties": false
                         }
@@ -142,13 +178,21 @@
     },
     "classification": {
       "type": "object",
-      "required": ["diataxis", "sensitivity"],
+      "required": [
+        "diataxis",
+        "sensitivity"
+      ],
       "properties": {
         "diataxis": {
           "definitions": {
             "diataxisCategory": {
               "type": "string",
-              "enum": ["tutorial", "how-to", "reference", "explanation"],
+              "enum": [
+                "tutorial",
+                "how-to",
+                "reference",
+                "explanation"
+              ],
               "description": "Diataxis category."
             }
           },
@@ -160,7 +204,9 @@
             },
             {
               "type": "object",
-              "required": ["category"],
+              "required": [
+                "category"
+              ],
               "properties": {
                 "category": {
                   "type": "string",
@@ -179,7 +225,12 @@
           "definitions": {
             "sensitivityLabel": {
               "type": "string",
-              "enum": ["public", "internal", "confidential", "restricted"],
+              "enum": [
+                "public",
+                "internal",
+                "confidential",
+                "restricted"
+              ],
               "description": "Sensitivity level of the document."
             }
           },
@@ -189,7 +240,9 @@
             },
             {
               "type": "object",
-              "required": ["label"],
+              "required": [
+                "label"
+              ],
               "properties": {
                 "label": {
                   "type": "string",
@@ -211,7 +264,10 @@
           "patternProperties": {
             "^[A-Za-z-][A-Za-z0-9-]*$": {
               "type": "string",
-              "enum": ["inScope", "outOfScope"],
+              "enum": [
+                "inScope",
+                "outOfScope"
+              ],
               "description": "Compliance framework (e.g., 'GDPR': 'inScope', 'PCI': 'outOfScope')."
             }
           },
@@ -227,7 +283,13 @@
     },
     "lifecycle": {
       "type": "string",
-      "enum": ["draft", "active", "evergreen", "archived", "obsolete"],
+      "enum": [
+        "draft",
+        "active",
+        "evergreen",
+        "archived",
+        "obsolete"
+      ],
       "description": "Long-term state of the document or work item."
     },
     "status": {
@@ -292,7 +354,9 @@
     "governance": {
       "type": "object",
       "description": "Governance configuration: profiles (documentation systems, process models) and optional reconciliation strategies.",
-      "required": ["profiles"],
+      "required": [
+        "profiles"
+      ],
       "properties": {
         "profiles": {
           "description": "List or map of governance profiles controlling structure/process rules.",
@@ -301,7 +365,10 @@
               "type": "array",
               "minItems": 1,
               "uniqueItems": true,
-              "items": { "type": "string", "minLength": 1 }
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             },
             {
               "type": "object",
@@ -310,22 +377,36 @@
               "patternProperties": {
                 "^[A-Za-z][A-Za-z0-9_-]*$": {
                   "oneOf": [
-                    { "type": "string", "enum": ["strict", "advisory"] },
+                    {
+                      "type": "string",
+                      "enum": [
+                        "strict",
+                        "advisory"
+                      ]
+                    },
                     {
                       "type": "object",
                       "properties": {
                         "mode": {
                           "type": "string",
-                          "enum": ["strict", "advisory"]
+                          "enum": [
+                            "strict",
+                            "advisory"
+                          ]
                         },
                         "version": {
                           "type": "string",
                           "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
                           "maxLength": 128
                         },
-                        "notes": { "type": "string", "maxLength": 512 }
+                        "notes": {
+                          "type": "string",
+                          "maxLength": 512
+                        }
                       },
-                      "required": ["mode"],
+                      "required": [
+                        "mode"
+                      ],
                       "additionalProperties": false
                     }
                   ]
@@ -365,12 +446,17 @@
                 },
                 {
                   "type": "object",
-                  "required": ["prioritize"],
+                  "required": [
+                    "prioritize"
+                  ],
                   "properties": {
                     "prioritize": {
                       "type": "array",
                       "description": "Explicit precedence order applied when strategy=prioritize; names must reference declared profiles.",
-                      "items": { "type": "string", "minLength": 1 },
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
                       "uniqueItems": true,
                       "minItems": 2
                     }
@@ -390,16 +476,24 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["appliesTo", "strategy"],
+                "required": [
+                  "appliesTo",
+                  "strategy"
+                ],
                 "properties": {
                   "appliesTo": {
                     "type": "object",
-                    "required": ["profiles"],
+                    "required": [
+                      "profiles"
+                    ],
                     "properties": {
                       "profiles": {
                         "type": "array",
                         "minItems": 2,
-                        "items": { "type": "string", "minLength": 1 },
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
                         "uniqueItems": true
                       },
                       "conflictTypes": {
@@ -426,8 +520,14 @@
                     "type": "string",
                     "$ref": "#/properties/governance/properties/reconciliation/definitions/ReconciliationStrategy"
                   },
-                  "overrideProfile": { "type": "string", "minLength": 1 },
-                  "notes": { "type": "string", "maxLength": 512 }
+                  "overrideProfile": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 512
+                  }
                 },
                 "additionalProperties": false
               }
@@ -437,6 +537,32 @@
         }
       },
       "additionalProperties": false
+    },
+    "@context": {
+      "description": "JSON-LD context URI or inline context object providing vocabulary mappings for document properties.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "@type": {
+      "description": "JSON-LD type annotation. May be a single type URI or an array of type URIs.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      ]
     }
   },
   "statusTransitions": {
@@ -448,7 +574,13 @@
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["accepted", "review", "rejected", "duplicate", "closed"]
+          "enum": [
+            "accepted",
+            "review",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
         }
       },
       "accepted": {
@@ -483,56 +615,104 @@
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["approved", "rejected", "duplicate", "closed"]
+          "enum": [
+            "approved",
+            "rejected",
+            "duplicate",
+            "closed"
+          ]
         }
       },
       "approved": {
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["complete", "deprecated", "superseded", "closed"]
+          "enum": [
+            "complete",
+            "deprecated",
+            "superseded",
+            "closed"
+          ]
         }
       },
       "complete": {
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["deprecated", "superseded", "closed"]
+          "enum": [
+            "deprecated",
+            "superseded",
+            "closed"
+          ]
         }
       },
       "deprecated": {
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["superseded", "archived", "closed"]
+          "enum": [
+            "superseded",
+            "archived",
+            "closed"
+          ]
         }
       },
       "superseded": {
         "type": "array",
-        "items": { "type": "string", "enum": ["archived", "closed"] }
+        "items": {
+          "type": "string",
+          "enum": [
+            "archived",
+            "closed"
+          ]
+        }
       },
       "rejected": {
         "type": "array",
-        "items": { "type": "string", "enum": ["archived", "closed"] }
+        "items": {
+          "type": "string",
+          "enum": [
+            "archived",
+            "closed"
+          ]
+        }
       },
       "duplicate": {
         "type": "array",
-        "items": { "type": "string", "enum": ["archived", "closed"] }
+        "items": {
+          "type": "string",
+          "enum": [
+            "archived",
+            "closed"
+          ]
+        }
       },
       "closed": {
         "type": "array",
-        "items": { "type": "string", "enum": [] }
+        "items": {
+          "type": "string",
+          "enum": []
+        }
       }
     },
     "examples": [
-      { "proposed": ["accepted", "review", "rejected", "duplicate"] }
+      {
+        "proposed": [
+          "accepted",
+          "review",
+          "rejected",
+          "duplicate"
+        ]
+      }
     ]
   },
   "oneOf": [
     {
       "type": "object",
       "properties": {
-        "lifecycle": { "const": "draft" },
+        "lifecycle": {
+          "const": "draft"
+        },
         "status": {
           "enum": [
             "ready",
@@ -555,7 +735,9 @@
     {
       "type": "object",
       "properties": {
-        "lifecycle": { "const": "active" },
+        "lifecycle": {
+          "const": "active"
+        },
         "status": {
           "enum": [
             "ready",
@@ -577,7 +759,9 @@
     {
       "type": "object",
       "properties": {
-        "lifecycle": { "const": "evergreen" },
+        "lifecycle": {
+          "const": "evergreen"
+        },
         "status": {
           "enum": [
             "open",
@@ -597,7 +781,9 @@
     {
       "type": "object",
       "properties": {
-        "lifecycle": { "const": "archived" },
+        "lifecycle": {
+          "const": "archived"
+        },
         "status": {
           "enum": [
             "complete",
@@ -613,8 +799,17 @@
     {
       "type": "object",
       "properties": {
-        "lifecycle": { "const": "obsolete" },
-        "status": { "enum": ["superseded", "archived", "deprecated", "closed"] }
+        "lifecycle": {
+          "const": "obsolete"
+        },
+        "status": {
+          "enum": [
+            "superseded",
+            "archived",
+            "deprecated",
+            "closed"
+          ]
+        }
       }
     }
   ]

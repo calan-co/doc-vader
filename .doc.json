@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/config/doc-vader-config.json",
+  "schemaMap": {
+    "byType": {
+      "document": "schemas/frontmatter/document/current.json",
+      "work-item": "schemas/frontmatter/work-item/current.json"
+    }
+  },
+  "vocabularies": {
+    "defaultContext": "contexts/document.jsonld",
+    "contexts": {
+      "work-item": "contexts/work-item.jsonld"
+    }
+  }
+}

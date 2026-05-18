@@ -1,4 +1,6 @@
 import { Linter, Fixer } from "../interfaces/ruleset";
+import { resolveSchema } from "../schema/resolver.js";
+import type { DocVaderConfig } from "../config/schema.js";
 import Ajv, { ValidateFunction, ErrorObject } from "ajv";
 import matter from "gray-matter";
 import { promises as fs } from "node:fs";
@@ -29,6 +31,8 @@ export function formatAjvErrors(errors: ErrorObject[] = []): string[] {
 }
 
 export interface ValidateFrontmatterOptions {
+  /** Optional doc-vader config — when provided, `schemaMap` is used for schema routing. */
+  config?: DocVaderConfig;
   filePath?: string;
   content?: string;
   strictMissing?: boolean;
@@ -42,6 +46,7 @@ export async function validateFrontmatter({
   strictMissing = true,
   schemaDir,
   ajv,
+  config,
 }: ValidateFrontmatterOptions): Promise<ValidateResult> {
   const raw = content ?? (filePath ? await fs.readFile(filePath, "utf8") : "");
   const fm = matter(raw);
@@ -57,8 +62,16 @@ export async function validateFrontmatter({
     };
   }
 
-  let baseSchemaId =
-    data.$schema || data.schema || `/frontmatter/${data.type}/`;
+  // Prefer schemaMap routing from config when available; fall back to data-embedded refs.
+  const schemaRef = resolveSchema({
+    data,
+    schemaMap: config?.schemaMap,
+  });
+  let baseSchemaId: string =
+    (typeof schemaRef === "string" ? schemaRef : undefined) ??
+    (typeof data.$schema === "string" ? data.$schema : undefined) ??
+    (typeof data.schema === "string" ? data.schema : undefined) ??
+    `/frontmatter/${data.type}/`;
 
   if (path.basename(baseSchemaId) === "latest")
     baseSchemaId = path.dirname(baseSchemaId);
