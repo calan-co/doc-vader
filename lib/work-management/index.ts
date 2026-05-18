@@ -3,6 +3,12 @@ import yaml from "js-yaml";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import type { SubjectResolverName } from "../backlog/scan-types.js";
+import {
+  normalizePullRequestPath,
+  normalizeRequiredFieldRules,
+  normalizeWorkItemMatchPatterns,
+  type RequiredFieldRule,
+} from "../backlog/configurable-rules.js";
 
 export type LinkKind = "pr" | "evidence" | "reference";
 export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "subversion";
@@ -30,6 +36,9 @@ interface ConsumerAutomation {
   subjectResolutionOrder?: SubjectResolverName[];
   validateArchiveCandidates?: boolean;
   invalidCandidateStatus?: string;
+  workItemMatchPatterns?: string[];
+  pullRequestPath?: string;
+  requiredCandidateFields?: Array<string | RequiredFieldRule>;
 }
 
 interface ConsumerMigration {
@@ -111,6 +120,7 @@ export interface FinalizeWorkItemOptions {
   rootDir?: string;
   consumerConfig?: string;
   id: string;
+  pullRequestPath?: string;
   statusReason?: string;
   completedDate?: string;
   actual?: number;
@@ -431,6 +441,9 @@ export async function loadConsumerConfig(
       validateArchiveCandidates: false,
       subjectResolutionOrder: undefined,
       invalidCandidateStatus: undefined,
+      workItemMatchPatterns: normalizeWorkItemMatchPatterns(undefined),
+      pullRequestPath: normalizePullRequestPath(undefined),
+      requiredCandidateFields: normalizeRequiredFieldRules(undefined),
     },
     migration: {
       legacyActive: DEFAULT_ROOTS.backlog,
@@ -466,6 +479,15 @@ export async function loadConsumerConfig(
     automation: {
       ...fallback.automation,
       ...(loaded.automation ?? {}),
+      workItemMatchPatterns: normalizeWorkItemMatchPatterns(
+        loaded.automation?.workItemMatchPatterns,
+      ),
+      pullRequestPath: normalizePullRequestPath(
+        loaded.automation?.pullRequestPath,
+      ),
+      requiredCandidateFields: normalizeRequiredFieldRules(
+        loaded.automation?.requiredCandidateFields,
+      ),
     },
     migration: {
       ...fallback.migration,
@@ -886,7 +908,18 @@ export async function finalizeWorkItem(
       ? (document.frontmatter.links as Record<string, unknown>)
       : {};
 
-  if (ensureArray(links.pull_requests).length === 0) {
+  const pullRequestPath =
+    typeof options.pullRequestPath === "string" &&
+    options.pullRequestPath.trim().length > 0
+      ? options.pullRequestPath.trim()
+      : "links.pull_requests";
+
+  const pullRequestLinks = extractStringValuesAtPath(
+    document.frontmatter as Record<string, unknown>,
+    pullRequestPath,
+  );
+
+  if (pullRequestLinks.length === 0) {
     throw new Error(`Cannot finalize '${options.id}' without linked PRs.`);
   }
   if (ensureArray(links.evidence).length === 0) {
@@ -926,6 +959,38 @@ export async function finalizeWorkItem(
     frontmatter: document.frontmatter,
     dryRun: Boolean(options.dryRun),
   };
+}
+
+function extractStringValuesAtPath(
+  source: Record<string, unknown>,
+  dottedPath: string,
+): string[] {
+  const segments = dottedPath
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  let cursor: unknown = source;
+  for (const segment of segments) {
+    if (typeof cursor !== "object" || cursor === null) {
+      return [];
+    }
+    cursor = (cursor as Record<string, unknown>)[segment];
+  }
+
+  if (typeof cursor === "string") {
+    const trimmed = cursor.trim();
+    return trimmed.length > 0 ? [trimmed] : [];
+  }
+
+  if (!Array.isArray(cursor)) {
+    return [];
+  }
+
+  return cursor
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
 }
 
 export async function migrateBacklog(
@@ -1274,6 +1339,7 @@ export async function ingestEvent(
             consumerConfig: options.consumerConfig,
             id: subject,
             dryRun: options.dryRun,
+            pullRequestPath: config.automation.pullRequestPath,
           });
           actions.push({ type: "finalize", subject });
         }

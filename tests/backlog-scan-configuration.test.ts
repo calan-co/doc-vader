@@ -169,3 +169,82 @@ describe("strict mode", () => {
     expect(report.exitCode).toBe(0);
   });
 });
+
+describe("configurable matching and candidate rules", () => {
+  beforeEach(() => {
+    testDir = fsSync.mkdtempSync(
+      path.join(os.tmpdir(), "doc-vader-scan-config-rules-"),
+    );
+    mkDir("backlog");
+  });
+
+  afterEach(() => {
+    fsSync.rmSync(testDir, { recursive: true, force: true });
+    testDir = "";
+  });
+
+  it("uses automation.workItemMatchPatterns for payload subject extraction", async () => {
+    mkConsumerConfig({
+      workItemMatchPatterns: ["wi-"],
+      subjectResolutionOrder: ["payload_subject_tokens"],
+    });
+    mkFile(
+      "backlog/1.wi-token.md",
+      `---\nid: wi-1\nstatus: ready\nlifecycle: active\n---\nTracks wi-228 token.\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+    });
+
+    expect(report.items[0]?.subjectResolution?.subjects).toContain("wi-228");
+  });
+
+  it("uses automation.pullRequestPath for linked PR resolution", async () => {
+    mkConsumerConfig({
+      pullRequestPath: "links.prs",
+      subjectResolutionOrder: ["linked_pull_requests"],
+    });
+    mkFile(
+      "backlog/2.custom-pr-path.md",
+      `---\nid: work-item:2\nstatus: ready\nlifecycle: active\nlinks:\n  prs:\n    - https://github.com/calan-co/doc-vader/pull/2\n---\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+    });
+
+    expect(report.items[0]?.subjectResolution?.subjects).toEqual([
+      "work-item:2",
+    ]);
+  });
+
+  it("uses automation.requiredCandidateFields qualifying values", async () => {
+    mkConsumerConfig({
+      validateArchiveCandidates: true,
+      requiredCandidateFields: [
+        "actual",
+        { field: "status", values: ["closed"] },
+      ],
+    });
+    mkFile(
+      "backlog/3.required-values.md",
+      `---\nid: work-item:3\ntype: work-item\nstatus: ready-for-review\nlifecycle: active\nactual: 2\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/3\n  evidence:\n    - '[[record-20260101-000000-3]]'\n---\n`,
+    );
+
+    const report = await scanBacklog({
+      rootDir: testDir,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+    });
+
+    const candidate = report.items.find((item) => item.id === "work-item:3");
+    expect(candidate?.candidateValidation?.eligible).toBe(false);
+    expect(
+      candidate?.candidateValidation?.discrepancies.some((entry) =>
+        entry.includes("must be one of: closed"),
+      ),
+    ).toBe(true);
+  });
+});

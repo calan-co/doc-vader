@@ -10,6 +10,21 @@
     "autoCloseOnMerge": true,
     "autoEvidenceFromWorkflowRuns": true,
     "preserveCommitMap": true,
+    "workItemMatchPatterns": [
+      "work-item:",
+      "wi-"
+    ],
+    "pullRequestPath": "links.pull_requests",
+    "requiredCandidateFields": [
+      "actual",
+      {
+        "field": "status",
+        "values": [
+          "ready-for-review",
+          "closed"
+        ]
+      }
+    ],
     "prePushValidation": {
       "schemas": {
         "baseline": "schemas/frontmatter/work-item/1.0.0.json",
