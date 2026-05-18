@@ -18,6 +18,9 @@ import remarkLintWorkItemClosureEvidence, {
   Options as WorkItemClosureEvidenceOptions,
 } from "./plugins/remark-lint-work-item-closure-evidence.js";
 import remarkGfm from "remark-gfm";
+import remarkFrontmatterSchema, {
+  Options as FrontmatterSchemaOptions,
+} from "./plugins/remark-frontmatter-schema.js";
 
 export interface TiabProcessorOptions {
   checklist?: Readonly<ChecklistOptions>;
@@ -25,6 +28,7 @@ export interface TiabProcessorOptions {
   templateCompliance?: Readonly<TemplateComplianceOptions>;
   workItemArchiveReadiness?: Readonly<WorkItemArchiveReadinessOptions>;
   workItemClosureEvidence?: Readonly<WorkItemClosureEvidenceOptions>;
+  frontmatterSchema?: Readonly<FrontmatterSchemaOptions>;
 }
 
 export function createTiabProcessor(options: TiabProcessorOptions = {}) {
@@ -36,5 +40,6 @@ export function createTiabProcessor(options: TiabProcessorOptions = {}) {
     .use(remarkLintTemplateCompliance, options.templateCompliance)
     .use(remarkLintWorkItemArchiveReadiness, options.workItemArchiveReadiness)
     .use(remarkLintWorkItemClosureEvidence, options.workItemClosureEvidence)
+    .use(remarkFrontmatterSchema, options.frontmatterSchema)
     .use(remarkStringify);
 }
