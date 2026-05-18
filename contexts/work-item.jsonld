@@ -1,0 +1,40 @@
+{
+  "@context": [
+    "./document.jsonld",
+    {
+      "@version": 1.1,
+      "schema": "https://schema.org/",
+      "dv": "https://vocab.doc-vader.dev/",
+      "priority": "dv:priority",
+      "assignee": {
+        "@id": "schema:assignee",
+        "@type": "@id"
+      },
+      "workItemType": "dv:workItemType",
+      "name": "schema:name",
+      "created": {
+        "@id": "schema:dateCreated",
+        "@type": "schema:Date"
+      },
+      "modified": {
+        "@id": "schema:dateModified",
+        "@type": "schema:Date"
+      },
+      "completed_date": {
+        "@id": "schema:dateCompleted",
+        "@type": "schema:Date"
+      },
+      "status_comment": "schema:description",
+      "status_reason": "dv:statusReason",
+      "relations": {
+        "@id": "schema:relatedTo",
+        "@container": "@set"
+      },
+      "classifications": {
+        "@id": "dv:classifications",
+        "@container": "@set"
+      },
+      "ordinal": "schema:position"
+    }
+  ]
+}

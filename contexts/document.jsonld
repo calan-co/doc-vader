@@ -1,0 +1,29 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "schema": "https://schema.org/",
+    "dv": "https://vocab.doc-vader.dev/",
+    "id": "@id",
+    "type": "@type",
+    "title": "schema:name",
+    "summary": "schema:abstract",
+    "owner": {
+      "@id": "schema:author",
+      "@type": "@id"
+    },
+    "subtype": "dv:subtype",
+    "tags": {
+      "@id": "schema:keywords",
+      "@container": "@set"
+    },
+    "links": {
+      "@id": "schema:relatedLink",
+      "@container": "@set"
+    },
+    "classification": "dv:classification",
+    "lifecycle": "dv:lifecycle",
+    "status": "dv:status",
+    "audience": "dv:audience",
+    "governance": "dv:governance"
+  }
+}
