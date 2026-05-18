@@ -277,6 +277,8 @@
                             "fields",
                             "sensitivity",
                             "naming",
+                            "ready",
+                            "ready",
                             "other"
                           ]
                         },
@@ -468,6 +470,7 @@
       "description": "Current actionable workflow state.",
       "type": "string",
       "enum": [
+        "ready",
         "open",
         "proposed",
         "accepted",
@@ -525,7 +528,6 @@
     "uri": {
       "description": "Uri to an external resource.",
       "type": "string",
-      "maxLength": 256,
       "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$"
     },
     "wikilink": {
@@ -544,6 +546,7 @@
         },
         "status": {
           "enum": [
+            "ready",
             "open",
             "proposed",
             "accepted",
@@ -568,6 +571,7 @@
         },
         "status": {
           "enum": [
+            "ready",
             "open",
             "proposed",
             "accepted",
