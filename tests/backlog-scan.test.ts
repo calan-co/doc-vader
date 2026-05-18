@@ -669,7 +669,10 @@ links:
     "validate-archive-candidates auto-generates missing evidence for wi-prefixed candidates",
     { timeout: 15000 },
     async () => {
-      mkConsumerConfig({ validateArchiveCandidates: true });
+      mkConsumerConfig({
+        validateArchiveCandidates: true,
+        workItemMatchPatterns: ["wi-"],
+      });
       mkFile(
         "backlog/22.wi-ready-missing-evidence.md",
         `---

@@ -15,6 +15,10 @@ import {
   SubjectResolverChain,
   type SubjectResolverContext,
 } from "./resolver.js";
+import {
+  matchesWorkItemId,
+  normalizeWorkItemMatchPatterns,
+} from "./configurable-rules.js";
 import { getProviderForForge } from "./provider-registry.js";
 import type { BacklogAutomationProvider } from "./provider.js";
 import {
@@ -71,6 +75,7 @@ function parseWorkItem(
   resolverOrder: ReturnType<typeof normalizeResolverOrder>,
   provider: BacklogAutomationProvider,
   generatedAt: string,
+  pullRequestPath?: string,
 ): WorkItemScanResult {
   let data: Record<string, unknown>;
   try {
@@ -95,7 +100,7 @@ function parseWorkItem(
     };
   }
 
-  const { conditions, errors } = evaluateConditions(data);
+  const { conditions, errors } = evaluateConditions(data, { pullRequestPath });
 
   // For Phase B, we'll compute subject resolution asynchronously later
   // Return a partial result and resolve subjects in the executor loop
@@ -118,12 +123,21 @@ function parseWorkItem(
   };
 }
 
-function toWorkItemSlug(id: string): string {
-  return id.replace(/^work-item:/, "");
+function toWorkItemSlug(id: string, patterns?: string[]): string {
+  const normalizedPatterns = normalizeWorkItemMatchPatterns(patterns);
+  const matchedPrefix = normalizedPatterns.find((pattern) =>
+    id.toLowerCase().startsWith(pattern.toLowerCase()),
+  );
+
+  if (!matchedPrefix) {
+    return id;
+  }
+
+  return id.slice(matchedPrefix.length);
 }
 
-function isEvidenceEligibleWorkItemId(id: string): boolean {
-  return id.startsWith("work-item:") || id.startsWith("wi-");
+function isEvidenceEligibleWorkItemId(id: string, patterns?: string[]): boolean {
+  return matchesWorkItemId(id, patterns);
 }
 
 function extractWikiTargets(content: string): string[] {
@@ -270,9 +284,10 @@ async function generateEvidenceForItem(
     consumerConfig?: string;
     dryRun: boolean;
     force?: boolean;
+    workItemMatchPatterns?: string[];
   },
 ): Promise<NonNullable<WorkItemScanResult["evidenceGeneration"]>> {
-  if (!item.id || !isEvidenceEligibleWorkItemId(item.id)) {
+  if (!item.id || !isEvidenceEligibleWorkItemId(item.id, options.workItemMatchPatterns)) {
     return {
       created: false,
       recordIds: [],
@@ -324,7 +339,7 @@ async function generateEvidenceForItem(
     };
   }
 
-  const workItemSlug = toWorkItemSlug(item.id);
+  const workItemSlug = toWorkItemSlug(item.id, options.workItemMatchPatterns);
   const linkedAt = new Date().toISOString();
   const recordSlug = `${formatEvidenceTimestamp(
     new Date(linkedAt),
@@ -473,6 +488,7 @@ export async function scanBacklog(
         resolverOrder,
         provider,
         generatedAt,
+        loadedConfig.automation.pullRequestPath,
       );
 
       // Phase B: Resolve subjects using the resolver chain (now async)
@@ -485,6 +501,9 @@ export async function scanBacklog(
           data,
           id: result.id,
           provider,
+          workItemMatchPatterns:
+            loadedConfig.automation.workItemMatchPatterns,
+          pullRequestPath: loadedConfig.automation.pullRequestPath,
         };
 
         result.subjectResolution = await resolverChain.resolveSubjects(
@@ -527,6 +546,8 @@ export async function scanBacklog(
           rootDir,
           consumerConfig,
           dryRun,
+          workItemMatchPatterns:
+            loadedConfig.automation.workItemMatchPatterns,
         });
         result.evidenceGeneration = evidenceGeneration;
         for (const message of evidenceGeneration.errors) {
@@ -579,6 +600,8 @@ export async function scanBacklog(
                 consumerConfig,
                 dryRun,
                 force: true,
+                workItemMatchPatterns:
+                  loadedConfig.automation.workItemMatchPatterns,
               },
             );
             result.evidenceGeneration = forcedEvidenceGeneration;
@@ -613,7 +636,10 @@ export async function scanBacklog(
             ...validateArchiveReadiness(context, [
               "ready-for-review",
               "closed",
-            ]),
+            ], {
+              pullRequestPath: loadedConfig.automation.pullRequestPath,
+              requiredFields: loadedConfig.automation.requiredCandidateFields,
+            }),
             ...validateClosedWorkItemEvidence(context),
           ];
 
@@ -624,6 +650,7 @@ export async function scanBacklog(
                 consumerConfig,
                 id: result.id,
                 dryRun,
+                pullRequestPath: loadedConfig.automation.pullRequestPath,
               });
               result.candidateValidation = {
                 eligible: true,

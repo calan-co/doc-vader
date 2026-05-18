@@ -31,6 +31,42 @@ describe("SubjectResolvers", () => {
       expect(result.subjects).toEqual(["work-item:feature-1", "work-item:feature-2"]);
     });
 
+    it("only extracts default work-item pattern when no custom pattern is provided", async () => {
+      const context: SubjectResolverContext = {
+        content:
+          "# Test\nTracks WI-228 and work-item:feature-3 plus wi-228 duplicate.",
+        data: {},
+        id: "work-item:test",
+        provider: {} as BacklogAutomationProvider,
+      };
+
+      const result = await resolver.resolve(context);
+
+      expect(result.strategy).toBe("payload_subject_tokens");
+      expect(result.subjectsFound).toBe(1);
+      expect(result.subjects).toEqual(["work-item:feature-3"]);
+    });
+
+    it("extracts wi-* tokens when configured in workItemMatchPatterns", async () => {
+      const context: SubjectResolverContext = {
+        content:
+          "# Test\nTracks WI-228 and work-item:feature-3 plus wi-228 duplicate.",
+        data: {},
+        id: "wi-test",
+        provider: {} as BacklogAutomationProvider,
+        workItemMatchPatterns: ["work-item:", "wi-"],
+      };
+
+      const result = await resolver.resolve(context);
+
+      expect(result.strategy).toBe("payload_subject_tokens");
+      expect(result.subjectsFound).toBe(2);
+      expect(result.subjects).toHaveLength(2);
+      expect(result.subjects).toEqual(
+        expect.arrayContaining(["wi-228", "work-item:feature-3"]),
+      );
+    });
+
     it("returns empty array when no tokens found", async () => {
       const context: SubjectResolverContext = {
         content: "# Test\nNo work items here",
