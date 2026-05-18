@@ -82,14 +82,80 @@ export async function reconcile(
   const canonical = normalizeGovernance(fm["governance"]);
   if (!canonical)
     return { file, message: "No governance section to reconcile" };
-  // Placeholder: strategy engine not yet implemented
+
+  const requestedStrategy =
+    options.strategy || canonical.reconciliation?.defaultStrategy || "priority-order";
+  const normalizedStrategy = requestedStrategy.toLowerCase();
+  const deterministicAliases = new Set([
+    "priority-order",
+    "prioritize",
+    "auto",
+    "deterministic",
+  ]);
+
+  if (!deterministicAliases.has(normalizedStrategy)) {
+    throw new Error(
+      `Unsupported reconciliation strategy \"${requestedStrategy}\". Use \"priority-order\" for deterministic CI-safe reconciliation.`,
+    );
+  }
+
+  const profiles = buildEffectiveRules(canonical).profiles;
+  const priorityOrder = (canonical.priorityOrder || []).map((name) =>
+    name.toLowerCase(),
+  );
+
+  const byCategory = new Map<string, typeof profiles>();
+  for (const profile of profiles) {
+    const category = profile.category || "uncategorized";
+    byCategory.set(category, [...(byCategory.get(category) || []), profile]);
+  }
+
+  const conflicts = [...byCategory.entries()]
+    .filter(([, grouped]) => grouped.length > 1)
+    .map(([category, grouped]) => ({
+      category,
+      candidates: grouped.map((p) => p.name),
+    }));
+
+  const decisions = [...byCategory.entries()].map(([category, grouped]) => {
+    const ranked = [...grouped].sort((a, b) => {
+      const ai = priorityOrder.indexOf(a.name.toLowerCase());
+      const bi = priorityOrder.indexOf(b.name.toLowerCase());
+      const ar = ai === -1 ? Number.MAX_SAFE_INTEGER : ai;
+      const br = bi === -1 ? Number.MAX_SAFE_INTEGER : bi;
+      if (ar !== br) return ar - br;
+      return a.name.localeCompare(b.name);
+    });
+
+    const winner = ranked[0];
+    const reason =
+      priorityOrder.length > 0 && priorityOrder.includes(winner.name.toLowerCase())
+        ? "priorityOrder"
+        : "alphabetical-fallback";
+
+    return {
+      category,
+      candidates: grouped.map((p) => p.name),
+      winner: winner.name,
+      reason,
+    };
+  });
+
+  const trace = decisions.map(
+    (d) =>
+      `category=${d.category}; candidates=${d.candidates.join(",",
+      )}; winner=${d.winner}; reason=${d.reason}`,
+  );
+
   return {
     file,
-    appliedStrategy:
-      options.strategy || canonical.reconciliation?.defaultStrategy || "prompt",
+    appliedStrategy: "priority-order",
     dryRun: !!options.dryRun,
-    conflicts: [],
-    plan: "(placeholder) conflict analysis to be implemented",
+    priorityOrder,
+    profiles,
+    conflicts,
+    decisions,
+    trace,
   };
 }
 

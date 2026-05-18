@@ -52,6 +52,14 @@ const collectOption = (value: string, previous: string[] = []) => [
   value,
 ];
 
+const collectCsvOption = (value: string, previous: string[] = []) => [
+  ...previous,
+  ...value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean),
+];
+
 // --- DOMAIN: frontmatter ---
 const frontmatter = program
   .command("frontmatter")
@@ -156,6 +164,8 @@ backlog
   .option(
     "--profile <nameOrPath>",
     "Validation profile name (default|strict|ci) or JSON profile path",
+    collectCsvOption,
+    [],
   )
   .option(
     "--schema-map <path>",
@@ -167,11 +177,16 @@ backlog
     false,
   )
   .action(async (opts) => {
+    const selectedProfiles =
+      Array.isArray(opts.profile) && opts.profile.length > 0
+        ? opts.profile
+        : undefined;
     const report = await validateBacklog({
       backlogDir: opts.dir,
       format: opts.format,
       failOn: opts.failOn,
-      profile: opts.profile,
+      profile: selectedProfiles?.[0],
+      profiles: selectedProfiles,
       schemaMap: opts.schemaMap,
       includeArchive: opts.includeArchive,
     });
@@ -563,13 +578,13 @@ governance
 governance
   .command("reconcile")
   .description(
-    "Reconcile conflicts between selected governance profiles (placeholder implementation)",
+    "Reconcile conflicts between selected governance profiles using deterministic priority-order strategy",
   )
   .argument("<file>", "Markdown file path")
   .option(
     "--strategy <strategy>",
-    "prompt|auto|prioritize|intersection|override|split|advisory",
-    "prompt",
+    "priority-order|prioritize|auto|deterministic",
+    "priority-order",
   )
   .option("--dry-run", "Show plan without applying changes")
   .action(
