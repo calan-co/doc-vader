@@ -13,7 +13,9 @@ export interface BacklogAuditOptions {
   format?: BacklogFormat;
   failOn?: BacklogFailOn;
   profile?: string;
+  profiles?: string[];
   schemaMap?: string;
+  schemaMaps?: string[];
   includeArchive?: boolean;
 }
 
@@ -23,8 +25,10 @@ interface ResolvedOptions {
   format: BacklogFormat;
   failOn: BacklogFailOn;
   schemaMap?: string;
+  schemaMaps?: string[];
   includeArchive: boolean;
   profile?: string;
+  profiles?: string[];
 }
 
 interface SchemaMapConfig {
@@ -279,6 +283,7 @@ async function preloadSchemaTree(
 async function resolveSchemaMap(
   rootDir: string,
   schemaMapPath?: string,
+  schemaMapPaths?: string[],
 ): Promise<SchemaMapConfig> {
   const defaults: SchemaMapConfig = {
     byType: {
@@ -287,15 +292,30 @@ async function resolveSchemaMap(
     },
     default: "schemas/frontmatter/document/current.json",
   };
-  if (!schemaMapPath) return defaults;
-  const resolved = resolveLocalPath(rootDir, schemaMapPath);
-  const raw = await loadJson(resolved);
-  const parsed = guessSchemaMap(raw);
-  return {
-    default: parsed.default ?? defaults.default,
-    byType: { ...(defaults.byType ?? {}), ...(parsed.byType ?? {}) },
-    bySubtype: parsed.bySubtype ?? {},
+  const sources = [
+    ...(schemaMapPaths ?? []),
+    ...(schemaMapPath ? [schemaMapPath] : []),
+  ];
+  if (sources.length === 0) return defaults;
+
+  let merged: SchemaMapConfig = {
+    default: defaults.default,
+    byType: { ...(defaults.byType ?? {}) },
+    bySubtype: {},
   };
+
+  for (const source of sources) {
+    const resolved = resolveLocalPath(rootDir, source);
+    const raw = await loadJson(resolved);
+    const parsed = guessSchemaMap(raw);
+    merged = {
+      default: parsed.default ?? merged.default,
+      byType: { ...(merged.byType ?? {}), ...(parsed.byType ?? {}) },
+      bySubtype: { ...(merged.bySubtype ?? {}), ...(parsed.bySubtype ?? {}) },
+    };
+  }
+
+  return merged;
 }
 
 function determineSchemaTarget(
@@ -333,9 +353,27 @@ function mergeOptions(
     format: merged.format || "text",
     failOn: merged.failOn || "error",
     schemaMap: merged.schemaMap,
+    schemaMaps: merged.schemaMaps,
     includeArchive: merged.includeArchive ?? false,
     profile: merged.profile,
+    profiles: normalizeProfiles(merged.profiles, merged.profile),
   };
+}
+
+function normalizeProfiles(
+  profiles?: string[],
+  profile?: string,
+): string[] | undefined {
+  const merged = [
+    ...(profiles ?? []),
+    ...(profile ? [profile] : []),
+  ]
+    .flatMap((entry) => entry.split(","))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (merged.length === 0) return undefined;
+  return [...new Set(merged)];
 }
 
 async function resolveProfile(
@@ -378,6 +416,27 @@ async function resolveProfile(
     }
   }
   throw new Error(`Profile not found: ${profile}`);
+}
+
+async function resolveProfiles(
+  profiles: string[] | undefined,
+  rootDir: string,
+): Promise<Partial<BacklogAuditOptions> | undefined> {
+  if (!profiles || profiles.length === 0) return undefined;
+
+  let merged: Partial<BacklogAuditOptions> = {};
+  const schemaMaps: string[] = [];
+  for (const profile of profiles) {
+    const resolved = await resolveProfile(profile, rootDir);
+    if (resolved) {
+      if (resolved.schemaMap) schemaMaps.push(resolved.schemaMap);
+      merged = { ...merged, ...resolved };
+    }
+  }
+  if (schemaMaps.length > 0) {
+    merged.schemaMaps = schemaMaps;
+  }
+  return merged;
 }
 
 export function formatAuditReportText(report: BacklogAuditReport): string {
@@ -431,9 +490,25 @@ export async function auditBacklog(
   cliOptions: BacklogAuditOptions = {},
 ): Promise<BacklogAuditReport> {
   const rootDir = path.resolve(cliOptions.rootDir || process.cwd());
-  const profileOptions = await resolveProfile(cliOptions.profile, rootDir);
-  const options = mergeOptions({ ...cliOptions, rootDir }, profileOptions);
-  const schemaMap = await resolveSchemaMap(options.rootDir, options.schemaMap);
+  const requestedProfiles = normalizeProfiles(
+    cliOptions.profiles,
+    cliOptions.profile,
+  );
+  const profileOptions = await resolveProfiles(requestedProfiles, rootDir);
+  const options = mergeOptions(
+    {
+      ...cliOptions,
+      rootDir,
+      profiles: requestedProfiles,
+      profile: requestedProfiles?.[0],
+    },
+    profileOptions,
+  );
+  const schemaMap = await resolveSchemaMap(
+    options.rootDir,
+    options.schemaMap,
+    options.schemaMaps,
+  );
 
   const files = await findMarkdownFiles(
     options.backlogDir,

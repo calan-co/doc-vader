@@ -19,7 +19,7 @@
   "scripts": {
     "build": "nx build doc-vader",
     "changeset": "changeset",
-    "test": "nx test --watch=false doc-vader",
+    "test": "nx test doc-vader --watch=false",
     "prepare": "husky",
     "docs:lint": "nx run doc-vader:docs-lint",
     "docs:lint:fix": "nx run doc-vader:docs-lint-fix",

@@ -468,6 +468,7 @@
       "description": "Current actionable workflow state.",
       "type": "string",
       "enum": [
+        "ready",
         "open",
         "proposed",
         "accepted",
@@ -544,6 +545,7 @@
         },
         "status": {
           "enum": [
+            "ready",
             "open",
             "proposed",
             "accepted",
@@ -568,6 +570,7 @@
         },
         "status": {
           "enum": [
+            "ready",
             "open",
             "proposed",
             "accepted",

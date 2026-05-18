@@ -83,6 +83,141 @@ describe("auditBacklog", () => {
     expect(report.exit_code).toBe(1);
   });
 
+  it("merges multiple profiles deterministically and records them in options", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-multi-profile-");
+    cleanupDirs.push(tmp);
+
+    const profileA = path.join(tmp, "profile-a.json");
+    const profileB = path.join(tmp, "profile-b.json");
+
+    await writeFile(
+      profileA,
+      JSON.stringify(
+        {
+          backlogValidation: {
+            failOn: "error",
+            format: "text",
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    await writeFile(
+      profileB,
+      JSON.stringify(
+        {
+          backlogValidation: {
+            failOn: "warning",
+            format: "json",
+            includeArchive: true,
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    await writeFile(
+      path.join(tmp, "4.single.md"),
+      `---\nid: "4"\ntitle: Single\ntype: work-item\nsubtype: task\nlifecycle: draft\nstatus: proposed\npriority: medium\n---\n`,
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      profiles: [profileA, profileB],
+    });
+
+    expect(report.options.profiles).toEqual([profileA, profileB]);
+    expect(report.options.profile).toBe(profileA);
+    expect(report.options.failOn).toBe("warning");
+    expect(report.options.format).toBe("json");
+    expect(report.options.includeArchive).toBe(true);
+  });
+
+  it("accepts comma-separated profiles through the audit options", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-comma-profile-");
+    cleanupDirs.push(tmp);
+
+    const profileA = path.join(tmp, "profile-a.json");
+    const profileB = path.join(tmp, "profile-b.json");
+
+    await writeFile(
+      profileA,
+      JSON.stringify({ backlogValidation: { failOn: "error" } }, null, 2),
+    );
+    await writeFile(
+      profileB,
+      JSON.stringify({ backlogValidation: { format: "json" } }, null, 2),
+    );
+
+    await writeFile(
+      path.join(tmp, "5.single.md"),
+      `---\nid: "5"\ntitle: Single\ntype: work-item\nsubtype: task\nlifecycle: draft\nstatus: proposed\npriority: medium\n---\n`,
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      profile: `${profileA},${profileB}`,
+    });
+
+    expect(report.options.profiles).toEqual([profileA, profileB]);
+    expect(report.options.format).toBe("json");
+  });
+
+  it("chains schema maps from multiple selected profiles in deterministic order", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-schema-chain-");
+    cleanupDirs.push(tmp);
+
+    const profileA = path.join(tmp, "profile-a.json");
+    const profileB = path.join(tmp, "profile-b.json");
+    const schemaMapA = path.join(tmp, "schema-map-a.json");
+    const schemaMapB = path.join(tmp, "schema-map-b.json");
+
+    await writeFile(
+      schemaMapA,
+      JSON.stringify(
+        { default: "schemas/frontmatter/document/current.json" },
+        null,
+        2,
+      ),
+    );
+    await writeFile(
+      schemaMapB,
+      JSON.stringify(
+        { byType: { "work-item": "schemas/frontmatter/work-item/1.0.0.json" } },
+        null,
+        2,
+      ),
+    );
+
+    await writeFile(
+      profileA,
+      JSON.stringify({ backlogValidation: { schemaMap: schemaMapA } }, null, 2),
+    );
+    await writeFile(
+      profileB,
+      JSON.stringify({ backlogValidation: { schemaMap: schemaMapB } }, null, 2),
+    );
+
+    await writeFile(
+      path.join(tmp, "6.single.md"),
+      `---\nid: "6"\ntitle: Single\ntype: work-item\nsubtype: task\nlifecycle: draft\nstatus: proposed\npriority: medium\n---\n`,
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      profiles: [profileA, profileB],
+    });
+
+    expect(report.options.schemaMaps).toEqual([schemaMapA, schemaMapB]);
+    expect(report.options.schemaMap).toBe(schemaMapB);
+  });
+
   it("resolves wikilinks to archived backlog targets even when includeArchive is false", async () => {
     const tmp = await mkTmpDir("doc-vader-backlog-archive-resolution-");
     cleanupDirs.push(tmp);

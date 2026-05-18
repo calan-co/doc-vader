@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import matter from "gray-matter";
 
 export type GovernanceInput = any;
 
@@ -97,29 +98,8 @@ export function normalizeGovernance(
 
 export async function loadFileFrontmatter(filePath: string): Promise<any> {
   const raw = await fs.readFile(filePath, "utf8");
-  // Simple YAML frontmatter extraction (expects starting --- and ending ---)
-  const match = raw.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return {};
-  const yamlBlock = match[1];
-  // Very naive key: value parser (non-nested) for immediate uses; full YAML parsing can be added later.
-  const data: Record<string, any> = {};
-  for (const line of yamlBlock.split(/\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const idx = trimmed.indexOf(":");
-    if (idx === -1) continue;
-    const key = trimmed.slice(0, idx).trim();
-    let value = trimmed.slice(idx + 1).trim();
-    // Remove surrounding quotes
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    data[key] = value;
-  }
-  return data;
+  const parsed = matter(raw);
+  return (parsed.data || {}) as Record<string, any>;
 }
 
 export function inferCategories(
@@ -132,7 +112,6 @@ export function inferCategories(
 }
 
 export function buildEffectiveRules(canonical: CanonicalGovernance) {
-  // Placeholder for future merged constraints; for now just echo profiles with inferred categories
   return {
     profiles: inferCategories(canonical),
     priorityOrder: canonical.priorityOrder,

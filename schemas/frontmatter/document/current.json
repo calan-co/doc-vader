@@ -20,9 +20,7 @@
     },
     "uri": {
       "type": "string",
-      "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$",
-      "maxLength": 256,
-      "description": "Uri to an external resource."
+      "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$",      "maxLength": 256,      "description": "Uri to an external resource."
     },
     "link": {
       "anyOf": [
@@ -235,6 +233,7 @@
     "status": {
       "type": "string",
       "enum": [
+        "ready",
         "open",
         "proposed",
         "accepted",
@@ -536,6 +535,7 @@
         "lifecycle": { "const": "draft" },
         "status": {
           "enum": [
+            "ready",
             "open",
             "proposed",
             "accepted",
@@ -558,6 +558,7 @@
         "lifecycle": { "const": "active" },
         "status": {
           "enum": [
+            "ready",
             "open",
             "proposed",
             "accepted",
