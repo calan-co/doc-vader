@@ -40,6 +40,8 @@ export function createTiabProcessor(options: TiabProcessorOptions = {}) {
     .use(remarkLintTemplateCompliance, options.templateCompliance)
     .use(remarkLintWorkItemArchiveReadiness, options.workItemArchiveReadiness)
     .use(remarkLintWorkItemClosureEvidence, options.workItemClosureEvidence)
-    .use(remarkFrontmatterSchema, options.frontmatterSchema)
+    // Keep schema validation opt-in here until local/remote schema ref
+    // resolution is fully unified across all lint entrypoints.
+    .use(remarkFrontmatterSchema, options.frontmatterSchema ?? { enabled: false })
     .use(remarkStringify);
 }

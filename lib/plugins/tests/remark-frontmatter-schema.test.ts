@@ -58,13 +58,17 @@ describe("remark-frontmatter-schema", () => {
       "# Body",
     ].join("\n");
     const file = await run(md, { schemaDir: SCHEMA_DIR });
-    // Plugin should not throw — it should produce messages (if any) gracefully.
-    expect(Array.isArray(file.messages)).toBe(true);
+    // Plugin should not throw — it should report a deterministic resolver error.
+    const schemaMessages = file.messages.filter((m) =>
+      m.message.includes("[frontmatter-schema]")
+    );
+    expect(schemaMessages.length).toBeGreaterThan(0);
+    expect(schemaMessages[0].message).toMatch(/can't resolve reference/i);
   });
 
   // ── Schema validation errors surface ──────────────────────────────────────
 
-  it("reports a message when schemaDir does not exist", async () => {
+  it("silently skips validation when schemaDir does not exist", async () => {
     const md = "---\ntype: document\nid: doc-1\n---\n# Body";
     // Use a non-existent directory — resolveSchema returns null → no messages.
     // (Missing schema dir is treated as 'no schema available', not an error.)
@@ -116,23 +120,23 @@ describe("remark-frontmatter-schema", () => {
 
   // ── Processor integration ─────────────────────────────────────────────────
 
-  it("integrates as a plugin via createTiabProcessor with frontmatterSchema option", async () => {
+  it("integrates via createTiabProcessor and forwards frontmatterSchema options", async () => {
     const { createTiabProcessor } = await import("../../processor.js");
-    // Provide minimal options to satisfy all plugins that require config;
-    // remark-lint-template-compliance requires requiredHeadings.
+    // Provide minimal options to satisfy all plugins that require config.
     const processor = createTiabProcessor({
-      frontmatterSchema: { enabled: false },
+      frontmatterSchema: { enabled: true, schemaDir: SCHEMA_DIR },
       templateCompliance: { requiredHeadings: ["Summary"] },
     });
-    const md = "# Hello";
+    const md = "---\ntype: ../../etc/passwd\n---\n# Hello";
     const { VFile } = await import("vfile");
     const file = new VFile({ value: md });
     const tree = processor.parse(md);
     await processor.run(tree, file);
-    // frontmatterSchema is disabled, so no schema messages expected.
+    // Processor wiring should surface frontmatter-schema diagnostics.
     const schemaMessages = file.messages.filter((m) =>
       m.message.includes("[frontmatter-schema]")
     );
-    expect(schemaMessages.length).toBe(0);
+    expect(schemaMessages.length).toBeGreaterThan(0);
+    expect(schemaMessages[0].message).toMatch(/Invalid frontmatter type/);
   });
 });
