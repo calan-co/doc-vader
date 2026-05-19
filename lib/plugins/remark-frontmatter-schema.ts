@@ -79,7 +79,16 @@ interface CacheEntry {
   errors: ValidationError[] | null;
 }
 
+interface ResolvedSchema {
+  schema: any;
+  cacheKey: string;
+}
+
 const validationCache = new Map<string, CacheEntry>();
+
+// Cache compiled validators by schema path + mtime so schema compilation is
+// skipped until the underlying schema file changes.
+const compiledSchemaCache = new Map<string, any>();
 
 // Cache Ajv instances (one per resolved schema directory) so support schemas
 // are only loaded once and compiled validators are reused.
@@ -173,7 +182,17 @@ async function getAjv(
 async function resolveSchema(
   type: string | null,
   schemaDir: string,
-): Promise<any> {
+): Promise<ResolvedSchema | null> {
+  async function loadResolved(schemaPath: string): Promise<ResolvedSchema | null> {
+    const schema = await loadSchemaFile(schemaPath);
+    if (!schema) return null;
+    const stat = await fs.stat(schemaPath);
+    return {
+      schema,
+      cacheKey: `${schemaPath}:${stat.mtime.getTime()}`,
+    };
+  }
+
   if (type !== null) {
     if (!SAFE_NAME_RE.test(type)) {
       throw new Error(
@@ -181,11 +200,11 @@ async function resolveSchema(
       );
     }
     const typedPath = path.join(schemaDir, "by-type", type, "latest.json");
-    const schema = await loadSchemaFile(typedPath);
-    if (schema) return schema;
+    const resolved = await loadResolved(typedPath);
+    if (resolved) return resolved;
   }
   const defaultPath = path.join(schemaDir, "default.json");
-  return await loadSchemaFile(defaultPath);
+  return await loadResolved(defaultPath);
 }
 
 /**
@@ -212,16 +231,21 @@ async function runValidation(
   }
 
   const type = typeof frontmatter.type === "string" ? frontmatter.type : null;
-  const schema = await resolveSchema(type, schemaDir);
-  if (!schema) return null;
+  const resolvedSchema = await resolveSchema(type, schemaDir);
+  if (!resolvedSchema) return null;
 
   const ajv = await getAjv(schemaDir);
-  const validate = ajv.compile(schema);
+  const validatorCacheKey = `${schemaDir}:${resolvedSchema.cacheKey}`;
+  let validate = compiledSchemaCache.get(validatorCacheKey);
+  if (!validate) {
+    validate = ajv.compile(resolvedSchema.schema);
+    compiledSchemaCache.set(validatorCacheKey, validate);
+  }
   const valid = validate(frontmatter);
 
   const errors: ValidationError[] | null =
     !valid && validate.errors
-      ? validate.errors.map((err) => ({
+      ? validate.errors.map((err: any) => ({
           path: err.instancePath || "(root)",
           message: err.message ?? "unknown error",
           keyword: err.keyword,
