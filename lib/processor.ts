@@ -18,6 +18,16 @@ import remarkLintWorkItemClosureEvidence, {
   Options as WorkItemClosureEvidenceOptions,
 } from "./plugins/remark-lint-work-item-closure-evidence.js";
 import remarkGfm from "remark-gfm";
+import remarkFrontmatterSchema, {
+  Options as FrontmatterSchemaOptions,
+} from "./plugins/remark-frontmatter-schema.js";
+
+type LintSeverity = "off" | "warn" | "error" | 0 | 1 | 2;
+
+export interface FrontmatterSchemaProcessorOptions
+  extends Readonly<FrontmatterSchemaOptions> {
+  severity?: LintSeverity;
+}
 
 export interface TiabProcessorOptions {
   checklist?: Readonly<ChecklistOptions>;
@@ -25,9 +35,24 @@ export interface TiabProcessorOptions {
   templateCompliance?: Readonly<TemplateComplianceOptions>;
   workItemArchiveReadiness?: Readonly<WorkItemArchiveReadinessOptions>;
   workItemClosureEvidence?: Readonly<WorkItemClosureEvidenceOptions>;
+  frontmatterSchema?: Readonly<FrontmatterSchemaProcessorOptions>;
 }
 
 export function createTiabProcessor(options: TiabProcessorOptions = {}) {
+  const severity = options.frontmatterSchema?.severity;
+  const frontmatterRuleOptions: FrontmatterSchemaOptions | undefined =
+    options.frontmatterSchema
+      ? {
+          enabled: options.frontmatterSchema.enabled,
+          schemaDir: options.frontmatterSchema.schemaDir,
+        }
+      : undefined;
+
+  const frontmatterSchemaConfig =
+    severity !== undefined
+      ? ([severity, frontmatterRuleOptions ?? {}] as const)
+      : (frontmatterRuleOptions ?? { enabled: false });
+
   return unified()
     .use(remarkParse)
     .use(remarkGfm)
@@ -36,5 +61,6 @@ export function createTiabProcessor(options: TiabProcessorOptions = {}) {
     .use(remarkLintTemplateCompliance, options.templateCompliance)
     .use(remarkLintWorkItemArchiveReadiness, options.workItemArchiveReadiness)
     .use(remarkLintWorkItemClosureEvidence, options.workItemClosureEvidence)
+    .use(remarkFrontmatterSchema as any, frontmatterSchemaConfig as any)
     .use(remarkStringify);
 }
