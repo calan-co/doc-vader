@@ -39,6 +39,10 @@ import {
   migrate as migrateBacklogWorkManagement,
   ingestEvent as ingestBacklogEvent,
 } from "../lib/controllers/workManagementController.js";
+import {
+  validate as validatePrdPayload,
+  render as renderPrd,
+} from "../lib/controllers/prdController.js";
 
 const program = new Command()
   .name("doc-vader")
@@ -502,6 +506,83 @@ record
       dryRun: opts.dryRun,
     });
     console.log(JSON.stringify(result, null, 2));
+  });
+
+const prd = program
+  .command("prd")
+  .description("Product requirements document lifecycle commands");
+
+prd
+  .command("validate")
+  .description("Validate a PRD JSON content payload")
+  .requiredOption("--payload <path>", "Path to PRD content JSON payload")
+  .option("--format <format>", "Output format: text|json", "text")
+  .action(async (opts) => {
+    const result = await validatePrdPayload({
+      payloadPath: opts.payload,
+    });
+    if (opts.format === "json") {
+      console.log(JSON.stringify(result, null, 2));
+    } else if (result.valid) {
+      console.log(`PRD payload valid: ${result.payloadPath}`);
+    } else {
+      console.error(`PRD payload invalid: ${result.payloadPath}`);
+      console.error(JSON.stringify(result.errors, null, 2));
+    }
+    if (!result.valid) {
+      process.exit(1);
+    }
+  });
+
+prd
+  .command("render")
+  .description("Render a PRD Markdown view from a validated JSON payload")
+  .requiredOption("--payload <path>", "Path to PRD content JSON payload")
+  .requiredOption("--id <id>", "Canonical PRD plan id, e.g. plan:my-prd")
+  .requiredOption("--title <title>", "Human-readable PRD title")
+  .requiredOption("--summary <summary>", "Short PRD summary")
+  .option("--template <path>", "PRD Markdown template path")
+  .option("--output <path>", "Path to write rendered Markdown")
+  .option("--json-output <path>", "Path to preserve/copy JSON payload")
+  .option("--lifecycle <lifecycle>", "Document lifecycle", "active")
+  .option("--status <status>", "Document status", "ready")
+  .option("--reason <reason>", "Status reason")
+  .option("--owner <owner>", "Owner or responsible party")
+  .option("--assignee <assignee>", "Assignee")
+  .option("--tag <tag>", "Tag to include in frontmatter", collectOption, [])
+  .action(async (opts) => {
+    const result = await renderPrd({
+      payloadPath: opts.payload,
+      templatePath: opts.template,
+      outputPath: opts.output,
+      jsonOutputPath: opts.jsonOutput,
+      id: opts.id,
+      title: opts.title,
+      summary: opts.summary,
+      lifecycle: opts.lifecycle,
+      status: opts.status,
+      statusReason: opts.reason,
+      owner: opts.owner,
+      assignee: opts.assignee,
+      tags: opts.tag,
+    });
+    if (result.markdown) {
+      console.log(result.markdown);
+    } else {
+      console.log(
+        JSON.stringify(
+          {
+            payloadPath: result.payloadPath,
+            templatePath: result.templatePath,
+            outputPath: result.outputPath,
+            jsonOutputPath: result.jsonOutputPath,
+            valid: result.validation.valid,
+          },
+          null,
+          2,
+        ),
+      );
+    }
   });
 
 // --- DOMAIN: governance ---
