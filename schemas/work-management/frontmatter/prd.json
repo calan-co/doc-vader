@@ -8,10 +8,10 @@
   "allOf": [
     {
       "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0.json#/$defs/core"
-    }
+    },
     {
       "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0.json#/$defs/lifecycleStatusCompatibility"
-    }
+    },
     {
       "$ref": "../support/common.json#/$defs/correlationFields"
     },
