@@ -120,7 +120,7 @@ async function createFrontmatterAjv(rootDir: string): Promise<Ajv2020> {
   for (const schemaPath of await walkJsonFiles(supportDir)) {
     const schema = await readJson(schemaPath);
     addSchemaIfMissing(ajv, schema);
-    const rel = path.relative(rootDir, schemaPath);
+    const rel = path.relative(rootDir, schemaPath).split(path.sep).join("/");
     addSchemaAlias(
       ajv,
       schema,
