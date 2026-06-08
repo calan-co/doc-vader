@@ -89,8 +89,15 @@ async function walkJsonFiles(dir: string): Promise<string[]> {
 function addSchemaIfMissing(ajv: Ajv2020, schema: JsonObject): void {
   try {
     ajv.addSchema(schema);
-  } catch {
-    // Aliases intentionally overlap across current/versioned schemas.
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /already exists|duplicate/i.test(error.message)
+    ) {
+      // Aliases intentionally overlap across current/versioned schemas.
+      return;
+    }
+    throw error;
   }
 }
 

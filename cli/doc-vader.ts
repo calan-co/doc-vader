@@ -516,7 +516,11 @@ prd
   .command("validate")
   .description("Validate a PRD JSON content payload")
   .requiredOption("--payload <path>", "Path to PRD content JSON payload")
-  .option("--format <format>", "Output format: text|json", "text")
+  .addOption(
+    new Option("--format <format>", "Output format")
+      .choices(["text", "json"])
+      .default("text"),
+  )
   .action(async (opts) => {
     const result = await validatePrdPayload({
       payloadPath: opts.payload,

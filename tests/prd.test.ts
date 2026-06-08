@@ -12,8 +12,11 @@ const rootDir = path.resolve(__dirname, "..");
 async function writeExamplePayload(): Promise<string> {
   const schemaPath = path.join(rootDir, "schemas/work-management/content/prd.json");
   const schema = JSON.parse(await readFile(schemaPath, "utf8")) as {
-    examples: unknown[];
+    examples?: unknown[];
   };
+  if (!Array.isArray(schema.examples) || schema.examples.length === 0) {
+    throw new Error(`No examples found in schema: ${schemaPath}`);
+  }
   const dir = await mkdtemp(path.join(os.tmpdir(), "doc-vader-prd-"));
   const payloadPath = path.join(dir, "sample.content.json");
   await writeFile(payloadPath, `${JSON.stringify(schema.examples[0], null, 2)}\n`, "utf8");
