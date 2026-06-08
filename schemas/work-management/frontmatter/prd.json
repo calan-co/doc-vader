@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/frontmatter/prd",
+  "title": "work-management/frontmatter/prd",
+  "description": "Product requirements document frontmatter. PRDs are modeled as plan specializations so they can participate in the existing work-management graph without introducing a new primary entity type.",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "allOf": [
+    {
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0.json#/$defs/core"
+    },
+    {
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0.json#/$defs/lifecycleStatusCompatibility"
+    },
+    {
+      "$ref": "../support/common.json#/$defs/correlationFields"
+    },
+    {
+      "$ref": "../support/common.json#/$defs/assignableFields"
+    },
+    {
+      "type": "object",
+      "required": [
+        "$schema",
+        "$content_schema",
+        "summary"
+      ],
+      "properties": {
+        "$schema": {
+          "const": "schemas/work-management/frontmatter/prd.json"
+        },
+        "$content_schema": {
+          "const": "schemas/work-management/content/prd.json"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^plan:[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "type": {
+          "const": "plan"
+        },
+        "subtype": {
+          "const": "x-prd"
+        },
+        "summary": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "$schema": "schemas/work-management/frontmatter/prd.json",
+      "$content_schema": "schemas/work-management/content/prd.json",
+      "$template": "templates/reference/work-management/prd.md.tpl",
+      "id": "plan:sample-prd",
+      "title": "Sample PRD",
+      "type": "plan",
+      "subtype": "x-prd",
+      "lifecycle": "active",
+      "status": "ready",
+      "summary": "Durable PRD rendered from a JSON source payload."
+    }
+  ]
+}

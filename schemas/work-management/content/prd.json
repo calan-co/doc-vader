@@ -1,0 +1,624 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/content/prd",
+  "title": "work-management/content/prd",
+  "description": "Content contract for high-fidelity Product Requirements Documents. The JSON payload is the automation source of truth; Markdown is a rendered view.",
+  "type": "object",
+  "required": [
+    "entityType",
+    "documentKind",
+    "artifactStrategy",
+    "contextGrounding",
+    "problemStatement",
+    "solution",
+    "coverageModel",
+    "userStories",
+    "coverageReview",
+    "qualityReview",
+    "implementationDecisions",
+    "testingDecisions",
+    "outOfScope",
+    "furtherNotes"
+  ],
+  "properties": {
+    "entityType": {
+      "description": "Work-management entity type. PRDs are plan specializations.",
+      "const": "plan"
+    },
+    "documentKind": {
+      "description": "Document kind marker for PRD-specific automation.",
+      "const": "product-requirements"
+    },
+    "artifactStrategy": {
+      "$ref": "#/$defs/artifactStrategy"
+    },
+    "contextGrounding": {
+      "$ref": "#/$defs/contextGrounding"
+    },
+    "problemStatement": {
+      "description": "User-perspective problem, consequence, and job to be done.",
+      "$ref": "../support/common.json#/$defs/nonEmptyString"
+    },
+    "solution": {
+      "description": "User-perspective solution and decision boundary.",
+      "$ref": "../support/common.json#/$defs/nonEmptyString"
+    },
+    "coverageModel": {
+      "$ref": "#/$defs/coverageModel"
+    },
+    "userStories": {
+      "description": "User stories generated from the coverage model. Completeness is evaluated by coverage, not raw count.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/userStory"
+      }
+    },
+    "coverageReview": {
+      "$ref": "#/$defs/coverageReview"
+    },
+    "qualityReview": {
+      "$ref": "#/$defs/qualityReview"
+    },
+    "implementationDecisions": {
+      "description": "Durable implementation decisions with rationale. Avoid brittle file paths unless they are part of a stable public contract.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/reasonedDecision"
+      }
+    },
+    "testingDecisions": {
+      "$ref": "#/$defs/testingDecisions"
+    },
+    "outOfScope": {
+      "description": "Explicit non-goals and excluded work.",
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "successCriteria": {
+      "description": "Measurable outcomes that indicate the PRD has been satisfied.",
+      "$ref": "../support/common.json#/$defs/stringList"
+    },
+    "agentHandoff": {
+      "$ref": "#/$defs/agentHandoff"
+    },
+    "relationships": {
+      "$ref": "../support/common.json#/$defs/relationshipList"
+    },
+    "furtherNotes": {
+      "description": "Clarifications, tradeoffs, or unresolved but non-blocking context.",
+      "$ref": "../support/common.json#/$defs/notesValue"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "artifactStrategy": {
+      "description": "How the PRD preserves structured automation data and rendered human-readable views.",
+      "type": "object",
+      "required": [
+        "sourceOfTruth",
+        "renderedViews",
+        "preservation"
+      ],
+      "properties": {
+        "sourceOfTruth": {
+          "description": "The durable structured artifact used by automation.",
+          "const": "json-payload"
+        },
+        "renderedViews": {
+          "description": "Human-facing render targets generated from the JSON payload.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "markdown"
+            ]
+          }
+        },
+        "preservation": {
+          "description": "Where or how the JSON payload remains available after Markdown rendering or issue publication.",
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "contextGrounding": {
+      "description": "Evidence that the PRD was synthesized from current repo and conversation context rather than generic product prose.",
+      "type": "object",
+      "required": [
+        "codebaseContext",
+        "domainVocabulary",
+        "adrAlignment"
+      ],
+      "properties": {
+        "codebaseContext": {
+          "description": "Current-state repo understanding relevant to the PRD.",
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "domainVocabulary": {
+          "description": "Canonical terms the PRD should use consistently.",
+          "$ref": "../support/common.json#/$defs/stringList"
+        },
+        "adrAlignment": {
+          "description": "Relevant ADR alignment, or an explicit note that no relevant ADRs were found.",
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "sourceContext": {
+          "description": "Optional source observations, prompts, files, issues, or records used as grounding evidence.",
+          "$ref": "../support/common.json#/$defs/stringList"
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverageModel": {
+      "description": "Planning surface used to produce comprehensive user stories. Add dimensions before writing stories, then audit coverage gaps explicitly.",
+      "type": "object",
+      "required": [
+        "actors",
+        "journeyStages",
+        "concerns"
+      ],
+      "properties": {
+        "actors": {
+          "description": "User, maintainer, agent, automation, or operator roles affected by the PRD.",
+          "$ref": "../support/common.json#/$defs/stringList"
+        },
+        "journeyStages": {
+          "description": "Workflow stages to cover, such as authoring, validation, handoff, publication, migration, or failure recovery.",
+          "$ref": "../support/common.json#/$defs/stringList"
+        },
+        "concerns": {
+          "description": "Quality, operational, edge-case, or failure-mode concerns that stories should cover.",
+          "$ref": "../support/common.json#/$defs/stringList"
+        },
+        "notes": {
+          "$ref": "../support/common.json#/$defs/notesValue"
+        }
+      },
+      "additionalProperties": false
+    },
+    "storyCoverage": {
+      "description": "Coverage coordinates for one user story. Values should correspond to the coverage model, with deviations explained in coverage review.",
+      "type": "object",
+      "required": [
+        "actor",
+        "journeyStage",
+        "concern"
+      ],
+      "properties": {
+        "actor": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "journeyStage": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "concern": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "userStory": {
+      "type": "object",
+      "required": [
+        "story",
+        "covers"
+      ],
+      "properties": {
+        "story": {
+          "description": "Complete story in the form: As an <actor>, I want <feature>, so that <benefit>.",
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "covers": {
+          "$ref": "#/$defs/storyCoverage"
+        },
+        "notes": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverageGap": {
+      "type": "object",
+      "required": [
+        "gap",
+        "reason"
+      ],
+      "properties": {
+        "gap": {
+          "description": "Coverage area not represented by user stories.",
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "reason": {
+          "description": "Why the gap is acceptable, out of scope, or still needs follow-up.",
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverageReviewStatus": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "has-gaps",
+        "needs-review"
+      ]
+    },
+    "coverageReview": {
+      "description": "Explicit audit of story coverage against the coverage model.",
+      "type": "object",
+      "required": [
+        "status",
+        "notes",
+        "gaps"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/coverageReviewStatus"
+        },
+        "notes": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverageGap"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "qualityDimension": {
+      "type": "object",
+      "required": [
+        "name",
+        "score",
+        "rationale"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "grounding",
+            "coverage",
+            "decision-rationale",
+            "testability",
+            "automation-readiness"
+          ]
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "rationale": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "qualityReview": {
+      "description": "Self-review rubric for PRD quality. This makes weak or incomplete reasoning visible before handoff.",
+      "type": "object",
+      "required": [
+        "dimensions",
+        "notes"
+      ],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/qualityDimension"
+          }
+        },
+        "notes": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "decisionCategory": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "module-boundary",
+            "interface",
+            "architecture",
+            "schema",
+            "api-contract",
+            "interaction",
+            "technical-clarification",
+            "prototype-derived"
+          ]
+        },
+        {
+          "$ref": "../support/common.json#/$defs/extensionToken"
+        }
+      ]
+    },
+    "prototypeSnippet": {
+      "type": "object",
+      "required": [
+        "language",
+        "body",
+        "note"
+      ],
+      "properties": {
+        "language": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "body": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "note": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reasonedDecision": {
+      "type": "object",
+      "required": [
+        "statement",
+        "rationale"
+      ],
+      "properties": {
+        "statement": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "rationale": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "category": {
+          "$ref": "#/$defs/decisionCategory"
+        },
+        "prototypeSnippet": {
+          "$ref": "#/$defs/prototypeSnippet"
+        }
+      },
+      "additionalProperties": false
+    },
+    "seamLevel": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "public-api",
+            "cli",
+            "rendered-markdown",
+            "schema-contract",
+            "integration",
+            "end-to-end",
+            "unit"
+          ]
+        },
+        {
+          "$ref": "../support/common.json#/$defs/extensionToken"
+        }
+      ]
+    },
+    "testSeam": {
+      "type": "object",
+      "required": [
+        "name",
+        "level",
+        "rationale"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "level": {
+          "$ref": "#/$defs/seamLevel"
+        },
+        "rationale": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "existingPriorArt": {
+          "$ref": "../support/common.json#/$defs/stringList"
+        }
+      },
+      "additionalProperties": false
+    },
+    "seamReviewStatus": {
+      "type": "string",
+      "enum": [
+        "confirmed",
+        "needs-confirmation",
+        "not-applicable"
+      ]
+    },
+    "seamReview": {
+      "type": "object",
+      "required": [
+        "status",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/seamReviewStatus"
+        },
+        "notes": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "testingDecisions": {
+      "description": "External behavior validation strategy, including highest practical seams and prior art.",
+      "type": "object",
+      "required": [
+        "behaviorContract",
+        "modulesUnderTest",
+        "seams",
+        "priorArt",
+        "seamReview"
+      ],
+      "properties": {
+        "behaviorContract": {
+          "$ref": "../support/common.json#/$defs/nonEmptyString"
+        },
+        "modulesUnderTest": {
+          "$ref": "../support/common.json#/$defs/stringList"
+        },
+        "seams": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/testSeam"
+          }
+        },
+        "priorArt": {
+          "$ref": "../support/common.json#/$defs/stringList"
+        },
+        "validationGates": {
+          "$ref": "../support/common.json#/$defs/stringList"
+        },
+        "seamReview": {
+          "$ref": "#/$defs/seamReview"
+        }
+      },
+      "additionalProperties": false
+    },
+    "agentHandoff": {
+      "type": "object",
+      "required": [
+        "readyLabel",
+        "handoffNotes"
+      ],
+      "properties": {
+        "readyLabel": {
+          "const": "ready-for-agent"
+        },
+        "handoffNotes": {
+          "$ref": "../support/common.json#/$defs/stringList"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "entityType": "plan",
+      "documentKind": "product-requirements",
+      "artifactStrategy": {
+        "sourceOfTruth": "json-payload",
+        "renderedViews": [
+          "markdown"
+        ],
+        "preservation": "Store the content JSON sidecar next to the rendered Markdown PRD."
+      },
+      "contextGrounding": {
+        "codebaseContext": "The PRD is grounded in the current work-management schema and template conventions.",
+        "domainVocabulary": [
+          "work-management plan",
+          "content schema",
+          "rendered Markdown"
+        ],
+        "adrAlignment": "No relevant ADRs found."
+      },
+      "problemStatement": "Agents need durable PRDs that preserve reasoning while remaining useful to automation.",
+      "solution": "Create a JSON-first PRD payload and render Markdown from it for human review.",
+      "coverageModel": {
+        "actors": [
+          "agent",
+          "maintainer"
+        ],
+        "journeyStages": [
+          "authoring",
+          "validation"
+        ],
+        "concerns": [
+          "handoff quality",
+          "automation"
+        ]
+      },
+      "userStories": [
+        {
+          "story": "As a maintainer, I want the PRD JSON to remain available, so that automation can validate and transform it.",
+          "covers": {
+            "actor": "maintainer",
+            "journeyStage": "validation",
+            "concern": "automation"
+          }
+        }
+      ],
+      "coverageReview": {
+        "status": "has-gaps",
+        "notes": "This compact example intentionally covers only one matrix cell.",
+        "gaps": [
+          {
+            "gap": "Agent authoring story is omitted.",
+            "reason": "Kept out of the minimal schema example."
+          }
+        ]
+      },
+      "qualityReview": {
+        "dimensions": [
+          {
+            "name": "grounding",
+            "score": 4,
+            "rationale": "The example references the work-management schema and template context."
+          },
+          {
+            "name": "coverage",
+            "score": 2,
+            "rationale": "The example intentionally leaves coverage gaps."
+          },
+          {
+            "name": "decision-rationale",
+            "score": 4,
+            "rationale": "The primary decision includes an explicit rationale."
+          },
+          {
+            "name": "testability",
+            "score": 4,
+            "rationale": "The example identifies schema validation as the key seam."
+          },
+          {
+            "name": "automation-readiness",
+            "score": 5,
+            "rationale": "The JSON payload remains the source of truth."
+          }
+        ],
+        "notes": "Scores are illustrative for the compact schema example."
+      },
+      "implementationDecisions": [
+        {
+          "statement": "Use JSON as the source of truth and render Markdown from it.",
+          "rationale": "This preserves automation value while keeping the PRD readable.",
+          "category": "schema"
+        }
+      ],
+      "testingDecisions": {
+        "behaviorContract": "Validate the JSON payload and rendered Markdown view.",
+        "modulesUnderTest": [
+          "PRD content schema",
+          "PRD template"
+        ],
+        "seams": [
+          {
+            "name": "Schema validation",
+            "level": "schema-contract",
+            "rationale": "Invalid PRD payloads must fail before rendering."
+          }
+        ],
+        "priorArt": [
+          "Existing work-management schema validation."
+        ],
+        "seamReview": {
+          "status": "not-applicable",
+          "notes": "Example payload only."
+        }
+      },
+      "outOfScope": [
+        "Replacing all existing plan documents."
+      ],
+      "furtherNotes": "Keep examples compact; exhaustive examples belong in fixtures."
+    }
+  ]
+}
