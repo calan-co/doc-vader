@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import * as path from "node:path";
 import {
@@ -7,7 +7,17 @@ import {
   validatePrdPayload,
 } from "../lib/prd/index.js";
 
-const rootDir = path.resolve(__dirname, "..");
+const rootDir = path.resolve(process.cwd());
+
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    tempDirs.splice(0, tempDirs.length).map((dir) =>
+      rm(dir, { recursive: true, force: true }),
+    ),
+  );
+});
 
 async function writeExamplePayload(): Promise<string> {
   const schemaPath = path.join(rootDir, "schemas/work-management/content/prd.json");
@@ -18,6 +28,7 @@ async function writeExamplePayload(): Promise<string> {
     throw new Error(`No examples found in schema: ${schemaPath}`);
   }
   const dir = await mkdtemp(path.join(os.tmpdir(), "doc-vader-prd-"));
+  tempDirs.push(dir);
   const payloadPath = path.join(dir, "sample.content.json");
   await writeFile(payloadPath, `${JSON.stringify(schema.examples[0], null, 2)}\n`, "utf8");
   return payloadPath;
@@ -39,6 +50,7 @@ describe("PRD lifecycle", () => {
   it("renders Markdown and preserves the JSON payload sidecar", async () => {
     const payloadPath = await writeExamplePayload();
     const outputDir = await mkdtemp(path.join(os.tmpdir(), "doc-vader-prd-render-"));
+    tempDirs.push(outputDir);
     const outputPath = path.join(outputDir, "sample-prd.md");
     const jsonOutputPath = path.join(outputDir, "sample-prd.content.json");
 
