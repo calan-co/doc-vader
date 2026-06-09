@@ -1,4 +1,7 @@
-export { DIATAXIS_CATEGORIES } from "../lib/diataxis/classify.js";
+export {
+  DIATAXIS_CATEGORIES,
+  classifyDiataxisPlacement,
+} from "../lib/diataxis/classify.js";
 export { validateDiataxisFolder } from "../lib/diataxis/lint.js";
 
 export { list as listMarkdownFiles } from "../lib/docs/utils.js";
