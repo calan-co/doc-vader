@@ -53,6 +53,7 @@ describe("createTiabProcessor – composition", () => {
       checklist: { requiredItems: ["Task A"] },
       crossref: { rootDir: "." },
       templateCompliance: { requiredHeadings: ["Summary"] },
+      diataxisClassifier: { enabled: true },
       workItemArchiveReadiness: {},
       workItemClosureEvidence: {},
     };
@@ -140,7 +141,48 @@ describe("createTiabProcessor – templateCompliance plugin", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Suite 4: crossref plugin wiring (spy-based)
+// Suite 4: diataxis classifier plugin wiring
+// ---------------------------------------------------------------------------
+
+describe("createTiabProcessor – diataxisClassifier plugin", () => {
+  it("emits no messages when docs folder and subtype match", async () => {
+    const md = `---
+title: Example
+subtype: reference
+---
+
+# Reference`;
+    const file = await lint(md, {
+      diataxisClassifier: { enabled: true },
+    }, "docs/reference/guide.md");
+    const diataxisMessages = file.messages.filter((m) =>
+      m.ruleId?.includes("diataxis-classifier") ||
+      m.message.includes("diataxis-classifier"),
+    );
+    expect(diataxisMessages.length).toBe(0);
+  });
+
+  it("emits a message when docs folder and subtype mismatch", async () => {
+    const md = `---
+title: Example
+subtype: reference
+---
+
+# Reference`;
+    const file = await lint(md, {
+      diataxisClassifier: { enabled: true },
+    }, "docs/how-to/guide.md");
+    expect(
+      file.messages.some((m) =>
+        m.message.includes("diataxis-classifier") &&
+        m.message.includes('subtype "reference"'),
+      ),
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 5: crossref plugin wiring (spy-based)
 // ---------------------------------------------------------------------------
 
 describe("createTiabProcessor – crossref plugin", () => {
@@ -170,7 +212,7 @@ describe("createTiabProcessor – crossref plugin", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Suite 5: processor isolation — independent instances
+// Suite 6: processor isolation — independent instances
 // ---------------------------------------------------------------------------
 
 describe("createTiabProcessor – instance isolation", () => {
@@ -193,7 +235,7 @@ describe("createTiabProcessor – instance isolation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Suite 6: Phase 1 exit-gate baseline
+// Suite 7: Phase 1 exit-gate baseline
 // ---------------------------------------------------------------------------
 
 describe("Epic 170 Phase 1 – exit-gate baseline", () => {

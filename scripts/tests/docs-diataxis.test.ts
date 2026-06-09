@@ -6,6 +6,7 @@ import { promises as fs } from "node:fs";
 import matter from "gray-matter";
 import {
   DIATAXIS_CATEGORIES,
+  classifyDiataxisPlacement,
   listMarkdownFiles,
   stripLeadingDiataxis,
 } from "../docs-diataxis";
@@ -36,12 +37,44 @@ describe("DiataxisClassifier", () => {
     const classifier = new DiataxisClassifier();
     expect(typeof classifier.classify).toBe("function");
   });
+
+  it("classifies matching docs placement", () => {
+    expect(
+      classifyDiataxisPlacement("docs/reference/guide.md", "reference"),
+    ).toMatchObject({
+      docsFolder: "reference",
+      expectedFolder: "reference",
+      matches: true,
+      message: null,
+    });
+  });
+
+  it("classifies mismatched docs placement", () => {
+    expect(
+      classifyDiataxisPlacement("docs/how-to/guide.md", "reference"),
+    ).toMatchObject({
+      docsFolder: "how-to",
+      expectedFolder: "reference",
+      matches: false,
+      message:
+        'Diataxis folder mismatch: file under "how-to" but subtype is "reference"',
+    });
+  });
 });
 
 describe("DiataxisChecker", () => {
   it("is instance of Checker interface", () => {
     const checker = new DiataxisChecker();
     expect(typeof checker.check).toBe("function");
+  });
+});
+
+describe("validateDiataxisFolder", () => {
+  it("reports the subtype when a docs folder mismatch is found", async () => {
+    const { validateDiataxisFolder } = await import("../../lib/diataxis/lint");
+    expect(validateDiataxisFolder("docs/how-to/guide.md", "reference")).toBe(
+      'Diataxis folder mismatch: file under "how-to" but subtype is "reference"',
+    );
   });
 });
 

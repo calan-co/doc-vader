@@ -3,7 +3,7 @@ title: Frequently Asked Questions (FAQ)
 status: ready
 id: faq-4413
 type: document
-subtype: reference
+subtype: how-to
 lifecycle: active
 ---
 
