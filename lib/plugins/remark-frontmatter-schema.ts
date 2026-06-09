@@ -224,12 +224,13 @@ async function runValidation(
 
   // Check the validation-result cache after schema resolution so schema
   // updates invalidate cached file results as well as compiled validators.
-  let cacheKey: string | undefined;
+  const schemaCacheKey = resolvedSchema.cacheKey;
+  let validationCacheKey: string | undefined;
   try {
     const stat = await fs.stat(filePath);
-    cacheKey = `${filePath}:${stat.mtime.getTime()}:${resolvedSchema.cacheKey}`;
-    if (validationCache.has(cacheKey)) {
-      return validationCache.get(cacheKey)!.errors;
+    validationCacheKey = `${filePath}:${stat.mtime.getTime()}:${schemaCacheKey}`;
+    if (validationCache.has(validationCacheKey)) {
+      return validationCache.get(validationCacheKey)!.errors;
     }
   } catch {
     // In-memory VFiles have no on-disk path; skip caching.
@@ -254,8 +255,8 @@ async function runValidation(
       : null;
 
   // Populate the cache now that we have a result.
-  if (cacheKey !== undefined) {
-    validationCache.set(cacheKey, { timestamp: Date.now(), errors });
+  if (validationCacheKey !== undefined) {
+    validationCache.set(validationCacheKey, { timestamp: Date.now(), errors });
   }
 
   return errors;
