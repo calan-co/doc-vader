@@ -290,6 +290,13 @@ function normalizeStatus(value: unknown): string {
   return normalized;
 }
 
+function normalizeLifecycle(value: unknown): string {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.trim().toLowerCase();
+}
+
 function normalizeSha(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -785,11 +792,12 @@ export async function transitionWorkItem(
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
   const status = normalizeStatus(options.status);
+  const lifecycle = inferLifecycle(status, false);
 
   document.frontmatter.status = status;
   document.frontmatter.status_reason =
     options.statusReason ?? inferStatusReason(status);
-  document.frontmatter.lifecycle = inferLifecycle(status, false);
+  document.frontmatter.lifecycle = lifecycle;
   if (typeof options.actual === "number") {
     document.frontmatter.actual = options.actual;
   }
@@ -905,10 +913,7 @@ export async function finalizeWorkItem(
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
   const currentStatus = normalizeStatus(document.frontmatter.status);
-  const currentLifecycle =
-    typeof document.frontmatter.lifecycle === "string"
-      ? document.frontmatter.lifecycle.trim().toLowerCase()
-      : "";
+  const currentLifecycle = normalizeLifecycle(document.frontmatter.lifecycle);
   const links =
     typeof document.frontmatter.links === "object" &&
     document.frontmatter.links !== null
