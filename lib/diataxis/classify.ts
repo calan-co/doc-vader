@@ -14,6 +14,32 @@ function normalizeFilePath(filePath: string): string {
   return filePath.replace(/\\/g, "/");
 }
 
+function extractClassificationInput(input: string | object): {
+  filePath: string;
+  subtype: string;
+} {
+  if (typeof input === "string") {
+    return { filePath: input, subtype: "" };
+  }
+
+  const candidate = input as {
+    filePath?: unknown;
+    path?: unknown;
+    subtype?: unknown;
+  };
+
+  const filePath =
+    typeof candidate.filePath === "string"
+      ? candidate.filePath
+      : typeof candidate.path === "string"
+        ? candidate.path
+        : "";
+  const subtype =
+    typeof candidate.subtype === "string" ? candidate.subtype : "";
+
+  return { filePath, subtype };
+}
+
 export function classifyDiataxisPlacement(
   filePath: string,
   subtype: string,
@@ -45,40 +71,8 @@ export function classifyDiataxisPlacement(
 
 export class DiataxisClassifier implements Classifier<string | object, object> {
   classify(input: string | object): object {
-    if (typeof input === "string") {
-      return {
-        filePath: input,
-        subtype: "",
-        docsFolder: null,
-        expectedFolder: null,
-        matches: false,
-        message: null,
-      };
-    }
-
-    const rawFilePath =
-      typeof (input as { filePath?: unknown }).filePath === "string"
-        ? (input as { filePath: string }).filePath
-        : typeof (input as { path?: unknown }).path === "string"
-          ? (input as { path: string }).path
-          : "";
-    const subtype =
-      typeof (input as { subtype?: unknown }).subtype === "string"
-        ? (input as { subtype: string }).subtype
-        : "";
-
-    if (!rawFilePath || !subtype) {
-      return {
-        filePath: rawFilePath,
-        subtype,
-        docsFolder: null,
-        expectedFolder: subtype || null,
-        matches: false,
-        message: null,
-      };
-    }
-
-    return classifyDiataxisPlacement(rawFilePath, subtype);
+    const { filePath, subtype } = extractClassificationInput(input);
+    return classifyDiataxisPlacement(filePath, subtype);
   }
 }
 

@@ -14,21 +14,58 @@ export const optionsSchema = z.object({
 
 export type Options = z.input<typeof optionsSchema>;
 
-function normalizePath(filePath: string): string {
-  return filePath.replace(/\\/g, "/");
-}
+const RULE_ID = "diataxis-classifier";
+const SOURCE = "remark-lint";
+
+type RemarkFile = {
+  value?: unknown;
+  path?: unknown;
+  history?: unknown[];
+  message(message: string): {
+    fatal?: boolean;
+    ruleId?: string;
+    source?: string;
+  };
+};
 
 function resolveDisplayPath(filePath: string): string {
   return path.relative(process.cwd(), filePath) || filePath;
 }
 
-const remarkLintDiataxisClassifier = (function (options?: Options) {
-  return function (_tree: any, file: any) {
+function getFilePath(file: RemarkFile): string {
+  if (typeof file.path === "string") {
+    return file.path;
+  }
+
+  const firstHistoryEntry = file.history?.[0];
+  if (typeof firstHistoryEntry === "string") {
+    return firstHistoryEntry;
+  }
+
+  return "";
+}
+
+function formatViolationMessage(
+  location: string,
+  subtype: string,
+  classification: ReturnType<typeof classifyDiataxisPlacement>,
+): string {
+  if (classification.docsFolder) {
+    return `[diataxis-classifier] File "${location}" has subtype "${subtype}" but lives under docs/${classification.docsFolder}/. Expected docs/${subtype}/.`;
+  }
+
+  return `[diataxis-classifier] File "${location}" has subtype "${subtype}" but is not under docs/. Expected docs/${subtype}/.`;
+}
+
+const remarkLintDiataxisClassifier = function (
+  options?: Readonly<Options> | null,
+) {
+  return function (_tree: Root, file: RemarkFile) {
     const emitFatal = (message: string) => {
       const node = file.message(message);
       node.fatal = true;
-      node.ruleId = "diataxis-classifier";
-      node.source = "remark-lint";
+      node.ruleId = RULE_ID;
+      node.source = SOURCE;
       return node;
     };
 
@@ -52,24 +89,15 @@ const remarkLintDiataxisClassifier = (function (options?: Options) {
 
     if (!DIATAXIS_CATEGORIES.includes(subtype)) return;
 
-    const filePath =
-      typeof file.path === "string"
-        ? file.path
-        : typeof file.history?.[0] === "string"
-          ? file.history[0]
-          : "";
+    const filePath = getFilePath(file);
     if (!filePath) return;
 
     const location = resolveDisplayPath(filePath);
     const classification = classifyDiataxisPlacement(filePath, subtype);
     if (classification.matches) return;
 
-    emitFatal(
-      classification.docsFolder
-        ? `[diataxis-classifier] File "${location}" has subtype "${subtype}" but lives under docs/${classification.docsFolder}/. Expected docs/${subtype}/.`
-        : `[diataxis-classifier] File "${location}" has subtype "${subtype}" but is not under docs/. Expected docs/${subtype}/.`,
-    );
+    emitFatal(formatViolationMessage(location, subtype, classification));
   };
-} as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>);
+} as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
 
 export default remarkLintDiataxisClassifier;
