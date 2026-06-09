@@ -3,55 +3,60 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const repoRoot = path.resolve(__dirname, "..");
+const appTokenWorkflowFragments = [
+  "actions/create-github-app-token@v1",
+  "default: 'doc-vader[bot]'",
+  "token: ${{ steps.app-token.outputs.token || github.token }}",
+] as const;
+const reusableIngestWorkflowPaths = [
+  ".github/workflows/backlog-ingest-pull-request.yml",
+  ".github/workflows/backlog-ingest-workflow-run.yml",
+] as const;
+const automationWorkflowFragments = [
+  "app-id: ${{ vars.DOC_VADER_APP_ID }}",
+  "app-private-key: ${{ secrets.DOC_VADER_PRIVATE_KEY }}",
+  "doc-vader/.github/workflows/backlog-sweep.yml@v1",
+  "doc-vader/.github/workflows/backlog-ingest-pull-request.yml@v1",
+  "doc-vader/.github/workflows/backlog-ingest-workflow-run.yml@v1",
+] as const;
 
 function readWorkflow(relativePath: string): string {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");
+}
+
+function expectWorkflowToContain(
+  workflow: string,
+  fragments: readonly string[],
+) {
+  for (const fragment of fragments) {
+    expect(workflow).toContain(fragment);
+  }
 }
 
 describe("doc-vader GitHub App workflow wiring", () => {
   it("keeps the sweep workflow on the doc-vader app token path", () => {
     const sweep = readWorkflow(".github/workflows/backlog-sweep.yml");
 
-    expect(sweep).toContain("actions/create-github-app-token@v1");
-    expect(sweep).toContain("default: 'doc-vader[bot]'");
-    expect(sweep).toContain(
-      "token: ${{ steps.app-token.outputs.token || github.token }}",
-    );
+    expectWorkflowToContain(sweep, appTokenWorkflowFragments);
     expect(sweep).toContain(
       "GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}",
     );
   });
 
-  it("keeps the reusable ingest workflows authenticated as doc-vader[bot]", () => {
-    const pullRequest = readWorkflow(
-      ".github/workflows/backlog-ingest-pull-request.yml",
-    );
-    const workflowRun = readWorkflow(
-      ".github/workflows/backlog-ingest-workflow-run.yml",
-    );
-
-    for (const workflow of [pullRequest, workflowRun]) {
-      expect(workflow).toContain("actions/create-github-app-token@v1");
-      expect(workflow).toContain("default: 'doc-vader[bot]'");
-      expect(workflow).toContain(
-        "token: ${{ steps.app-token.outputs.token || github.token }}",
-      );
-    }
-  });
+  describe.each(reusableIngestWorkflowPaths)(
+    "keeps %s authenticated as doc-vader[bot]",
+    (workflowPath) => {
+      it("uses the app token path", () => {
+        expectWorkflowToContain(
+          readWorkflow(workflowPath),
+          appTokenWorkflowFragments,
+        );
+      });
+    },
+  );
 
   it("passes the app credentials through the top-level automation workflow", () => {
     const automation = readWorkflow(".github/workflows/backlog-automation.yml");
-
-    expect(automation).toContain("app-id: ${{ vars.DOC_VADER_APP_ID }}");
-    expect(automation).toContain(
-      "app-private-key: ${{ secrets.DOC_VADER_PRIVATE_KEY }}",
-    );
-    expect(automation).toContain("doc-vader/.github/workflows/backlog-sweep.yml@v1");
-    expect(automation).toContain(
-      "doc-vader/.github/workflows/backlog-ingest-pull-request.yml@v1",
-    );
-    expect(automation).toContain(
-      "doc-vader/.github/workflows/backlog-ingest-workflow-run.yml@v1",
-    );
+    expectWorkflowToContain(automation, automationWorkflowFragments);
   });
 });
