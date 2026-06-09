@@ -100,9 +100,11 @@ export async function validateFrontmatter({
       }
       const rawSchema = await fs.readFile(schemaPath, "utf8");
       const schema = JSON.parse(rawSchema);
-      if (schema)
+      if (schema) {
+        await preloadSupportSchemas(ajv, path.join(schemaDir, "support"));
         validate =
           ajv.getSchema(schema.$id) || (await ajv.compileAsync(schema));
+      }
     }
   }
   if (!validate) throw new Error(`Could not find schema: ${baseSchemaId}`);
@@ -117,10 +119,49 @@ export async function validateFrontmatter({
     warnings: [],
   };
 }
+
+async function preloadSupportSchemas(
+  ajv: InstanceType<typeof Ajv>,
+  supportDir: string
+): Promise<void> {
+  async function walk(dir: string): Promise<void> {
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith(".json")) {
+        const schema = JSON.parse(await fs.readFile(fullPath, "utf8"));
+        if (schema?.$id && !ajv.getSchema(schema.$id)) {
+          ajv.addSchema(schema, schema.$id);
+        }
+      }
+    }
+  }
+
+  await walk(supportDir);
+}
 async function resolveSchemaPath(
   schemaId: string,
   schemaDir: string
 ): Promise<{ schemaId: string; schemaPath: string }> {
+  const schemaRoot = path.resolve(schemaDir, "..");
+
+  if (/^https?:\/\//i.test(schemaId)) {
+    const pathname = new URL(schemaId).pathname;
+    const schemaIndex = pathname.indexOf("/schemas/");
+    const schemaRelative = schemaIndex >= 0 ? pathname.slice(schemaIndex + "/schemas/".length) : pathname.replace(/^\/+/, "");
+    const localPath = path.join(schemaRoot, schemaRelative);
+    const resolvedPath = localPath.endsWith(".json") ? localPath : `${localPath}.json`;
+    return { schemaId, schemaPath: resolvedPath };
+  }
+
   // Match semver range in schemaId
   const semverMatch = path.posix.parse(schemaId);
   if (!semverMatch) return { schemaId, schemaPath: schemaId };

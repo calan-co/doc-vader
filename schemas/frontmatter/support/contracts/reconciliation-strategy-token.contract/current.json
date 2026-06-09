@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/reconciliation-strategy-token.contract/1.0.0.json",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/reconciliation-strategy-token.contract/1.0.0",
+  "version": "1.0.0",
   "title": "frontmatter/contracts/reconciliation-strategy-token",
   "description": "Extension contract for reconciliation strategy tokens. Supports canonical tokens and x-* extension tokens.",
   "oneOf": [

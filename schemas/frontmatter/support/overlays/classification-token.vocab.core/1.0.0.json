@@ -1,6 +1,6 @@
 {
   "title": "frontmatter/overlays/classification-token.vocab.core",
-  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/1.0.0.json",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/1.0.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "coreToken": {
@@ -30,5 +30,6 @@
         }
       ]
     }
-  }
+  },
+  "version": "1.0.0"
 }

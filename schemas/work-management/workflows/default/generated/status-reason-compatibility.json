@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/workflows/default/generated/status-reason-compatibility",
+  "title": "work-management/workflows/default/generated/status-reason-compatibility",
+  "description": "Generated from the default work-item transition profile. Do not edit manually.",
+  "$comment": "GENERATED FILE. Run 'doc-vader work-management schemas generate' after editing ../transition-profile.json or ../status-definitions.schema.json.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "const": "proposed"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/proposedReason"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "const": "ready"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/readyReason"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "const": "in-progress"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/inProgressReason"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "const": "ready-for-review"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/readyForReviewReason"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status", "status_reason"],
+      "properties": {
+        "status": {
+          "const": "closed"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/closedReason"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

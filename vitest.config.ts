@@ -9,6 +9,7 @@ export default {
       "**/node_modules/**",
       "**/.pnpm-store/**",
       "**/.nx/**",
+      "**/.sandcastle/**",
       "**/dist/**",
     ],
     //globalSetup: "tests/helper/globalSetup.ts",

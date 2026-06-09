@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/content/plan.json",
+  "$id": "/work-management/content/plan",
   "title": "work-management/content/plan",
   "type": "object",
   "required": [
@@ -17,29 +17,29 @@
       "const": "plan"
     },
     "intent": {
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
     },
     "methodology": {
-      "$ref": "../support/common.json#/$defs/methodology"
+      "$ref": "/work-management/support/common#/$defs/methodology"
     },
     "assumptions": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "constraints": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "entries": {
       "type": "array",
       "minItems": 1,
       "items": {
-        "$ref": "../support/common.json#/$defs/planEntry"
+        "$ref": "/work-management/support/common#/$defs/planEntry"
       }
     },
     "relationships": {
-      "$ref": "../support/common.json#/$defs/nonEmptyRelationshipList"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyRelationshipList"
     },
     "notes": {
-      "$ref": "../support/common.json#/$defs/notesValue"
+      "$ref": "/work-management/support/common#/$defs/notesValue"
     }
   },
   "additionalProperties": false

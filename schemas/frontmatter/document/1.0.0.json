@@ -710,10 +710,9 @@
       "closed": {
         "type": "array",
         "items": {
-          "type": "string",
-          "enum": [
-          ]
-        }
+          "type": "string"
+        },
+        "maxItems": 0
       },
       "complete": {
         "type": "array",

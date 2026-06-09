@@ -1,8 +1,15 @@
 ---
-type: plan
-subtype: x-prd
-"$schema": schemas/work-management/frontmatter/prd.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/work-management/frontmatter/prd.json
+"$schema": https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/work-management/frontmatter/prd
 "$content_schema": schemas/work-management/content/prd.json
+"$template": templates/reference/work-management/prd.md.tpl
+"type": plan
+"subtype": x-prd
+"id": "{{metadata.id}}"
+"title": "{{metadata.title}}"
+"lifecycle": active
+"status": ready
+"summary": "{{metadata.summary}}"
 ---
 
 ## Artifact Strategy
@@ -131,7 +138,7 @@ prototype and captures the decision more precisely than prose. -#}
 {% if decision.category -%}
   Category: `{{ decision.category }}`
 {% endif -%}
-{% if decision.prototypeSnippet %}
+{% if decision.prototypeSnippet -%}
 
   Prototype-derived snippet:
 
@@ -140,9 +147,8 @@ prototype and captures the decision more precisely than prose. -#}
   ```
 
   {{ decision.prototypeSnippet.note }}
-{% endif %}
-{% endfor -%}
-
+{% endif -%}
+{% endfor %}
 ## Testing Decisions
 
 {# Test external behavior at the highest practical seam. Prefer existing seams.
@@ -164,9 +170,8 @@ If new seams are needed, state why they are the highest useful seam. -#}
 {% for item in seam.existingPriorArt -%}
   - {{ item }}
 {% endfor -%}
-{% endif %}
-{% endfor -%}
-
+{% endif -%}
+{% endfor %}
 ### Prior Art
 
 {% for item in testingDecisions.priorArt -%}

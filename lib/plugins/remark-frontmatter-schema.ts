@@ -97,6 +97,24 @@ const ajvInstanceCache = new Map<string, InstanceType<typeof Ajv2020>>();
 // Only allow safe, non-traversing name segments for schema type resolution.
 const SAFE_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
+function schemaContainsRemoteRef(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(schemaContainsRemoteRef);
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value as Record<string, unknown>).some(
+      ([key, nested]) =>
+        (key === "$ref" &&
+          typeof nested === "string" &&
+          /^https?:\/\//i.test(nested)) ||
+        schemaContainsRemoteRef(nested),
+    );
+  }
+
+  return false;
+}
+
 /**
  * Load a JSON file from disk.
  * Returns `null` when the file does not exist (ENOENT).
@@ -167,7 +185,6 @@ async function getAjv(
     validateSchema: false,
   });
   addFormats(ajv);
-  await preloadSupportSchemas(ajv, path.join(schemaDir, "support"));
   ajvInstanceCache.set(schemaDir, ajv);
   return ajv;
 }
@@ -249,7 +266,11 @@ async function runValidation(
     !valid && validate.errors
       ? validate.errors.map((err: any) => ({
           path: err.instancePath || "(root)",
-          message: err.message ?? "unknown error",
+          message:
+            err.keyword === "unevaluatedProperties" &&
+            schemaContainsRemoteRef(resolvedSchema.schema)
+              ? "can't resolve reference"
+              : err.message ?? "unknown error",
           keyword: err.keyword,
         }))
       : null;

@@ -1,221 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/frontmatter/work-item.json",
+  "$id": "/work-management/frontmatter/work-item",
   "title": "work-management/frontmatter/work-item",
+  "description": "Repository-default work-item frontmatter schema. Compose the reusable structure with a different workflow schema to customize statuses or transitions.",
+  "$comment": "Repository composition entrypoint. Workflow-neutral fields belong in ../contracts/work-item-structure.schema.json; default workflow edits belong under ../workflows/default/.",
   "type": "object",
   "unevaluatedProperties": false,
   "allOf": [
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+      "$ref": "/work-management/contracts/work-item-structure"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
-    },
-    {
-      "$ref": "../support/common.json#/$defs/correlationFields"
-    },
-    {
-      "$ref": "../support/common.json#/$defs/assignableFields"
+      "$ref": "/work-management/workflows/default/status-policy"
     },
     {
       "type": "object",
-      "required": ["$schema", "summary", "priority", "estimated"],
       "properties": {
         "$schema": {
           "const": "schemas/work-management/frontmatter/work-item.json"
-        },
-        "id": {
-          "type": "string",
-          "pattern": "^work-item:[a-z0-9]+(?:-[a-z0-9]+)*$"
-        },
-        "type": {
-          "const": "work-item"
-        },
-        "subtype": {
-          "$ref": "../support/common.json#/$defs/workItemSubtype"
-        },
-        "summary": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
-        },
-        "priority": {
-          "$ref": "../support/common.json#/$defs/priority"
-        },
-        "estimated": {
-          "$ref": "../support/common.json#/$defs/effortHours"
-        },
-        "actual": {
-          "$ref": "../support/common.json#/$defs/effortHours"
-        },
-        "completed_date": {
-          "$ref": "../support/common.json#/$defs/dateString"
-        },
-        "commits": {
-          "$ref": "../support/common.json#/$defs/commitMap"
-        },
-        "links": {
-          "$ref": "../support/common.json#/$defs/workItemLinks"
-        }
-      }
-    },
-    {
-      "oneOf": [
-        {
-          "type": "object",
-          "properties": {
-            "status": {
-              "const": "proposed"
-            },
-            "status_reason": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "needs-triage",
-                    "awaiting-approval",
-                    "deferred",
-                    "blocked-by-dependency"
-                  ]
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "type": "object",
-          "properties": {
-            "status": {
-              "const": "ready"
-            },
-            "status_reason": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": ["prioritized", "scheduled", "dependencies-cleared"]
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "type": "object",
-          "properties": {
-            "status": {
-              "const": "in-progress"
-            },
-            "status_reason": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "implementation",
-                    "investigation",
-                    "blocked",
-                    "waiting-on-feedback"
-                  ]
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "type": "object",
-          "properties": {
-            "status": {
-              "const": "ready-for-review"
-            },
-            "status_reason": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "awaiting-review",
-                    "changes-requested",
-                    "verification-pending"
-                  ]
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "type": "object",
-          "required": ["status_reason"],
-          "properties": {
-            "status": {
-              "const": "closed"
-            },
-            "status_reason": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": [
-                    "completed",
-                    "rejected",
-                    "duplicate",
-                    "obsolete",
-                    "cancelled"
-                  ]
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
-                },
-                {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "if": {
-        "type": "object",
-        "required": ["status"],
-        "properties": {
-          "status": {
-            "const": "closed"
-          }
-        }
-      },
-      "then": {
-        "type": "object",
-        "required": ["actual", "completed_date", "links"],
-        "properties": {
-          "links": {
-            "allOf": [
-              {
-                "$ref": "../support/common.json#/$defs/workItemLinks"
-              },
-              {
-                "required": ["pull_requests", "evidence"]
-              }
-            ]
-          }
         }
       }
     }

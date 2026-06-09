@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../../templjs"
+    }
+  ],
+  "settings": {
+    "templjs.trace.server": "verbose"
+  }
+}

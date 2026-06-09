@@ -1,0 +1,256 @@
+{
+  "$schema": "../../support/transition-profile.schema.json",
+  "$id": "/work-management/workflows/default/transition-profile",
+  "$comment": "EDIT THIS FILE when changing repository-default status-to-reason domains, derived mappings, or allowed transitions.",
+  "version": "1.0.0",
+  "sourceDimensions": {
+    "status": {
+      "path": "/status",
+      "domain": "/work-management/workflows/default/status-definitions.schema.json#/$defs/status"
+    },
+    "reason": {
+      "path": "/status_reason",
+      "allowUnknown": false,
+      "domainBy": {
+        "dimension": "status",
+        "cases": {
+          "proposed": "/work-management/workflows/default/status-definitions.schema.json#/$defs/proposedReason",
+          "ready": "/work-management/workflows/default/status-definitions.schema.json#/$defs/readyReason",
+          "in-progress": "/work-management/workflows/default/status-definitions.schema.json#/$defs/inProgressReason",
+          "ready-for-review": "/work-management/workflows/default/status-definitions.schema.json#/$defs/readyForReviewReason",
+          "closed": "/work-management/workflows/default/status-definitions.schema.json#/$defs/closedReason"
+        },
+        "requiredCases": [
+          "closed"
+        ]
+      }
+    }
+  },
+  "derivedDimensions": {
+    "category": {
+      "kind": "lookup",
+      "from": [
+        "status",
+        "reason"
+      ],
+      "table": "statusReasonCategories"
+    },
+    "connectivity": {
+      "kind": "lookup",
+      "from": [
+        "status",
+        "reason"
+      ],
+      "table": "statusReasonConnectivities"
+    }
+  },
+  "lookupTables": {
+    "statusReasonCategories": {
+      "values": "/work-management/workflows/default/status-definitions.schema.json#/$defs/reasonCategory",
+      "total": true,
+      "map": {
+        "proposed": {
+          "needs-triage": "intake",
+          "awaiting-approval": "intake",
+          "deferred": "intake",
+          "blocked-by-dependency": "execution",
+          "blocked": "execution",
+          "needs-info": "intake"
+        },
+        "ready": {
+          "prioritized": "planning",
+          "scheduled": "planning",
+          "dependencies-cleared": "planning",
+          "unblocked": "planning"
+        },
+        "in-progress": {
+          "implementation": "execution",
+          "investigation": "execution",
+          "blocked": "execution",
+          "awaiting-feedback": "execution",
+          "reverting-for-pr-workflow": "execution"
+        },
+        "ready-for-review": {
+          "awaiting-review": "review",
+          "changes-requested": "review",
+          "verification-pending": "review",
+          "implementation-complete": "review"
+        },
+        "closed": {
+          "completed": "completed",
+          "rejected": "decision",
+          "duplicate": "decision",
+          "obsolete": "decision",
+          "cancelled": "decision",
+          "merged_to_main": "completed",
+          "merged-to-main": "completed",
+          "success": "completed",
+          "wontfix": "decision"
+        }
+      }
+    },
+    "statusReasonConnectivities": {
+      "values": "/work-management/workflows/default/status-definitions.schema.json#/$defs/connectivityClass",
+      "default": "intermediate",
+      "map": {
+        "proposed": {
+          "needs-triage": "start",
+          "awaiting-approval": "start",
+          "needs-info": "start"
+        },
+        "closed": {
+          "*": "end"
+        }
+      }
+    }
+  },
+  "transitions": {
+    "precedence": [
+      "reason",
+      "category",
+      "status"
+    ],
+    "rules": [
+      {
+        "id": "forward-proposed-to-ready",
+        "from": {
+          "category": "intake"
+        },
+        "to": {
+          "category": "planning"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "forward-ready-to-in-progress",
+        "from": {
+          "category": "planning"
+        },
+        "to": {
+          "category": "execution"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "forward-in-progress-to-review",
+        "from": {
+          "category": "execution"
+        },
+        "to": {
+          "category": "review"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "forward-review-to-closed-completed",
+        "from": {
+          "category": "review"
+        },
+        "to": {
+          "category": "completed"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "decision-close-from-any-active",
+        "from": {
+          "status": [
+            "proposed",
+            "ready",
+            "in-progress",
+            "ready-for-review"
+          ]
+        },
+        "to": {
+          "status": "closed",
+          "category": "decision"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "completed-close-from-ready",
+        "from": {
+          "status": "ready",
+          "category": "planning"
+        },
+        "to": {
+          "status": "closed",
+          "category": "completed"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "completed-close-from-in-progress",
+        "from": {
+          "status": "in-progress",
+          "category": "execution"
+        },
+        "to": {
+          "status": "closed",
+          "category": "completed"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "rollback-review-to-in-progress",
+        "from": {
+          "status": "ready-for-review",
+          "category": "review"
+        },
+        "to": {
+          "status": "in-progress",
+          "category": "execution"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "rollback-in-progress-to-ready",
+        "from": {
+          "status": "in-progress",
+          "category": "execution"
+        },
+        "to": {
+          "status": "ready",
+          "category": "planning"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "rollback-in-progress-to-proposed",
+        "from": {
+          "status": "in-progress",
+          "category": "execution"
+        },
+        "to": {
+          "status": "proposed",
+          "category": "intake"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "rollback-ready-to-proposed",
+        "from": {
+          "status": "ready",
+          "category": "planning"
+        },
+        "to": {
+          "status": "proposed",
+          "category": "intake"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "rollback-review-to-proposed-needs-info",
+        "from": {
+          "status": "ready-for-review",
+          "category": "review"
+        },
+        "to": {
+          "status": "proposed",
+          "reason": "needs-info"
+        },
+        "decision": "allow"
+      }
+    ]
+  }
+}

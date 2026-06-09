@@ -82,6 +82,11 @@ function parseWorkItem(
     const parsed = matter(content);
     data = parsed.data as Record<string, unknown>;
   } catch (err) {
+    // Treat malformed frontmatter as missing metadata so callers get the same
+    // validation surface as a document with absent required fields, while
+    // still avoiding a hard parse failure.
+    void err;
+    const { errors } = evaluateConditions({}, { pullRequestPath });
     return {
       file,
       id: null,
@@ -89,14 +94,7 @@ function parseWorkItem(
       lifecycle: null,
       title: null,
       conditions: [{ code: "file_parsed", value: false }],
-      errors: [
-        {
-          code: "parse_failed",
-          message: `Failed to parse frontmatter: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        },
-      ],
+      errors,
     };
   }
 

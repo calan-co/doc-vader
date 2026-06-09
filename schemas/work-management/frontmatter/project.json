@@ -1,21 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/frontmatter/project.json",
+  "$id": "/work-management/frontmatter/project",
   "title": "work-management/frontmatter/project",
   "type": "object",
   "unevaluatedProperties": false,
   "allOf": [
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/core"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycleStatusCompatibility"
     },
     {
-      "$ref": "../support/common.json#/$defs/correlationFields"
+      "$ref": "/work-management/support/common#/$defs/correlationFields"
     },
     {
-      "$ref": "../support/common.json#/$defs/assignableFields"
+      "$ref": "/work-management/support/common#/$defs/assignableFields"
     },
     {
       "type": "object",
@@ -33,11 +33,11 @@
           "description": "The type of the document. Always 'project' for this schema"
         },
         "subtype": {
-          "$ref": "../support/common.json#/$defs/projectSubtype",
+          "$ref": "/work-management/support/common#/$defs/projectSubtype",
           "description": "The subtype of the project (e.g., program, initiative), providing more specific categorization"
         },
         "summary": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       }
     }

@@ -1,28 +1,60 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "/frontmatter/work-item/1.0.0",
+  "version": "1.0.0",
   "title": "frontmatter/work-item",
   "description": "Strict frontmatter schema for backlog work items supporting SDLC and Diataxis standards.",
   "allOf": [
-    { "$ref": "/frontmatter/document/1.0.0" },
+    {
+      "$ref": "/frontmatter/document/1.0.0"
+    },
     {
       "type": "object",
-      "required": ["priority"],
+      "required": [
+        "priority"
+      ],
       "properties": {
         "priority": {
           "type": "string",
-          "enum": ["low", "medium", "high", "critical"]
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
         },
-        "assignee": { "type": "string" },
-        "workItemType": { "type": "string" },
-        "name": { "type": "string" },
+        "assignee": {
+          "type": "string"
+        },
+        "workItemType": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
         "created": {
-          "oneOf": [{ "type": "string" }, { "type": "object" }]
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
+          ]
         },
         "modified": {
-          "oneOf": [{ "type": "string" }, { "type": "object" }]
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            }
+          ]
         },
-        "status_comment": { "type": "string" },
+        "status_comment": {
+          "type": "string"
+        },
         "relations": {
           "oneOf": [
             {
@@ -33,11 +65,20 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["type", "ref"],
+                "required": [
+                  "type",
+                  "ref"
+                ],
                 "properties": {
-                  "type": { "type": "string" },
-                  "ref": { "type": "string" },
-                  "note": { "type": "string" }
+                  "type": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
                 },
                 "additionalProperties": true
               }
@@ -69,11 +110,19 @@
       "allOf": [
         {
           "if": {
-            "required": ["status"],
-            "properties": { "status": { "const": "closed" } }
+            "required": [
+              "status"
+            ],
+            "properties": {
+              "status": {
+                "const": "closed"
+              }
+            }
           },
           "then": {
-            "required": ["status_reason"],
+            "required": [
+              "status_reason"
+            ],
             "properties": {
               "status_reason": {
                 "enum": [
@@ -90,10 +139,14 @@
         },
         {
           "if": {
-            "required": ["completed_date"]
+            "required": [
+              "completed_date"
+            ]
           },
           "then": {
-            "required": ["status"],
+            "required": [
+              "status"
+            ],
             "properties": {
               "status": {
                 "const": "closed"

@@ -40,6 +40,16 @@ The package is published to the GitHub Package Registry. To install from it, add
 @calan-co:registry=https://npm.pkg.github.com
 ```
 
+### From source
+
+```bash
+git clone https://github.com/calan-co/doc-vader.git
+cd doc-vader
+pnpm install # --frozen-lockfile
+pnpm build
+pnpm link --global # or npm link --global
+```
+
 ## Quick Start
 
 Validate all frontmatter in your `docs/` directory:
@@ -73,38 +83,41 @@ Run `doc-vader --help` or `doc-vader <command> --help` for full option listings.
 
 ### `frontmatter`
 
-| Subcommand | Description |
-|---|---|
-| `validate [path]` | Validate frontmatter in documentation files |
-| `fix` | Auto-fix frontmatter issues |
+| Subcommand        | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `validate [path]` | Validate frontmatter in documentation files     |
+| `fix`             | Auto-fix frontmatter issues                     |
 | `utils -i <file>` | Parse and inspect frontmatter for a single file |
 
 Options for `validate`:
+
 - `--no-strict` — allow files with missing frontmatter
 
 ### `doc-system`
 
-| Subcommand | Description |
-|---|---|
-| `validate` | Validate docs for structure and content |
+| Subcommand                              | Description                             |
+| --------------------------------------- | --------------------------------------- |
+| `validate`                              | Validate docs for structure and content |
 | `diataxis-validate -f <file> -t <type>` | Validate a file against a Diataxis type |
-| `diataxis-fix [path]` | Auto-fix docs to align with Diataxis |
+| `diataxis-fix [path]`                   | Auto-fix docs to align with Diataxis    |
 
 Options for `diataxis-fix` / `validate`:
+
 - `--dry-run` — show changes without writing
 - `-d, --docs-dir <path>` — path to docs directory (default: `docs`)
 - `-s, --schema-dir <path>` — path to schemas directory (default: `schemas`)
 
 ### `backlog`
 
-| Subcommand | Description |
-|---|---|
-| `validate` | Audit and validate backlog work items |
-| `list` | List backlog items, optionally filtered by subtype |
-| `migrate` | Migrate a legacy backlog to canonical work-management artifacts |
-| `ingest-event` | Ingest a VCS/forge event payload and apply backlog mutations |
+| Subcommand     | Description                                                     |
+| -------------- | --------------------------------------------------------------- |
+| `validate`     | Audit and validate backlog work items                           |
+| `list`         | List backlog items, optionally filtered by subtype              |
+| `migrate`      | Migrate a legacy backlog to canonical work-management artifacts |
+| `ingest-event` | Ingest a VCS/forge event payload and apply backlog mutations    |
 
 Key options for `validate`:
+
 - `-d, --dir <path>` — backlog directory (default: `backlog`)
 - `--format text\|json` — output format
 - `--fail-on error\|warning` — exit with non-zero on threshold
@@ -113,12 +126,12 @@ Key options for `validate`:
 
 ### `work-item`
 
-| Subcommand | Description |
-|---|---|
-| `transition` | Transition a work item to a new lifecycle status |
-| `link <kind>` | Attach a link (`pr`, `evidence`, or `reference`) to a work item |
-| `record-commit` | Record an implementation commit SHA against a work item |
-| `finalize` | Archive a work item with closure evidence |
+| Subcommand      | Description                                                     |
+| --------------- | --------------------------------------------------------------- |
+| `transition`    | Transition a work item to a new lifecycle status                |
+| `link <kind>`   | Attach a link (`pr`, `evidence`, or `reference`) to a work item |
+| `record-commit` | Record an implementation commit SHA against a work item         |
+| `finalize`      | Archive a work item with closure evidence                       |
 
 All subcommands support `--dry-run` and `--consumer-config <path>`.
 
@@ -134,19 +147,19 @@ doc-vader work-item finalize \
 
 ### `record`
 
-| Subcommand | Description |
-|---|---|
-| `create` | Create an append-only record artifact (e.g., test results) |
+| Subcommand | Description                                                |
+| ---------- | ---------------------------------------------------------- |
+| `create`   | Create an append-only record artifact (e.g., test results) |
 
 ### `governance`
 
-| Subcommand | Description |
-|---|---|
-| `list` | List all available governance profiles |
-| `detect <path>` | Detect which profiles apply to a file or directory |
-| `effective-rules <file>` | Show merged, effective rules for a file |
-| `reconcile <file>` | Reconcile conflicting profile rules |
-| `migrate` | Migrate legacy `governanceProfiles` frontmatter fields |
+| Subcommand               | Description                                            |
+| ------------------------ | ------------------------------------------------------ |
+| `list`                   | List all available governance profiles                 |
+| `detect <path>`          | Detect which profiles apply to a file or directory     |
+| `effective-rules <file>` | Show merged, effective rules for a file                |
+| `reconcile <file>`       | Reconcile conflicting profile rules                    |
+| `migrate`                | Migrate legacy `governanceProfiles` frontmatter fields |
 
 ### `validate` (aggregate)
 
@@ -173,7 +186,10 @@ import {
 const result = await frontmatter.lint({ docsDir: "docs" });
 
 // Audit backlog
-const report = await backlog.validate({ backlogDir: "backlog", failOn: "error" });
+const report = await backlog.validate({
+  backlogDir: "backlog",
+  failOn: "error",
+});
 ```
 
 See the [reference documentation](docs/reference/) for full API details.
@@ -228,11 +244,11 @@ Configuration precedence is:
 
 Validation profiles control which rules and severity levels are applied:
 
-| Profile | Description |
-|---|---|
-| `default` | Standard validation rules |
-| `strict` | All rules enforced |
-| `ci` | CI-safe: machine-readable output, fail on any error |
+| Profile   | Description                                         |
+| --------- | --------------------------------------------------- |
+| `default` | Standard validation rules                           |
+| `strict`  | All rules enforced                                  |
+| `ci`      | CI-safe: machine-readable output, fail on any error |
 
 You can also pass a path to a custom JSON profile file.
 

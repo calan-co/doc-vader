@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
+import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import {
   linkWorkItem,
@@ -13,7 +14,8 @@ import {
 const tempDirs: string[] = [];
 
 async function createTempRepo(): Promise<string> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "doc-vader-work-management-"));
+  const dir = path.join(os.tmpdir(), `doc-vader-work-management-${randomUUID()}`);
+  await mkdir(dir, { recursive: true });
   tempDirs.push(dir);
   return dir;
 }
@@ -27,7 +29,7 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0, tempDirs.length).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
-describe("work-management automation", () => {
+describe.sequential("work-management automation", () => {
   it("keeps work-item link mutations idempotent", async () => {
     const rootDir = await createTempRepo();
     const filePath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
@@ -465,10 +467,10 @@ actual: 3
   it("refuses to finalize a work item without evidence", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(
-      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      path.join(rootDir, "backlog", "active", "work-item-no-evidence.md"),
       `---
 $schema: schemas/work-management/frontmatter/work-item.json
-id: work-item:sample
+id: work-item:no-evidence
 title: Sample
 summary: Sample summary
 type: work-item
@@ -490,7 +492,9 @@ links:
 `
     );
 
-    await expect(finalizeWorkItem({ rootDir, id: "work-item:sample" })).rejects.toThrow(/without linked evidence/i);
+    await expect(finalizeWorkItem({ rootDir, id: "work-item:no-evidence" })).rejects.toThrow(
+      /without .*evidence/i,
+    );
   });
 
   it("fails closed when finalizing a work item outside the ready gate", async () => {

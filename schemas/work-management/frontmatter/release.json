@@ -1,28 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/frontmatter/release.json",
+  "$id": "/work-management/frontmatter/release",
   "title": "work-management/frontmatter/release",
   "type": "object",
   "unevaluatedProperties": false,
   "allOf": [
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/core"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycleStatusCompatibility"
     },
     {
-      "$ref": "../support/common.json#/$defs/correlationFields"
+      "$ref": "/work-management/support/common#/$defs/correlationFields"
     },
     {
-      "$ref": "../support/common.json#/$defs/assignableFields"
+      "$ref": "/work-management/support/common#/$defs/assignableFields"
     },
     {
       "type": "object",
-      "required": [
-        "$schema",
-        "summary"
-      ],
+      "required": ["$schema", "summary"],
       "properties": {
         "$schema": {
           "const": "schemas/work-management/frontmatter/release.json"
@@ -35,10 +32,10 @@
           "const": "release"
         },
         "subtype": {
-          "$ref": "../support/common.json#/$defs/releaseSubtype"
+          "$ref": "/work-management/support/common#/$defs/releaseSubtype"
         },
         "summary": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       }
     }

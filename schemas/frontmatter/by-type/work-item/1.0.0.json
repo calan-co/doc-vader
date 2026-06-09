@@ -1,15 +1,15 @@
 {
   "title": "frontmatter/work-item",
   "description": "Strict frontmatter schema for work items.",
-  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/by-type/work-item/1.0.0.json",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/work-item/1.0.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "allOf": [
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/core"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/lifecycleStatusCompatibility"
     },
     {
       "type": "object",
@@ -106,7 +106,7 @@
               "type": "array",
               "items": {
                 "description": "Link to another work item that this work item depends on.",
-                "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/link"
+                "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link"
               },
               "minItems": 1
             },
@@ -114,7 +114,7 @@
               "description": "Array of GitHub PR URLs related to this work item.",
               "type": "array",
               "items": {
-                "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/link"
+                "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link"
               },
               "minItems": 1
             }
@@ -124,7 +124,7 @@
           "description": "Optional field for any additional notes or context about the work item.",
           "type": "array",
           "items": {
-            "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/noteWithTimestamp"
+            "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/noteWithTimestamp"
           }
         },
         "ordinal": {
@@ -157,7 +157,7 @@
         "test_results": {
           "type": "array",
           "items": {
-            "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/noteWithTimestamp"
+            "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/noteWithTimestamp"
           },
           "minItems": 1
         }
@@ -183,10 +183,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -209,10 +209,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -236,10 +236,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -262,10 +262,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -293,10 +293,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -318,7 +318,19 @@
       },
       "then": {
         "type": "object",
+        "required": [
+          "links",
+          "actual",
+          "completed_date",
+          "test_results"
+        ],
         "properties": {
+          "links": {
+            "type": "object",
+            "required": [
+              "pull_requests"
+            ]
+          },
           "status": {
             "const": "closed"
           }
@@ -397,7 +409,8 @@
     }
   },
   "unevaluatedProperties": false,
+  "version": "1.0.0",
   "x-statusTransitions": {
-    "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusTransitions"
+    "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusTransitions"
   }
 }
