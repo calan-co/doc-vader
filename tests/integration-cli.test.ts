@@ -3,6 +3,7 @@ import { execSync } from "child_process";
 import path from "path";
 
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
+const CLI_TEST_TIMEOUT_MS = 15_000;
 const runCli = (args = "") => {
   try {
     return execSync(`pnpm exec tsx ${cliPath} ${args}`, { encoding: "utf-8" });
@@ -24,7 +25,7 @@ describe("doc-vader CLI integration", () => {
     expect(output).toMatch(/validate/);
   });
 
-  it("should run validate command", { timeout: 15000 }, () => {
+  it("should run validate command", { timeout: CLI_TEST_TIMEOUT_MS }, () => {
     const output = runCli("validate");
     expect(output).toMatch(
       /(error|success|validated|invalid|valid|No moves necessary)/i,
@@ -67,7 +68,7 @@ describe("doc-vader CLI integration", () => {
     expect(output).toMatch(/(backlog|error|success|list)/i);
   });
 
-  it("should run backlog scan with fixtures in json mode", { timeout: 15000 }, () => {
+  it("should run backlog scan with fixtures in json mode", { timeout: CLI_TEST_TIMEOUT_MS }, () => {
     const output = runCli(
       "backlog scan --dir tests/fixtures/backlog-scan --report-format json",
     );
