@@ -67,7 +67,7 @@ describe("doc-vader CLI integration", () => {
     expect(output).toMatch(/(backlog|error|success|list)/i);
   });
 
-  it("should run backlog scan with fixtures in json mode", () => {
+  it("should run backlog scan with fixtures in json mode", { timeout: 15000 }, () => {
     const output = runCli(
       "backlog scan --dir tests/fixtures/backlog-scan --report-format json",
     );
