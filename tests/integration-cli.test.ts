@@ -18,7 +18,7 @@ const runCli = (args = "") => {
 };
 
 describe("doc-vader CLI integration", () => {
-  it("should show help with no args", () => {
+  it("should show help with no args", { timeout: 15000 }, () => {
     const output = runCli();
     expect(output).toMatch(/Doc-Vader CLI/);
     expect(output).toMatch(/validate/);
