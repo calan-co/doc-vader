@@ -218,21 +218,22 @@ async function runValidation(
   frontmatter: Record<string, unknown>,
   schemaDir: string,
 ): Promise<ValidationError[] | null> {
-  // Check mtime-keyed cache.
+  const type = typeof frontmatter.type === "string" ? frontmatter.type : null;
+  const resolvedSchema = await resolveSchema(type, schemaDir);
+  if (!resolvedSchema) return null;
+
+  // Check the validation-result cache after schema resolution so schema
+  // updates invalidate cached file results as well as compiled validators.
   let cacheKey: string | undefined;
   try {
     const stat = await fs.stat(filePath);
-    cacheKey = `${filePath}:${stat.mtime.getTime()}`;
+    cacheKey = `${filePath}:${stat.mtime.getTime()}:${resolvedSchema.cacheKey}`;
     if (validationCache.has(cacheKey)) {
       return validationCache.get(cacheKey)!.errors;
     }
   } catch {
     // In-memory VFiles have no on-disk path; skip caching.
   }
-
-  const type = typeof frontmatter.type === "string" ? frontmatter.type : null;
-  const resolvedSchema = await resolveSchema(type, schemaDir);
-  if (!resolvedSchema) return null;
 
   const ajv = await getAjv(schemaDir);
   const validatorCacheKey = `${schemaDir}:${resolvedSchema.cacheKey}`;

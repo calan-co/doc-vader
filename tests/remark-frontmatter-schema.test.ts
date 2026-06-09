@@ -99,7 +99,7 @@ describe("remark-frontmatter-schema", () => {
   describe("schema validation with fixtures", () => {
     let tmpDir: string;
 
-    const testSchema = {
+    const strictSchema = {
       $schema: "https://json-schema.org/draft/2020-12/schema",
       type: "object",
       properties: {
@@ -119,7 +119,7 @@ describe("remark-frontmatter-schema", () => {
       await fs.mkdir(byTypeDir, { recursive: true });
       await fs.writeFile(
         path.join(byTypeDir, "latest.json"),
-        JSON.stringify(testSchema),
+        JSON.stringify(strictSchema),
         "utf8",
       );
     });
@@ -148,6 +148,51 @@ describe("remark-frontmatter-schema", () => {
       });
       expect(result.messages.length).toBeGreaterThan(0);
       expect(result.messages[0].message).toContain("frontmatter-schema");
+    });
+
+    it("revalidates when the schema file changes on disk", async () => {
+      const cacheTmpDir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "remark-fm-schema-cache-"),
+      );
+      const cacheSchemaDir = path.join(cacheTmpDir, "by-type", "testdoc");
+      await fs.mkdir(cacheSchemaDir, { recursive: true });
+      const cacheSchemaPath = path.join(cacheSchemaDir, "latest.json");
+      const docPath = path.join(cacheTmpDir, "doc.md");
+      const md = "---\ntype: testdoc\ntitle: My Title\n---\n# Hello";
+
+      await fs.writeFile(cacheSchemaPath, JSON.stringify(strictSchema), "utf8");
+      await fs.writeFile(docPath, md, "utf8");
+
+      const initial = await processFile(new VFile({ value: md, path: docPath }), {
+        enabled: true,
+        schemaDir: cacheTmpDir,
+      });
+      expect(initial.messages.length).toBeGreaterThan(0);
+
+      await fs.writeFile(
+        cacheSchemaPath,
+        JSON.stringify({
+          $schema: "https://json-schema.org/draft/2020-12/schema",
+          type: "object",
+          properties: {
+            type: { type: "string", const: "testdoc" },
+            title: { type: "string" },
+          },
+          required: ["type", "title"],
+          additionalProperties: true,
+        }),
+        "utf8",
+      );
+      const future = new Date(Date.now() + 2000);
+      await fs.utimes(cacheSchemaPath, future, future);
+
+      const updated = await processFile(new VFile({ value: md, path: docPath }), {
+        enabled: true,
+        schemaDir: cacheTmpDir,
+      });
+      expect(updated.messages).toHaveLength(0);
+
+      await fs.rm(cacheTmpDir, { recursive: true, force: true });
     });
 
     it("severity error: produces a fatal message for invalid frontmatter", async () => {
