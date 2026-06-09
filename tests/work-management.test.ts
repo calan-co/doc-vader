@@ -7,6 +7,7 @@ import {
   migrateBacklog,
   ingestEvent,
   finalizeWorkItem,
+  transitionWorkItem,
 } from "../lib/work-management/index.js";
 
 const tempDirs: string[] = [];
@@ -61,6 +62,46 @@ links:
     const updated = await readFile(filePath, "utf8");
     const matches = updated.match(/\[\[work-item-sample\]\]/g) ?? [];
     expect(matches).toHaveLength(1);
+  });
+
+  it("governs lifecycle when transitioning a work item into readiness", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: draft
+status: proposed
+status_reason: needs-triage
+priority: medium
+estimated: 1
+---
+
+## Goal
+
+- Ship sample work.
+`
+    );
+
+    const result = await transitionWorkItem({
+      rootDir,
+      id: "work-item:sample",
+      status: "ready",
+    });
+
+    expect(result.frontmatter.status).toBe("ready");
+    expect(result.frontmatter.lifecycle).toBe("active");
+    expect(result.frontmatter.status_reason).toBe("prioritized");
+
+    const updated = await readFile(filePath, "utf8");
+    expect(updated).toContain("lifecycle: active");
+    expect(updated).toContain("status: ready");
   });
 
   it("migrates legacy backlog items into canonical work-items and records", async () => {
@@ -450,5 +491,40 @@ links:
     );
 
     await expect(finalizeWorkItem({ rootDir, id: "work-item:sample" })).rejects.toThrow(/without linked evidence/i);
+  });
+
+  it("fails closed when finalizing a work item outside the ready gate", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+status_reason: implementation
+priority: medium
+estimated: 2
+actual: 2
+links:
+  pull_requests:
+    - https://example.com/pr/1
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Goal
+
+- Validate the change.
+`
+    );
+
+    await expect(finalizeWorkItem({ rootDir, id: "work-item:sample" })).rejects.toThrow(
+      /Expected ready-for-review or closed/i,
+    );
   });
 });

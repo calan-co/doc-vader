@@ -277,6 +277,8 @@ function inferLifecycle(status: string, archived: boolean): string {
   return "active";
 }
 
+const FINALIZABLE_STATUSES = new Set(["ready-for-review", "closed"]);
+
 function normalizeStatus(value: unknown): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     return "ready";
@@ -787,6 +789,7 @@ export async function transitionWorkItem(
   document.frontmatter.status = status;
   document.frontmatter.status_reason =
     options.statusReason ?? inferStatusReason(status);
+  document.frontmatter.lifecycle = inferLifecycle(status, false);
   if (typeof options.actual === "number") {
     document.frontmatter.actual = options.actual;
   }
@@ -802,7 +805,6 @@ export async function transitionWorkItem(
     document.frontmatter.completed_date = options.completedDate;
   }
   if (status === "closed") {
-    document.frontmatter.lifecycle = "inactive";
     document.frontmatter.completed_date ??= new Date()
       .toISOString()
       .slice(0, 10);
@@ -902,11 +904,27 @@ export async function finalizeWorkItem(
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
+  const currentStatus = normalizeStatus(document.frontmatter.status);
+  const currentLifecycle =
+    typeof document.frontmatter.lifecycle === "string"
+      ? document.frontmatter.lifecycle.trim().toLowerCase()
+      : "";
   const links =
     typeof document.frontmatter.links === "object" &&
     document.frontmatter.links !== null
       ? (document.frontmatter.links as Record<string, unknown>)
       : {};
+
+  if (!FINALIZABLE_STATUSES.has(currentStatus)) {
+    throw new Error(
+      `Cannot finalize '${options.id}' from status '${currentStatus}'. Expected ready-for-review or closed.`,
+    );
+  }
+  if (currentLifecycle !== "active") {
+    throw new Error(
+      `Cannot finalize '${options.id}' from lifecycle '${currentLifecycle || "(missing)"}'. Expected active.`,
+    );
+  }
 
   const pullRequestPath =
     typeof options.pullRequestPath === "string" &&
