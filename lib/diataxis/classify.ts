@@ -48,7 +48,7 @@ export function classifyDiataxisPlacement(
   const segments = normalizedFilePath.split("/").filter(Boolean);
   const docsIndex = segments.lastIndexOf("docs");
   const docsFolder =
-    docsIndex === -1 || docsIndex >= segments.length - 2
+    docsIndex === -1 || docsIndex >= segments.length - 1
       ? null
       : segments[docsIndex + 1];
   const expectedFolder = subtype || null;

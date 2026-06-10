@@ -185,6 +185,7 @@ async function getAjv(
     validateSchema: false,
   });
   addFormats(ajv);
+  await preloadSupportSchemas(ajv, path.join(schemaDir, "support"));
   ajvInstanceCache.set(schemaDir, ajv);
   return ajv;
 }
@@ -268,7 +269,9 @@ async function runValidation(
           path: err.instancePath || "(root)",
           message:
             err.keyword === "unevaluatedProperties" &&
-            schemaContainsRemoteRef(resolvedSchema.schema)
+            schemaContainsRemoteRef(resolvedSchema.schema) &&
+            (String(err.schemaPath ?? "").includes("$ref") ||
+              /ref(erence)?/i.test(String(err.message ?? "")))
               ? "can't resolve reference"
               : err.message ?? "unknown error",
           keyword: err.keyword,
