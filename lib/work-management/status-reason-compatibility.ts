@@ -44,7 +44,7 @@ const DEFAULT_WORKFLOW_DIR = join(
   'default'
 );
 const PROFILE_PATH = join(DEFAULT_WORKFLOW_DIR, 'transition-profile.json');
-const STATUS_DEFINITIONS_SCHEMA_PATH = join(DEFAULT_WORKFLOW_DIR, 'status-definitions.schema.json');
+const STATUS_DEFINITIONS_SCHEMA_PATH = join(DEFAULT_WORKFLOW_DIR, 'status-definitions.json');
 const GENERATED_SCHEMA_PATH = join(
   DEFAULT_WORKFLOW_DIR,
   'generated',

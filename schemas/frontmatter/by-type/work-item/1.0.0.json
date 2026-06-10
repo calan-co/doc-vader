@@ -326,7 +326,6 @@
       }
     }
   ],
-  "": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/work-item/1.0.0",
   "$defs": {
     "executionPhase": {
       "type": "object",

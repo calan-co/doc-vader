@@ -792,7 +792,8 @@ export async function transitionWorkItem(
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
   const status = normalizeStatus(options.status);
-  const lifecycle = inferLifecycle(status, false);
+  const lifecycle =
+    status === "closed" ? "active" : inferLifecycle(status, false);
 
   document.frontmatter.status = status;
   document.frontmatter.status_reason =

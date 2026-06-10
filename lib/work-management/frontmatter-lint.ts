@@ -952,6 +952,20 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
               severity: "error",
             });
           }
+
+          const evidenceNotePattern = new RegExp(
+            String.raw`^- \d{4}-\d{2}-\d{2}: Closed as \w+ with evidence in backlog\/audit\/auditing-backlog-report\.json\.$`,
+            "m",
+          );
+          if (!evidenceNotePattern.test(content)) {
+            diagnostics.push({
+              code: "closed-missing-evidence-note",
+              path: "/body",
+              message:
+                "Work item is 'closed' but missing the required timestamped evidence note",
+              severity: "error",
+            });
+          }
         }
 
         if (
