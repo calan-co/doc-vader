@@ -1,19 +1,15 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/by-type/work-item/1.0.0.json",
   "title": "frontmatter/work-item",
   "description": "Strict frontmatter schema for work items.",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/work-item/current",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "unevaluatedProperties": false,
-  "x-statusTransitions": {
-    "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusTransitions"
-  },
   "allOf": [
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/core"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/lifecycleStatusCompatibility"
     },
     {
       "type": "object",
@@ -22,63 +18,35 @@
         "estimated"
       ],
       "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^wi-\\d+$",
-          "description": "Unique identifier for the document or work item."
-        },
         "type": {
+          "description": "High-level type of the document (e.g., work-item, document).",
           "type": "string",
-          "const": "work-item",
-          "description": "High-level type of the document (e.g., work-item, document)."
-        },
-        "subtype": {
-          "type": "string",
-          "enum": [
-            "story",
-            "task",
-            "bug",
-            "epic",
-            "spike"
-          ],
-          "description": "Specific subtype of the document for classification and navigation."
-        },
-        "priority": {
-          "type": "string",
-          "enum": [
-            "low",
-            "medium",
-            "high",
-            "critical"
-          ],
-          "description": "Priority level of the work item, indicating its importance and urgency."
-        },
-        "assignee": {
-          "type": "string",
-          "description": "Person responsible for the work item."
-        },
-        "ordinal": {
-          "type": "integer",
-          "description": "Optional field for manual ordering or ranking of work items."
-        },
-        "complexity": {
-          "type": "string",
-          "enum": [
-            "low",
-            "medium",
-            "high"
-          ],
-          "description": "Optional field to indicate the estimated complexity of the work item, which can help with planning and resource allocation."
-        },
-        "estimated": {
-          "type": "number",
-          "minimum": 0,
-          "description": "Captures the estimated effort required to complete the work item."
+          "const": "work-item"
         },
         "actual": {
+          "description": "Optional field to capture the actual effort spent on the work item. Useful for tracking and improving estimation accuracy over time.",
           "type": "number",
-          "minimum": 0,
-          "description": "Optional field to capture the actual effort spent on the work item. Useful for tracking and improving estimation accuracy over time."
+          "maximum": 9007199254740991,
+          "minimum": 0
+        },
+        "assignee": {
+          "description": "Person responsible for the work item.",
+          "type": "string"
+        },
+        "commits": {
+          "description": "Map of commit SHAs to their commit messages. Tracks all commits related to this work item.",
+          "type": "object",
+          "minProperties": 1,
+          "patternProperties": {
+            "^(?:[0-9a-f]{7}|[0-9a-f]{40})$": {
+              "description": "Description or title of the commit associated with the commit SHA (i.e., `git show <commit_sha> -s --format=%s`).",
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "propertyNames": {
+            "maxLength": 256
+          }
         },
         "completed_date": {
           "type": [
@@ -87,79 +55,111 @@
           ],
           "format": "date"
         },
-        "test_results": {
-          "type": "array",
-          "items": {
-            "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/noteWithTimestamp"
-          },
-          "minItems": 1
+        "complexity": {
+          "description": "Optional field to indicate the estimated complexity of the work item, which can help with planning and resource allocation.",
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
         },
-        "notes": {
-          "type": "array",
-          "items": {
-            "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/noteWithTimestamp"
-          },
-          "description": "Optional field for any additional notes or context about the work item."
-        },
-        "commits": {
-          "type": "object",
-          "patternProperties": {
-            "^(?:[0-9a-f]{7}|[0-9a-f]{40})$": {
-              "type": "string",
-              "minLength": 10,
-              "description": "Description or title of the commit associated with the commit SHA (i.e., `git show <commit_sha> -s --format=%s`)."
-            }
-          },
-          "propertyNames": {
-            "maxLength": 256
-          },
-          "minProperties": 1,
-          "description": "Map of commit SHAs to their commit messages. Tracks all commits related to this work item."
-        },
-        "links": {
-          "type": "object",
-          "properties": {
-            "pull_requests": {
-              "type": "array",
-              "items": {
-                "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/link"
-              },
-              "minItems": 1,
-              "description": "Array of GitHub PR URLs related to this work item."
-            },
-            "depends_on": {
-              "type": "array",
-              "items": {
-                "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/link",
-                "description": "Link to another work item that this work item depends on."
-              },
-              "minItems": 1,
-              "description": "Array of work item links (wikilinks for local repos, URIs for cross-repo dependencies) that must be completed before this work item can start."
-            }
-          },
-          "description": "Links to pull requests and dependencies."
+        "estimated": {
+          "description": "Captures the estimated effort required to complete the work item.",
+          "type": "number",
+          "maximum": 9007199254740991,
+          "minimum": 0
         },
         "execution": {
-          "type": "object",
           "description": "Optional execution tracking for epics managing multiple work items. Defines phases, concurrency modes, and current progress.",
+          "type": "object",
           "properties": {
-            "current_phase": {
-              "type": "string",
-              "description": "Name of the currently active phase."
-            },
             "current_item": {
-              "type": "string",
-              "description": "ID of the work item currently being executed."
+              "description": "ID of the work item currently being executed.",
+              "type": "string"
+            },
+            "current_phase": {
+              "description": "Name of the currently active phase.",
+              "type": "string"
             },
             "phases": {
+              "description": "Hierarchical execution plan with sequential or parallel phases.",
               "type": "array",
               "items": {
                 "$ref": "#/$defs/executionPhase"
               },
-              "minItems": 1,
-              "description": "Hierarchical execution plan with sequential or parallel phases."
+              "minItems": 1
             }
           }
+        },
+        "id": {
+          "description": "Unique identifier for the document or work item.",
+          "type": "string",
+          "pattern": "^wi-\\d+$"
+        },
+        "links": {
+          "description": "Links to pull requests and dependencies.",
+          "type": "object",
+          "properties": {
+            "depends_on": {
+              "description": "Array of work item links (wikilinks for local repos, URIs for cross-repo dependencies) that must be completed before this work item can start.",
+              "type": "array",
+              "items": {
+                "description": "Link to another work item that this work item depends on.",
+                "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link"
+              },
+              "minItems": 1
+            },
+            "pull_requests": {
+              "description": "Array of GitHub PR URLs related to this work item.",
+              "type": "array",
+              "items": {
+                "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "notes": {
+          "description": "Optional field for any additional notes or context about the work item.",
+          "type": "array",
+          "items": {
+            "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/noteWithTimestamp"
+          }
+        },
+        "ordinal": {
+          "description": "Optional field for manual ordering or ranking of work items.",
+          "type": "integer",
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991
+        },
+        "priority": {
+          "description": "Priority level of the work item, indicating its importance and urgency.",
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "subtype": {
+          "description": "Specific subtype of the document for classification and navigation.",
+          "type": "string",
+          "enum": [
+            "story",
+            "task",
+            "bug",
+            "epic",
+            "spike"
+          ]
+        },
+        "test_results": {
+          "type": "array",
+          "items": {
+            "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/noteWithTimestamp"
+          },
+          "minItems": 1
         }
       }
     },
@@ -183,10 +183,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -209,10 +209,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -236,10 +236,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -262,10 +262,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -293,10 +293,10 @@
                   ]
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonExtensionToken"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonExtensionToken"
                 },
                 {
-                  "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonFreeform"
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusReasonFreeform"
                 }
               ]
             }
@@ -318,21 +318,9 @@
       },
       "then": {
         "type": "object",
-        "required": [
-          "links",
-          "actual",
-          "completed_date",
-          "test_results"
-        ],
         "properties": {
           "status": {
             "const": "closed"
-          },
-          "links": {
-            "type": "object",
-            "required": [
-              "pull_requests"
-            ]
           }
         }
       }
@@ -345,43 +333,43 @@
         "name"
       ],
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of this execution phase or group."
+        "items": {
+          "description": "Leaf-level work item IDs. Mutually exclusive with 'phases'.",
+          "type": "array",
+          "items": {
+            "description": "Work item ID (e.g., '172.1', '172.2.3').",
+            "type": "string"
+          },
+          "minItems": 1
         },
         "mode": {
+          "description": "Execution mode: sequential (items/phases execute one after another) or parallel (items/phases can execute concurrently).",
           "type": "string",
           "enum": [
             "sequential",
             "parallel"
-          ],
-          "description": "Execution mode: sequential (items/phases execute one after another) or parallel (items/phases can execute concurrently)."
+          ]
+        },
+        "name": {
+          "description": "Name of this execution phase or group.",
+          "type": "string"
+        },
+        "phases": {
+          "description": "Nested execution phases for hierarchical planning. Mutually exclusive with 'items'.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/executionPhase"
+          },
+          "minItems": 1
         },
         "status": {
+          "description": "Current status of this phase.",
           "type": "string",
           "enum": [
             "not-started",
             "in-progress",
             "completed"
-          ],
-          "description": "Current status of this phase."
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "description": "Work item ID (e.g., '172.1', '172.2.3')."
-          },
-          "minItems": 1,
-          "description": "Leaf-level work item IDs. Mutually exclusive with 'phases'."
-        },
-        "phases": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/executionPhase"
-          },
-          "minItems": 1,
-          "description": "Nested execution phases for hierarchical planning. Mutually exclusive with 'items'."
+          ]
         }
       },
       "oneOf": [
@@ -407,5 +395,11 @@
         }
       ]
     }
-  }
+  },
+  "unevaluatedProperties": false,
+  "version": "1.0.0",
+  "x-statusTransitions": {
+    "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusTransitions"
+  },
+  "": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/work-item/current"
 }

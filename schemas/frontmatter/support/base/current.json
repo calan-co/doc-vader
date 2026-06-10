@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/1.0.0.json",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current",
+  "version": "1.0.0",
   "title": "frontmatter/base",
   "description": "Shared building blocks and rules for frontmatter schemas.",
   "$defs": {
@@ -77,7 +78,10 @@
           "description": "ISO 8601 timestamp of when the note was added."
         }
       },
-      "required": ["timestamp", "note"],
+      "required": [
+        "timestamp",
+        "note"
+      ],
       "additionalProperties": true
     },
     "wikilink": {
@@ -118,10 +122,14 @@
       },
       "oneOf": [
         {
-          "required": ["ref"]
+          "required": [
+            "ref"
+          ]
         },
         {
-          "required": ["link"]
+          "required": [
+            "link"
+          ]
         }
       ],
       "additionalProperties": false
@@ -155,10 +163,10 @@
     "classificationToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/classification-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/classification-token.contract/current"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/current#/$defs/token"
         }
       ]
     },
@@ -206,7 +214,12 @@
     },
     "lifecycle": {
       "type": "string",
-      "enum": ["draft", "active", "evergreen", "inactive"],
+      "enum": [
+        "draft",
+        "active",
+        "evergreen",
+        "inactive"
+      ],
       "description": "Long-term state of the document."
     },
     "status": {
@@ -221,12 +234,12 @@
       "description": "Current actionable workflow state."
     },
     "statusReasonKnown": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/status-reason-token.vocab.core/current.json#/$defs/coreToken"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/status-reason-token.vocab.core/current#/$defs/coreToken"
     },
     "statusReasonExtensionToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/status-reason-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/status-reason-token.contract/current"
         },
         {
           "not": {
@@ -267,10 +280,10 @@
     "audienceToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/audience-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/audience-token.contract/current"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/audience-token.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/audience-token.vocab.core/current#/$defs/token"
         }
       ]
     },
@@ -286,10 +299,10 @@
     "governanceMode": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/governance-mode.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/governance-mode.contract/current"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/governance-mode.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/governance-mode.vocab.core/current#/$defs/token"
         }
       ]
     },
@@ -314,7 +327,9 @@
               "maxLength": 512
             }
           },
-          "required": ["mode"],
+          "required": [
+            "mode"
+          ],
           "additionalProperties": false
         }
       ]
@@ -322,10 +337,10 @@
     "reconciliationStrategyToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/reconciliation-strategy-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/reconciliation-strategy-token.contract/current"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/reconciliation-strategy-token.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/reconciliation-strategy-token.vocab.core/current#/$defs/token"
         }
       ]
     },
@@ -336,7 +351,9 @@
         },
         {
           "type": "object",
-          "required": ["override"],
+          "required": [
+            "override"
+          ],
           "properties": {
             "override": {
               "type": "string",
@@ -348,7 +365,9 @@
         },
         {
           "type": "object",
-          "required": ["prioritize"],
+          "required": [
+            "prioritize"
+          ],
           "properties": {
             "prioritize": {
               "type": "array",
@@ -368,7 +387,9 @@
     "governance": {
       "type": "object",
       "description": "Governance configuration: profiles (documentation systems, process models) and optional reconciliation strategies.",
-      "required": ["profiles"],
+      "required": [
+        "profiles"
+      ],
       "properties": {
         "profiles": {
           "description": "List or map of governance profiles controlling structure/process rules.",
@@ -410,11 +431,16 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["appliesTo", "strategy"],
+                "required": [
+                  "appliesTo",
+                  "strategy"
+                ],
                 "properties": {
                   "appliesTo": {
                     "type": "object",
-                    "required": ["profiles"],
+                    "required": [
+                      "profiles"
+                    ],
                     "properties": {
                       "profiles": {
                         "type": "array",
@@ -475,41 +501,55 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["ready", "closed"]
+            "enum": [
+              "ready",
+              "closed"
+            ]
           }
         },
         "ready": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["in-progress", "closed"]
+            "enum": [
+              "in-progress",
+              "closed"
+            ]
           }
         },
         "in-progress": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["ready-for-review", "closed"]
+            "enum": [
+              "ready-for-review",
+              "closed"
+            ]
           }
         },
         "ready-for-review": {
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["closed"]
+            "enum": [
+              "closed"
+            ]
           }
         },
         "closed": {
           "type": "array",
+          "maxItems": 0,
           "items": {
-            "type": "string",
-            "enum": []
+            "type": "string"
           }
         }
       },
       "examples": [
         {
-          "proposed": ["ready", "closed"]
+          "proposed": [
+            "ready",
+            "closed"
+          ]
         }
       ]
     },
@@ -522,7 +562,10 @@
               "const": "draft"
             },
             "status": {
-              "enum": ["proposed", "closed"]
+              "enum": [
+                "proposed",
+                "closed"
+              ]
             }
           }
         },
@@ -533,7 +576,12 @@
               "const": "active"
             },
             "status": {
-              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
+              "enum": [
+                "ready",
+                "in-progress",
+                "ready-for-review",
+                "closed"
+              ]
             }
           }
         },
@@ -544,7 +592,12 @@
               "const": "evergreen"
             },
             "status": {
-              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
+              "enum": [
+                "ready",
+                "in-progress",
+                "ready-for-review",
+                "closed"
+              ]
             }
           }
         },
@@ -555,7 +608,9 @@
               "const": "inactive"
             },
             "status": {
-              "enum": ["closed"]
+              "enum": [
+                "closed"
+              ]
             }
           }
         }
@@ -563,7 +618,14 @@
     },
     "core": {
       "type": "object",
-      "required": ["id", "title", "type", "subtype", "lifecycle", "status"],
+      "required": [
+        "id",
+        "title",
+        "type",
+        "subtype",
+        "lifecycle",
+        "status"
+      ],
       "patternProperties": {
         "^\\$[a-zA-Z0-9_]+$": {
           "$ref": "#/$defs/toolingProperty"

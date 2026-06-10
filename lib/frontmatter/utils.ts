@@ -96,34 +96,98 @@ const schemaCache = new Map<string, any>();
 
 export async function loadSchema(
   nameOrUri: string,
-  schemaDir: string
+  schemaDir: string,
+  baseDir?: string
 ): Promise<any> {
-  return loadDefaultSchemaByType(nameOrUri, schemaDir);
+  return loadDefaultSchemaByType(nameOrUri, schemaDir, baseDir);
 }
 
-async function loadDefaultSchemaByType(nameOrUri: string, schemaDir: string) {
+function resolveSchemaPath(
+  nameOrUri: string,
+  schemaDir: string,
+  baseDir?: string
+): string {
+  if (/^https?:\/\//i.test(nameOrUri)) {
+    const pathname = new URL(nameOrUri).pathname;
+    const schemaIndex = pathname.indexOf("/schemas/");
+    if (schemaIndex < 0) {
+      return nameOrUri;
+    }
+
+    // Callers can override baseDir when schemaDir is not the schemas root.
+    const schemaRelative = pathname.slice(schemaIndex + "/schemas/".length);
+    const localBaseDir = baseDir ?? schemaDir;
+    const localPath = path.join(localBaseDir, schemaRelative);
+    return localPath.endsWith(".json") ? localPath : `${localPath}.json`;
+  }
+
+  if (path.isAbsolute(nameOrUri)) {
+    return nameOrUri.endsWith(".json") ? nameOrUri : `${nameOrUri}.json`;
+  }
+
+  const localPath = path.join(schemaDir, nameOrUri);
+  return localPath.endsWith(".json") ? localPath : `${localPath}.json`;
+}
+
+async function loadDefaultSchemaByType(
+  nameOrUri: string,
+  schemaDir: string,
+  baseDir?: string
+) {
   const name = path.posix.basename(nameOrUri);
   if (name.includes("latest")) {
     let target = await getVersionedName(name, schemaDir);
-    return loadSchema(target, schemaDir);
+    return loadSchema(target, schemaDir, baseDir);
   }
+  if (schemaCache.has(nameOrUri)) return schemaCache.get(nameOrUri);
   if (schemaCache.has(name)) return schemaCache.get(name);
-  const schemaPath = path.join(schemaDir, name);
+  const schemaPath = resolveSchemaPath(nameOrUri, schemaDir, baseDir);
   const raw = await fs.readFile(schemaPath, "utf8");
   const json = JSON.parse(raw);
+  schemaCache.set(nameOrUri, json);
   schemaCache.set(name, json);
   return json;
 }
 export async function getValidator(
   schemaName: string,
   schemaDir: string,
-  ajv: InstanceType<typeof Ajv>
+  ajv: InstanceType<typeof Ajv>,
+  baseDir?: string
 ): Promise<ValidateFunction> {
   let validate = ajv.getSchema(schemaName) as ValidateFunction | undefined;
   if (!validate) {
-    await loadSchema(schemaName, schemaDir);
-    validate = await ajv.compileAsync(schemaCache.get(schemaName));
+    const schema = await loadSchema(schemaName, schemaDir, baseDir);
+    await preloadSupportSchemas(ajv, path.join(schemaDir, "support"));
+    validate = await ajv.compileAsync(schema);
   }
   if (!validate) throw new Error(`Could not compile schema: ${schemaName}`);
   return validate;
+}
+
+async function preloadSupportSchemas(
+  ajv: InstanceType<typeof Ajv>,
+  supportDir: string
+): Promise<void> {
+  async function walk(dir: string): Promise<void> {
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith(".json")) {
+        const schema = JSON.parse(await fs.readFile(fullPath, "utf8"));
+        if (schema?.$id && !ajv.getSchema(schema.$id)) {
+          ajv.addSchema(schema, schema.$id);
+        }
+      }
+    }
+  }
+
+  await walk(supportDir);
 }

@@ -1,7 +1,7 @@
 {
   "title": "frontmatter/base",
   "description": "Shared building blocks and rules for frontmatter schemas.",
-  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/1.0.0.json",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
     "audience": {
@@ -16,10 +16,10 @@
     "audienceToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/audience-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/audience-token.contract/1.0.0"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/audience-token.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/audience-token.vocab.core/1.0.0#/$defs/token"
         }
       ]
     },
@@ -68,10 +68,10 @@
     "classificationToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/classification-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/classification-token.contract/1.0.0"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/1.0.0#/$defs/token"
         }
       ]
     },
@@ -271,10 +271,10 @@
     "governanceMode": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/governance-mode.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/governance-mode.contract/1.0.0"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/governance-mode.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/governance-mode.vocab.core/1.0.0#/$defs/token"
         }
       ]
     },
@@ -524,10 +524,10 @@
     "reconciliationStrategyToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/reconciliation-strategy-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/reconciliation-strategy-token.contract/1.0.0"
         },
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/reconciliation-strategy-token.vocab.core/current.json#/$defs/token"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/reconciliation-strategy-token.vocab.core/1.0.0#/$defs/token"
         }
       ]
     },
@@ -545,7 +545,7 @@
     "statusReasonExtensionToken": {
       "allOf": [
         {
-          "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/contracts/status-reason-token.contract/current.json"
+          "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/status-reason-token.contract/1.0.0"
         },
         {
           "not": {
@@ -571,7 +571,7 @@
       }
     },
     "statusReasonKnown": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/overlays/status-reason-token.vocab.core/current.json#/$defs/coreToken"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/status-reason-token.vocab.core/1.0.0#/$defs/coreToken"
     },
     "statusReasonValue": {
       "oneOf": [
@@ -594,10 +594,9 @@
         "closed": {
           "type": "array",
           "items": {
-            "type": "string",
-            "enum": [
-            ]
-          }
+            "type": "string"
+          },
+          "maxItems": 0
         },
         "in-progress": {
           "type": "array",
@@ -702,5 +701,6 @@
       "maxLength": 128,
       "pattern": "^\\[\\[(?<name>[^\\]\\|\\r\\n]+)(?:\\|(?<title>[^\\]\\|\\r\\n]+))?\\]\\](?<agglu>[^\\p{P}\\s]*)$"
     }
-  }
+  },
+  "version": "1.0.0"
 }

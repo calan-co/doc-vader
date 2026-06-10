@@ -82,6 +82,9 @@ function parseWorkItem(
     const parsed = matter(content);
     data = parsed.data as Record<string, unknown>;
   } catch (err) {
+    const parseMessage =
+      err instanceof Error ? err.message : String(err);
+    const { errors } = evaluateConditions({}, { pullRequestPath });
     return {
       file,
       id: null,
@@ -92,10 +95,9 @@ function parseWorkItem(
       errors: [
         {
           code: "parse_failed",
-          message: `Failed to parse frontmatter: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
+          message: `Frontmatter parsing failed: ${parseMessage}`,
         },
+        ...errors,
       ],
     };
   }

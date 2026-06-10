@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/content/work-item.json",
+  "$id": "/work-management/content/work-item",
   "title": "work-management/content/work-item",
   "type": "object",
   "required": [
@@ -15,47 +15,47 @@
       "const": "work-item"
     },
     "goal": {
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
     },
     "background": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "tasks": {
-      "$ref": "../support/common.json#/$defs/taskList"
+      "$ref": "/work-management/support/common#/$defs/taskList"
     },
     "deliverables": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "acceptanceCriteria": {
       "type": "array",
       "minItems": 1,
       "items": {
-        "$ref": "../support/common.json#/$defs/acceptanceCriterion"
+        "$ref": "/work-management/support/common#/$defs/acceptanceCriterion"
       }
     },
     "relationships": {
-      "$ref": "../support/common.json#/$defs/nonEmptyRelationshipList"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyRelationshipList"
     },
     "design": {
-      "$ref": "../support/common.json#/$defs/designFamily"
+      "$ref": "/work-management/support/common#/$defs/designFamily"
     },
     "examples": {
-      "$ref": "../support/common.json#/$defs/examplesFamily"
+      "$ref": "/work-management/support/common#/$defs/examplesFamily"
     },
     "testing": {
-      "$ref": "../support/common.json#/$defs/testingFamily"
+      "$ref": "/work-management/support/common#/$defs/testingFamily"
     },
     "operations": {
-      "$ref": "../support/common.json#/$defs/operationsFamily"
+      "$ref": "/work-management/support/common#/$defs/operationsFamily"
     },
     "scope": {
-      "$ref": "../support/common.json#/$defs/scopeFamily"
+      "$ref": "/work-management/support/common#/$defs/scopeFamily"
     },
     "analysis": {
-      "$ref": "../support/common.json#/$defs/analysisFamily"
+      "$ref": "/work-management/support/common#/$defs/analysisFamily"
     },
     "notes": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/notesValue"
     }
   },
   "additionalProperties": false

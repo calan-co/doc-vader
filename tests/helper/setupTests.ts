@@ -3,6 +3,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { vol, fs } from "memfs";
 
 beforeEach(() => {
+  vol.reset();
   vi.mock("node:fs/promises", getMemfs(true));
 
   vi.mock("fs/promises", getMemfs(true));
@@ -14,6 +15,7 @@ beforeEach(() => {
 
 // reset the state of in-memory file system after each test
 afterEach(() => {
+  vol.reset();
   vi.unmock("node:fs/promises");
   vi.unmock("fs/promises");
   vi.unmock("node:fs");

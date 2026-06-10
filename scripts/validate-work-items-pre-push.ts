@@ -238,7 +238,10 @@ async function buildValidators(config: ValidationConfig) {
 }
 
 function runGit(args: string[]): string {
-  return execFileSync("git", args, { encoding: "utf8" }).trim();
+  return execFileSync("git", args, {
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+  }).trim();
 }
 
 function tryRunGit(args: string[]): string | null {
@@ -417,8 +420,9 @@ function validateWorkItem(
   }
 
   if (status === "ready-for-review" || status === "closed") {
-    const checklistSeverity =
-      archived && config.archiveSeverity !== "none" ? config.archiveSeverity : config.checklistSeverity;
+    const checklistSeverity = archived
+      ? config.archiveSeverity
+      : config.checklistSeverity;
     const checklistIssues: ValidationIssue[] = uncheckedChecklistMessages(filePath, parsed.content)
       .map((message) => {
         if (checklistSeverity === "none") {

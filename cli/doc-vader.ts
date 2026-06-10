@@ -43,6 +43,8 @@ import {
   validate as validatePrdPayload,
   render as renderPrd,
 } from "../lib/controllers/prdController.js";
+import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
+import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
 
 const program = new Command()
   .name("doc-vader")
@@ -63,6 +65,53 @@ const collectCsvOption = (value: string, previous: string[] = []) => [
     .map((entry) => entry.trim())
     .filter(Boolean),
 ];
+
+// --- DOMAIN: work-management ---
+const workManagement = program
+  .command("work-management")
+  .description("Work-management standards and validation commands");
+
+const workManagementSchemas = workManagement
+  .command("schemas")
+  .description("Manage the bundled work-management default schema suite");
+
+workManagementSchemas
+  .command("check")
+  .description("Check generated work-management schemas for drift")
+  .action(() => {
+    const exitCode = runStatusReasonCompatibility(["--check"]);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+  });
+
+workManagementSchemas
+  .command("generate")
+  .description("Regenerate derived work-management schemas")
+  .action(() => {
+    const exitCode = runStatusReasonCompatibility([]);
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+  });
+
+workManagement
+  .command("lint-frontmatter")
+  .description(
+    "Validate backlog frontmatter against doc-vader work-management defaults",
+  )
+  .option(
+    "--strict",
+    "Promote semantic warnings unless consumer policy masks them",
+  )
+  .argument("[files...]", "Optional backlog markdown files to validate")
+  .action((files: string[], opts: { strict?: boolean }) => {
+    const args = [...(opts.strict ? ["--strict"] : []), ...(files ?? [])];
+    const success = validateWorkManagementFrontmatter(args);
+    if (!success) {
+      process.exit(1);
+    }
+  });
 
 // --- DOMAIN: frontmatter ---
 const frontmatter = program

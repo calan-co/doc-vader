@@ -1,8 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/frontmatter/document/1.0.0",
+  "$id": "/frontmatter/document/current",
   "title": "frontmatter/document",
   "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",
+  "version": "1.0.0",
   "type": "object",
   "required": [
     "id",
@@ -26,7 +27,9 @@
     },
     "uri": {
       "type": "string",
-      "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$",      "maxLength": 256,      "description": "Uri to an external resource."
+      "pattern": "^(?:(?:\\[(?<text>.+?)\\])?\\(?(?:(?<protocol>(?:[^:]+)s?)?:\\/\\/)?(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<resource>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?#?(?<anchor>[^\\n\\r]*)?\\)?)$",
+      "maxLength": 256,
+      "description": "Uri to an external resource."
     },
     "link": {
       "anyOf": [
@@ -689,9 +692,9 @@
       },
       "closed": {
         "type": "array",
+        "maxItems": 0,
         "items": {
-          "type": "string",
-          "enum": []
+          "type": "string"
         }
       }
     },

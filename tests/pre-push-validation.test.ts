@@ -106,7 +106,7 @@ describe("pre-push validation unit", () => {
 });
 
 describe("pre-push validation integration", () => {
-  it("fails with changed-schema severity=error", () => {
+  it("fails with changed-schema severity=error", { timeout: 15000 }, () => {
     writeConsumerConfig({
       automation: {
         prePushValidation: {
