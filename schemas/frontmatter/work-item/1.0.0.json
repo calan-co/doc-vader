@@ -1,7 +1,7 @@
 {
   "title": "frontmatter/work-item",
   "description": "Strict frontmatter schema for backlog work items supporting SDLC and Diataxis standards.",
-  "$id": "/frontmatter/work-item/1.0.0",
+  "$id": "/frontmatter/work-item/current",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "allOf": [
     {

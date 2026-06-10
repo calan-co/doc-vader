@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/1.0.0",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/overlays/classification-token.vocab.core/current",
   "version": "1.0.0",
   "title": "frontmatter/overlays/classification-token.vocab.core",
   "$defs": {

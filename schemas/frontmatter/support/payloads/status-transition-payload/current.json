@@ -1,8 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/payloads/status-transition-payload/1.0.0",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/payloads/status-transition-payload/current",
   "title": "frontmatter/status-transition-payload",
   "description": "Transition payload for runtime status changes. Validates from->to status rules and optional lifecycle compatibility.",
+  "version": "1.0.0",
   "type": "object",
   "additionalProperties": false,
   "required": [

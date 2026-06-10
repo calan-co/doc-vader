@@ -1,7 +1,7 @@
 {
   "title": "frontmatter/status-transition-payload",
   "description": "Transition payload for runtime status changes. Validates from->to status rules and optional lifecycle compatibility.",
-  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/payloads/status-transition-payload/1.0.0",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/payloads/status-transition-payload/current",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
@@ -239,6 +239,7 @@
       }
     }
   ],
+  "version": "1.0.0",
   "x-statusTransitions": {
     "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/statusTransitions"
   }

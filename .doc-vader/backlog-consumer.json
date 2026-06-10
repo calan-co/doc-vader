@@ -1,4 +1,5 @@
 {
+  "version": "1.0.0",
   "roots": {
     "backlog": "backlog",
     "active": "backlog",
@@ -34,7 +35,7 @@
       "severity": {
         "baseline": "error",
         "changed": "error",
-        "archive": "warn",
+        "archive": "none",
         "checklist": "error"
       }
     }

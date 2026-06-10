@@ -32,8 +32,8 @@ function extractClassificationInput(input: string | object): {
     typeof candidate.filePath === "string"
       ? candidate.filePath
       : typeof candidate.path === "string"
-        ? candidate.path
-        : "";
+      ? candidate.path
+      : "";
   const subtype =
     typeof candidate.subtype === "string" ? candidate.subtype : "";
 
@@ -48,7 +48,7 @@ export function classifyDiataxisPlacement(
   const segments = normalizedFilePath.split("/").filter(Boolean);
   const docsIndex = segments.lastIndexOf("docs");
   const docsFolder =
-    docsIndex === -1 || docsIndex >= segments.length - 1
+    docsIndex === -1 || docsIndex >= segments.length - 2
       ? null
       : segments[docsIndex + 1];
   const expectedFolder = subtype || null;

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/document/1.0.0",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/document/current",
   "version": "1.0.0",
   "title": "frontmatter/document",
   "description": "Defines the required and recommended frontmatter fields for all markdown documentation files in this project. Use this schema to validate and standardize document metadata.",

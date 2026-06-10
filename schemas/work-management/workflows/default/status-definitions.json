@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
   "$id": "/work-management/workflows/default/status-definitions",
   "title": "work-management/workflows/default/status-definitions",
   "description": "Repository-default work-item status, reason, category, and connectivity definitions.",
@@ -7,13 +8,7 @@
   "$defs": {
     "status": {
       "type": "string",
-      "enum": [
-        "proposed",
-        "ready",
-        "in-progress",
-        "ready-for-review",
-        "closed"
-      ]
+      "enum": ["proposed", "ready", "in-progress", "ready-for-review", "closed"]
     },
     "proposedReason": {
       "type": "string",
@@ -28,12 +23,7 @@
     },
     "readyReason": {
       "type": "string",
-      "enum": [
-        "prioritized",
-        "scheduled",
-        "dependencies-cleared",
-        "unblocked"
-      ]
+      "enum": ["prioritized", "scheduled", "dependencies-cleared", "unblocked"]
     },
     "inProgressReason": {
       "type": "string",
@@ -62,8 +52,10 @@
         "duplicate",
         "obsolete",
         "cancelled",
-        "merged_to_main",
+        "obsolete",
+        "cancelled",
         "merged-to-main",
+        "success",
         "success",
         "wontfix"
       ]
@@ -81,11 +73,7 @@
     },
     "connectivityClass": {
       "type": "string",
-      "enum": [
-        "start",
-        "intermediate",
-        "end"
-      ]
+      "enum": ["start", "intermediate", "end"]
     }
   }
 }

@@ -47,6 +47,11 @@ function parseJson(path: string): JsonObject {
 }
 
 function collectStrings(value: unknown, strings: string[] = []): string[] {
+  if (typeof value === "string") {
+    strings.push(value);
+    return strings;
+  }
+
   if (Array.isArray(value)) {
     for (const entry of value) {
       collectStrings(entry, strings);
@@ -54,7 +59,7 @@ function collectStrings(value: unknown, strings: string[] = []): string[] {
     return strings;
   }
 
-  if (!value || typeof value !== "object") {
+  if (value == null || typeof value !== "object") {
     return strings;
   }
 

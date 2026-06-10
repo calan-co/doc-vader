@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
   "$id": "/work-management/workflows/default/status-policy",
   "title": "work-management/workflows/default/status-policy",
   "description": "Repository-default lifecycle compatibility and status-dependent work-item constraints.",
@@ -72,14 +73,7 @@
         "required": ["actual", "links"],
         "properties": {
           "links": {
-            "allOf": [
-              {
-                "$ref": "/work-management/support/common#/$defs/workItemLinks"
-              },
-              {
-                "required": ["pull_requests", "evidence"]
-              }
-            ]
+            "$ref": "/work-management/support/common#/$defs/workItemLinks"
           }
         }
       }

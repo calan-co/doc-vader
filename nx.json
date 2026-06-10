@@ -1,13 +1,21 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "version": "1.0.0",
   "defaultBase": "main",
   "targetDefaults": {
     "build": {
-      "inputs": ["default"],
-      "outputs": ["{projectRoot}/dist"]
+      "inputs": [
+        "default"
+      ],
+      "outputs": [
+        "{projectRoot}/dist"
+      ]
     },
     "test": {
-      "inputs": ["default"]
+      "inputs": [
+        "default"
+      ]
     }
-  }
+  },
+  "analytics": false
 }

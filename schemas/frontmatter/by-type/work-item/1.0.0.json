@@ -1,7 +1,7 @@
 {
   "title": "frontmatter/work-item",
   "description": "Strict frontmatter schema for work items.",
-  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/work-item/1.0.0",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/work-item/current",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "allOf": [

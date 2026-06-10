@@ -5,11 +5,11 @@
 "$template": templates/reference/work-management/prd.md.tpl
 "type": plan
 "subtype": x-prd
-"id": ""
-"title": ""
+"id": "prd-doc-vader-context-coordination"
+"title": "doc-vader Context Coordination PRD"
 "lifecycle": active
 "status": ready
-"summary": ""
+"summary": "JSON-first, schema-backed work-management with collaborative human-AI context governance, AFK safety gating, and concurrency-safe coordination primitives."
 ---
 
 ## Artifact Strategy
@@ -133,11 +133,11 @@ Adopt a JSON-first, policy-composed context-governance model in doc-vader where 
 9. As an AFK controller, I want immediate safe-pause on integrity-breaking events and clear resume rules, so that runtime interruptions are predictable and policy-conformant.
    Covers: AFK automation controller / interruption and recovery / safety and fail-closed behavior
 10. As a concurrent contributor, I want claim and scope boundaries that prevent accidental overlap, so that multiple human and AI implementers can work in parallel without conflicting mutations.
-   Covers: concurrent contributor / concurrent claim and assignment / multi-contributor concurrency safety
+    Covers: concurrent contributor / concurrent claim and assignment / multi-contributor concurrency safety
 11. As an implementation agent, I want ready selection to surface only unblocked, dependency-satisfied work, so that execution can proceed in parallel without violating dependency order.
-   Covers: implementation agent / execution / dependency-aware parallel execution
+    Covers: implementation agent / execution / dependency-aware parallel execution
 12. As a maintainer, I want reusable formula templates that instantiate predictable work graphs, so that recurring workflows can be executed consistently by both humans and agents.
-   Covers: repository maintainer / formula/work-graph instantiation / template-driven workflow repeatability
+    Covers: repository maintainer / formula/work-graph instantiation / template-driven workflow repeatability
 
 ## Coverage Review
 

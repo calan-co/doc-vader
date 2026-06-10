@@ -1,6 +1,7 @@
 shouldSymlinkExtensionless: false
 contentTypes: [json]
 shouldDereference: false
+schemaVersionField: version
 schemaBasePath: ./schemas
 skipSchemaTestCases:
   ".*":

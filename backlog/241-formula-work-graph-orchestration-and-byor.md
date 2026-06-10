@@ -3,18 +3,20 @@ id: wi-60328
 title: Formula, Work-Graph Orchestration, and BYOR
 type: work-item
 subtype: story
-lifecycle: inactive
+lifecycle: active
 status: closed
 status_reason: completed
 priority: medium
 estimated: 5
 actual: 1
-completed_date: '2026-06-09'
+completed_date: "2026-06-09"
 links:
   depends_on:
-    - '[[237-doc-vader-context-coordination-core-epic.md]]'
-    - '[[239-concurrent-claim-and-dependency-aware-selection.md]]'
-    - '[[240-policy-evidence-and-alias-integrity.md]]'
+    - "[[237-doc-vader-context-coordination-core-epic.md]]"
+    - "[[239-concurrent-claim-and-dependency-aware-selection.md]]"
+    - "[[240-policy-evidence-and-alias-integrity.md]]"
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/59"
 tags:
   - formulas
   - work-graph
@@ -32,10 +34,10 @@ The PRD includes formula/work-graph contracts, distributed inputs and outputs, a
 
 ## Tasks
 
-- Define the minimal formula/work-graph contract needed for v1.
-- Instantiate deterministic workflow structures from formula templates.
-- Support BYOR and distributed input/output typing.
-- Integrate projection-fed evidence and lineage as supporting context, not policy authority.
+- [x] Defined the minimal formula/work-graph contract needed for v1.
+- [x] Instantiated deterministic workflow structures from formula templates.
+- [x] Supported BYOR and distributed input/output typing.
+- [x] Integrated projection-fed evidence and lineage as supporting context, not policy authority.
 
 ## Deliverables
 
@@ -45,7 +47,7 @@ The PRD includes formula/work-graph contracts, distributed inputs and outputs, a
 
 ## Acceptance Criteria
 
-- [ ] Formula templates produce deterministic, policy-conformant work graphs.
-- [ ] Typed BYOR inputs are supported for distributed sources.
-- [ ] Projection-fed evidence can be consumed without turning semantify into orchestration core.
-- [ ] Context-graph remains a deterministic substrate, not a policy or lifecycle engine.
+- [x] Formula templates produce deterministic, policy-conformant work graphs.
+- [x] Typed BYOR inputs are supported for distributed sources.
+- [x] Projection-fed evidence can be consumed without turning semantify into orchestration core.
+- [x] Context-graph remains a deterministic substrate, not a policy or lifecycle engine.
