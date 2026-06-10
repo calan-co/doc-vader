@@ -9,14 +9,16 @@ status_reason: completed
 priority: medium
 estimated: 5
 actual: 1
-completed_date: "2026-06-09"
+completed_date: '2026-06-09'
 links:
   depends_on:
-    - "[[237-doc-vader-context-coordination-core-epic.md]]"
-    - "[[239-concurrent-claim-and-dependency-aware-selection.md]]"
-    - "[[240-policy-evidence-and-alias-integrity.md]]"
+    - '[[237-doc-vader-context-coordination-core-epic.md]]'
+    - '[[239-concurrent-claim-and-dependency-aware-selection.md]]'
+    - '[[240-policy-evidence-and-alias-integrity.md]]'
   pull_requests:
-    - "https://github.com/calan-co/doc-vader/pull/59"
+    - https://github.com/calan-co/doc-vader/pull/59
+  evidence:
+    - '[[record-20260610-202104-60328]]'
 tags:
   - formulas
   - work-graph

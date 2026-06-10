@@ -11,6 +11,8 @@ links:
   depends_on:
     - '[[237-doc-vader-context-coordination-core-epic.md]]'
     - '[[238-governed-lifecycle-and-fail-closed-readiness.md]]'
+  evidence:
+    - '[[record-20260610-202104-60326]]'
 tags:
   - concurrency
   - claims

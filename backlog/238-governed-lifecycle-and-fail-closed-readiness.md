@@ -14,7 +14,9 @@ links:
   depends_on:
     - '[[237-doc-vader-context-coordination-core-epic.md]]'
   pull_requests:
-    - 'https://github.com/calan-co/doc-vader/pull/59'
+    - https://github.com/calan-co/doc-vader/pull/59
+  evidence:
+    - '[[record-20260610-202104-60325]]'
 tags:
   - readiness
   - lifecycle
