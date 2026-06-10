@@ -1,7 +1,7 @@
 {
   "title": "frontmatter/contracts/classification-token",
   "description": "Extension contract for classification tokens. Supports canonical tokens and x-* extension tokens.",
-  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/classification-token.contract/current",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/contracts/classification-token.contract/1.0.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "oneOf": [
     {
