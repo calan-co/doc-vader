@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "$id": "/work-management/workflows/default/status-definitions",
+  "title": "work-management/workflows/default/status-definitions",
+  "description": "Repository-default work-item status, reason, category, and connectivity definitions.",
+  "$comment": "EDIT THIS FILE when adding or renaming repository-default workflow vocabulary. Keep transition-profile.json mappings aligned.",
+  "$defs": {
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "ready", "in-progress", "ready-for-review", "closed"]
+    },
+    "proposedReason": {
+      "type": "string",
+      "enum": [
+        "needs-triage",
+        "awaiting-approval",
+        "deferred",
+        "blocked-by-dependency",
+        "blocked",
+        "needs-info"
+      ]
+    },
+    "readyReason": {
+      "type": "string",
+      "enum": ["prioritized", "scheduled", "dependencies-cleared", "unblocked"]
+    },
+    "inProgressReason": {
+      "type": "string",
+      "enum": [
+        "implementation",
+        "investigation",
+        "blocked",
+        "awaiting-feedback",
+        "reverting-for-pr-workflow"
+      ]
+    },
+    "readyForReviewReason": {
+      "type": "string",
+      "enum": [
+        "awaiting-review",
+        "changes-requested",
+        "verification-pending",
+        "implementation-complete"
+      ]
+    },
+    "closedReason": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "rejected",
+        "duplicate",
+        "obsolete",
+        "cancelled",
+        "obsolete",
+        "cancelled",
+        "merged-to-main",
+        "success",
+        "success",
+        "wontfix"
+      ]
+    },
+    "reasonCategory": {
+      "type": "string",
+      "enum": [
+        "intake",
+        "planning",
+        "execution",
+        "review",
+        "completed",
+        "decision"
+      ]
+    },
+    "connectivityClass": {
+      "type": "string",
+      "enum": ["start", "intermediate", "end"]
+    }
+  }
+}

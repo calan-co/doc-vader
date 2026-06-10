@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "$id": "/work-management/workflows/default/status-policy",
+  "title": "work-management/workflows/default/status-policy",
+  "description": "Repository-default lifecycle compatibility and status-dependent work-item constraints.",
+  "$comment": "EDIT THIS FILE when changing repository-default lifecycle compatibility or status-conditioned work-item requirements. Status vocabulary belongs in status-definitions.schema.json.",
+  "type": "object",
+  "allOf": [
+    {
+      "$ref": "/work-management/workflows/default/generated/status-reason-compatibility"
+    },
+    {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "draft"
+            },
+            "status": {
+              "enum": ["proposed", "closed"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "active"
+            },
+            "status": {
+              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "evergreen"
+            },
+            "status": {
+              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycle": {
+              "const": "inactive"
+            },
+            "status": {
+              "const": "closed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "const": "closed"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "required": ["actual", "links"],
+        "properties": {
+          "links": {
+            "$ref": "/work-management/support/common#/$defs/workItemLinks"
+          }
+        }
+      }
+    }
+  ]
+}

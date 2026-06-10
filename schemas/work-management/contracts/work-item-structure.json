@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "$id": "/work-management/contracts/work-item-structure",
+  "title": "work-management/contracts/work-item-structure",
+  "description": "Workflow-neutral work-item frontmatter structure. Consumers compose this schema with their own status vocabulary and transition profile.",
+  "$comment": "EDIT THIS FILE when changing workflow-neutral work-item fields. Do not add repository-specific statuses or transition rules here. Frontmatter base $refs are intentionally pinned to an immutable commit to avoid branch-drift.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "id",
+    "title",
+    "type",
+    "subtype",
+    "lifecycle",
+    "status",
+    "summary",
+    "priority",
+    "estimated"
+  ],
+  "patternProperties": {
+    "^\\$[a-zA-Z0-9_]+$": {
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/toolingProperty"
+    }
+  },
+  "propertyNames": {
+    "maxLength": 128
+  },
+  "properties": {
+    "$schema": {
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^work-item:[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "title": {
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+    },
+    "type": {
+      "const": "work-item"
+    },
+    "subtype": {
+      "$ref": "/work-management/support/common#/$defs/workItemSubtype"
+    },
+    "summary": {
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+    },
+    "owner": {
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+        "maxLength": 64
+      }
+    },
+    "links": {
+      "$ref": "/work-management/support/common#/$defs/workItemLinks"
+    },
+    "classification": {
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/classification"
+    },
+    "lifecycle": {
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycle"
+    },
+    "status": {
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+    },
+    "status_reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "audience": {
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/audience"
+    },
+    "governance": {
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/governance"
+    },
+    "priority": {
+      "$ref": "/work-management/support/common#/$defs/priority"
+    },
+    "estimated": {
+      "$ref": "/work-management/support/common#/$defs/effortHours"
+    },
+    "actual": {
+      "$ref": "/work-management/support/common#/$defs/effortHours"
+    },
+    "completed_date": {
+      "$ref": "/work-management/support/common#/$defs/dateString"
+    },
+    "commits": {
+      "$ref": "/work-management/support/common#/$defs/commitMap"
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "/work-management/support/common#/$defs/correlationFields"
+    },
+    {
+      "$ref": "/work-management/support/common#/$defs/assignableFields"
+    }
+  ]
+}

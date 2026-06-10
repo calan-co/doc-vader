@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/content/release.json",
+  "$id": "/work-management/content/release",
   "title": "work-management/content/release",
   "type": "object",
   "required": [
@@ -16,22 +16,22 @@
       "const": "release"
     },
     "releaseObjective": {
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
     },
     "releaseScope": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "readinessGates": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "rolloutNotes": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "relationships": {
-      "$ref": "../support/common.json#/$defs/nonEmptyRelationshipList"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyRelationshipList"
     },
     "notes": {
-      "$ref": "../support/common.json#/$defs/notesValue"
+      "$ref": "/work-management/support/common#/$defs/notesValue"
     }
   },
   "additionalProperties": false

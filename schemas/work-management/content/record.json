@@ -1,41 +1,36 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/content/record.json",
+  "$id": "/work-management/content/record",
   "title": "work-management/content/record",
   "type": "object",
-  "required": [
-    "entityType",
-    "recordedAt",
-    "observation",
-    "subjectRefs"
-  ],
+  "required": ["entityType", "recordedAt", "observation", "subjectRefs"],
   "properties": {
     "entityType": {
       "const": "record"
     },
     "recordedAt": {
-      "$ref": "../support/common.json#/$defs/dateTimeString"
+      "$ref": "/work-management/support/common#/$defs/dateTimeString"
     },
     "outcome": {
-      "$ref": "../support/common.json#/$defs/recordOutcome"
+      "$ref": "/work-management/support/common#/$defs/recordOutcome"
     },
     "observation": {
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
     },
     "findings": {
       "type": "array",
       "items": {
-        "$ref": "../support/common.json#/$defs/nonEmptyString"
+        "$ref": "/work-management/support/common#/$defs/nonEmptyString"
       }
     },
     "subjectRefs": {
-      "$ref": "../support/common.json#/$defs/entityRefList"
+      "$ref": "/work-management/support/common#/$defs/entityRefList"
     },
     "artifactRefs": {
-      "$ref": "../support/common.json#/$defs/supportingRefList"
+      "$ref": "/work-management/support/common#/$defs/supportingRefList"
     },
     "notes": {
-      "$ref": "../support/common.json#/$defs/notesValue"
+      "$ref": "/work-management/support/common#/$defs/notesValue"
     }
   },
   "additionalProperties": false

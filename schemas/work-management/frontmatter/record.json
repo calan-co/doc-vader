@@ -1,22 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/frontmatter/record.json",
+  "$id": "/work-management/frontmatter/record",
   "title": "work-management/frontmatter/record",
   "type": "object",
   "unevaluatedProperties": false,
   "allOf": [
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/core"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/core"
     },
     {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycleStatusCompatibility"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycleStatusCompatibility"
     },
     {
       "type": "object",
-      "required": [
-        "$schema",
-        "summary"
-      ],
+      "required": ["$schema", "summary"],
       "properties": {
         "$schema": {
           "const": "schemas/work-management/frontmatter/record.json"
@@ -29,10 +26,10 @@
           "const": "record"
         },
         "subtype": {
-          "$ref": "../support/common.json#/$defs/recordSubtype"
+          "$ref": "/work-management/support/common#/$defs/recordSubtype"
         },
         "summary": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       }
     }

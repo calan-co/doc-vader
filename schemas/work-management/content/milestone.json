@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/content/milestone.json",
+  "$id": "/work-management/content/milestone",
   "title": "work-management/content/milestone",
   "type": "object",
   "required": [
@@ -15,19 +15,19 @@
       "const": "milestone"
     },
     "milestoneObjective": {
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
     },
     "successSignals": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "completionDefinition": {
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "relationships": {
-      "$ref": "../support/common.json#/$defs/nonEmptyRelationshipList"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyRelationshipList"
     },
     "notes": {
-      "$ref": "../support/common.json#/$defs/notesValue"
+      "$ref": "/work-management/support/common#/$defs/notesValue"
     }
   },
   "additionalProperties": false

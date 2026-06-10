@@ -37,11 +37,11 @@
     },
     "problemStatement": {
       "description": "User-perspective problem, consequence, and job to be done.",
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
     },
     "solution": {
       "description": "User-perspective solution and decision boundary.",
-      "$ref": "../support/common.json#/$defs/nonEmptyString"
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString"
     },
     "coverageModel": {
       "$ref": "#/$defs/coverageModel"
@@ -73,21 +73,21 @@
     },
     "outOfScope": {
       "description": "Explicit non-goals and excluded work.",
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "successCriteria": {
       "description": "Measurable outcomes that indicate the PRD has been satisfied.",
-      "$ref": "../support/common.json#/$defs/stringList"
+      "$ref": "/work-management/support/common#/$defs/stringList"
     },
     "agentHandoff": {
       "$ref": "#/$defs/agentHandoff"
     },
     "relationships": {
-      "$ref": "../support/common.json#/$defs/relationshipList"
+      "$ref": "/work-management/support/common#/$defs/relationshipList"
     },
     "furtherNotes": {
       "description": "Clarifications, tradeoffs, or unresolved but non-blocking context.",
-      "$ref": "../support/common.json#/$defs/notesValue"
+      "$ref": "/work-management/support/common#/$defs/notesValue"
     }
   },
   "additionalProperties": false,
@@ -95,11 +95,7 @@
     "artifactStrategy": {
       "description": "How the PRD preserves structured automation data and rendered human-readable views.",
       "type": "object",
-      "required": [
-        "sourceOfTruth",
-        "renderedViews",
-        "preservation"
-      ],
+      "required": ["sourceOfTruth", "renderedViews", "preservation"],
       "properties": {
         "sourceOfTruth": {
           "description": "The durable structured artifact used by automation.",
@@ -112,14 +108,12 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "enum": [
-              "markdown"
-            ]
+            "enum": ["markdown"]
           }
         },
         "preservation": {
           "description": "Where or how the JSON payload remains available after Markdown rendering or issue publication.",
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
@@ -127,27 +121,23 @@
     "contextGrounding": {
       "description": "Evidence that the PRD was synthesized from current repo and conversation context rather than generic product prose.",
       "type": "object",
-      "required": [
-        "codebaseContext",
-        "domainVocabulary",
-        "adrAlignment"
-      ],
+      "required": ["codebaseContext", "domainVocabulary", "adrAlignment"],
       "properties": {
         "codebaseContext": {
           "description": "Current-state repo understanding relevant to the PRD.",
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "domainVocabulary": {
           "description": "Canonical terms the PRD should use consistently.",
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         },
         "adrAlignment": {
           "description": "Relevant ADR alignment, or an explicit note that no relevant ADRs were found.",
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "sourceContext": {
           "description": "Optional source observations, prompts, files, issues, or records used as grounding evidence.",
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         }
       },
       "additionalProperties": false
@@ -155,26 +145,22 @@
     "coverageModel": {
       "description": "Planning surface used to produce comprehensive user stories. Add dimensions before writing stories, then audit coverage gaps explicitly.",
       "type": "object",
-      "required": [
-        "actors",
-        "journeyStages",
-        "concerns"
-      ],
+      "required": ["actors", "journeyStages", "concerns"],
       "properties": {
         "actors": {
           "description": "User, maintainer, agent, automation, or operator roles affected by the PRD.",
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         },
         "journeyStages": {
           "description": "Workflow stages to cover, such as authoring, validation, handoff, publication, migration, or failure recovery.",
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         },
         "concerns": {
           "description": "Quality, operational, edge-case, or failure-mode concerns that stories should cover.",
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         },
         "notes": {
-          "$ref": "../support/common.json#/$defs/notesValue"
+          "$ref": "/work-management/support/common#/$defs/notesValue"
         }
       },
       "additionalProperties": false
@@ -182,84 +168,66 @@
     "storyCoverage": {
       "description": "Coverage coordinates for one user story. Values should correspond to the coverage model, with deviations explained in coverage review.",
       "type": "object",
-      "required": [
-        "actor",
-        "journeyStage",
-        "concern"
-      ],
+      "required": ["actor", "journeyStage", "concern"],
       "properties": {
         "actor": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "journeyStage": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "concern": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
     },
     "userStory": {
       "type": "object",
-      "required": [
-        "story",
-        "covers"
-      ],
+      "required": ["story", "covers"],
       "properties": {
         "story": {
           "description": "Complete story in the form: As an <actor>, I want <feature>, so that <benefit>.",
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "covers": {
           "$ref": "#/$defs/storyCoverage"
         },
         "notes": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
     },
     "coverageGap": {
       "type": "object",
-      "required": [
-        "gap",
-        "reason"
-      ],
+      "required": ["gap", "reason"],
       "properties": {
         "gap": {
           "description": "Coverage area not represented by user stories.",
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "reason": {
           "description": "Why the gap is acceptable, out of scope, or still needs follow-up.",
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
     },
     "coverageReviewStatus": {
       "type": "string",
-      "enum": [
-        "complete",
-        "has-gaps",
-        "needs-review"
-      ]
+      "enum": ["complete", "has-gaps", "needs-review"]
     },
     "coverageReview": {
       "description": "Explicit audit of story coverage against the coverage model.",
       "type": "object",
-      "required": [
-        "status",
-        "notes",
-        "gaps"
-      ],
+      "required": ["status", "notes", "gaps"],
       "properties": {
         "status": {
           "$ref": "#/$defs/coverageReviewStatus"
         },
         "notes": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "gaps": {
           "type": "array",
@@ -272,11 +240,7 @@
     },
     "qualityDimension": {
       "type": "object",
-      "required": [
-        "name",
-        "score",
-        "rationale"
-      ],
+      "required": ["name", "score", "rationale"],
       "properties": {
         "name": {
           "type": "string",
@@ -294,7 +258,7 @@
           "maximum": 5
         },
         "rationale": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
@@ -302,10 +266,7 @@
     "qualityReview": {
       "description": "Self-review rubric for PRD quality. This makes weak or incomplete reasoning visible before handoff.",
       "type": "object",
-      "required": [
-        "dimensions",
-        "notes"
-      ],
+      "required": ["dimensions", "notes"],
       "properties": {
         "dimensions": {
           "type": "array",
@@ -315,7 +276,7 @@
           }
         },
         "notes": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
@@ -336,42 +297,35 @@
           ]
         },
         {
-          "$ref": "../support/common.json#/$defs/extensionToken"
+          "$ref": "/work-management/support/common#/$defs/extensionToken"
         }
       ]
     },
     "prototypeSnippet": {
       "type": "object",
-      "required": [
-        "language",
-        "body",
-        "note"
-      ],
+      "required": ["language", "body", "note"],
       "properties": {
         "language": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "body": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "note": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
     },
     "reasonedDecision": {
       "type": "object",
-      "required": [
-        "statement",
-        "rationale"
-      ],
+      "required": ["statement", "rationale"],
       "properties": {
         "statement": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "rationale": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "category": {
           "$ref": "#/$defs/decisionCategory"
@@ -397,53 +351,42 @@
           ]
         },
         {
-          "$ref": "../support/common.json#/$defs/extensionToken"
+          "$ref": "/work-management/support/common#/$defs/extensionToken"
         }
       ]
     },
     "testSeam": {
       "type": "object",
-      "required": [
-        "name",
-        "level",
-        "rationale"
-      ],
+      "required": ["name", "level", "rationale"],
       "properties": {
         "name": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "level": {
           "$ref": "#/$defs/seamLevel"
         },
         "rationale": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "existingPriorArt": {
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         }
       },
       "additionalProperties": false
     },
     "seamReviewStatus": {
       "type": "string",
-      "enum": [
-        "confirmed",
-        "needs-confirmation",
-        "not-applicable"
-      ]
+      "enum": ["confirmed", "needs-confirmation", "not-applicable"]
     },
     "seamReview": {
       "type": "object",
-      "required": [
-        "status",
-        "notes"
-      ],
+      "required": ["status", "notes"],
       "properties": {
         "status": {
           "$ref": "#/$defs/seamReviewStatus"
         },
         "notes": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         }
       },
       "additionalProperties": false
@@ -460,10 +403,10 @@
       ],
       "properties": {
         "behaviorContract": {
-          "$ref": "../support/common.json#/$defs/nonEmptyString"
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
         },
         "modulesUnderTest": {
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         },
         "seams": {
           "type": "array",
@@ -473,10 +416,10 @@
           }
         },
         "priorArt": {
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         },
         "validationGates": {
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         },
         "seamReview": {
           "$ref": "#/$defs/seamReview"
@@ -486,16 +429,13 @@
     },
     "agentHandoff": {
       "type": "object",
-      "required": [
-        "readyLabel",
-        "handoffNotes"
-      ],
+      "required": ["readyLabel", "handoffNotes"],
       "properties": {
         "readyLabel": {
           "const": "ready-for-agent"
         },
         "handoffNotes": {
-          "$ref": "../support/common.json#/$defs/stringList"
+          "$ref": "/work-management/support/common#/$defs/stringList"
         }
       },
       "additionalProperties": false
@@ -507,9 +447,7 @@
       "documentKind": "product-requirements",
       "artifactStrategy": {
         "sourceOfTruth": "json-payload",
-        "renderedViews": [
-          "markdown"
-        ],
+        "renderedViews": ["markdown"],
         "preservation": "Store the content JSON sidecar next to the rendered Markdown PRD."
       },
       "contextGrounding": {
@@ -524,18 +462,9 @@
       "problemStatement": "Agents need durable PRDs that preserve reasoning while remaining useful to automation.",
       "solution": "Create a JSON-first PRD payload and render Markdown from it for human review.",
       "coverageModel": {
-        "actors": [
-          "agent",
-          "maintainer"
-        ],
-        "journeyStages": [
-          "authoring",
-          "validation"
-        ],
-        "concerns": [
-          "handoff quality",
-          "automation"
-        ]
+        "actors": ["agent", "maintainer"],
+        "journeyStages": ["authoring", "validation"],
+        "concerns": ["handoff quality", "automation"]
       },
       "userStories": [
         {
@@ -596,10 +525,7 @@
       ],
       "testingDecisions": {
         "behaviorContract": "Validate the JSON payload and rendered Markdown view.",
-        "modulesUnderTest": [
-          "PRD content schema",
-          "PRD template"
-        ],
+        "modulesUnderTest": ["PRD content schema", "PRD template"],
         "seams": [
           {
             "name": "Schema validation",
@@ -607,17 +533,13 @@
             "rationale": "Invalid PRD payloads must fail before rendering."
           }
         ],
-        "priorArt": [
-          "Existing work-management schema validation."
-        ],
+        "priorArt": ["Existing work-management schema validation."],
         "seamReview": {
           "status": "not-applicable",
           "notes": "Example payload only."
         }
       },
-      "outOfScope": [
-        "Replacing all existing plan documents."
-      ],
+      "outOfScope": ["Replacing all existing plan documents."],
       "furtherNotes": "Keep examples compact; exhaustive examples belong in fixtures."
     }
   ]

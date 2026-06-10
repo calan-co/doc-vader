@@ -15,6 +15,7 @@ import remarkLint from "remark-lint";
 import remarkLintChecklist from "../lib/plugins/remark-lint-checklist.js";
 import remarkLintCrossref from "../lib/plugins/remark-lint-crossref.js";
 import remarkLintTemplateCompliance from "../lib/plugins/remark-lint-template-compliance.js";
+import remarkLintDiataxisClassifier from "../lib/plugins/remark-diataxis-classifier.js";
 import remarkLintNamingConventions from "../lib/plugins/remark-lint-naming-conventions.js";
 import remarkLintNoAsciiDiagrams from "../lib/plugins/remark-lint-no-ascii-diagrams.js";
 import remarkLintNoHtmlAnchors from "../lib/plugins/remark-lint-no-html-anchors.js";
@@ -84,6 +85,7 @@ const processor = unified()
   .use(remarkLint)
   .use(remarkLintChecklist, false)
   .use(remarkLintTemplateCompliance, false)
+  .use(remarkLintDiataxisClassifier, { enabled: true })
   .use(remarkLintNoAsciiDiagrams, { enabled: false })
   .use(remarkLintNoHtmlAnchors, {})
   .use(remarkLintWorkItemArchiveReadiness, {})

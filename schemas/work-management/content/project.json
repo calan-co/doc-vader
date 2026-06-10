@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "/work-management/content/project.json",
+  "$id": "/work-management/content/project",
   "title": "work-management/content/project",
   "type": "object",
   "required": [
@@ -15,34 +15,34 @@
       "const": "project"
     },
     "narrative": {
-      "$ref": "../support/common.json#/$defs/nonEmptyString",
+      "$ref": "/work-management/support/common#/$defs/nonEmptyString",
       "description": "A brief overview of the project"
     },
     "objectives": {
-      "$ref": "../support/common.json#/$defs/stringList",
+      "$ref": "/work-management/support/common#/$defs/stringList",
       "description": "The goals or targets the project aims to achieve"
     },
     "scope": {
-      "$ref": "../support/common.json#/$defs/scopeBlock",
+      "$ref": "/work-management/support/common#/$defs/scopeBlock",
       "description": "The boundaries and limitations of the project"
     },
     "successCriteria": {
-      "$ref": "../support/common.json#/$defs/stringList",
+      "$ref": "/work-management/support/common#/$defs/stringList",
       "description": "The criteria for determining the project's success"
     },
     "operatingConstraints": {
       "type": "array",
       "description": "Any limitations or restrictions that affect how the project operates",
       "items": {
-        "$ref": "../support/common.json#/$defs/nonEmptyString"
+        "$ref": "/work-management/support/common#/$defs/nonEmptyString"
       }
     },
     "relationships": {
-      "$ref": "../support/common.json#/$defs/relationshipList",
+      "$ref": "/work-management/support/common#/$defs/relationshipList",
       "description": "The relationships between the project and other entities"
     },
     "notes": {
-      "$ref": "../support/common.json#/$defs/notesValue",
+      "$ref": "/work-management/support/common#/$defs/notesValue",
       "description": "Additional information about the project"
     }
   },

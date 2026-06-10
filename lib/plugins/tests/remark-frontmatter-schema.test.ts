@@ -41,7 +41,7 @@ describe("remark-frontmatter-schema", () => {
 
   // ── Valid document frontmatter ────────────────────────────────────────────
 
-  it("does not crash on document frontmatter even if schema has remote $refs", async () => {
+  it("preserves non-ref validation errors even when schema has remote $refs", async () => {
     // The document schema references external $refs that Ajv cannot resolve in
     // a local test environment. The plugin should surface a validation-error
     // message rather than throwing, keeping the pipeline stable.
@@ -63,7 +63,7 @@ describe("remark-frontmatter-schema", () => {
       m.message.includes("[frontmatter-schema]")
     );
     expect(schemaMessages.length).toBeGreaterThan(0);
-    expect(schemaMessages[0].message).toMatch(/can't resolve reference/i);
+    expect(schemaMessages[0].message).toMatch(/must NOT have unevaluated properties/i);
   });
 
   // ── Schema validation errors surface ──────────────────────────────────────

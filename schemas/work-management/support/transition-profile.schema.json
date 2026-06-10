@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/support/transition-profile.schema",
+  "title": "work-management/support/transition-profile",
+  "description": "Reusable structure for compiling state-transition profiles from frontmatter schemas.",
+  "$comment": "Reusable profile-shape contract. Edit a concrete workflow profile to change transitions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "sourceDimensions",
+    "derivedDimensions",
+    "lookupTables",
+    "transitions"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "$id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "$comment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "sourceDimensions": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/dimensionName"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/sourceDimension"
+      }
+    },
+    "derivedDimensions": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/dimensionName"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/derivedDimension"
+      }
+    },
+    "lookupTables": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/profileName"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/lookupTable"
+      }
+    },
+    "transitions": {
+      "$ref": "#/$defs/transitionContract"
+    }
+  },
+  "$defs": {
+    "dimensionName": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*$"
+    },
+    "profileName": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*$"
+    },
+    "schemaReference": {
+      "type": "string",
+      "pattern": "^(?:[^#]+)?#(?:/[^/]*)+$"
+    },
+    "sourcePath": {
+      "type": "string",
+      "pattern": "^/(?:[^/]*)+$"
+    },
+    "sourceDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/sourcePath"
+        },
+        "domain": {
+          "$ref": "#/$defs/schemaReference"
+        },
+        "domainBy": {
+          "$ref": "#/$defs/domainBy"
+        },
+        "allowUnknown": {
+          "type": "boolean"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "domain"
+          ],
+          "not": {
+            "required": [
+              "domainBy"
+            ]
+          }
+        },
+        {
+          "required": [
+            "domainBy"
+          ],
+          "not": {
+            "required": [
+              "domain"
+            ]
+          }
+        }
+      ]
+    },
+    "domainBy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "cases"
+      ],
+      "properties": {
+        "dimension": {
+          "$ref": "#/$defs/dimensionName"
+        },
+        "cases": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/schemaReference"
+          }
+        },
+        "requiredCases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "extensionDomain": {
+          "$ref": "#/$defs/schemaReference"
+        }
+      }
+    },
+    "derivedDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "from",
+        "table"
+      ],
+      "properties": {
+        "kind": {
+          "const": "lookup"
+        },
+        "from": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/dimensionName"
+          }
+        },
+        "table": {
+          "$ref": "#/$defs/profileName"
+        }
+      }
+    },
+    "lookupTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "values",
+        "map"
+      ],
+      "properties": {
+        "values": {
+          "$ref": "#/$defs/schemaReference"
+        },
+        "default": {
+          "type": "string"
+        },
+        "total": {
+          "type": "boolean"
+        },
+        "map": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/lookupMapNode"
+          }
+        }
+      }
+    },
+    "lookupMapNode": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "$ref": "#/$defs/lookupMapNode"
+          }
+        }
+      ]
+    },
+    "selectorValue": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "transitionSelector": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/dimensionName"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/selectorValue"
+      }
+    },
+    "transitionRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "from",
+        "to",
+        "decision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "from": {
+          "$ref": "#/$defs/transitionSelector"
+        },
+        "to": {
+          "$ref": "#/$defs/transitionSelector"
+        },
+        "decision": {
+          "const": "allow"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "transitionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "precedence",
+        "rules"
+      ],
+      "properties": {
+        "precedence": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/dimensionName"
+          }
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/transitionRule"
+          }
+        }
+      }
+    }
+  }
+}

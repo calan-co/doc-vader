@@ -2,7 +2,7 @@
 title: Changelog (internal docs history)
 id: docschan-8860
 type: document
-subtype: reference
+subtype: generic
 lifecycle: active
 status: ready
 ---

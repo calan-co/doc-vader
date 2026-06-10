@@ -1,14 +1,14 @@
 # Schemas
 
 This directory contains JSON Schema definitions used by doc-vader to validate
-document and work-item frontmatter.  All schemas are written for
+document and work-item frontmatter. All schemas are written for
 **JSON Schema draft-2020-12** and validated with [Ajv 8](https://ajv.js.org/).
 
 ---
 
 ## Directory structure
 
-```
+```text
 schemas/
 ├── frontmatter/
 │   ├── document/          # Canonical document frontmatter schema
@@ -32,8 +32,11 @@ schemas/
 
 Each schema carries a `$id` value that doubles as its stable URI.
 
+The repository uses extensionless schema IDs. The `.json` suffix belongs to the
+on-disk filename, not the schema identity.
+
 | Pattern | Example |
-|---|---|
+| --- | --- |
 | `/frontmatter/{type}/{version}` | `/frontmatter/document/1.0.0` |
 | `/frontmatter/{type}/{version}` | `/frontmatter/work-item/1.0.0` |
 
@@ -43,13 +46,16 @@ only append new versions.
 **Pointer files** are updated in place to track the recommended version:
 
 | Filename | Meaning |
-|---|---|
-| `current.json` | Actively maintained; safe to reference in CI |
-| `latest.json` | Identical to `current.json`; kept for ecosystem compatibility |
+| --- | --- |
+| `current.json` | Actively maintained draft pointer; `$id` ends in `/current` |
+| `latest.json` | Rolling compatibility pointer; `$id` ends in `/latest` |
 
-Tooling in this repository always references `current.json` for schema
-resolution at run-time.  The `$id` inside `current.json` points to the
-underlying versioned schema (`/frontmatter/document/1.0.0`).
+Tooling in this repository uses the pointer files for authoring and routing,
+but stable schema identity stays extensionless. Published or finalized
+references should target versioned `$id`s, not `current` pointers.
+
+When a schema needs a GitHub-hosted URI, the namespace uses this repository,
+not the old templjs repository.
 
 ---
 

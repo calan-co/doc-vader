@@ -1,7 +1,7 @@
 {
   "title": "frontmatter/status-transition-payload",
   "description": "Transition payload for runtime status changes. Validates from->to status rules and optional lifecycle compatibility.",
-  "$id": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/payloads/status-transition-payload/1.0.0.json",
+  "$id": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/payloads/status-transition-payload/1.0.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
@@ -11,22 +11,22 @@
   ],
   "properties": {
     "from_lifecycle": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycle"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycle"
     },
     "from_status": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/status"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/status"
     },
     "from_status_reason": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonValue"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonValue"
     },
     "to_lifecycle": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/lifecycle"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycle"
     },
     "to_status": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/status"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/status"
     },
     "to_status_reason": {
-      "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusReasonValue"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonValue"
     }
   },
   "allOf": [
@@ -128,14 +128,7 @@
           }
         }
       },
-      "then": {
-        "properties": {
-          "to_status": {
-            "enum": [
-            ]
-          }
-        }
-      }
+      "then": false
     },
     {
       "if": {
@@ -246,7 +239,8 @@
       }
     }
   ],
+  "version": "1.0.0",
   "x-statusTransitions": {
-    "$ref": "https://raw.githubusercontent.com/templjs/templ.js/main/schemas/frontmatter/support/base/current.json#/$defs/statusTransitions"
+    "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusTransitions"
   }
 }

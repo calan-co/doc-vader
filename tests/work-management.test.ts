@@ -1,18 +1,21 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
+import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import {
   linkWorkItem,
   migrateBacklog,
   ingestEvent,
   finalizeWorkItem,
+  transitionWorkItem,
 } from "../lib/work-management/index.js";
 
 const tempDirs: string[] = [];
 
 async function createTempRepo(): Promise<string> {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "doc-vader-work-management-"));
+  const dir = path.join(os.tmpdir(), `doc-vader-work-management-${randomUUID()}`);
+  await mkdir(dir, { recursive: true });
   tempDirs.push(dir);
   return dir;
 }
@@ -26,7 +29,7 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0, tempDirs.length).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
-describe("work-management automation", () => {
+describe.sequential("work-management automation", () => {
   it("keeps work-item link mutations idempotent", async () => {
     const rootDir = await createTempRepo();
     const filePath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
@@ -61,6 +64,46 @@ links:
     const updated = await readFile(filePath, "utf8");
     const matches = updated.match(/\[\[work-item-sample\]\]/g) ?? [];
     expect(matches).toHaveLength(1);
+  });
+
+  it("governs lifecycle when transitioning a work item into readiness", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: draft
+status: proposed
+status_reason: needs-triage
+priority: medium
+estimated: 1
+---
+
+## Goal
+
+- Ship sample work.
+`
+    );
+
+    const result = await transitionWorkItem({
+      rootDir,
+      id: "work-item:sample",
+      status: "ready",
+    });
+
+    expect(result.frontmatter.status).toBe("ready");
+    expect(result.frontmatter.lifecycle).toBe("active");
+    expect(result.frontmatter.status_reason).toBe("prioritized");
+
+    const updated = await readFile(filePath, "utf8");
+    expect(updated).toContain("lifecycle: active");
+    expect(updated).toContain("status: ready");
   });
 
   it("migrates legacy backlog items into canonical work-items and records", async () => {
@@ -424,10 +467,10 @@ actual: 3
   it("refuses to finalize a work item without evidence", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(
-      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      path.join(rootDir, "backlog", "active", "work-item-no-evidence.md"),
       `---
 $schema: schemas/work-management/frontmatter/work-item.json
-id: work-item:sample
+id: work-item:no-evidence
 title: Sample
 summary: Sample summary
 type: work-item
@@ -449,6 +492,43 @@ links:
 `
     );
 
-    await expect(finalizeWorkItem({ rootDir, id: "work-item:sample" })).rejects.toThrow(/without linked evidence/i);
+    await expect(finalizeWorkItem({ rootDir, id: "work-item:no-evidence" })).rejects.toThrow(
+      /without .*evidence/i,
+    );
+  });
+
+  it("fails closed when finalizing a work item outside the ready gate", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+status_reason: implementation
+priority: medium
+estimated: 2
+actual: 2
+links:
+  pull_requests:
+    - https://example.com/pr/1
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Goal
+
+- Validate the change.
+`
+    );
+
+    await expect(finalizeWorkItem({ rootDir, id: "work-item:sample" })).rejects.toThrow(
+      /Expected ready-for-review or closed/i,
+    );
   });
 });

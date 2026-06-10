@@ -10,6 +10,7 @@ lifecycle: active
 ## General
 
 - **What is doc-vader?**
+
   - `doc-vader` is a CLI and TypeScript library for documentation validation, backlog hygiene auditing, and governance enforcement in Markdown-based projects.
 
 - **Who should use doc-vader?**
@@ -18,9 +19,11 @@ lifecycle: active
 ## Installation & Setup
 
 - **How do I install doc-vader?**
+
   - See [Getting Started](./getting-started.md) for installation instructions.
 
 - **What are the system requirements?**
+
   - Node.js ≥ 22, pnpm 8 (for development).
 
 - **The registry install fails — what do I do?**
@@ -29,9 +32,11 @@ lifecycle: active
 ## Usage
 
 - **How do I run validation in CI?**
+
   - Use `doc-vader backlog validate --profile ci --fail-on error`. This returns a non-zero exit code on any error-level finding and outputs machine-readable JSON with `--format json`.
 
 - **Can I use doc-vader as a library?**
+
   - Yes. Import `frontmatter`, `backlog`, `docs`, `workManagement`, or `diataxis` from `@calan-co/doc-vader`.
 
 - **What is a consumer config?**

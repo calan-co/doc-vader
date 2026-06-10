@@ -55,12 +55,34 @@ async function validateFrontmatter(frontmatter, schemaPath) {
       let p;
       if (uri.startsWith("/")) {
         // Absolute $id, treat as relative to schemas root
-        p = path.resolve(__dirname, "../../../schemas" + uri + ".json");
+        p = path.resolve(
+          __dirname,
+          "../../../schemas" + (uri.endsWith(".json") ? uri : `${uri}.json`),
+        );
       } else if (uri.startsWith(".")) {
         // Relative ref, treat as relative to main schema
-        p = path.resolve(path.dirname(schemaPath), uri);
+        p = path.resolve(
+          path.dirname(schemaPath),
+          uri.endsWith(".json") ? uri : `${uri}.json`,
+        );
       } else if (uri.startsWith("http://") || uri.startsWith("https://")) {
-        // Fetch from URL
+        const parsed = new URL(uri);
+        const schemaIndex = parsed.pathname.indexOf("/schemas/");
+        if (schemaIndex >= 0) {
+          const schemaRelative = parsed.pathname.slice(
+            schemaIndex + "/schemas/".length,
+          );
+          p = path.resolve(
+            __dirname,
+            "../../../schemas",
+            schemaRelative.endsWith(".json") ? schemaRelative : `${schemaRelative}.json`,
+          );
+          if (fs.existsSync(p)) {
+            return JSON.parse(fs.readFileSync(p, "utf8"));
+          }
+        }
+
+        // Fetch from URL as a last resort
         const res = await fetch(uri);
         if (!res.ok) {
           throw new Error(`Failed to load schema from URL: ${uri}`);
@@ -68,7 +90,11 @@ async function validateFrontmatter(frontmatter, schemaPath) {
         return res.json();
       } else {
         // Fallback: try as filename in schemas root
-        p = path.resolve(__dirname, "../../../schemas", uri);
+        p = path.resolve(
+          __dirname,
+          "../../../schemas",
+          uri.endsWith(".json") ? uri : `${uri}.json`,
+        );
       }
       if (!fs.existsSync(p)) {
         throw new Error(`Schema not found: ${p}`);

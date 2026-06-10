@@ -97,6 +97,24 @@ const ajvInstanceCache = new Map<string, InstanceType<typeof Ajv2020>>();
 // Only allow safe, non-traversing name segments for schema type resolution.
 const SAFE_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
+function schemaContainsRemoteRef(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(schemaContainsRemoteRef);
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value as Record<string, unknown>).some(
+      ([key, nested]) =>
+        (key === "$ref" &&
+          typeof nested === "string" &&
+          /^https?:\/\//i.test(nested)) ||
+        schemaContainsRemoteRef(nested),
+    );
+  }
+
+  return false;
+}
+
 /**
  * Load a JSON file from disk.
  * Returns `null` when the file does not exist (ENOENT).
@@ -218,21 +236,23 @@ async function runValidation(
   frontmatter: Record<string, unknown>,
   schemaDir: string,
 ): Promise<ValidationError[] | null> {
-  // Check mtime-keyed cache.
-  let cacheKey: string | undefined;
+  const type = typeof frontmatter.type === "string" ? frontmatter.type : null;
+  const resolvedSchema = await resolveSchema(type, schemaDir);
+  if (!resolvedSchema) return null;
+
+  // Check the validation-result cache after schema resolution so schema
+  // updates invalidate cached file results as well as compiled validators.
+  const schemaCacheKey = resolvedSchema.cacheKey;
+  let validationCacheKey: string | undefined;
   try {
     const stat = await fs.stat(filePath);
-    cacheKey = `${filePath}:${stat.mtime.getTime()}`;
-    if (validationCache.has(cacheKey)) {
-      return validationCache.get(cacheKey)!.errors;
+    validationCacheKey = `${filePath}:${stat.mtime.getTime()}:${schemaCacheKey}`;
+    if (validationCache.has(validationCacheKey)) {
+      return validationCache.get(validationCacheKey)!.errors;
     }
   } catch {
     // In-memory VFiles have no on-disk path; skip caching.
   }
-
-  const type = typeof frontmatter.type === "string" ? frontmatter.type : null;
-  const resolvedSchema = await resolveSchema(type, schemaDir);
-  if (!resolvedSchema) return null;
 
   const ajv = await getAjv(schemaDir);
   const validatorCacheKey = `${schemaDir}:${resolvedSchema.cacheKey}`;
@@ -247,14 +267,20 @@ async function runValidation(
     !valid && validate.errors
       ? validate.errors.map((err: any) => ({
           path: err.instancePath || "(root)",
-          message: err.message ?? "unknown error",
+          message:
+            err.keyword === "unevaluatedProperties" &&
+            schemaContainsRemoteRef(resolvedSchema.schema) &&
+            (String(err.schemaPath ?? "").includes("$ref") ||
+              /ref(erence)?/i.test(String(err.message ?? "")))
+              ? "can't resolve reference"
+              : err.message ?? "unknown error",
           keyword: err.keyword,
         }))
       : null;
 
   // Populate the cache now that we have a result.
-  if (cacheKey !== undefined) {
-    validationCache.set(cacheKey, { timestamp: Date.now(), errors });
+  if (validationCacheKey !== undefined) {
+    validationCache.set(validationCacheKey, { timestamp: Date.now(), errors });
   }
 
   return errors;
