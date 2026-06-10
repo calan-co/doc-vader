@@ -48,7 +48,7 @@ const STATUS_DEFINITIONS_SCHEMA_PATH = join(DEFAULT_WORKFLOW_DIR, 'status-defini
 const GENERATED_SCHEMA_PATH = join(
   DEFAULT_WORKFLOW_DIR,
   'generated',
-  'status-reason-compatibility.schema.json'
+  'status-reason-compatibility.json'
 );
 
 function resolveGeneratedSchemaPath(): string {
@@ -58,7 +58,7 @@ function resolveGeneratedSchemaPath(): string {
 }
 const DEFAULT_OPTIONS: StatusReasonCompatibilityGenerationOptions = {
   generatedSchemaId:
-    '/work-management/workflows/default/generated/status-reason-compatibility.schema.json',
+    '/work-management/workflows/default/generated/status-reason-compatibility',
   title: 'work-management/workflows/default/generated/status-reason-compatibility',
   statusDimension: 'status',
   reasonDimension: 'reason',
