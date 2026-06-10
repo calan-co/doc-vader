@@ -12,6 +12,8 @@ links:
     - '[[237-doc-vader-context-coordination-core-epic.md]]'
     - '[[239-concurrent-claim-and-dependency-aware-selection.md]]'
     - '[[240-policy-evidence-and-alias-integrity.md]]'
+  evidence:
+    - '[[record-20260610-202104-60329]]'
 tags:
   - integration
   - ci

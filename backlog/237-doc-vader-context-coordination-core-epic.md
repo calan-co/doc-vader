@@ -8,6 +8,9 @@ lifecycle: active
 status: ready
 priority: high
 estimated: 16
+links:
+  evidence:
+    - '[[record-20260610-202104-60324]]'
 tags:
   - context-governance
   - afk
