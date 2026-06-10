@@ -3,7 +3,7 @@ id: wi-60325
 title: Governed Lifecycle and Fail-Closed Readiness
 type: work-item
 subtype: story
-lifecycle: archived
+lifecycle: inactive
 status: closed
 status_reason: completed
 priority: high
