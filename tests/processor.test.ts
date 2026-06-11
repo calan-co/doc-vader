@@ -32,6 +32,16 @@ function messageTexts(file: VFile): string[] {
   return file.messages.map((m) => m.message);
 }
 
+type RegistryFixtureCase = {
+  name: string;
+  nodes: Array<{
+    file: string;
+    id: string;
+    refs: string[];
+  }>;
+  expected: Record<string, number>;
+};
+
 // ---------------------------------------------------------------------------
 // Suite 1: processor composition
 // ---------------------------------------------------------------------------
@@ -287,8 +297,109 @@ describe("Epic 170 Phase 1 – exit-gate baseline", () => {
       "tests/fixtures/registry/registry-cases.json",
       "utf8",
     );
-    const data = JSON.parse(raw) as { cases: unknown[] };
-    expect(Array.isArray(data.cases)).toBe(true);
-    expect(data.cases.length).toBeGreaterThanOrEqual(5);
+    const data = JSON.parse(raw) as { cases: RegistryFixtureCase[] };
+    const caseNames = data.cases.map((entry) => entry.name);
+
+    expect(caseNames).toEqual([
+      "basic-resolution",
+      "missing-target",
+      "duplicate-id",
+      "ambiguous-basename",
+      "cycle-detection",
+    ]);
+
+    expect(data.cases).toEqual([
+      {
+        name: "basic-resolution",
+        nodes: [
+          {
+            file: "backlog/100.alpha.md",
+            id: "wi-100",
+            refs: ["[[101.beta.md]]"],
+          },
+          {
+            file: "backlog/101.beta.md",
+            id: "wi-101",
+            refs: [],
+          },
+        ],
+        expected: {
+          unresolved: 0,
+          duplicateIds: 0,
+        },
+      },
+      {
+        name: "missing-target",
+        nodes: [
+          {
+            file: "backlog/110.alpha.md",
+            id: "wi-110",
+            refs: ["[[missing-target]]"],
+          },
+        ],
+        expected: {
+          unresolved: 1,
+        },
+      },
+      {
+        name: "duplicate-id",
+        nodes: [
+          {
+            file: "backlog/120.alpha.md",
+            id: "wi-120",
+            refs: [],
+          },
+          {
+            file: "backlog/121.beta.md",
+            id: "wi-120",
+            refs: [],
+          },
+        ],
+        expected: {
+          duplicateIds: 1,
+        },
+      },
+      {
+        name: "ambiguous-basename",
+        nodes: [
+          {
+            file: "backlog/130.alpha.md",
+            id: "wi-130",
+            refs: ["[[shared-name]]"],
+          },
+          {
+            file: "backlog/shared-name.md",
+            id: "wi-131",
+            refs: [],
+          },
+          {
+            file: "docs/shared-name.md",
+            id: "doc-131",
+            refs: [],
+          },
+        ],
+        expected: {
+          ambiguous: 1,
+        },
+      },
+      {
+        name: "cycle-detection",
+        nodes: [
+          {
+            file: "backlog/140.alpha.md",
+            id: "wi-140",
+            refs: ["[[141.beta.md]]"],
+          },
+          {
+            file: "backlog/141.beta.md",
+            id: "wi-141",
+            refs: ["[[140.alpha.md]]"],
+          },
+        ],
+        expected: {
+          cycles: 1,
+        },
+      },
+    ]);
   });
 });
