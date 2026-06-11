@@ -2,16 +2,32 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-async function loadContext(fileName: string) {
+type JsonLdContextFile = {
+  "@context": unknown;
+};
+
+async function readContext(fileName: string): Promise<JsonLdContextFile> {
   const filePath = path.resolve(process.cwd(), "contexts", fileName);
   const raw = await readFile(filePath, "utf8");
-  return JSON.parse(raw) as { "@context": Record<string, unknown> | Array<unknown> };
+  return JSON.parse(raw) as JsonLdContextFile;
 }
 
 describe("JSON-LD vocabulary contexts", () => {
-  it("provides the reusable context files required by issue 218", async () => {
-    const dublinCore = await loadContext("dublin-core.context.json");
-    expect(dublinCore["@context"]).toEqual(
+  it("loads the base fallback context", async () => {
+    const baseContext = await readContext("base.context.json");
+
+    expect(baseContext["@context"]).toEqual(
+      expect.objectContaining({
+        "@version": 1.1,
+        "@vocab": "https://schema.org/",
+      }),
+    );
+  });
+
+  it("loads the Dublin Core term mappings", async () => {
+    const dublinCoreContext = await readContext("dublin-core.context.json");
+
+    expect(dublinCoreContext["@context"]).toEqual(
       expect.objectContaining({
         "@version": 1.1,
         dc: "http://purl.org/dc/terms/",
@@ -22,7 +38,7 @@ describe("JSON-LD vocabulary contexts", () => {
         audience: "dc:audience",
       }),
     );
-    expect(dublinCore["@context"]).toEqual(
+    expect(dublinCoreContext["@context"]).toEqual(
       expect.objectContaining({
         created: expect.objectContaining({
           "@id": "dc:created",
@@ -34,36 +50,47 @@ describe("JSON-LD vocabulary contexts", () => {
         }),
       }),
     );
+  });
 
-    const schemaOrg = await loadContext("schema-org.context.json");
-    expect(schemaOrg["@context"]).toEqual(
+  it("loads the schema.org namespace context", async () => {
+    const schemaOrgContext = await readContext("schema-org.context.json");
+
+    expect(schemaOrgContext["@context"]).toEqual(
       expect.objectContaining({
         "@version": 1.1,
         "@vocab": "https://schema.org/",
         schema: "https://schema.org/",
       }),
     );
+  });
 
-    const workItem = await loadContext("work-item.context.json");
-    expect(workItem["@context"]).toEqual(
+  it("extends the document context for work items", async () => {
+    const workItemContext = await readContext("work-item.context.json");
+
+    expect(workItemContext["@context"]).toEqual(
       expect.arrayContaining([
         "./document.context.json",
         expect.objectContaining({
+          "@version": 1.1,
           wi: "http://example.org/work-item#",
-          dc: "http://purl.org/dc/terms/",
           xsd: "http://www.w3.org/2001/XMLSchema#",
           id: "wi:identifier",
           type: "@type",
-          title: "name",
           priority: "wi:priority",
+          estimated: expect.objectContaining({
+            "@id": "wi:estimatedEffort",
+            "@type": "xsd:duration",
+          }),
           assignee: "wi:assignee",
-          tags: "keywords",
         }),
       ]),
     );
+  });
 
-    const document = await loadContext("document.context.json");
-    expect(document["@context"]).toEqual(
+  it("loads the document context", async () => {
+    const documentContext = await readContext("document.context.json");
+
+    expect(documentContext["@context"]).toEqual(
       expect.objectContaining({
         "@version": 1.1,
         "@vocab": "https://schema.org/",
@@ -76,12 +103,16 @@ describe("JSON-LD vocabulary contexts", () => {
         tags: "keywords",
       }),
     );
-
-    const base = await loadContext("base.context.json");
-    expect(base["@context"]).toEqual(
+    expect(documentContext["@context"]).toEqual(
       expect.objectContaining({
-        "@version": 1.1,
-        "@vocab": "https://schema.org/",
+        created: expect.objectContaining({
+          "@id": "dc:created",
+          "@type": "xsd:dateTime",
+        }),
+        modified: expect.objectContaining({
+          "@id": "dc:modified",
+          "@type": "xsd:dateTime",
+        }),
       }),
     );
   });
