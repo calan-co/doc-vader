@@ -348,6 +348,16 @@ function extractCanonicalRelationshipDependencies(content: string): string[] {
   return refs;
 }
 
+function extractWikilinkTarget(reference: string): string | null {
+  const match = reference.match(/^\[\[([^\]]+)\]\]$/);
+  if (!match) {
+    return null;
+  }
+
+  const target = match[1].split("|", 1)[0].trim();
+  return target.length > 0 ? target : null;
+}
+
 function extractUncheckedChecklistItemsFromSection(
   content: string,
   heading: string,
@@ -925,16 +935,15 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
         const canonicalDependsOn = extractCanonicalRelationshipDependencies(
           content,
         ).map((ref) => `[[${ref}]]`);
-        const dependsOn = [...legacyDependsOn, ...canonicalDependsOn];
+        const dependencyRefs = [...legacyDependsOn, ...canonicalDependsOn];
 
         if (status === "ready-for-review") {
-          for (const dep of dependsOn) {
-            const wikilinkMatch = dep.match(/^\[\[([^\]]+)\]\]$/);
-            if (!wikilinkMatch) {
+          for (const dep of dependencyRefs) {
+            const depRef = extractWikilinkTarget(dep);
+            if (!depRef) {
               continue;
             }
 
-            const depRef = wikilinkMatch[1].split("|", 1)[0].trim();
             const depItem = workItemsMap.get(depRef);
 
             if (!depItem) {
@@ -1045,12 +1054,10 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
           }
         }
 
-        if (dependsOn.length > 0) {
-          for (const dep of dependsOn) {
-            // Extract work item reference from wikilink format [[xxx]]
-            const wikilinkMatch = dep.match(/^\[\[([^\]]+)\]\]$/);
-            if (wikilinkMatch) {
-              const depRef = wikilinkMatch[1].split("|", 1)[0].trim();
+        if (dependencyRefs.length > 0) {
+          for (const dep of dependencyRefs) {
+            const depRef = extractWikilinkTarget(dep);
+            if (depRef) {
               const depItem = workItemsMap.get(depRef);
 
               if (!depItem) {

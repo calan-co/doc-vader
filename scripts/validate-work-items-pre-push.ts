@@ -363,7 +363,7 @@ function isArchiveFile(filePath: string): boolean {
   return filePath.startsWith("backlog/archive/");
 }
 
-function dependencyCandidates(reference: string): string[] {
+function dependencyLookupCandidates(reference: string): string[] {
   const normalized = reference
     .trim()
     .replace(/^\[\[|\]\]$/g, "")
@@ -376,7 +376,9 @@ function dependencyCandidates(reference: string): string[] {
   );
 }
 
-function extractDependencyRefs(frontmatter: Record<string, unknown>): string[] {
+function extractDependencyReferences(
+  frontmatter: Record<string, unknown>,
+): string[] {
   const links = frontmatter.links;
   const refs: string[] = [];
 
@@ -402,6 +404,16 @@ function extractDependencyRefs(frontmatter: Record<string, unknown>): string[] {
   }
 
   return refs;
+}
+
+function indexWorkItemReference(
+  index: Map<string, WorkItemReference>,
+  reference: WorkItemReference,
+): void {
+  const basename = path.basename(reference.filePath, ".md");
+  for (const candidate of new Set([reference.id, basename])) {
+    index.set(candidate, reference);
+  }
 }
 
 function buildWorkItemIndex(): Map<string, WorkItemReference> {
@@ -446,8 +458,6 @@ function buildWorkItemIndex(): Map<string, WorkItemReference> {
         typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
           ? frontmatter.title.trim()
           : path.basename(fullPath, ".md");
-      const fileBasename = path.basename(fullPath, ".md");
-      const leafBasename = fileBasename.split("/").pop() ?? fileBasename;
 
       const ref: WorkItemReference = {
         id,
@@ -456,9 +466,7 @@ function buildWorkItemIndex(): Map<string, WorkItemReference> {
         title,
       };
 
-      for (const candidate of [id, fileBasename, leafBasename]) {
-        index.set(candidate, ref);
-      }
+      indexWorkItemReference(index, ref);
     }
   }
 
@@ -466,11 +474,11 @@ function buildWorkItemIndex(): Map<string, WorkItemReference> {
   return index;
 }
 
-function resolveDependency(
+function resolveDependencyReference(
   reference: string,
   index: Map<string, WorkItemReference>,
 ): WorkItemReference | null {
-  for (const candidate of dependencyCandidates(reference)) {
+  for (const candidate of dependencyLookupCandidates(reference)) {
     const resolved = index.get(candidate);
     if (resolved) {
       return resolved;
@@ -565,10 +573,10 @@ function validateWorkItem(
     const dependencySeverity = archived
       ? config.archiveSeverity
       : config.checklistSeverity;
-    const dependencyRefs = extractDependencyRefs(frontmatter);
+    const dependencyRefs = extractDependencyReferences(frontmatter);
 
     for (const reference of dependencyRefs) {
-      const dependency = resolveDependency(reference, workItemIndex);
+      const dependency = resolveDependencyReference(reference, workItemIndex);
       if (!dependency) {
         emitIssue(
           issues,
