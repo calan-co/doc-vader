@@ -22,6 +22,15 @@ on:
         required: false
         default: true
         type: boolean
+      stuck_failure_level:
+        description: 'Severity level when stale work items are detected (error|warning|notice)'
+        required: false
+        default: error
+        type: choice
+        options:
+          - error
+          - warning
+          - notice
   pull_request:
     types: [closed]
     branches:
@@ -30,6 +39,9 @@ on:
   workflow_run:
     workflows: ['CI']
     types: [completed]
+    branches:
+      - main
+      - staging
 
 permissions:
   contents: write
@@ -50,6 +62,8 @@ jobs:
           BASE_REF: ${{ github.base_ref || '' }}
           HEAD_REF: ${{ github.head_ref || '' }}
           DRY_RUN_INPUT: ${{ inputs.dry_run || '' }}
+          STUCK_FAILURE_LEVEL_INPUT: ${{ inputs.stuck_failure_level || '' }}
+          STUCK_FAILURE_LEVEL_VAR: ${{ vars.BACKLOG_STUCK_FAILURE_LEVEL || '' }}
         run: |
           set -euo pipefail
 
@@ -59,13 +73,23 @@ jobs:
           base_ref="${BASE_REF}"
           head_ref="${HEAD_REF}"
           dry_run_input="${DRY_RUN_INPUT}"
+          stuck_failure_level_input="${STUCK_FAILURE_LEVEL_INPUT}"
+          stuck_failure_level_var="${STUCK_FAILURE_LEVEL_VAR}"
 
           effective_dry_run="false"
           if [[ "$event_name" == "workflow_dispatch" && "$dry_run_input" == "true" ]]; then
             effective_dry_run="true"
           fi
 
-          echo "::notice title=Backlog Automation Context::event=${event_name}, action=${action_name:-n/a}, ref=${ref_name:-n/a}, base_ref=${base_ref:-n/a}, head_ref=${head_ref:-n/a}, dry_run_input=${dry_run_input:-n/a}, effective_dry_run=${effective_dry_run}"
+          effective_stuck_failure_level="$stuck_failure_level_var"
+          if [[ "$event_name" == "workflow_dispatch" && -n "$stuck_failure_level_input" ]]; then
+            effective_stuck_failure_level="$stuck_failure_level_input"
+          fi
+          if [[ -z "$effective_stuck_failure_level" ]]; then
+            effective_stuck_failure_level="error"
+          fi
+
+          echo "::notice title=Backlog Automation Context::event=${event_name}, action=${action_name:-n/a}, ref=${ref_name:-n/a}, base_ref=${base_ref:-n/a}, head_ref=${head_ref:-n/a}, dry_run_input=${dry_run_input:-n/a}, effective_dry_run=${effective_dry_run}, effective_stuck_failure_level=${effective_stuck_failure_level}"
 
   ingest-pull-request:
     name: Ingest Pull Request Event
@@ -110,7 +134,7 @@ jobs:
           github.event_name == 'workflow_run' &&
           github.event.workflow_run.head_repository.full_name == github.repository &&
           github.event.workflow_run.conclusion == 'success' &&
-          github.ref_name == github.event.workflow_run.head_branch
+          (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'staging')
         ) ||
         (
           github.event_name == 'pull_request' &&
@@ -126,7 +150,12 @@ jobs:
           (github.base_ref == 'main' || github.base_ref == 'staging')
         ) ||
         (
+          github.event_name == 'workflow_run' &&
+          (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'staging')
+        ) ||
+        (
           github.event_name != 'pull_request' &&
+          github.event_name != 'workflow_run' &&
           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
         )
       )
@@ -161,7 +190,12 @@ jobs:
           (github.base_ref == 'main' || github.base_ref == 'staging')
         ) ||
         (
+          github.event_name == 'workflow_run' &&
+          (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'staging')
+        ) ||
+        (
           github.event_name != 'pull_request' &&
+          github.event_name != 'workflow_run' &&
           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging')
         )
       )
@@ -178,15 +212,65 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           STALE_HOURS: '24'
           REPO: ${{ github.repository }}
+          CONSUMER_CONFIG: .doc-vader/backlog-consumer.json
+          STUCK_FAILURE_LEVEL: ${{ (github.event_name == 'workflow_dispatch' && inputs.stuck_failure_level) || vars.BACKLOG_STUCK_FAILURE_LEVEL || 'error' }}
         run: |
           set -euo pipefail
 
           now_epoch="$(date +%s)"
           stale_seconds="$((STALE_HOURS * 3600))"
-          warned=0
+          stuck_count=0
+          failure_level="$(echo "${STUCK_FAILURE_LEVEL}" | tr '[:upper:]' '[:lower:]')"
+
+          case "$failure_level" in
+            error|warning|notice) ;;
+            *)
+              echo "Invalid STUCK_FAILURE_LEVEL='${STUCK_FAILURE_LEVEL}'. Supported values: error, warning, notice." >&2
+              exit 2
+              ;;
+          esac
+
+          archive_dir="backlog/archive"
+          records_dir="backlog/records"
+          audit_dir="backlog/audit"
+
+          if [[ -f "$CONSUMER_CONFIG" ]]; then
+            mapfile -t configured_roots < <(node -e 'const fs=require("fs");const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,"utf8"));const roots=(cfg&&typeof cfg==="object")?cfg.roots:null;if(!roots||typeof roots!=="object")process.exit(0);for(const key of ["archive","records","audit"]){const value=roots[key];if(typeof value==="string"&&value.trim()){console.log(`${key}=${value.trim().replace(/\\\\/g,"/")}`);}}}catch{process.exit(0);}' "$CONSUMER_CONFIG")
+
+            for entry in "${configured_roots[@]}"; do
+              key="${entry%%=*}"
+              value="${entry#*=}"
+              case "$key" in
+                archive) archive_dir="$value" ;;
+                records) records_dir="$value" ;;
+                audit) audit_dir="$value" ;;
+              esac
+            done
+          fi
+
+          archive_dir="${archive_dir#./}"
+          records_dir="${records_dir#./}"
+          audit_dir="${audit_dir#./}"
+          archive_dir="${archive_dir%/}"
+          records_dir="${records_dir%/}"
+          audit_dir="${audit_dir%/}"
 
           shopt -s nullglob globstar
           for file in backlog/**/*.md; do
+            if [[ "$file" == "$archive_dir/"* || "$file" == "$records_dir/"* || "$file" == "$audit_dir/"* ]]; then
+              continue
+            fi
+
+            frontmatter="$(awk '
+              /^---$/ {delims++; next}
+              delims == 1 {print}
+            ' "$file")"
+
+            body="$(awk '
+              /^---$/ {delims++; next}
+              delims >= 2 {print}
+            ' "$file")"
+
             status="$(awk '
               /^---$/ {delims++; next}
               delims == 1 && /^status:[[:space:]]*/ {
@@ -196,11 +280,31 @@ jobs:
               }
             ' "$file")"
 
+            work_item_id="$(awk '
+              /^---$/ {delims++; next}
+              delims == 1 && /^id:[[:space:]]*/ {
+                sub(/^id:[[:space:]]*/, "", $0)
+                gsub(/^["'\'' ]+|["'\'' ]+$/, "", $0)
+                print $0
+                exit
+              }
+            ' "$file")"
+
+            file_base="$(basename "$file" .md)"
+            work_item_number="$file_base"
+            if [[ "$file_base" =~ ^([0-9]+(\.[0-9]+)*)\. ]]; then
+              work_item_number="${BASH_REMATCH[1]}"
+            elif [[ "$work_item_id" =~ ^wi-([0-9]+)$ ]]; then
+              work_item_number="${BASH_REMATCH[1]}"
+            elif [[ "$work_item_id" =~ ^work-item:([0-9]+)$ ]]; then
+              work_item_number="${BASH_REMATCH[1]}"
+            fi
+
             if [[ "$status" != "ready-for-review" && "$status" != "closed" ]]; then
               continue
             fi
 
-            mapfile -t pr_numbers < <(grep -Eo "https://github.com/${REPO}/pull/[0-9]+" "$file" | sed -E 's#^.*/pull/##' | sort -u)
+            mapfile -t pr_numbers < <(grep -Eo "https://github.com/${REPO}/pull/[0-9]+" "$file" | sed -E 's#^.*/pull/##' | sort -u || true)
             if ((${#pr_numbers[@]} == 0)); then
               continue
             fi
@@ -218,11 +322,66 @@ jobs:
               fi
 
               hours_old="$((age_seconds / 3600))"
-              echo "::warning file=$file,title=Stale candidate after merged PR::PR #$pr merged ${hours_old}h ago but work item is still '$status'. Run backlog sweep and investigate close/archive transition." >&2
-              warned=1
+
+              reasons=("status is still '$status' ${hours_old}h after PR #$pr merged")
+              if [[ "$status" == "ready-for-review" ]]; then
+                reasons+=("not transitioned to 'closed'")
+              else
+                reasons+=("closed item has not transitioned to archive")
+              fi
+
+              if ! grep -Eq '^[[:space:]]*actual:[[:space:]]*[0-9]+(\.[0-9]+)?[[:space:]]*$' <<<"$frontmatter"; then
+                reasons+=("missing numeric 'actual' effort")
+              fi
+
+              if ! awk '
+                /^---$/ {delims++; next}
+                delims != 1 {next}
+                /^[[:space:]]*evidence:[[:space:]]*$/ {in_evidence=1; next}
+                in_evidence && /^[[:space:]]*-[[:space:]]*[^[:space:]].*/ {found=1; exit}
+                in_evidence && $0 !~ /^[[:space:]]+/ {in_evidence=0}
+                END {exit found ? 0 : 1}
+              ' "$file"; then
+                reasons+=("missing links.evidence entries")
+              fi
+
+              if [[ "$status" == "closed" ]]; then
+                if ! grep -Eq '^[[:space:]]*status_reason:[[:space:]]*[^[:space:]].*$' <<<"$frontmatter"; then
+                  reasons+=("missing 'status_reason'")
+                fi
+
+                if ! grep -Eq '^[[:space:]]*completed_date:[[:space:]]*[^[:space:]].*$' <<<"$frontmatter"; then
+                  reasons+=("missing 'completed_date'")
+                fi
+
+                if ! grep -Eqi '^-\s+[0-9]{4}-[0-9]{2}-[0-9]{2}:\s+Closed\s+as\s+[A-Za-z0-9_-]+\s+with\s+evidence\s+in\s+backlog/audit/auditing-backlog-report\.json\.$' <<<"$body"; then
+                  reasons+=("missing closure evidence note in body")
+                fi
+              fi
+
+              reason_text=""
+              for reason in "${reasons[@]}"; do
+                if [[ -n "$reason_text" ]]; then
+                  reason_text+="; "
+                fi
+                reason_text+="$reason"
+              done
+
+              annotation_title="Stale candidate WI-${work_item_number}"
+              annotation_message="work_item=${work_item_id:-unknown}; pr=${pr}; status=${status}; merged_age_hours=${hours_old}; reasons=${reason_text}. Run backlog sweep and investigate close/archive transition."
+              echo "::${failure_level} file=${file},title=${annotation_title}::${annotation_message}" >&2
+              stuck_count=$((stuck_count + 1))
             done
           done
 
-          if ((warned == 0)); then
+          if ((stuck_count == 0)); then
             echo "No stale ready-for-review/closed items linked to merged PRs were detected."
+            exit 0
           fi
+
+          if [[ "$failure_level" == "error" ]]; then
+            echo "Detected ${stuck_count} stale work item(s); failing workflow because STUCK_FAILURE_LEVEL=error." >&2
+            exit 1
+          fi
+
+          echo "Detected ${stuck_count} stale work item(s); continuing because STUCK_FAILURE_LEVEL=${failure_level}." >&2
