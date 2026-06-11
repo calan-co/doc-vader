@@ -1,0 +1,26 @@
+{
+  "@context": [
+    "./document.context.json",
+    {
+      "@version": 1.1,
+      "@vocab": "https://schema.org/",
+      "wi": "http://example.org/work-item#",
+      "dc": "http://purl.org/dc/terms/",
+      "xsd": "http://www.w3.org/2001/XMLSchema#",
+      "id": "wi:identifier",
+      "type": "@type",
+      "title": "name",
+      "priority": "wi:priority",
+      "estimated": {
+        "@id": "wi:estimatedEffort",
+        "@type": "xsd:duration"
+      },
+      "assignee": "wi:assignee",
+      "tags": "keywords",
+      "created": {
+        "@id": "dc:created",
+        "@type": "xsd:dateTime"
+      }
+    }
+  ]
+}

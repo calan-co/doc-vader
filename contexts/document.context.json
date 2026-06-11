@@ -1,0 +1,21 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "@vocab": "https://schema.org/",
+    "dc": "http://purl.org/dc/terms/",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "id": "identifier",
+    "title": "name",
+    "summary": "description",
+    "owner": "author",
+    "tags": "keywords",
+    "created": {
+      "@id": "dc:created",
+      "@type": "xsd:dateTime"
+    },
+    "modified": {
+      "@id": "dc:modified",
+      "@type": "xsd:dateTime"
+    }
+  }
+}
