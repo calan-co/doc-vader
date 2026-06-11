@@ -18,6 +18,10 @@ function createAjv() {
   return ajv;
 }
 
+function compileDocVaderConfigSchema() {
+  return createAjv().compile(DocVaderConfigSchema);
+}
+
 describe("config schema", () => {
   it("emits canonical JSON Schema 2020-12 metadata", () => {
     expect(SchemaMapConfigSchema.$schema).toBe(JSON_SCHEMA_2020_12);
@@ -42,15 +46,11 @@ describe("config schema", () => {
   });
 
   it("compiles and validates a minimal config", () => {
-    const ajv = createAjv();
-    const validate = ajv.compile(DocVaderConfigSchema);
-
-    expect(validate({})).toBe(true);
+    expect(compileDocVaderConfigSchema()({})).toBe(true);
   });
 
   it("rejects unknown top-level properties", () => {
-    const ajv = createAjv();
-    const validate = ajv.compile(DocVaderConfigSchema);
+    const validate = compileDocVaderConfigSchema();
 
     expect(
       validate({
@@ -61,8 +61,7 @@ describe("config schema", () => {
   });
 
   it("accepts the repository root .doc.json fixture", async () => {
-    const ajv = createAjv();
-    const validate = ajv.compile(DocVaderConfigSchema);
+    const validate = compileDocVaderConfigSchema();
     const raw = JSON.parse(await readFile(".doc.json", "utf8"));
 
     expect(validate(raw)).toBe(true);

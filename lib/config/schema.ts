@@ -10,6 +10,7 @@
 import { Type, type Static } from "@sinclair/typebox";
 
 const JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema";
+const JSON_SCHEMA_2020_12_OPTIONS = { $schema: JSON_SCHEMA_2020_12 } as const;
 
 // ---------------------------------------------------------------------------
 // SchemaMapConfigSchema
@@ -44,7 +45,7 @@ export const SchemaMapConfigSchema = Type.Object(
     ),
   },
   {
-    $schema: JSON_SCHEMA_2020_12,
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "Schema routing rules for type/subtype → schema resolution.",
   },
@@ -75,7 +76,7 @@ export const ValidationConfigSchema = Type.Object(
     ),
   },
   {
-    $schema: JSON_SCHEMA_2020_12,
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "Controls validation strictness and failure thresholds.",
   },
@@ -98,9 +99,7 @@ export const BacklogConfigSchema = Type.Object(
         default: "backlog",
       }),
     ),
-    schemaMap: Type.Optional(
-      SchemaMapConfigSchema,
-    ),
+    schemaMap: Type.Optional(SchemaMapConfigSchema),
     profiles: Type.Optional(
       Type.Array(Type.String(), {
         description:
@@ -109,7 +108,7 @@ export const BacklogConfigSchema = Type.Object(
     ),
   },
   {
-    $schema: JSON_SCHEMA_2020_12,
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "Configuration for the backlog audit and validate commands.",
   },
@@ -147,7 +146,7 @@ export const VocabularyConfigSchema = Type.Object(
     ),
   },
   {
-    $schema: JSON_SCHEMA_2020_12,
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "JSON-LD vocabulary context settings for semantic enrichment.",
   },
@@ -185,7 +184,7 @@ export const DocVaderConfigSchema = Type.Object(
     vocabularies: Type.Optional(VocabularyConfigSchema),
   },
   {
-    $schema: JSON_SCHEMA_2020_12,
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description:
       "Root .doc.json configuration. Supports composition via extends.",
