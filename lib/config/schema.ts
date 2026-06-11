@@ -9,6 +9,8 @@
 
 import { Type, type Static } from "@sinclair/typebox";
 
+const JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema";
+
 // ---------------------------------------------------------------------------
 // SchemaMapConfigSchema
 // ---------------------------------------------------------------------------
@@ -42,6 +44,7 @@ export const SchemaMapConfigSchema = Type.Object(
     ),
   },
   {
+    $schema: JSON_SCHEMA_2020_12,
     additionalProperties: false,
     description: "Schema routing rules for type/subtype → schema resolution.",
   },
@@ -72,6 +75,7 @@ export const ValidationConfigSchema = Type.Object(
     ),
   },
   {
+    $schema: JSON_SCHEMA_2020_12,
     additionalProperties: false,
     description: "Controls validation strictness and failure thresholds.",
   },
@@ -105,6 +109,7 @@ export const BacklogConfigSchema = Type.Object(
     ),
   },
   {
+    $schema: JSON_SCHEMA_2020_12,
     additionalProperties: false,
     description: "Configuration for the backlog audit and validate commands.",
   },
@@ -142,6 +147,7 @@ export const VocabularyConfigSchema = Type.Object(
     ),
   },
   {
+    $schema: JSON_SCHEMA_2020_12,
     additionalProperties: false,
     description: "JSON-LD vocabulary context settings for semantic enrichment.",
   },
@@ -160,6 +166,12 @@ export type VocabularyConfig = Static<typeof VocabularyConfigSchema>;
  */
 export const DocVaderConfigSchema = Type.Object(
   {
+    $schema: Type.Optional(
+      Type.String({
+        description:
+          "Optional JSON Schema URI identifying the config schema used to validate this file.",
+      }),
+    ),
     extends: Type.Optional(
       Type.Union([Type.String(), Type.Array(Type.String())], {
         description:
@@ -173,6 +185,7 @@ export const DocVaderConfigSchema = Type.Object(
     vocabularies: Type.Optional(VocabularyConfigSchema),
   },
   {
+    $schema: JSON_SCHEMA_2020_12,
     additionalProperties: false,
     description:
       "Root .doc.json configuration. Supports composition via extends.",
