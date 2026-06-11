@@ -1,5 +1,5 @@
 import matter from "gray-matter";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,13 @@ type SeveritySetting = "none" | "info" | "warn" | "error";
 interface ValidationIssue {
   severity: Exclude<SeveritySetting, "none">;
   message: string;
+}
+
+interface WorkItemReference {
+  id: string;
+  filePath: string;
+  status: string;
+  title: string;
 }
 
 interface ValidationConfig {
@@ -356,6 +363,130 @@ function isArchiveFile(filePath: string): boolean {
   return filePath.startsWith("backlog/archive/");
 }
 
+function dependencyLookupCandidates(reference: string): string[] {
+  const normalized = reference
+    .trim()
+    .replace(/^\[\[|\]\]$/g, "")
+    .split("|")[0]
+    .split("#")[0]
+    .replace(/\.md$/i, "");
+  const leaf = normalized.split("/").pop() ?? normalized;
+  return Array.from(
+    new Set([normalized, leaf, leaf.replace(/^work-item:/, "")]),
+  );
+}
+
+function extractDependencyReferences(
+  frontmatter: Record<string, unknown>,
+): string[] {
+  const links = frontmatter.links;
+  const refs: string[] = [];
+
+  if (typeof links === "object" && links !== null && !Array.isArray(links)) {
+    const dependsOn = (links as Record<string, unknown>).depends_on;
+    if (Array.isArray(dependsOn)) {
+      for (const value of dependsOn) {
+        if (typeof value === "string" && value.trim().length > 0) {
+          refs.push(value.trim());
+        }
+      }
+    }
+  } else if (Array.isArray(links)) {
+    for (const entry of links) {
+      if (typeof entry !== "object" || entry === null) {
+        continue;
+      }
+      const dependsOn = (entry as Record<string, unknown>).depends_on;
+      if (typeof dependsOn === "string" && dependsOn.trim().length > 0) {
+        refs.push(dependsOn.trim());
+      }
+    }
+  }
+
+  return refs;
+}
+
+function indexWorkItemReference(
+  index: Map<string, WorkItemReference>,
+  reference: WorkItemReference,
+): void {
+  const basename = path.basename(reference.filePath, ".md");
+  for (const candidate of new Set([reference.id, basename])) {
+    index.set(candidate, reference);
+  }
+}
+
+function buildWorkItemIndex(): Map<string, WorkItemReference> {
+  const backlogRoot = path.join(ROOT_DIR, "backlog");
+  const index = new Map<string, WorkItemReference>();
+
+  function visitDirectory(dirPath: string): void {
+    if (!existsSync(dirPath)) {
+      return;
+    }
+
+    for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
+
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        visitDirectory(fullPath);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".md")) {
+        continue;
+      }
+
+      const content = readFileSync(fullPath, "utf8");
+      const parsed = matter(content);
+      const frontmatter = parsed.data as Record<string, unknown>;
+      if (frontmatter.type !== "work-item") {
+        continue;
+      }
+
+      const id =
+        typeof frontmatter.id === "string" && frontmatter.id.trim().length > 0
+          ? frontmatter.id.trim()
+          : path.basename(fullPath, ".md");
+      const status =
+        typeof frontmatter.status === "string"
+          ? frontmatter.status.trim().toLowerCase()
+          : "";
+      const title =
+        typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
+          ? frontmatter.title.trim()
+          : path.basename(fullPath, ".md");
+
+      const ref: WorkItemReference = {
+        id,
+        filePath: fullPath,
+        status,
+        title,
+      };
+
+      indexWorkItemReference(index, ref);
+    }
+  }
+
+  visitDirectory(backlogRoot);
+  return index;
+}
+
+function resolveDependencyReference(
+  reference: string,
+  index: Map<string, WorkItemReference>,
+): WorkItemReference | null {
+  for (const candidate of dependencyLookupCandidates(reference)) {
+    const resolved = index.get(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
 function emitIssue(
   issues: ValidationIssue[],
   severity: SeveritySetting,
@@ -375,6 +506,7 @@ function validateWorkItem(
   filePath: string,
   validators: Map<string, ReturnType<Ajv2020["compile"]>>,
   config: ValidationConfig,
+  workItemIndex: Map<string, WorkItemReference>,
 ): ValidationIssue[] {
   const content = readFileSync(filePath, "utf8");
   const parsed = matter(content);
@@ -437,12 +569,40 @@ function validateWorkItem(
     issues.push(...checklistIssues);
   }
 
+  if (status === "ready-for-review") {
+    const dependencySeverity = archived
+      ? config.archiveSeverity
+      : config.checklistSeverity;
+    const dependencyRefs = extractDependencyReferences(frontmatter);
+
+    for (const reference of dependencyRefs) {
+      const dependency = resolveDependencyReference(reference, workItemIndex);
+      if (!dependency) {
+        emitIssue(
+          issues,
+          dependencySeverity,
+          `${filePath}: dependency '${reference}' was not found in backlog.`,
+        );
+        continue;
+      }
+
+      if (dependency.status !== "closed") {
+        emitIssue(
+          issues,
+          dependencySeverity,
+          `${filePath}: dependency '${reference}' (${dependency.id}: ${dependency.title}) must be closed before entering 'ready-for-review' but is '${dependency.status || "(missing)"}'.`,
+        );
+      }
+    }
+  }
+
   return issues;
 }
 
 async function main(): Promise<void> {
   const config = loadConfig();
   const validators = await buildValidators(config);
+  const workItemIndex = buildWorkItemIndex();
 
   const files = changedFilesForPush();
   const candidateFiles = files.filter((file) => {
@@ -454,7 +614,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  const issues = candidateFiles.flatMap((file) => validateWorkItem(file, validators, config));
+  const issues = candidateFiles.flatMap((file) =>
+    validateWorkItem(file, validators, config, workItemIndex),
+  );
   const errors = issues.filter((issue) => issue.severity === "error");
   const warnings = issues.filter((issue) => issue.severity === "warn");
   const infos = issues.filter((issue) => issue.severity === "info");

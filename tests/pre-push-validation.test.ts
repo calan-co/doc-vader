@@ -140,6 +140,80 @@ type: work-item
     expect(result.stderr).toMatch(/schema .*latest\.json/i);
   });
 
+  it("blocks ready-for-review items whose dependencies are not closed", () => {
+    writeConsumerConfig({
+      automation: {
+        prePushValidation: {
+          schemas: {
+            baseline: latestSchemaPath,
+            changed: latestSchemaPath,
+            archive: latestSchemaPath,
+          },
+          severity: {
+            baseline: "none",
+            changed: "error",
+            archive: "warn",
+            checklist: "error",
+          },
+        },
+      },
+    });
+
+    commitWorkItem(
+      "backlog/101.foundation.md",
+      `---
+id: wi-101
+status: in-progress
+type: work-item
+subtype: task
+lifecycle: active
+priority: medium
+estimated: 2
+---
+
+## Goal
+
+- Establish the foundation.
+`,
+    );
+
+    commitWorkItem(
+      "backlog/102.dependent.md",
+      `---
+id: wi-102
+status: ready-for-review
+type: work-item
+subtype: task
+lifecycle: active
+priority: medium
+estimated: 2
+links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/102
+  depends_on:
+    - '[[101.foundation]]'
+---
+
+## Goal
+
+- Complete the dependent work.
+
+## Tasks
+
+- [x] Implement the change.
+
+## Acceptance Criteria
+
+- [x] The work is ready to review.
+`,
+    );
+
+    const result = runValidator();
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/dependency .*must be closed before entering 'ready-for-review'/i);
+  });
+
   it("passes with changed-schema severity=info", () => {
     writeConsumerConfig({
       automation: {
