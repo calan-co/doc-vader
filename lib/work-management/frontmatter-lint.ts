@@ -919,6 +919,42 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
           });
         }
 
+        const legacyDependsOn = Array.isArray(frontmatter.links?.depends_on)
+          ? (frontmatter.links.depends_on as string[])
+          : [];
+        const canonicalDependsOn = extractCanonicalRelationshipDependencies(
+          content,
+        ).map((ref) => `[[${ref}]]`);
+        const dependsOn = [...legacyDependsOn, ...canonicalDependsOn];
+
+        if (status === "ready-for-review") {
+          for (const dep of dependsOn) {
+            const wikilinkMatch = dep.match(/^\[\[([^\]]+)\]\]$/);
+            if (!wikilinkMatch) {
+              continue;
+            }
+
+            const depRef = wikilinkMatch[1].split("|", 1)[0].trim();
+            const depItem = workItemsMap.get(depRef);
+
+            if (!depItem) {
+              diagnostics.push({
+                code: "depends-on-not-found",
+                path: "/links/depends_on",
+                message: `Dependency '${dep}' not found in backlog`,
+                severity: "error",
+              });
+            } else if (depItem.status !== "closed") {
+              diagnostics.push({
+                code: "depends-on-ready-for-review-required",
+                path: "/links/depends_on",
+                message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'closed' before work item can enter 'ready-for-review' but is '${depItem.status}'`,
+                severity: "error",
+              });
+            }
+          }
+        }
+
         const isClosed = status === "closed";
         const isEnteringClosed = isClosed && previousStatus !== "closed";
         const shouldEnforceClosedInvariants =
@@ -1008,14 +1044,6 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
             });
           }
         }
-
-        const legacyDependsOn = Array.isArray(frontmatter.links?.depends_on)
-          ? (frontmatter.links.depends_on as string[])
-          : [];
-        const canonicalDependsOn = extractCanonicalRelationshipDependencies(
-          content,
-        ).map((ref) => `[[${ref}]]`);
-        const dependsOn = [...legacyDependsOn, ...canonicalDependsOn];
 
         if (dependsOn.length > 0) {
           for (const dep of dependsOn) {
