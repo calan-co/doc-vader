@@ -5,9 +5,11 @@ summary: JSON-LD context definitions for vocabulary mapping
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: closed
+status_reason: completed
 priority: low
 estimated: 3
+completed_date: '2026-06-11'
 links:
   depends_on:
     - '[[217-update_schemas_for_json_ld]]'

@@ -4,9 +4,11 @@ title: Concurrent Claim and Dependency-Aware Selection
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
+status: closed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-11'
 links:
   depends_on:
     - '[[237-doc-vader-context-coordination-core-epic.md]]'

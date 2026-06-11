@@ -5,9 +5,11 @@ summary: TypeBox schema definitions for .doc.json config
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: closed
+status_reason: completed
 priority: medium
 estimated: 2
+completed_date: '2026-06-11'
 links:
   depends_on:
     - '[[211-fix_jsonschema_tools_compatibility]]'
