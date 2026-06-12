@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach, expect } from "vitest";
+import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import * as fsSync from "node:fs";
 import * as path from "node:path";
 import os from "node:os";
@@ -509,6 +509,94 @@ links:
         "12.archive-ready.md",
       );
       expect(fsSync.existsSync(archived)).toBe(true);
+    },
+  );
+
+  it(
+    "validate-archive-candidates blocks finalization when any linked PR is unmerged",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({ validateArchiveCandidates: true });
+
+      const originalGithubToken = process.env.GITHUB_TOKEN;
+      const originalFetch = globalThis.fetch;
+      process.env.GITHUB_TOKEN = "test-token";
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/pulls/12")) {
+          return {
+            ok: true,
+            status: 200,
+            statusText: "OK",
+            json: async () => ({
+              number: 12,
+              title: "Merged PR",
+              state: "closed",
+              merged: true,
+              merge_commit_sha: "abc123",
+              html_url: "https://github.com/calan-co/doc-vader/pull/12",
+            }),
+          } as Response;
+        }
+        if (url.includes("/pulls/13")) {
+          return {
+            ok: true,
+            status: 200,
+            statusText: "OK",
+            json: async () => ({
+              number: 13,
+              title: "Open PR",
+              state: "open",
+              merged: false,
+              html_url: "https://github.com/calan-co/doc-vader/pull/13",
+            }),
+          } as Response;
+        }
+        throw new Error(`Unexpected fetch request: ${url}`);
+      }) as typeof fetch;
+
+      try {
+        mkFile(
+          "backlog/12.partially-merged.md",
+          `---
+id: "work-item:012"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: Partially merged candidate
+actual: 8
+completed_date: "2026-01-01"
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/12"
+    - "https://github.com/calan-co/doc-vader/pull/13"
+  evidence:
+    - "[[record-20260101-000000-012]]"
+---
+# Work item
+`,
+        );
+
+        const report = await scanBacklog({
+          rootDir: testDir,
+          consumerConfig: ".doc-vader/backlog-consumer.json",
+        });
+
+        const item = report.items.find((entry) => entry.id === "work-item:012");
+        expect(item?.candidateValidation?.eligible).toBe(false);
+        expect(item?.candidateValidation?.discrepancies.join("\n")).toMatch(
+          /not merged/i,
+        );
+        expect(report.summary.candidatesArchived).toBe(0);
+        expect(fsSync.existsSync(path.join(testDir, "backlog", "archive", "12.partially-merged.md"))).toBe(false);
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (originalGithubToken === undefined) {
+          delete process.env.GITHUB_TOKEN;
+        } else {
+          process.env.GITHUB_TOKEN = originalGithubToken;
+        }
+      }
     },
   );
 

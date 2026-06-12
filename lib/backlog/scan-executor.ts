@@ -653,6 +653,7 @@ export async function scanBacklog(
                 id: result.id,
                 dryRun,
                 pullRequestPath: loadedConfig.automation.pullRequestPath,
+                provider,
               });
               result.candidateValidation = {
                 eligible: true,

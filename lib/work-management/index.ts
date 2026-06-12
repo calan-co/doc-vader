@@ -9,6 +9,8 @@ import {
   normalizeWorkItemMatchPatterns,
   type RequiredFieldRule,
 } from "../backlog/configurable-rules.js";
+import { getProviderForForge } from "../backlog/provider-registry.js";
+import type { BacklogAutomationProvider } from "../backlog/provider.js";
 
 export type LinkKind = "pr" | "evidence" | "reference";
 export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "subversion";
@@ -121,6 +123,7 @@ export interface FinalizeWorkItemOptions {
   consumerConfig?: string;
   id: string;
   pullRequestPath?: string;
+  provider?: BacklogAutomationProvider;
   statusReason?: string;
   completedDate?: string;
   actual?: number;
@@ -950,6 +953,18 @@ export async function finalizeWorkItem(
     throw new Error(`Cannot finalize '${options.id}' without linked evidence.`);
   }
 
+  if (options.provider?.isAuthenticated()) {
+    const mergedIssues = await validateLinkedPullRequestsMerged({
+      document: document.frontmatter as Record<string, unknown>,
+      id: options.id,
+      pullRequestPath,
+      provider: options.provider,
+    });
+    if (mergedIssues.length > 0) {
+      throw new Error(mergedIssues.join("\n"));
+    }
+  }
+
   document.frontmatter.status = "closed";
   document.frontmatter.status_reason = options.statusReason ?? "completed";
   document.frontmatter.lifecycle = "inactive";
@@ -983,6 +998,46 @@ export async function finalizeWorkItem(
     frontmatter: document.frontmatter,
     dryRun: Boolean(options.dryRun),
   };
+}
+
+async function validateLinkedPullRequestsMerged(options: {
+  document: Record<string, unknown>;
+  id: string;
+  pullRequestPath: string;
+  provider: BacklogAutomationProvider;
+}): Promise<string[]> {
+  const pullRequestLinks = extractStringValuesAtPath(
+    options.document,
+    options.pullRequestPath,
+  );
+  const issues: string[] = [];
+
+  for (const pullRequestLink of pullRequestLinks) {
+    const identity = options.provider.normalizePRReference(pullRequestLink);
+    if (!identity) {
+      issues.push(
+        `Cannot finalize '${options.id}' because linked PR '${pullRequestLink}' could not be parsed.`,
+      );
+      continue;
+    }
+
+    try {
+      const metadata = await options.provider.fetchPRMetadata(identity);
+      if (!metadata.merged) {
+        issues.push(
+          `Cannot finalize '${options.id}' because linked PR '${metadata.url}' is not merged.`,
+        );
+      }
+    } catch (error) {
+      issues.push(
+        `Cannot finalize '${options.id}' because linked PR '${identity.reference}' could not be verified: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  return issues;
 }
 
 function extractStringValuesAtPath(
@@ -1296,6 +1351,7 @@ export async function ingestEvent(
 
   const subjects = extractGithubSubjects(payload);
   const actions: Array<Record<string, unknown>> = [];
+  const automationProvider = getProviderForForge(options.provider);
 
   if (options.event.startsWith("pull_request")) {
     const pullRequest =
@@ -1364,6 +1420,7 @@ export async function ingestEvent(
             id: subject,
             dryRun: options.dryRun,
             pullRequestPath: config.automation.pullRequestPath,
+            provider: automationProvider,
           });
           actions.push({ type: "finalize", subject });
         }
