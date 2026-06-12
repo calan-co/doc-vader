@@ -210,7 +210,7 @@ Example:
     "prePushValidation": {
       "schemas": {
         "baseline": "schemas/frontmatter/work-item/1.0.0.json",
-        "changed": "schemas/frontmatter/work-item/latest.json",
+        "changed": "schemas/frontmatter/by-type/work-item/latest.json",
         "archive": "schemas/frontmatter/work-item/1.0.0.json"
       },
       "severity": {

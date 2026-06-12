@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from "node:fs";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -12,7 +13,11 @@ const tsxPath =
   process.platform === "win32"
     ? path.join(repoRoot, "node_modules/.bin/tsx.cmd")
     : path.join(repoRoot, "node_modules/.bin/tsx");
-const latestSchemaPath = path.join(repoRoot, "schemas/frontmatter/work-item/latest.json");
+const latestSchemaPath = path.join(
+  repoRoot,
+  "schemas/frontmatter/by-type/work-item/latest.json",
+);
+const supportSchemaDir = path.join(repoRoot, "schemas/frontmatter/support");
 
 let testDir = "";
 
@@ -74,6 +79,30 @@ function runValidator(env?: Record<string, string>) {
   return run(tsxPath, [scriptPath], testDir, env);
 }
 
+async function preloadSupportSchemas(ajv: Ajv2020) {
+  async function walk(dir: string): Promise<void> {
+    const entries: import("node:fs").Dirent[] = await fs.readdir(dir, {
+      withFileTypes: true,
+    });
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+
+      const schema = JSON.parse(await fs.readFile(fullPath, "utf8")) as Record<string, unknown>;
+      if (typeof schema.$id === "string" && !ajv.getSchema(schema.$id)) {
+        ajv.addSchema(schema, schema.$id);
+      }
+    }
+  }
+
+  await walk(supportSchemaDir);
+}
+
 beforeEach(() => {
   testDir = mkdtempSync(path.join(os.tmpdir(), "doc-vader-prepush-test-"));
   setupRepo();
@@ -85,23 +114,29 @@ afterEach(() => {
 });
 
 describe("pre-push validation unit", () => {
-  it("latest schema requires pull_requests for ready-for-review", () => {
+  it("canonical by-type latest schema compiles and validates a ready-for-review work item", async () => {
     const schema = JSON.parse(readFileSync(latestSchemaPath, "utf8")) as Record<string, unknown>;
     const ajv = new Ajv2020({ allErrors: true, strict: false });
     addFormats(ajv);
+    await preloadSupportSchemas(ajv);
     const validate = ajv.compile(schema);
 
     const ok = validate({
+      id: "wi-999",
+      title: "Example",
       type: "work-item",
+      subtype: "task",
+      lifecycle: "active",
       status: "ready-for-review",
-      links: {},
+      priority: "high",
+      estimated: 1,
+      links: {
+        depends_on: ["[[wi-1]]"],
+      },
     });
 
-    expect(ok).toBe(false);
-    const requiredPullRequestsError = (validate.errors ?? []).some((error) => {
-      return error.instancePath === "/links" && error.keyword === "required";
-    });
-    expect(requiredPullRequestsError).toBe(true);
+    expect(ok).toBe(true);
+    expect(validate.errors).toBeNull();
   });
 });
 

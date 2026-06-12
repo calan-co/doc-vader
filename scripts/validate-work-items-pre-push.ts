@@ -45,10 +45,11 @@ interface ConsumerPrePushValidationConfig {
 }
 
 const ROOT_DIR = process.cwd();
+const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const DEFAULT_CONFIG: ValidationConfig = {
   baselineSchema: "schemas/frontmatter/work-item/1.0.0.json",
-  changedSchema: "schemas/frontmatter/work-item/latest.json",
+  changedSchema: "schemas/frontmatter/by-type/work-item/latest.json",
   archiveSchema: "schemas/frontmatter/work-item/1.0.0.json",
   baselineSeverity: "error",
   changedSeverity: "error",
@@ -218,16 +219,49 @@ async function loadSchemaObject(spec: string): Promise<Record<string, unknown>> 
   return JSON.parse(readFileSync(resolved, "utf8")) as Record<string, unknown>;
 }
 
+async function preloadSupportSchemas(
+  ajv: InstanceType<typeof Ajv2020>,
+  supportDir: string,
+): Promise<void> {
+  async function walk(dir: string): Promise<void> {
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+
+      const schema = JSON.parse(readFileSync(fullPath, "utf8")) as Record<string, unknown>;
+      if (typeof schema.$id === "string" && !ajv.getSchema(schema.$id)) {
+        ajv.addSchema(schema, schema.$id);
+      }
+    }
+  }
+
+  await walk(supportDir);
+}
+
 async function buildValidators(config: ValidationConfig) {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
 
   // Support /frontmatter/document/1.0.0 refs used by local work-item schemas.
-  const documentSchemaPath = path.resolve(ROOT_DIR, "schemas/frontmatter/document/1.0.0.json");
+  const documentSchemaPath = path.resolve(SCRIPT_ROOT, "schemas/frontmatter/document/1.0.0.json");
   if (existsSync(documentSchemaPath)) {
     const documentSchema = JSON.parse(readFileSync(documentSchemaPath, "utf8")) as Record<string, unknown>;
     ajv.addSchema(documentSchema, "/frontmatter/document/1.0.0");
   }
+
+  await preloadSupportSchemas(ajv, path.resolve(SCRIPT_ROOT, "schemas/frontmatter/support"));
 
   const compiled = new Map<string, ReturnType<Ajv2020["compile"]>>();
   const uniqueSpecs = new Set([
