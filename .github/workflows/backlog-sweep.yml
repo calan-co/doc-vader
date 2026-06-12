@@ -90,7 +90,7 @@ jobs:
 
       - name: Run backlog scan
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
           DRY_RUN: ${{ inputs.dry-run }}
           BACKLOG_DIR: ${{ inputs.backlog-dir }}
           CONSUMER_CONFIG: ${{ inputs.consumer-config }}
