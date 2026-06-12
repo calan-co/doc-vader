@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import { randomUUID } from "node:crypto";
@@ -10,6 +10,7 @@ import {
   finalizeWorkItem,
   transitionWorkItem,
 } from "../lib/work-management/index.js";
+import { GitHubBacklogAutomationProvider } from "../lib/backlog/providers/github.js";
 
 const tempDirs: string[] = [];
 
@@ -495,6 +496,63 @@ links:
     await expect(finalizeWorkItem({ rootDir, id: "work-item:no-evidence" })).rejects.toThrow(
       /without .*evidence/i,
     );
+  });
+
+  it("refuses to finalize a work item with an unmerged linked PR when authenticated", async () => {
+    const rootDir = await createTempRepo();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        number: 1,
+        title: "Open PR",
+        state: "open",
+        merged: false,
+        html_url: "https://github.com/calan-co/doc-vader/pull/1",
+      }),
+    }) as typeof fetch;
+
+    try {
+      await writeMarkdown(
+        path.join(rootDir, "backlog", "active", "work-item-unmerged-pr.md"),
+        `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:unmerged-pr
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: ready-for-review
+status_reason: awaiting-review
+priority: medium
+estimated: 2
+actual: 2
+links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/1
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Goal
+
+- Validate the change.
+`
+      );
+
+      await expect(
+        finalizeWorkItem({
+          rootDir,
+          id: "work-item:unmerged-pr",
+          provider: new GitHubBacklogAutomationProvider("test-token"),
+        }),
+      ).rejects.toThrow(/not merged/i);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   it("fails closed when finalizing a work item outside the ready gate", async () => {

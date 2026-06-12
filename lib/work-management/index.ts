@@ -954,14 +954,13 @@ export async function finalizeWorkItem(
   }
 
   if (options.provider?.isAuthenticated()) {
-    const mergedIssues = await validateLinkedPullRequestsMerged({
-      document: document.frontmatter as Record<string, unknown>,
+    const validationErrors = await validateLinkedPullRequestsMerged({
       id: options.id,
-      pullRequestPath,
+      pullRequestLinks,
       provider: options.provider,
     });
-    if (mergedIssues.length > 0) {
-      throw new Error(mergedIssues.join("\n"));
+    if (validationErrors.length > 0) {
+      throw new Error(validationErrors.join("\n"));
     }
   }
 
@@ -1001,18 +1000,13 @@ export async function finalizeWorkItem(
 }
 
 async function validateLinkedPullRequestsMerged(options: {
-  document: Record<string, unknown>;
   id: string;
-  pullRequestPath: string;
+  pullRequestLinks: string[];
   provider: BacklogAutomationProvider;
 }): Promise<string[]> {
-  const pullRequestLinks = extractStringValuesAtPath(
-    options.document,
-    options.pullRequestPath,
-  );
   const issues: string[] = [];
 
-  for (const pullRequestLink of pullRequestLinks) {
+  for (const pullRequestLink of options.pullRequestLinks) {
     const identity = options.provider.normalizePRReference(pullRequestLink);
     if (!identity) {
       issues.push(
