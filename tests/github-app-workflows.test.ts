@@ -41,6 +41,7 @@ describe("doc-vader GitHub App workflow wiring", () => {
     expect(sweep).toContain(
       "GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}",
     );
+    expect(sweep).not.toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
   });
 
   describe.each(reusableIngestWorkflowPaths)(
