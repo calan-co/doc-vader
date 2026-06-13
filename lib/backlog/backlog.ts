@@ -5,6 +5,60 @@ import * as path from "path";
 import matter from "gray-matter";
 
 const DEFAULT_BACKLOG_DIRECTORY = "./backlog";
+const EXCLUDED_BACKLOG_PATH_SEGMENTS = ["/archive/", "/records/"] as const;
+
+export interface ReadyAfkEligibilityTarget {
+  file: string;
+  id?: string;
+  type?: string;
+  subtype?: string;
+  lifecycle?: string;
+  status?: string;
+  tags?: unknown;
+  [key: string]: unknown;
+}
+
+function normalizeTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) {
+    return [];
+  }
+
+  return [...new Set(
+    tags
+      .filter((tag): tag is string => typeof tag === "string")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter((tag) => tag.length > 0),
+  )];
+}
+
+function isExcludedBacklogPath(file: string): boolean {
+  const posixPath = file.split(path.sep).join("/");
+  return EXCLUDED_BACKLOG_PATH_SEGMENTS.some((segment) =>
+    posixPath.includes(segment),
+  );
+}
+
+export function isReadyAfkEligibleWorkItem(
+  item: Pick<
+    ReadyAfkEligibilityTarget,
+    "type" | "status" | "lifecycle" | "tags"
+  >,
+): boolean {
+  if (item.type !== "work-item") {
+    return false;
+  }
+
+  if ((item.status || "").trim().toLowerCase() !== "ready") {
+    return false;
+  }
+
+  if ((item.lifecycle || "").trim().toLowerCase() === "archived") {
+    return false;
+  }
+
+  const tags = normalizeTags(item.tags);
+  return tags.includes("afk") && !tags.includes("hitl");
+}
 /**
  * Finds the next available numeric id prefix in the backlog directory.
  * @param backlogDir Absolute path to the backlog directory
@@ -170,4 +224,13 @@ export async function list(
     }
   }
   return results;
+}
+
+export async function findReadyAfkEligibleWorkItems(
+  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
+): Promise<Array<ReadyAfkEligibilityTarget>> {
+  const items = await list(backlogDir);
+  return items.filter((item) => {
+    return !isExcludedBacklogPath(item.file) && isReadyAfkEligibleWorkItem(item);
+  });
 }
