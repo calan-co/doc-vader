@@ -5,6 +5,52 @@ import * as path from "path";
 import matter from "gray-matter";
 
 const DEFAULT_BACKLOG_DIRECTORY = "./backlog";
+
+export interface ReadyAfkEligibilityTarget {
+  file: string;
+  id?: string;
+  type?: string;
+  subtype?: string;
+  lifecycle?: string;
+  status?: string;
+  tags?: unknown;
+  [key: string]: unknown;
+}
+
+function normalizeTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) {
+    return [];
+  }
+
+  return [...new Set(
+    tags
+      .filter((tag): tag is string => typeof tag === "string")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter((tag) => tag.length > 0),
+  )];
+}
+
+export function isReadyAfkEligibleWorkItem(
+  item: Pick<
+    ReadyAfkEligibilityTarget,
+    "type" | "status" | "lifecycle" | "tags"
+  >,
+): boolean {
+  if (item.type !== "work-item") {
+    return false;
+  }
+
+  if ((item.status || "").trim().toLowerCase() !== "ready") {
+    return false;
+  }
+
+  if ((item.lifecycle || "").trim().toLowerCase() === "archived") {
+    return false;
+  }
+
+  const tags = normalizeTags(item.tags);
+  return tags.includes("afk") && !tags.includes("hitl");
+}
 /**
  * Finds the next available numeric id prefix in the backlog directory.
  * @param backlogDir Absolute path to the backlog directory
@@ -170,4 +216,17 @@ export async function list(
     }
   }
   return results;
+}
+
+export async function findReadyAfkEligibleWorkItems(
+  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
+): Promise<Array<ReadyAfkEligibilityTarget>> {
+  const items = await list(backlogDir);
+  return items.filter((item) => {
+    const posix = item.file.split(path.sep).join("/");
+    if (posix.includes("/archive/") || posix.includes("/records/")) {
+      return false;
+    }
+    return isReadyAfkEligibleWorkItem(item);
+  });
 }
