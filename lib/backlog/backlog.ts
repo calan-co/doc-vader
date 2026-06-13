@@ -5,6 +5,7 @@ import * as path from "path";
 import matter from "gray-matter";
 
 const DEFAULT_BACKLOG_DIRECTORY = "./backlog";
+const EXCLUDED_BACKLOG_PATH_SEGMENTS = ["/archive/", "/records/"] as const;
 
 export interface ReadyAfkEligibilityTarget {
   file: string;
@@ -28,6 +29,13 @@ function normalizeTags(tags: unknown): string[] {
       .map((tag) => tag.trim().toLowerCase())
       .filter((tag) => tag.length > 0),
   )];
+}
+
+function isExcludedBacklogPath(file: string): boolean {
+  const posixPath = file.split(path.sep).join("/");
+  return EXCLUDED_BACKLOG_PATH_SEGMENTS.some((segment) =>
+    posixPath.includes(segment),
+  );
 }
 
 export function isReadyAfkEligibleWorkItem(
@@ -223,10 +231,6 @@ export async function findReadyAfkEligibleWorkItems(
 ): Promise<Array<ReadyAfkEligibilityTarget>> {
   const items = await list(backlogDir);
   return items.filter((item) => {
-    const posix = item.file.split(path.sep).join("/");
-    if (posix.includes("/archive/") || posix.includes("/records/")) {
-      return false;
-    }
-    return isReadyAfkEligibleWorkItem(item);
+    return !isExcludedBacklogPath(item.file) && isReadyAfkEligibleWorkItem(item);
   });
 }
