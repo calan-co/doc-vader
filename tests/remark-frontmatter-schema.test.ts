@@ -203,7 +203,10 @@ describe("remark-frontmatter-schema", () => {
       const file = new VFile({ value: md, path: "/tmp/strict.md" });
       const processor = unified()
         .use(remarkParse)
-        .use(remarkFrontmatterSchema, ["error", { enabled: true, schemaDir: tmpDir }] as any)
+        .use(remarkFrontmatterSchema, [
+          "error",
+          { enabled: true, schemaDir: tmpDir },
+        ])
         .use(remarkStringify);
       const result = await processor.process(file);
       expect(result.messages.length).toBeGreaterThan(0);

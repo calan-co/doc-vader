@@ -99,6 +99,7 @@ const payload = {
     exitCode: Number(process.env.REMARK_RESULT ?? "1"),
     output: process.env.REMARK_OUTPUT ?? "",
   },
+  // Preserve the legacy JSON shape for callers that still expect this block.
   frontmatter: {
     exitCode: 0,
     output: "",
