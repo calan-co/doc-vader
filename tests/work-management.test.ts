@@ -107,6 +107,127 @@ estimated: 1
     expect(updated).toContain("status: ready");
   });
 
+  it("refuses to transition to ready-for-review with unchecked completion criteria", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+status_reason: implementation
+priority: medium
+estimated: 1
+---
+
+## Tasks
+
+- [x] Implement the first part.
+- [ ] Finish the second part.
+
+## Acceptance Criteria
+
+- [ ] Verify the user-facing behavior.
+`
+    );
+
+    await expect(
+      transitionWorkItem({
+        rootDir,
+        id: "work-item:sample",
+        status: "ready-for-review",
+      }),
+    ).rejects.toThrow(/unchecked completion criteria/i);
+  });
+
+  it("refuses to close a work item with unchecked acceptance criteria", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: ready-for-review
+status_reason: awaiting-review
+priority: medium
+estimated: 1
+actual: 1
+links:
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Tasks
+
+- [x] Implement the work.
+
+## Acceptance Criteria
+
+- [ ] Verify the user-facing behavior.
+`
+    );
+
+    await expect(
+      transitionWorkItem({
+        rootDir,
+        id: "work-item:sample",
+        status: "closed",
+        statusReason: "completed",
+      }),
+    ).rejects.toThrow(/Acceptance Criteria: Verify the user-facing behavior/i);
+  });
+
+  it("allows ready-for-review when tasks and acceptance criteria are checked", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+status_reason: implementation
+priority: medium
+estimated: 1
+---
+
+## Tasks
+
+- [x] Implement the work.
+
+## Acceptance Criteria
+
+- [x] Verify the user-facing behavior.
+`
+    );
+
+    const result = await transitionWorkItem({
+      rootDir,
+      id: "work-item:sample",
+      status: "ready-for-review",
+    });
+
+    expect(result.frontmatter.status).toBe("ready-for-review");
+    await expect(readFile(filePath, "utf8")).resolves.toContain(
+      "status: ready-for-review",
+    );
+  });
+
   it("migrates legacy backlog items into canonical work-items and records", async () => {
     const rootDir = await createTempRepo();
     const legacyBacklog = path.join(rootDir, "backlog");
@@ -495,6 +616,45 @@ links:
 
     await expect(finalizeWorkItem({ rootDir, id: "work-item:no-evidence" })).rejects.toThrow(
       /without .*evidence/i,
+    );
+  });
+
+  it("refuses to finalize a work item with unchecked completion criteria", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-unchecked.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:unchecked
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: ready-for-review
+status_reason: awaiting-review
+priority: medium
+estimated: 2
+actual: 2
+links:
+  pull_requests:
+    - https://example.com/pr/1
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Tasks
+
+- [ ] Finish implementation.
+
+## Acceptance Criteria
+
+- [x] Verify the user-facing behavior.
+`
+    );
+
+    await expect(finalizeWorkItem({ rootDir, id: "work-item:unchecked" })).rejects.toThrow(
+      /Tasks: Finish implementation/i,
     );
   });
 
