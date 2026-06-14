@@ -9,16 +9,19 @@ status: ready
 priority: high
 estimated: 5
 links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/61"
+    - "https://github.com/calan-co/doc-vader/pull/62"
   depends_on:
-    - '[[60341-task-ready-afk-eligibility-query]]'
-    - '[[60342-task-scope-reservation-and-lookup]]'
-    - '[[60343-task-claim-store-and-lifecycle]]'
-    - '[[60344-claim-bound-artifact-reservations]]'
-    - '[[60345-claim-aware-record-and-close-commands]]'
+    - "[[60341-task-ready-afk-eligibility-query]]"
+    - "[[60342-task-scope-reservation-and-lookup]]"
+    - "[[60343-task-claim-store-and-lifecycle]]"
+    - "[[60344-claim-bound-artifact-reservations]]"
+    - "[[60345-claim-aware-record-and-close-commands]]"
   reference:
-    - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
+    - "[[60339-agent-command-surface-for-skills-and-sandcastle]]"
   evidence:
-    - '[[record-20260614-164457-60346]]'
+    - "[[record-20260614-164457-60346]]"
 tags:
   - afk
   - sandcastle

@@ -15,7 +15,10 @@ import { GitHubBacklogAutomationProvider } from "../lib/backlog/providers/github
 const tempDirs: string[] = [];
 
 async function createTempRepo(): Promise<string> {
-  const dir = path.join(os.tmpdir(), `doc-vader-work-management-${randomUUID()}`);
+  const dir = path.join(
+    os.tmpdir(),
+    `doc-vader-work-management-${randomUUID()}`,
+  );
   await mkdir(dir, { recursive: true });
   tempDirs.push(dir);
   return dir;
@@ -27,13 +30,22 @@ async function writeMarkdown(filePath: string, content: string): Promise<void> {
 }
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0, tempDirs.length).map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(
+    tempDirs
+      .splice(0, tempDirs.length)
+      .map((dir) => rm(dir, { recursive: true, force: true })),
+  );
 });
 
 describe.sequential("work-management automation", () => {
   it("keeps work-item link mutations idempotent", async () => {
     const rootDir = await createTempRepo();
-    const filePath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
+    const filePath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-sample.md",
+    );
     await writeMarkdown(
       filePath,
       `---
@@ -56,11 +68,21 @@ links:
 ## Goal
 
 - Ship sample work.
-`
+`,
     );
 
-    await linkWorkItem({ rootDir, id: "work-item:sample", kind: "reference", value: "work-item-sample.md" });
-    await linkWorkItem({ rootDir, id: "work-item:sample", kind: "reference", value: "work-item-sample.md" });
+    await linkWorkItem({
+      rootDir,
+      id: "work-item:sample",
+      kind: "reference",
+      value: "work-item-sample.md",
+    });
+    await linkWorkItem({
+      rootDir,
+      id: "work-item:sample",
+      kind: "reference",
+      value: "work-item-sample.md",
+    });
 
     const updated = await readFile(filePath, "utf8");
     const matches = updated.match(/\[\[work-item-sample\]\]/g) ?? [];
@@ -69,7 +91,12 @@ links:
 
   it("governs lifecycle when transitioning a work item into readiness", async () => {
     const rootDir = await createTempRepo();
-    const filePath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
+    const filePath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-sample.md",
+    );
     await writeMarkdown(
       filePath,
       `---
@@ -89,7 +116,7 @@ estimated: 1
 ## Goal
 
 - Ship sample work.
-`
+`,
     );
 
     const result = await transitionWorkItem({
@@ -105,6 +132,132 @@ estimated: 1
     const updated = await readFile(filePath, "utf8");
     expect(updated).toContain("lifecycle: active");
     expect(updated).toContain("status: ready");
+  });
+
+  it("refuses to transition to ready-for-review with unchecked completion criteria", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+status_reason: implementation
+priority: medium
+estimated: 1
+---
+
+## Tasks
+
+- [x] Implement the first part.
+- [ ] Finish the second part.
+
+## Acceptance Criteria
+
+- [ ] Verify the user-facing behavior.
+`,
+    );
+
+    await expect(
+      transitionWorkItem({
+        rootDir,
+        id: "work-item:sample",
+        status: "ready-for-review",
+      }),
+    ).rejects.toThrow(/unchecked completion criteria/i);
+  });
+
+  it("refuses to close a work item with unchecked acceptance criteria", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: ready-for-review
+status_reason: awaiting-review
+priority: medium
+estimated: 1
+actual: 1
+links:
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Tasks
+
+- [x] Implement the work.
+
+## Acceptance Criteria
+
+- [ ] Verify the user-facing behavior.
+`,
+    );
+
+    await expect(
+      transitionWorkItem({
+        rootDir,
+        id: "work-item:sample",
+        status: "closed",
+        statusReason: "completed",
+      }),
+    ).rejects.toThrow(/Acceptance Criteria: Verify the user-facing behavior/i);
+  });
+
+  it("allows ready-for-review when tasks and acceptance criteria are checked", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-sample.md",
+    );
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+status_reason: implementation
+priority: medium
+estimated: 1
+---
+
+## Tasks
+
+- [x] Implement the work.
+
+## Acceptance Criteria
+
+- [x] Verify the user-facing behavior.
+`,
+    );
+
+    const result = await transitionWorkItem({
+      rootDir,
+      id: "work-item:sample",
+      status: "ready-for-review",
+    });
+
+    expect(result.frontmatter.status).toBe("ready-for-review");
+    await expect(readFile(filePath, "utf8")).resolves.toContain(
+      "status: ready-for-review",
+    );
   });
 
   it("migrates legacy backlog items into canonical work-items and records", async () => {
@@ -137,7 +290,7 @@ links:
 ## Goal
 
 Do the thing.
-`
+`,
     );
     await writeMarkdown(
       path.join(legacyArchive, "002_other_task.md"),
@@ -167,7 +320,7 @@ links:
 ## Goal
 
 Done.
-`
+`,
     );
 
     const result = await migrateBacklog({ rootDir });
@@ -175,7 +328,7 @@ Done.
 
     const migratedItem = await readFile(
       path.join(rootDir, "backlog", "active", "work-item-001-sample-task.md"),
-      "utf8"
+      "utf8",
     );
     expect(migratedItem).toContain("id: work-item:001-sample-task");
     expect(migratedItem).toContain("[[record-001-sample-task-evidence-1]]");
@@ -183,15 +336,20 @@ Done.
 
     const migratedArchiveItem = await readFile(
       path.join(rootDir, "backlog", "archive", "work-item-002-other-task.md"),
-      "utf8"
+      "utf8",
     );
     expect(migratedArchiveItem).not.toContain("assignee:");
     expect(migratedArchiveItem).toContain("abc1234: valid migrated commit");
     expect(migratedArchiveItem).not.toContain("Infinity:");
 
     const migratedRecord = await readFile(
-      path.join(rootDir, "backlog", "records", "record-001-sample-task-evidence-1.md"),
-      "utf8"
+      path.join(
+        rootDir,
+        "backlog",
+        "records",
+        "record-001-sample-task-evidence-1.md",
+      ),
+      "utf8",
     );
     expect(migratedRecord).toContain("type: record");
     expect(migratedRecord).toContain("## Observation");
@@ -214,7 +372,7 @@ estimated: 3
 ## Goal
 
 Keep this item.
-`
+`,
     );
     await writeMarkdown(
       path.join(legacyBacklog, "001 sample task.md"),
@@ -229,11 +387,19 @@ estimated: 1
 ## Goal
 
 This collides and should be skipped.
-`
+`,
     );
 
-    const underscoredLegacyPath = path.join(rootDir, "backlog", "001_sample_task.md");
-    const spacedLegacyPath = path.join(rootDir, "backlog", "001 sample task.md");
+    const underscoredLegacyPath = path.join(
+      rootDir,
+      "backlog",
+      "001_sample_task.md",
+    );
+    const spacedLegacyPath = path.join(
+      rootDir,
+      "backlog",
+      "001 sample task.md",
+    );
     const [underscoredOriginal, spacedOriginal] = await Promise.all([
       readFile(underscoredLegacyPath, "utf8"),
       readFile(spacedLegacyPath, "utf8"),
@@ -242,13 +408,17 @@ This collides and should be skipped.
     const result = await migrateBacklog({ rootDir });
 
     expect(result.migrated).toHaveLength(1);
-    expect(result.migrated[0]?.newPath).toContain("work-item-001-sample-task.md");
+    expect(result.migrated[0]?.newPath).toContain(
+      "work-item-001-sample-task.md",
+    );
     const migratedLegacyPath = result.migrated[0]!.legacyPath;
-    expect([underscoredLegacyPath, spacedLegacyPath]).toContain(migratedLegacyPath);
+    expect([underscoredLegacyPath, spacedLegacyPath]).toContain(
+      migratedLegacyPath,
+    );
 
     const migratedItem = await readFile(
       path.join(rootDir, "backlog", "active", "work-item-001-sample-task.md"),
-      "utf8"
+      "utf8",
     );
     expect(migratedItem).toContain("id: work-item:001-sample-task");
     if (migratedLegacyPath === underscoredLegacyPath) {
@@ -260,15 +430,26 @@ This collides and should be skipped.
     }
 
     const remainingLegacyPath =
-      migratedLegacyPath === underscoredLegacyPath ? spacedLegacyPath : underscoredLegacyPath;
+      migratedLegacyPath === underscoredLegacyPath
+        ? spacedLegacyPath
+        : underscoredLegacyPath;
     const remainingOriginal =
-      migratedLegacyPath === underscoredLegacyPath ? spacedOriginal : underscoredOriginal;
-    await expect(readFile(remainingLegacyPath, "utf8")).resolves.toEqual(remainingOriginal);
+      migratedLegacyPath === underscoredLegacyPath
+        ? spacedOriginal
+        : underscoredOriginal;
+    await expect(readFile(remainingLegacyPath, "utf8")).resolves.toEqual(
+      remainingOriginal,
+    );
   });
 
   it("creates and links evidence records from workflow_run events", async () => {
     const rootDir = await createTempRepo();
-    const workItemPath = path.join(rootDir, "backlog", "active", "work-item-sample.md");
+    const workItemPath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-sample.md",
+    );
     await writeMarkdown(
       workItemPath,
       `---
@@ -292,7 +473,7 @@ links:
 ## Goal
 
 - Validate the change.
-`
+`,
     );
 
     const payloadPath = path.join(rootDir, "workflow-run.json");
@@ -310,9 +491,9 @@ links:
           },
         },
         null,
-        2
+        2,
       ),
-      "utf8"
+      "utf8",
     );
 
     const result = await ingestEvent({
@@ -322,20 +503,30 @@ links:
       payloadPath,
     });
 
-    expect(result.actions.some((action) => action.type === "create-record")).toBe(true);
+    expect(
+      result.actions.some((action) => action.type === "create-record"),
+    ).toBe(true);
 
     const updatedWorkItem = await readFile(workItemPath, "utf8");
     expect(updatedWorkItem).toContain("evidence:");
     expect(updatedWorkItem).toContain("[[record-sample-ci-42]]");
 
-    const recordFile = await readFile(path.join(rootDir, "backlog", "records", "record-sample-ci-42.md"), "utf8");
+    const recordFile = await readFile(
+      path.join(rootDir, "backlog", "records", "record-sample-ci-42.md"),
+      "utf8",
+    );
     expect(recordFile).toContain("summary: CI result for work-item:sample");
     expect(recordFile).toContain("pass");
   });
 
   it("links pull requests for deterministic wi-* token matches in pull_request events", async () => {
     const rootDir = await createTempRepo();
-    const workItemPath = path.join(rootDir, "backlog", "active", "work-item-wi-60276.md");
+    const workItemPath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-wi-60276.md",
+    );
     await writeMarkdown(
       workItemPath,
       `---
@@ -356,7 +547,7 @@ actual: 3
 ## Goal
 
 - Validate deterministic matching.
-`
+`,
     );
 
     const payloadPath = path.join(rootDir, "pull-request.json");
@@ -373,9 +564,9 @@ actual: 3
           },
         },
         null,
-        2
+        2,
       ),
-      "utf8"
+      "utf8",
     );
 
     const result = await ingestEvent({
@@ -398,12 +589,19 @@ actual: 3
 
     const updatedWorkItem = await readFile(workItemPath, "utf8");
     expect(updatedWorkItem).toContain("pull_requests:");
-    expect(updatedWorkItem).toContain("https://github.com/calan-co/doc-vader/pull/43");
+    expect(updatedWorkItem).toContain(
+      "https://github.com/calan-co/doc-vader/pull/43",
+    );
   });
 
   it("does not match partial wi-* tokens in pull_request events", async () => {
     const rootDir = await createTempRepo();
-    const workItemPath = path.join(rootDir, "backlog", "active", "work-item-wi-60276.md");
+    const workItemPath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-wi-60276.md",
+    );
     await writeMarkdown(
       workItemPath,
       `---
@@ -424,7 +622,7 @@ actual: 3
 ## Goal
 
 - Validate deterministic matching.
-`
+`,
     );
 
     const payloadPath = path.join(rootDir, "pull-request-partial-token.json");
@@ -441,9 +639,9 @@ actual: 3
           },
         },
         null,
-        2
+        2,
       ),
-      "utf8"
+      "utf8",
     );
 
     const result = await ingestEvent({
@@ -490,12 +688,51 @@ links:
 ## Goal
 
 - Validate the change.
-`
+`,
     );
 
-    await expect(finalizeWorkItem({ rootDir, id: "work-item:no-evidence" })).rejects.toThrow(
-      /without .*evidence/i,
+    await expect(
+      finalizeWorkItem({ rootDir, id: "work-item:no-evidence" }),
+    ).rejects.toThrow(/without .*evidence/i);
+  });
+
+  it("refuses to finalize a work item with unchecked completion criteria", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-unchecked.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:unchecked
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: ready-for-review
+status_reason: awaiting-review
+priority: medium
+estimated: 2
+actual: 2
+links:
+  pull_requests:
+    - https://example.com/pr/1
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Tasks
+
+- [ ] Finish implementation.
+
+## Acceptance Criteria
+
+- [x] Verify the user-facing behavior.
+`,
     );
+
+    await expect(
+      finalizeWorkItem({ rootDir, id: "work-item:unchecked" }),
+    ).rejects.toThrow(/Tasks: Finish implementation/i);
   });
 
   it("refuses to finalize a work item with an unmerged linked PR when authenticated", async () => {
@@ -540,7 +777,7 @@ links:
 ## Goal
 
 - Validate the change.
-`
+`,
       );
 
       await expect(
@@ -582,11 +819,11 @@ links:
 ## Goal
 
 - Validate the change.
-`
+`,
     );
 
-    await expect(finalizeWorkItem({ rootDir, id: "work-item:sample" })).rejects.toThrow(
-      /Expected ready-for-review or closed/i,
-    );
+    await expect(
+      finalizeWorkItem({ rootDir, id: "work-item:sample" }),
+    ).rejects.toThrow(/Expected ready-for-review or closed/i);
   });
 });

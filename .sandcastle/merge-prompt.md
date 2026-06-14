@@ -15,9 +15,16 @@ After all branches are merged, make a single commit summarizing the merge.
 
 # CLOSE ISSUES
 
-For each branch that was merged, close its issue using the following command:
+For each branch that was merged, close its issue only after validating completion evidence:
 
-`node --input-type=module -e 'import {transitionWorkItem} from "./dist/lib/work-management/index.js";const id=String(process.argv[1]||"");const effortArg=process.argv[2];if(!id){console.error("Usage: close <ID> [EFFORT]");process.exit(2)}const actual=effortArg===undefined?undefined:Number(effortArg);if(effortArg!==undefined&&Number.isNaN(actual)){console.error("EFFORT must be numeric");process.exit(2)}const result=await transitionWorkItem({id:id.startsWith("wi-")?id:"wi-"+id,status:"closed",statusReason:"completed",...(actual===undefined?{}:{actual}),consumerConfig:".doc-vader/backlog-consumer.json"});console.log(JSON.stringify(result,null,2))' <ID> [EFFORT]`
+1. Confirm all implementation work is complete.
+2. Mark `## Tasks` and `## Acceptance Criteria` checkboxes as `[x]` only when concrete implementation and verification evidence exists.
+3. Run `pnpm run docs:lint`, `pnpm run backlog:validate`, `pnpm run backlog:validate:ci`, and `pnpm run test`.
+4. Close the issue using the guarded Doc-Vader CLI command:
+
+`node dist/cli/doc-vader.js work-item transition --id <ID> --status closed --reason completed --actual <EFFORT> --consumer-config .doc-vader/backlog-consumer.json`
+
+If the close command reports unchecked completion criteria, do not work around it. Reopen the work, complete the missing scope or leave the issue unclosed with a note describing the remaining unchecked criteria.
 
 Here are all the issues:
 

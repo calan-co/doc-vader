@@ -10,18 +10,21 @@ status_reason: blocked
 priority: critical
 estimated: 8
 links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/61"
+    - "https://github.com/calan-co/doc-vader/pull/62"
   reference:
-    - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
-    - '[[60338-hosted-saas-github-app-architecture-adr]]'
-    - '[[60340-artifact-graph-and-nested-claim-architecture-adr]]'
-    - '[[60341-task-ready-afk-eligibility-query]]'
-    - '[[60342-task-scope-reservation-and-lookup]]'
-    - '[[60343-task-claim-store-and-lifecycle]]'
-    - '[[60344-claim-bound-artifact-reservations]]'
-    - '[[60345-claim-aware-record-and-close-commands]]'
-    - '[[60346-sandcastle-doc-vader-task-adapter]]'
+    - "[[60333-canonical-schema-profile-routing-and-fixtures]]"
+    - "[[60338-hosted-saas-github-app-architecture-adr]]"
+    - "[[60340-artifact-graph-and-nested-claim-architecture-adr]]"
+    - "[[60341-task-ready-afk-eligibility-query]]"
+    - "[[60342-task-scope-reservation-and-lookup]]"
+    - "[[60343-task-claim-store-and-lifecycle]]"
+    - "[[60344-claim-bound-artifact-reservations]]"
+    - "[[60345-claim-aware-record-and-close-commands]]"
+    - "[[60346-sandcastle-doc-vader-task-adapter]]"
   evidence:
-    - '[[record-20260614-164457-60339]]'
+    - "[[record-20260614-164457-60339]]"
 tags:
   - agent
   - skills
