@@ -27,12 +27,14 @@ function normalizeTags(tags: unknown): string[] {
     return [];
   }
 
-  return [...new Set(
-    tags
-      .filter((tag): tag is string => typeof tag === "string")
-      .map((tag) => tag.trim().toLowerCase())
-      .filter((tag) => tag.length > 0),
-  )];
+  return [
+    ...new Set(
+      tags
+        .filter((tag): tag is string => typeof tag === "string")
+        .map((tag) => tag.trim().toLowerCase())
+        .filter((tag) => tag.length > 0),
+    ),
+  ];
 }
 
 function isExcludedBacklogPath(file: string): boolean {
@@ -69,7 +71,7 @@ export function isReadyAfkEligibleWorkItem(
  * @returns The next available id as a number
  */
 export function getNextAvailableId(
-  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY
+  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
 ): number {
   const files = fs.readdirSync(backlogDir);
   const idNumbers = files
@@ -93,7 +95,7 @@ export function getNextAvailableId(
  * @returns Record of id prefix to array of files
  */
 export function findDuplicateIdPrefixes(
-  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY
+  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
 ): Record<string, string[]> {
   const files = fs.readdirSync(backlogDir).filter((f) => f.endsWith(".md"));
   const idMap: Record<string, string[]> = {};
@@ -127,7 +129,7 @@ export function findDuplicateIdPrefixes(
  */
 export function renumberDuplicateFiles(
   backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
-  duplicates: Record<string, string[]>
+  duplicates: Record<string, string[]>,
 ): Record<string, string> {
   const renameMap: Record<string, string> = {};
   Object.entries(duplicates).forEach(([id, files]) => {
@@ -139,7 +141,7 @@ export function renumberDuplicateFiles(
       let content = fs.readFileSync(filePath, "utf8");
       content = content.replace(
         /(^id:\s*["']?)\d+[\w.-]*(["']?)/m,
-        `$1${nextId}$2`
+        `$1${nextId}$2`,
       );
       const newFilePath = path.join(backlogDir, newFile);
       fs.writeFileSync(newFilePath, content, "utf8");
@@ -157,8 +159,10 @@ export function renumberDuplicateFiles(
  */
 export function updateBacklogLinks(
   backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
-  renameMap: Record<string, string>
+  renameMap: Record<string, string>,
 ): void {
+  const escapeRegExp = (value: string) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const files = fs.readdirSync(backlogDir).filter((f) => f.endsWith(".md"));
   files.forEach((file) => {
     const filePath = path.join(backlogDir, file);
@@ -166,9 +170,10 @@ export function updateBacklogLinks(
     Object.entries(renameMap).forEach(([oldFile, newFile]) => {
       const oldLink = oldFile.replace(/\.md$/, "");
       const newLink = newFile.replace(/\.md$/, "");
+      const escapedOldLink = escapeRegExp(oldLink);
       const linkRegex = new RegExp(
-        `(links:\s*\n(?:[ \t]*-\s*)*)${oldLink}(\b)`,
-        "g"
+        `(links:\\s*\\n(?:[ \\t]*-\\s*)*)${escapedOldLink}(\\b)`,
+        "g",
       );
       content = content.replace(linkRegex, `$1${newLink}$2`);
     });
@@ -181,7 +186,7 @@ export function updateBacklogLinks(
  * @param backlogDir Absolute path to the backlog directory
  */
 export function renumberDuplicateBacklogItems(
-  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY
+  backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
 ): void {
   const duplicates = findDuplicateIdPrefixes(backlogDir);
   if (Object.keys(duplicates).length === 0) return;
@@ -192,7 +197,7 @@ export function renumberDuplicateBacklogItems(
 // List all markdown files with frontmatter type 'work-item', optionally filter by subtype
 export async function list(
   backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
-  subtype?: string
+  subtype?: string,
 ): Promise<
   Array<{ file: string; type: string; subtype?: string; [key: string]: any }>
 > {
@@ -235,6 +240,8 @@ export async function findReadyAfkEligibleWorkItems(
 ): Promise<Array<ReadyAfkEligibilityTarget>> {
   const items = await list(backlogDir);
   return items.filter((item) => {
-    return !isExcludedBacklogPath(item.file) && isReadyAfkEligibleWorkItem(item);
+    return (
+      !isExcludedBacklogPath(item.file) && isReadyAfkEligibleWorkItem(item)
+    );
   });
 }

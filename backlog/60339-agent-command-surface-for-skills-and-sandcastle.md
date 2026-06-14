@@ -10,6 +10,9 @@ status_reason: blocked
 priority: critical
 estimated: 8
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/61
+    - https://github.com/calan-co/doc-vader/pull/62
   reference:
     - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
     - '[[60338-hosted-saas-github-app-architecture-adr]]'
@@ -21,7 +24,7 @@ links:
     - '[[60345-claim-aware-record-and-close-commands]]'
     - '[[60346-sandcastle-doc-vader-task-adapter]]'
   evidence:
-    - '[[record-20260614-164243-60339]]'
+    - '[[record-20260614-164457-60339]]'
 tags:
   - agent
   - skills

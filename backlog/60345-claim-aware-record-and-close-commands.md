@@ -15,7 +15,7 @@ links:
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
   evidence:
-    - '[[record-20260614-164243-60345]]'
+    - '[[record-20260614-164457-60345]]'
 tags:
   - afk
   - sandcastle

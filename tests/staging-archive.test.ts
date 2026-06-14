@@ -32,7 +32,8 @@ const archivedSources = [
 
 const activeSupportSources = ["staging/scripts/lint/lint-util.cjs"] as const;
 
-const archivedPath = (sourcePath: string) => sourcePath.replace(/^staging\//, "staging/archived/");
+const archivedPath = (sourcePath: string) =>
+  sourcePath.replace(/^staging\//, "staging/archived/");
 const archivedReadmePath = path.join(repoRoot, "staging/archived/README.md");
 
 describe("staging archive", () => {

@@ -15,7 +15,7 @@ links:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60340-artifact-graph-and-nested-claim-architecture-adr]]'
   evidence:
-    - '[[record-20260614-164243-60344]]'
+    - '[[record-20260614-164457-60344]]'
 tags:
   - afk
   - sandcastle

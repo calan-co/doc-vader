@@ -167,12 +167,17 @@ subtype: reference
 ---
 
 # Reference`;
-    const file = await lint(md, {
-      diataxisClassifier: { enabled: true },
-    }, "docs/reference/guide.md");
-    const diataxisMessages = file.messages.filter((m) =>
-      m.ruleId?.includes("diataxis-classifier") ||
-      m.message.includes("diataxis-classifier"),
+    const file = await lint(
+      md,
+      {
+        diataxisClassifier: { enabled: true },
+      },
+      "docs/reference/guide.md",
+    );
+    const diataxisMessages = file.messages.filter(
+      (m) =>
+        m.ruleId?.includes("diataxis-classifier") ||
+        m.message.includes("diataxis-classifier"),
     );
     expect(diataxisMessages.length).toBe(0);
   });
@@ -184,13 +189,18 @@ subtype: reference
 ---
 
 # Reference`;
-    const file = await lint(md, {
-      diataxisClassifier: { enabled: true },
-    }, "docs/how-to/guide.md");
+    const file = await lint(
+      md,
+      {
+        diataxisClassifier: { enabled: true },
+      },
+      "docs/how-to/guide.md",
+    );
     expect(
-      file.messages.some((m) =>
-        m.message.includes("diataxis-classifier") &&
-        m.message.includes('subtype "reference"'),
+      file.messages.some(
+        (m) =>
+          m.message.includes("diataxis-classifier") &&
+          m.message.includes('subtype "reference"'),
       ),
     ).toBe(true);
   });
@@ -238,11 +248,12 @@ describe("createTiabProcessor – instance isolation", () => {
       checklist: { requiredItems: ["Item A", "Item B"] },
     };
 
-    const [file1, file2] = await Promise.all([lint(md1, opts), lint(md2, opts)]);
+    const [file1, file2] = await Promise.all([
+      lint(md1, opts),
+      lint(md2, opts),
+    ]);
     // file1 is missing "Item B", file2 has both
-    expect(
-      file1.messages.some((m) => m.message.includes("Item B")),
-    ).toBe(true);
+    expect(file1.messages.some((m) => m.message.includes("Item B"))).toBe(true);
     expect(
       file2.messages.filter((m) => m.message.includes("Item B")).length,
     ).toBe(0);
@@ -276,7 +287,8 @@ describe("Epic 170 Phase 1 – exit-gate baseline", () => {
   it("full parse + run completes in under 2000 ms for a ~160-line document", async () => {
     const lines = Array.from(
       { length: 40 },
-      (_, i) => `## Section ${i + 1}\n\nParagraph content for section ${i + 1}.\n`,
+      (_, i) =>
+        `## Section ${i + 1}\n\nParagraph content for section ${i + 1}.\n`,
     );
     const md = lines.join("\n");
     const start = performance.now();

@@ -14,7 +14,7 @@ links:
     - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
     - '[[60338-hosted-saas-github-app-architecture-adr]]'
   evidence:
-    - '[[record-20260614-164243-60340]]'
+    - '[[record-20260614-164457-60340]]'
 tags:
   - adr
   - artifact-graph
