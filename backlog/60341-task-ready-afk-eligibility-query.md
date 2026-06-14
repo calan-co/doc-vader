@@ -10,6 +10,8 @@ status_reason: implementation
 priority: critical
 estimated: 5
 links:
+  pull_requests:
+    - 'https://github.com/calan-co/doc-vader/pull/60'
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60330-unified-remark-validation-pipeline]]'

@@ -10,6 +10,9 @@ status_reason: investigation
 priority: high
 estimated: 8
 links:
+  pull_requests:
+    - 'https://github.com/calan-co/doc-vader/pull/60'
+    - 'https://github.com/calan-co/doc-vader/pull/62'
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
     - '[[record-20260612-context-coordination-pivot]]'
