@@ -10,12 +10,12 @@ priority: critical
 estimated: 8
 links:
   depends_on:
-    - "[[60342-task-scope-reservation-and-lookup]]"
+    - '[[60342-task-scope-reservation-and-lookup]]'
   reference:
-    - "[[60339-agent-command-surface-for-skills-and-sandcastle]]"
-    - "[[60338-hosted-saas-github-app-architecture-adr]]"
+    - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
+    - '[[60338-hosted-saas-github-app-architecture-adr]]'
   evidence:
-    - "[[record-20260614-164457-60343]]"
+    - '[[record-20260614-164457-60343]]'
 tags:
   - afk
   - sandcastle

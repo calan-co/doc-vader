@@ -10,22 +10,22 @@ status_reason: investigation
 priority: high
 estimated: 8
 commits:
-  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: "chore(backlog): consolidate active work item backlog"
+  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
   evidence:
-    - "[[record-20260612-backlog-consolidation]]"
-    - "[[record-20260612-context-coordination-pivot]]"
+    - '[[record-20260612-backlog-consolidation]]'
+    - '[[record-20260612-context-coordination-pivot]]'
   reference:
-    - "[[archive/210.vendor-adapter-and-scan-lifecycle-epic]]"
-    - "[[archive/210.1.vendor-adapter-and-scan-lifecycle-feature]]"
-    - "[[archive/225.story-require-all-linked-prs-merged-for-finalization]]"
-    - "[[archive/226.story-add-subject-aware-pr-closure-api]]"
-    - "[[archive/240-policy-evidence-and-alias-integrity]]"
-    - "[[archive/242-integration-seam-contract-for-concurrent-conflict-ci]]"
-    - "[[archive/60337-context-coordination-policy-and-ci-seams]]"
+    - '[[archive/210.vendor-adapter-and-scan-lifecycle-epic]]'
+    - '[[archive/210.1.vendor-adapter-and-scan-lifecycle-feature]]'
+    - '[[archive/225.story-require-all-linked-prs-merged-for-finalization]]'
+    - '[[archive/226.story-add-subject-aware-pr-closure-api]]'
+    - '[[archive/240-policy-evidence-and-alias-integrity]]'
+    - '[[archive/242-integration-seam-contract-for-concurrent-conflict-ci]]'
+    - '[[archive/60337-context-coordination-policy-and-ci-seams]]'
   pull_requests:
-    - "https://github.com/calan-co/doc-vader/pull/60"
-    - "https://github.com/calan-co/doc-vader/pull/62"
+    - https://github.com/calan-co/doc-vader/pull/60
+    - https://github.com/calan-co/doc-vader/pull/62
 tags:
   - backlog
   - automation
