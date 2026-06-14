@@ -5,11 +5,10 @@ summary: Deliver provider-backed backlog scanning, subject resolution, evidence 
 type: work-item
 subtype: story
 lifecycle: active
-status: closed
-status_reason: completed
+status: in-progress
+status_reason: investigation
 priority: high
 estimated: 8
-completed_date: '2026-06-12'
 links:
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
