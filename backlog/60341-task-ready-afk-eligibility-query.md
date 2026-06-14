@@ -13,7 +13,7 @@ commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
   pull_requests:
-    - 'https://github.com/calan-co/doc-vader/pull/60'
+    - https://github.com/calan-co/doc-vader/pull/60
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60330-unified-remark-validation-pipeline]]'
