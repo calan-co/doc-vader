@@ -358,6 +358,9 @@ function extractWikilinkTarget(reference: string): string | null {
   return target.length > 0 ? target : null;
 }
 
+/**
+ * Return unchecked checklist item labels from a named second-level markdown section.
+ */
 function extractUncheckedChecklistItemsFromSection(
   content: string,
   heading: string,

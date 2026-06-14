@@ -300,6 +300,9 @@ function normalizeLifecycle(value: unknown): string {
   return value.trim().toLowerCase();
 }
 
+/**
+ * Return unchecked checklist item labels from a named second-level markdown section.
+ */
 function extractUncheckedChecklistItemsFromSection(
   content: string,
   heading: string,
