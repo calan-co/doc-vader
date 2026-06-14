@@ -3,6 +3,7 @@ import * as fsSync from "node:fs";
 import * as path from "node:path";
 import os from "node:os";
 import { scanBacklog } from "../lib/backlog/scan-executor.js";
+import { writeBacklogConsumerConfig } from "./helpers/backlog-consumer-config.js";
 
 let testDir = "";
 
@@ -15,25 +16,7 @@ function mkFile(name: string, content: string) {
 }
 
 function mkConsumerConfig(automation: Record<string, unknown> = {}) {
-  mkDir(".doc-vader");
-  fsSync.writeFileSync(
-    path.join(testDir, ".doc-vader", "backlog-consumer.json"),
-    JSON.stringify(
-      {
-        roots: {
-          backlog: "backlog",
-          active: "backlog",
-          archive: "backlog/archive",
-          records: "backlog/records",
-          audit: "backlog/audit",
-        },
-        automation,
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
+  writeBacklogConsumerConfig(testDir, automation);
 }
 
 const VALID_ITEM = `---

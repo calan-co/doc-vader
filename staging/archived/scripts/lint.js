@@ -5,6 +5,7 @@
 
 import { Command } from "commander";
 import { spawnSync } from "child_process";
+import { fileURLToPath } from "url";
 
 // Define available commands and their shell commands
 const commands = {
@@ -122,7 +123,7 @@ function main(argv = process.argv, runner = run) {
   }
 }
 
-if (import.meta.main) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   process.exit(main());
 }
 

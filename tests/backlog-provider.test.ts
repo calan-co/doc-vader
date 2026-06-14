@@ -1,12 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GitHubBacklogAutomationProvider } from "../lib/backlog/providers/github.js";
 import type { ParsedWorkflowPayload } from "../lib/backlog/provider.js";
 
 describe("GitHubBacklogAutomationProvider", () => {
   let provider: GitHubBacklogAutomationProvider;
+  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     provider = new GitHubBacklogAutomationProvider("test-token");
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
   });
 
   describe("vendor", () => {
@@ -24,11 +29,15 @@ describe("GitHubBacklogAutomationProvider", () => {
     it("returns false when no token", () => {
       const originalToken = process.env.GITHUB_TOKEN;
       try {
-        process.env.GITHUB_TOKEN = ""; // Clear env first
+        delete process.env.GITHUB_TOKEN;
         const providerNoToken = new GitHubBacklogAutomationProvider();
         expect(providerNoToken.isAuthenticated()).toBe(false);
       } finally {
-        process.env.GITHUB_TOKEN = originalToken; // Restore
+        if (originalToken === undefined) {
+          delete process.env.GITHUB_TOKEN;
+        } else {
+          process.env.GITHUB_TOKEN = originalToken;
+        }
       }
     });
   });

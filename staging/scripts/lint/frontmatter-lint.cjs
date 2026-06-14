@@ -14,6 +14,7 @@
 
 const { Command } = require("commander");
 const fs = require("fs");
+const glob = require("glob");
 const path = require("path");
 const selectSchema = require("../utils/selectSchema.cjs");
 const {
@@ -39,20 +40,6 @@ function walk(dir, files) {
     else if (f.endsWith(".md")) files.push(fp);
   }
 }
-function summarizeAjvErrors(errors, err) {
-  const fieldErrors = {};
-  // Ajv v8+: instancePath, Ajv v6: dataPath
-  const path = err.instancePath || err.dataPath || "";
-  errors[path] ||= err;
-  return Object.values(errors).map((err) => {
-    if (err.instancePath === "/lifecycle" || err.dataPath === ".lifecycle") {
-      return `Invalid lifecycle: ${err.message}`;
-    }
-    if (err.instancePath === "/status" || err.dataPath === ".status") {
-      return `Invalid status: ${err.message}`;
-    }
-  });
-}
 
 const program = new Command();
 program
@@ -71,7 +58,6 @@ program
     }
     for (const arg of files) {
       if (arg.includes("*")) {
-        const glob = require("glob");
         fileList.push(...glob.sync(arg));
       } else {
         const p = path.resolve(process.cwd(), arg);
@@ -183,7 +169,7 @@ program
             //   );
             //   totalErrors += agg.then;
             // }
-            if (agg.other) {
+            if (agg.other.length) {
               for (const msg of agg.other) {
                 console.error(`  ${msg}`);
                 totalErrors++;

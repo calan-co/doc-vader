@@ -84,9 +84,7 @@ describe("backlog", () => {
   let renameWorks: boolean | undefined = undefined;
   // hard code to false for now to skip tests until linkity properly handles renames
   renameWorks = false;
-  const runRenameTest = () => {
-    renameWorks !== undefined && !renameWorks;
-  };
+  const runRenameTest = () => renameWorks !== undefined && !renameWorks;
   describe("updateBacklogLinks", () => {
     it.skipIf(runRenameTest)("updates links field in other files", () => {
       // Set flag to skip dependent tests if this fails

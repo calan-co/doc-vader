@@ -36,7 +36,7 @@ function validateApiSpecSource(content, errors) {
 
 function lintFile(filePath, allFiles) {
   const raw = fs.readFileSync(filePath, "utf8");
-  const frontmatter = extractFrontmatter(raw);
+  const frontmatter = extractFrontmatter(filePath);
 
   const errors = [];
   if (frontmatter.type === "checklist") validateChecklistTasks(raw, errors);

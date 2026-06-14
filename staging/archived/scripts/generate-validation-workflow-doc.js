@@ -4,7 +4,7 @@
  *
  * Auto-generates a markdown summary of the validation workflow by extracting JSDoc-style ordered lists from all relevant lint/validation scripts.
  *
- * - Scans scripts/lint/*.js for JSDoc blocks with ordered lists.
+ * - Scans scripts/lint/*.{js,cjs,mjs} for JSDoc blocks with ordered lists.
  * - Outputs docs/reference/precommit-validation-workflow.md with links to contributing scripts in frontmatter.
  * - Uses a template-based markdown body (like epic.tpl.md).
  * - Run this script after modifying any validation script to keep the doc up-to-date.
@@ -35,7 +35,7 @@ function getScriptLinks(scripts) {
 
 function main() {
   const files = fs.readdirSync(SCRIPTS_DIR)
-    .filter(f => f.endsWith('.js'))
+    .filter(f => /\.(?:cjs|js|mjs)$/.test(f))
     .map(f => path.join(SCRIPTS_DIR, f));
   const workflows = [];
   const contributingScripts = [];
@@ -59,7 +59,7 @@ function main() {
     'type: document',
     'subtype: process',
     'lifecycle: active',
-    'status: auto-generated',
+    'status: ready',
     'links:'
   ];
   for (const link of getScriptLinks(contributingScripts)) {
@@ -71,7 +71,7 @@ function main() {
   let body = '\n# Pre-commit Validation Workflow\n\n';
   body += 'This document is auto-generated from JSDoc comments in validation scripts. Do not edit manually.\n\n';
   workflows.forEach(wf => {
-      body += `## Workflow from \\`${path.basename(wf.script)}\`\n\n`;
+    body += `## Workflow from \`${path.basename(wf.script)}\`\n\n`;
     wf.steps.forEach(step => {
       body += `${step}\n`;
     });

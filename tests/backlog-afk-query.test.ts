@@ -43,6 +43,10 @@ describe("AFK ready eligibility query", () => {
         `---\nid: wi-3\ntype: work-item\nsubtype: task\nlifecycle: archived\nstatus: ready\ntags:\n  - afk\n---\n`,
       );
       await writeFile(
+        path.join(backlogDir, "audit", "audit-report.md"),
+        `---\nid: wi-audit\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\ntags:\n  - afk\n---\n`,
+      );
+      await writeFile(
         path.join(backlogDir, "4.ready-other.md"),
         `---\nid: wi-4\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\ntags:\n  - backlog\n---\n`,
       );
@@ -80,6 +84,15 @@ describe("AFK ready eligibility query", () => {
         type: "work-item",
         status: "ready-for-review",
         lifecycle: "active",
+        tags: ["afk"],
+      }),
+    ).toBe(false);
+    expect(
+      isReadyAfkEligibleWorkItem({
+        id: "wi-4",
+        type: "work-item",
+        status: "ready",
+        lifecycle: "unknown",
         tags: ["afk"],
       }),
     ).toBe(false);

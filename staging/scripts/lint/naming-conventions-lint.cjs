@@ -18,7 +18,7 @@ const SPECIAL = [
   "SECURITY.md",
   "CODE_OF_CONDUCT.md",
 ];
-const WORK_ITEM_REGEX = /^\d+\..+\.md$/;
+const WORK_ITEM_REGEX = /^\d+-[a-z0-9-]+\.md$/;
 const APPROVALS_REGEX = /^\d+\.\d+-[a-z0-9-]+\.md$/;
 
 function isKebabCase(filename) {
