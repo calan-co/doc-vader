@@ -18,6 +18,8 @@ links:
     - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/60
+  evidence:
+    - '[[record-20260614-164457-60341]]'
 tags:
   - afk
   - sandcastle
