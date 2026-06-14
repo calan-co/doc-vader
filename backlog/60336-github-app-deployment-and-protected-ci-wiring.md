@@ -60,6 +60,10 @@ Create the ADR or equivalent decision record for the Doc-Vader hosted backend an
 
 HITL: maintainer architecture approval for hosted service, published GitHub App, migration boundaries, and any repository-control or guardrail-surface changes.
 
+## Status Notes
+
+[[60338-hosted-saas-github-app-architecture-adr]] owns the architecture decision. This work item remains in progress for the protected CI wiring, migration, and non-weakening guardrail criteria that depend on that decision.
+
 ## Supersedes
 
 - [[archive/234.github-app-deployment-and-ci-plan-story]]
@@ -67,4 +71,4 @@ HITL: maintainer architecture approval for hosted service, published GitHub App,
 - [[archive/60334-framework-reconciliation-and-release-readiness-decisions]]
 - [[archive/60337-context-coordination-policy-and-ci-seams]]
 
-- 2026-06-12: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+- 2026-06-12: Consolidation evidence is recorded in backlog/audit/auditing-backlog-report.json; implementation remains in progress until the acceptance criteria above are complete.
