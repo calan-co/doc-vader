@@ -161,6 +161,8 @@ export function updateBacklogLinks(
   backlogDir: string = DEFAULT_BACKLOG_DIRECTORY,
   renameMap: Record<string, string>,
 ): void {
+  const escapeRegExp = (value: string) =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const files = fs.readdirSync(backlogDir).filter((f) => f.endsWith(".md"));
   files.forEach((file) => {
     const filePath = path.join(backlogDir, file);
@@ -168,8 +170,9 @@ export function updateBacklogLinks(
     Object.entries(renameMap).forEach(([oldFile, newFile]) => {
       const oldLink = oldFile.replace(/\.md$/, "");
       const newLink = newFile.replace(/\.md$/, "");
+      const escapedOldLink = escapeRegExp(oldLink);
       const linkRegex = new RegExp(
-        `(links:\s*\n(?:[ \t]*-\s*)*)${oldLink}(\b)`,
+        `(links:\\s*\\n(?:[ \\t]*-\\s*)*)${escapedOldLink}(\\b)`,
         "g",
       );
       content = content.replace(linkRegex, `$1${newLink}$2`);
