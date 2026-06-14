@@ -10,6 +10,8 @@ status_reason: investigation
 priority: high
 estimated: 5
 links:
+  pull_requests:
+    - 'https://github.com/calan-co/doc-vader/pull/60'
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
     - '[[record-20260612-hosted-app-pivot]]'
