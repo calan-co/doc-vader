@@ -63,6 +63,9 @@ describe("docs-lint unified pipeline", () => {
 
       let output = "";
       let failed = false;
+      const markdownGlob = path
+        .join(docsDir, "**", "*.md")
+        .replaceAll(path.sep, "/");
       try {
         output = execFileSync(
           "bash",
@@ -70,7 +73,7 @@ describe("docs-lint unified pipeline", () => {
             SCRIPT_PATH,
             "--fail-on",
             "error",
-            path.join(docsDir, "**/*.md"),
+            markdownGlob,
           ],
           {
             cwd: path.resolve(__dirname, ".."),
