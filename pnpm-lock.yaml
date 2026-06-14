@@ -58,7 +58,7 @@ importers:
         version: 11.0.0
       semver:
         specifier: ^7.8.3
-        version: 7.8.3
+        version: 7.8.4
       unified-lint-rule:
         specifier: ^3.0.1
         version: 3.0.1
@@ -80,10 +80,10 @@ importers:
         version: 0.7.0
       '@changesets/cli':
         specifier: ^2.31.0
-        version: 2.31.0(@types/node@25.9.2)
+        version: 2.31.0(@types/node@25.9.3)
       '@commitlint/cli':
         specifier: ^21.0.2
-        version: 21.0.2(@types/node@25.9.2)(typescript@6.0.3)
+        version: 21.0.2(@types/node@25.9.3)(typescript@6.0.3)
       '@commitlint/config-conventional':
         specifier: ^21.0.2
         version: 21.0.2
@@ -92,7 +92,7 @@ importers:
         version: 4.0.4
       '@types/node':
         specifier: ^25.9.2
-        version: 25.9.2
+        version: 25.9.3
       '@types/semver':
         specifier: ^7.7.1
         version: 7.7.1
@@ -107,7 +107,7 @@ importers:
         version: 9.1.7
       memfs:
         specifier: ^4.57.6
-        version: 4.57.6(tslib@2.8.1)
+        version: 4.57.7(tslib@2.8.1)
       nx:
         specifier: ^22.7.5
         version: 22.7.5
@@ -125,7 +125,7 @@ importers:
         version: 11.0.5
       vitest:
         specifier: ^4.1.8
-        version: 4.1.8(@types/node@25.9.2)(@vitest/coverage-v8@4.1.8)(vite@8.0.16)
+        version: 4.1.8(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(vite@8.0.16)
 
 packages:
 
@@ -215,7 +215,7 @@ packages:
       outdent: 0.5.0
       prettier: 2.8.8
       resolve-from: 5.0.0
-      semver: 7.8.3
+      semver: 7.8.4
     dev: true
 
   /@changesets/assemble-release-plan@6.0.10:
@@ -226,7 +226,7 @@ packages:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@manypkg/get-packages': 1.1.3
-      semver: 7.8.3
+      semver: 7.8.4
     dev: true
 
   /@changesets/changelog-git@0.2.1:
@@ -235,7 +235,7 @@ packages:
       '@changesets/types': 6.1.0
     dev: true
 
-  /@changesets/cli@2.31.0(@types/node@25.9.2):
+  /@changesets/cli@2.31.0(@types/node@25.9.3):
     resolution: {integrity: sha512-AhI4enNTgHu2IZr6K4WZyf0EPch4XVMn1yOMFmCD9gsfBGqMYaHXls5HyDv6/CL5axVQABz68eG30eCtbr2wFg==}
     hasBin: true
     dependencies:
@@ -253,7 +253,7 @@ packages:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3(@types/node@25.9.2)
+      '@inquirer/external-editor': 1.0.3(@types/node@25.9.3)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       enquirer: 2.4.1
@@ -262,7 +262,7 @@ packages:
       package-manager-detector: 0.2.11
       picocolors: 1.1.1
       resolve-from: 5.0.0
-      semver: 7.8.3
+      semver: 7.8.4
       spawndamnit: 3.0.1
       term-size: 2.2.1
     transitivePeerDependencies:
@@ -294,7 +294,7 @@ packages:
       '@changesets/types': 6.1.0
       '@manypkg/get-packages': 1.1.3
       picocolors: 1.1.1
-      semver: 7.8.3
+      semver: 7.8.4
     dev: true
 
   /@changesets/get-release-plan@4.0.16:
@@ -398,14 +398,14 @@ packages:
       sisteransi: 1.0.5
     dev: true
 
-  /@commitlint/cli@21.0.2(@types/node@25.9.2)(typescript@6.0.3):
+  /@commitlint/cli@21.0.2(@types/node@25.9.3)(typescript@6.0.3):
     resolution: {integrity: sha512-YMmfLbqBg+ZRvvmPhc+cilSQFrh/AgzVgCT1U/OifmUZEwPbvCtA8rN//YNaF9d5eoZphxVMGYtmwA2QgQORgg==}
     engines: {node: '>=22.12.0'}
     hasBin: true
     dependencies:
       '@commitlint/format': 21.0.1
       '@commitlint/lint': 21.0.2
-      '@commitlint/load': 21.0.2(@types/node@25.9.2)(typescript@6.0.3)
+      '@commitlint/load': 21.0.2(@types/node@25.9.3)(typescript@6.0.3)
       '@commitlint/read': 21.0.2
       '@commitlint/types': 21.0.1
       tinyexec: 1.2.4
@@ -459,7 +459,7 @@ packages:
     engines: {node: '>=22.12.0'}
     dependencies:
       '@commitlint/types': 21.0.1
-      semver: 7.8.3
+      semver: 7.8.4
     dev: true
 
   /@commitlint/lint@21.0.2:
@@ -472,7 +472,7 @@ packages:
       '@commitlint/types': 21.0.1
     dev: true
 
-  /@commitlint/load@21.0.2(@types/node@25.9.2)(typescript@6.0.3):
+  /@commitlint/load@21.0.2(@types/node@25.9.3)(typescript@6.0.3):
     resolution: {integrity: sha512-lwUE70hN0/qE/ZRROhbaX65ly/FF12DrqfReLCESo37M0OQCFAf2jRS+2tSCSORq+bm4Kdju7qNDj46uc1QzTA==}
     engines: {node: '>=22.12.0'}
     dependencies:
@@ -481,7 +481,7 @@ packages:
       '@commitlint/resolve-extends': 21.0.1
       '@commitlint/types': 21.0.1
       cosmiconfig: 9.0.2(typescript@6.0.3)
-      cosmiconfig-typescript-loader: 6.3.0(@types/node@25.9.2)(cosmiconfig@9.0.2)(typescript@6.0.3)
+      cosmiconfig-typescript-loader: 6.3.0(@types/node@25.9.3)(cosmiconfig@9.0.2)(typescript@6.0.3)
       es-toolkit: 1.47.0
       is-plain-obj: 4.1.0
       picocolors: 1.1.1
@@ -572,7 +572,7 @@ packages:
     dependencies:
       '@simple-libs/child-process-utils': 1.0.2
       '@simple-libs/stream-utils': 1.2.0
-      semver: 7.8.3
+      semver: 7.8.4
     dev: true
 
   /@emnapi/core@1.10.0:
@@ -858,7 +858,7 @@ packages:
     deprecated: This version has been deprecated and is no longer supported or maintained
     dev: true
 
-  /@inquirer/external-editor@1.0.3(@types/node@25.9.2):
+  /@inquirer/external-editor@1.0.3(@types/node@25.9.3):
     resolution: {integrity: sha512-RWbSrDiYmO4LbejWY7ttpxczuwQyZLBUyygsA9Nsv95hpzUWwnNTVQmAq3xuh7vNwCp07UTmE5i11XAEExx4RA==}
     engines: {node: '>=18'}
     peerDependencies:
@@ -867,7 +867,7 @@ packages:
       '@types/node':
         optional: true
     dependencies:
-      '@types/node': 25.9.2
+      '@types/node': 25.9.3
       chardet: 2.1.1
       iconv-lite: 0.7.2
     dev: true
@@ -951,33 +951,33 @@ packages:
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-core@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-uI++Wx6VkBJqVmkb4ZeExwAVpZiA2Do5NrEtXoDk0Pdvce3ytFXJoviT1sLOj16+qDIMnD5nWPfOhVpnDmRJKg==}
+  /@jsonjoy.com/fs-core@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-GDKuYHjP7vAI1kjBo73V+STKr9XIMZknW/xirpRW/EcShX0IKSev/ALafeRfC8Q331nodrXUFu04PugPB0MAhw==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
     dependencies:
-      '@jsonjoy.com/fs-node-builtins': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-utils': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-builtins': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-utils': 4.57.7(tslib@2.8.1)
       thingies: 2.6.0(tslib@2.8.1)
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-fsa@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-pKkw/yC5CzSZKhIIUIsH1przOa+K5jGmZIg1sWaSF24JojyrUFbjcQv7QrcGAudriei6HQ6R0BFj+V8NbQinJw==}
+  /@jsonjoy.com/fs-fsa@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-1rWsah2nZtRbNeP+c61QcfGfVrJXBmBD0Hm7Akvv4C9MKEasXnbiOS//iH3T3HwUSSBATGrfSp0Xi8nlNhATeQ==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
     dependencies:
-      '@jsonjoy.com/fs-core': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-builtins': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-utils': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-core': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-builtins': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-utils': 4.57.7(tslib@2.8.1)
       thingies: 2.6.0(tslib@2.8.1)
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-node-builtins@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-V4DgEFT3Cg5S9fCMOZSCVdTxdJWWLBO0WnAazV7hnCM96u5zXHyW/ubDAfcSVwqjkMJ50W1Y44IXtxRoIwaCVg==}
+  /@jsonjoy.com/fs-node-builtins@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-LWqfY1m+uAosjwM1RrKhMkUnP9jcq1RUczHsNO779ovm1E9v8I/pmj04eBAcoBjhC7ltcPbNFGyRJ5JqSJ7Jdg==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
@@ -985,63 +985,63 @@ packages:
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-node-to-fsa@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-+JptNw3iifihxH2rEXrninDzX4FFVW8JD/wPR8GbJPAeL9CQUSblrlumOPB5gZuS7tYRX+PJPLtT7XzKoRhv/Q==}
+  /@jsonjoy.com/fs-node-to-fsa@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-9T0zC9LKcAWXDoTLRdLMoJ0seOvJ5bgDKq1tSBoQAFQpPDstQUeV1Oe7PLypdu7F2D3ddRstmwgeNUEN/VaZ4Q==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
     dependencies:
-      '@jsonjoy.com/fs-fsa': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-builtins': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-utils': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-fsa': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-builtins': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-utils': 4.57.7(tslib@2.8.1)
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-node-utils@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-foyUrfS7WmYEUzqYXSNxmJBcSj04TABrkpFabwO9SCDCpVCfJ+qG+2sk5FjfiflG2n0SDFZDCJ6vYlJAEpxJFg==}
+  /@jsonjoy.com/fs-node-utils@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-jjWSDOsfcog2cZnUCwX5AHmlIq6b6wx5Pz/2LAcNjJ62Rajwg89Fy7ubN+lDHew0/1reLDa9Z5urybYadhh37g==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
     dependencies:
-      '@jsonjoy.com/fs-node-builtins': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-builtins': 4.57.7(tslib@2.8.1)
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-node@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-Kbn1jdkvDN4F2+BhoB6mMu7NCbhP0bgA5NcI1aJj/Q5UcU+I1JLLW+dEQean33iV4tXv35AzBVKPICnDltBpxw==}
+  /@jsonjoy.com/fs-node@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-xhnyeyEVTiIOibFvda/5n89nChMLCPKHHM2WQ+GGDf6+U/IrQBW3Qx6x+Uq1bkDbxBkybLOdIGoBtVBrE8Nngg==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
     dependencies:
-      '@jsonjoy.com/fs-core': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-builtins': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-utils': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-print': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-snapshot': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-core': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-builtins': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-utils': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-print': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-snapshot': 4.57.7(tslib@2.8.1)
       glob-to-regex.js: 1.2.0(tslib@2.8.1)
       thingies: 2.6.0(tslib@2.8.1)
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-print@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-96eAn4Dudtt67LTeuU47yUD+pg9/G/oKpI10zei9ljk3X3WK4lYKc+n3cpaPCAbKPzoyfxl0mXm8f8Y7BOSFXw==}
+  /@jsonjoy.com/fs-print@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-mFM4P4Gjq0QQHkLnXzPYPEMFrAoe6a5Myedgb6+CmL+nGd3MKvTxYPuD7N1dLIH9RBy1fLdzxd80qvuK8xrx3Q==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
     dependencies:
-      '@jsonjoy.com/fs-node-utils': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-utils': 4.57.7(tslib@2.8.1)
       tree-dump: 1.1.0(tslib@2.8.1)
       tslib: 2.8.1
     dev: true
 
-  /@jsonjoy.com/fs-snapshot@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-V57CMzbOgTzUWGOWQ8GzHQdpJP6JnrYVNCtTBNxVYEnlVRvo4uEJqHhtAT8vhDFrIuJOXLrTL1Fki4h5oI7xxg==}
+  /@jsonjoy.com/fs-snapshot@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-1GS3+plfm2giB3PqokiqyydyqYTPLcCQIKSkp0TdMNRh3KVk7rqRM6U785FLlVRG7XLmkc0KWr215OY+22K3QA==}
     engines: {node: '>=10.0'}
     peerDependencies:
       tslib: '2'
     dependencies:
       '@jsonjoy.com/buffers': 17.67.0(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-utils': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-utils': 4.57.7(tslib@2.8.1)
       '@jsonjoy.com/json-pack': 17.67.0(tslib@2.8.1)
       '@jsonjoy.com/util': 17.67.0(tslib@2.8.1)
       tslib: 2.8.1
@@ -1152,8 +1152,8 @@ packages:
       '@tybys/wasm-util': 0.9.0
     dev: true
 
-  /@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0):
-    resolution: {integrity: sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow==}
+  /@napi-rs/wasm-runtime@1.1.5(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0):
+    resolution: {integrity: sha512-AWPoBRJ9tsnVhor4sjO7rkni+7p+2IAEFj6cx06UgP10jkQHqay/36uRV/bFkgrh18D9vb4cr8Q0Pthskgzy+Q==}
     requiresBuild: true
     peerDependencies:
       '@emnapi/core': ^1.7.1
@@ -1386,7 +1386,7 @@ packages:
     dependencies:
       '@emnapi/core': 1.10.0
       '@emnapi/runtime': 1.10.0
-      '@napi-rs/wasm-runtime': 1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
+      '@napi-rs/wasm-runtime': 1.1.5(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
     dev: true
     optional: true
 
@@ -1513,8 +1513,8 @@ packages:
     resolution: {integrity: sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ==}
     dev: true
 
-  /@types/node@25.9.2:
-    resolution: {integrity: sha512-G05zqtJhcDLb8uslf5EjCxXg9G1KQxiV8OS0R26IC//Eoyitzqe8z37I7cqvnZlrlSfgocQRfSn/AHBZJJFyGw==}
+  /@types/node@25.9.3:
+    resolution: {integrity: sha512-603BddQMv3pUcr4U2dhujk83N2tTDVr/34wII2B6bJy6g+8WD6yUb11jszNs0gdi4PesVWl7ABt8nYMVpnLUcg==}
     dependencies:
       undici-types: 7.24.6
     dev: true
@@ -1541,7 +1541,7 @@ packages:
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.1.8
-      ast-v8-to-istanbul: 1.0.3
+      ast-v8-to-istanbul: 1.0.4
       istanbul-lib-coverage: 3.2.2
       istanbul-lib-report: 3.0.1
       istanbul-reports: 3.2.0
@@ -1549,7 +1549,7 @@ packages:
       obug: 2.1.2
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.8(@types/node@25.9.2)(@vitest/coverage-v8@4.1.8)(vite@8.0.16)
+      vitest: 4.1.8(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(vite@8.0.16)
     dev: true
 
   /@vitest/expect@4.1.8:
@@ -1577,7 +1577,7 @@ packages:
       '@vitest/spy': 4.1.8
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@25.9.2)(tsx@4.22.4)
+      vite: 8.0.16(@types/node@25.9.3)(tsx@4.22.4)
     dev: true
 
   /@vitest/pretty-format@4.1.8:
@@ -1791,8 +1791,8 @@ packages:
     engines: {node: '>=12'}
     dev: true
 
-  /ast-v8-to-istanbul@1.0.3:
-    resolution: {integrity: sha512-jCMQ6ZylLPudp0CDfBmQBZUsrh1/8psbmu9ibeVWKuHWD0YrH9YABwlKu5kVEFoT0GCQQW9Z/SxfuEbbkGQCRg==}
+  /ast-v8-to-istanbul@1.0.4:
+    resolution: {integrity: sha512-0bC0/4bTSrnwdhU3IsZDwEdojvuPrSg59OYZfKsLRtJZ0u8VBx9DebfqqG8bRdCC0I7vjgxmPi41P0lpkhJHtA==}
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       estree-walker: 3.0.3
@@ -2113,7 +2113,7 @@ packages:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
     dev: true
 
-  /cosmiconfig-typescript-loader@6.3.0(@types/node@25.9.2)(cosmiconfig@9.0.2)(typescript@6.0.3):
+  /cosmiconfig-typescript-loader@6.3.0(@types/node@25.9.3)(cosmiconfig@9.0.2)(typescript@6.0.3):
     resolution: {integrity: sha512-Akr82WH1Wfqatyiqpj8HDkO2o2KmJRu1FhKfSNJP3K4IdXwHfEyL7MOb62i1AGQVLtIQM+iCE9CGOtrfhR+mmA==}
     engines: {node: '>=v18'}
     peerDependencies:
@@ -2121,7 +2121,7 @@ packages:
       cosmiconfig: '>=9'
       typescript: '>=5'
     dependencies:
-      '@types/node': 25.9.2
+      '@types/node': 25.9.3
       cosmiconfig: 9.0.2(typescript@6.0.3)
       jiti: 2.6.1
       typescript: 6.0.3
@@ -3517,7 +3517,7 @@ packages:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
     dependencies:
-      semver: 7.8.3
+      semver: 7.8.4
     dev: true
 
   /markdown-table@3.0.4:
@@ -3675,19 +3675,19 @@ packages:
       '@types/mdast': 4.0.4
     dev: false
 
-  /memfs@4.57.6(tslib@2.8.1):
-    resolution: {integrity: sha512-WQK+DGjKCnPdpSyJUXphz+COF2uEhhsxQ3VIWBSbzpbbXuch3h4FePMqXrXGdLjsTgo4JFzBFsP6AWd9pVazGw==}
+  /memfs@4.57.7(tslib@2.8.1):
+    resolution: {integrity: sha512-YZPphUQZSRGk6ddPlsNuMbztrLwsbUATFNZcqKscSbSJZ4g0+Y3vSZLJ/rfnGZaB1FFhC7SrywZXev6i8lnHgg==}
     peerDependencies:
       tslib: '2'
     dependencies:
-      '@jsonjoy.com/fs-core': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-fsa': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-builtins': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-to-fsa': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-node-utils': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-print': 4.57.6(tslib@2.8.1)
-      '@jsonjoy.com/fs-snapshot': 4.57.6(tslib@2.8.1)
+      '@jsonjoy.com/fs-core': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-fsa': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-builtins': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-to-fsa': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-node-utils': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-print': 4.57.7(tslib@2.8.1)
+      '@jsonjoy.com/fs-snapshot': 4.57.7(tslib@2.8.1)
       '@jsonjoy.com/json-pack': 1.21.0(tslib@2.8.1)
       '@jsonjoy.com/util': 1.9.0(tslib@2.8.1)
       glob-to-regex.js: 1.2.0(tslib@2.8.1)
@@ -4747,8 +4747,8 @@ packages:
     hasBin: true
     dev: true
 
-  /semver@7.8.3:
-    resolution: {integrity: sha512-wnilbGyMxzbY7dNOl7jpKbLSjcfeweJWU5j4+u5qW+6/wuGD9KzIGOyZnQVSBM9E7DtWaaH3CyHkppYrKYoxwg==}
+  /semver@7.8.4:
+    resolution: {integrity: sha512-rUCObTnP32Q08R2uuIrt7r9PlEonuTmtuXYcW6s5kjdlj3xbnwe+21yXptAUYcMAABLkYYTtnmzb3w3EDZfueA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -5290,7 +5290,7 @@ packages:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  /vite@8.0.16(@types/node@25.9.2)(tsx@4.22.4):
+  /vite@8.0.16(@types/node@25.9.3)(tsx@4.22.4):
     resolution: {integrity: sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -5333,7 +5333,7 @@ packages:
       yaml:
         optional: true
     dependencies:
-      '@types/node': 25.9.2
+      '@types/node': 25.9.3
       lightningcss: 1.32.0
       picomatch: 4.0.4
       postcss: 8.5.15
@@ -5344,7 +5344,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vitest@4.1.8(@types/node@25.9.2)(@vitest/coverage-v8@4.1.8)(vite@8.0.16):
+  /vitest@4.1.8(@types/node@25.9.3)(@vitest/coverage-v8@4.1.8)(vite@8.0.16):
     resolution: {integrity: sha512-flY6ScbCIt9HThs+C5HS7jvGOB560DJtk/Z15IQROTA6zEy49Nh8T/dofWTQL+n3vswqn87sbJNiuqw1SDp5Ig==}
     engines: {node: ^20.0.0 || ^22.0.0 || >=24.0.0}
     hasBin: true
@@ -5385,7 +5385,7 @@ packages:
       jsdom:
         optional: true
     dependencies:
-      '@types/node': 25.9.2
+      '@types/node': 25.9.3
       '@vitest/coverage-v8': 4.1.8(vitest@4.1.8)
       '@vitest/expect': 4.1.8
       '@vitest/mocker': 4.1.8(vite@8.0.16)
@@ -5405,7 +5405,7 @@ packages:
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.0.16(@types/node@25.9.2)(tsx@4.22.4)
+      vite: 8.0.16(@types/node@25.9.3)(tsx@4.22.4)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - msw
