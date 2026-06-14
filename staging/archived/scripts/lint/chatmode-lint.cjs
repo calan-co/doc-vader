@@ -1,4 +1,4 @@
-# !/usr/bin/env node
+#!/usr/bin/env node
 
 /**
 
@@ -131,7 +131,7 @@ function validateCommands(commands, errors) {
   // Check for required commands
   const commandList = Array.isArray(commands)
     ? commands.map((c) =>
-        typeof c === "string" ? c.split[":"](0) : Object.keys[c](0)
+        typeof c === "string" ? c.split(":")[0] : Object.keys(c)[0]
       )
     : Object.keys(commands);
 

@@ -16,19 +16,6 @@ try {
 } catch (_) {}
 const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 
-// Template mapping logic only. All required section/field validation is now in schema/templates.
-const TEMPLATES = {
-  adr: path.resolve(
-    __dirname,
-    "../prompt-templates/documentation/README-templates/adr-catalog-readme.md"
-  ),
-  process: path.resolve(
-    __dirname,
-    "../prompt-templates/documentation/README-templates/process-readme.md"
-  ),
-  // Add more mappings as needed
-};
-
 function checkFile(file, relPath, errors) {
   // Only check for correct template mapping or custom procedural rules here.
   // All required section/field validation is now in schema/templates.

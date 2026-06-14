@@ -12,7 +12,14 @@ ARTIFACT_DIR=$(dirname -- "$ARTIFACT_PATH")
 mkdir -p "$ARTIFACT_DIR"
 
 if [ ! -f dist/cli/doc-vader.js ]; then
-  nx run doc-vader:build >/dev/null
+  if command -v nx >/dev/null 2>&1; then
+    nx run doc-vader:build >/dev/null
+  elif command -v pnpm >/dev/null 2>&1; then
+    pnpm exec nx run doc-vader:build >/dev/null
+  else
+    echo "dist/cli/doc-vader.js is missing and neither nx nor pnpm is available to build it." >&2
+    exit 1
+  fi
 fi
 
 set +e

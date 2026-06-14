@@ -5,7 +5,11 @@ import * as path from "path";
 import matter from "gray-matter";
 
 const DEFAULT_BACKLOG_DIRECTORY = "./backlog";
-const EXCLUDED_BACKLOG_PATH_SEGMENTS = ["/archive/", "/records/"] as const;
+const EXCLUDED_BACKLOG_PATH_SEGMENTS = [
+  "/archive/",
+  "/audit/",
+  "/records/",
+] as const;
 
 export interface ReadyAfkEligibilityTarget {
   file: string;
@@ -52,7 +56,7 @@ export function isReadyAfkEligibleWorkItem(
     return false;
   }
 
-  if ((item.lifecycle || "").trim().toLowerCase() === "archived") {
+  if ((item.lifecycle || "").trim().toLowerCase() !== "active") {
     return false;
   }
 

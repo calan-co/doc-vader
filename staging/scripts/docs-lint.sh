@@ -13,7 +13,8 @@ NC='\033[0m'
 
 HAS_ERRORS=0
 STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/docs-lint-status.XXXXXX")
-trap 'rm -f "$STATUS_FILE"' EXIT
+LINT_LOG=$(mktemp "${TMPDIR:-/tmp}/docs-lint-session.XXXXXX")
+trap 'rm -f "$STATUS_FILE" "$LINT_LOG"' EXIT
 
 FORMAT="text"
 FAIL_ON="error"
@@ -117,9 +118,7 @@ echo "${BLUE}(Unified Remark Pipeline)${NC}"
 echo "${BLUE}================================${NC}"
 echo ""
 
-# Aggregate all output to .lint-session.log for feedback loop
-LINT_LOG=".lint-session.log"
-rm -f "$LINT_LOG"
+# Aggregate all output to a temporary lint-session log for feedback loop
 
 {
   echo "${YELLOW}Running unified remark-lint validation...${NC}"

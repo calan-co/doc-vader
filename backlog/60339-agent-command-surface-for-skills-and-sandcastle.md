@@ -5,7 +5,8 @@ summary: Shape and then implement deterministic Doc-Vader CLI commands for confi
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
+status: in-progress
+status_reason: blocked
 priority: critical
 estimated: 8
 links:

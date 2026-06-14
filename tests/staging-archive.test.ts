@@ -28,8 +28,9 @@ const archivedSources = [
   "staging/scripts/lint/story-structure-lint.mjs",
   "staging/scripts/lint/doc-status-transition-lint.cjs",
   "staging/scripts/lint/readme-structure-lint.cjs",
-  "staging/scripts/lint/lint-util.cjs",
 ] as const;
+
+const activeSupportSources = ["staging/scripts/lint/lint-util.cjs"] as const;
 
 const archivedPath = (sourcePath: string) => sourcePath.replace(/^staging\//, "staging/archived/");
 const archivedReadmePath = path.join(repoRoot, "staging/archived/README.md");
@@ -41,6 +42,10 @@ describe("staging archive", () => {
 
       expect(existsSync(path.join(repoRoot, sourcePath))).toBe(false);
       expect(existsSync(path.join(repoRoot, targetPath))).toBe(true);
+    }
+
+    for (const sourcePath of activeSupportSources) {
+      expect(existsSync(path.join(repoRoot, sourcePath))).toBe(true);
     }
 
     const readme = readFileSync(archivedReadmePath, "utf8");

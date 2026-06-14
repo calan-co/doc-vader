@@ -15,10 +15,6 @@ const path = require("path");
 
 const yaml = require("js-yaml");
 const markdownlint = require("markdownlint");
-let sessionContext;
-try {
-  sessionContext = require("../../team-in-a-box-backend/src/services/sessionContextService");
-} catch (_) {}
 
 const DOCS_DIR = path.join(__dirname, "../../../docs");
 const CHATMODES_DIR = path.join(__dirname, "../../.github/chatmodes");
@@ -30,18 +26,13 @@ const REQUIRED_FRONTMATTER = {
   id: "string",
   type: ["work-item", "document"],
   subtype: "string",
-  lifecycle: ["draft", "active", "evergreen", "archived", "obsolete"],
+  lifecycle: ["draft", "active", "evergreen", "inactive"],
   status: [
     "proposed",
-    "accepted",
-    "inProgress",
-    "review",
-    "approved",
-    "complete",
-    "deprecated",
-    "superseded",
-    "rejected",
-    "duplicate",
+    "ready",
+    "in-progress",
+    "ready-for-review",
+    "closed",
   ],
 };
 
@@ -150,10 +141,6 @@ function fixInlineHtml(content) {
 }
 
 function fixAttribution(content) {
-  // Add BMAD™ Core attribution if missing
-  if (!content.includes("Powered by BMAD™ Core")) {
-    content += "\n\nPowered by BMAD™ Core";
-  }
   return content;
 }
 

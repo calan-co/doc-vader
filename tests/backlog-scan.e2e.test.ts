@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { createRequire } from "node:module";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const cliPath = path.join(repoRoot, "cli", "doc-vader.ts");
 

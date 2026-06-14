@@ -20,6 +20,7 @@ files.forEach((file) => {
 
   // Check multiline code blocks of type 'text'
   let match;
+  CODE_BLOCK_REGEX.lastIndex = 0;
   while ((match = CODE_BLOCK_REGEX.exec(content))) {
     const lang = (match[1] || "").toLowerCase();
     const body = match[2];
@@ -29,6 +30,7 @@ files.forEach((file) => {
   }
 
   // Check inline code blocks
+  INLINE_CODE_REGEX.lastIndex = 0;
   while ((match = INLINE_CODE_REGEX.exec(content))) {
     const code = match[1];
     if (/[+|\-]{3,}/.test(code)) {

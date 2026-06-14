@@ -8,6 +8,7 @@ import {
   formatScanReportJson,
 } from "../lib/backlog/scan-reporter.js";
 import { evaluateConditions } from "../lib/backlog/scan-conditions.js";
+import { writeBacklogConsumerConfig } from "./helpers/backlog-consumer-config.js";
 
 let testDir = "";
 
@@ -16,25 +17,7 @@ function mkFile(name: string, content: string) {
 }
 
 function mkConsumerConfig(automation: Record<string, unknown> = {}) {
-  fsSync.mkdirSync(path.join(testDir, ".doc-vader"), { recursive: true });
-  fsSync.writeFileSync(
-    path.join(testDir, ".doc-vader", "backlog-consumer.json"),
-    JSON.stringify(
-      {
-        roots: {
-          backlog: "backlog",
-          active: "backlog",
-          archive: "backlog/archive",
-          records: "backlog/records",
-          audit: "backlog/audit",
-        },
-        automation,
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
+  writeBacklogConsumerConfig(testDir, automation);
 }
 
 describe("scan-conditions", () => {
@@ -430,25 +413,31 @@ describe("scan reporters", () => {
     const rootDir = fsSync.mkdtempSync(
       path.join(os.tmpdir(), "doc-vader-scan-report-"),
     );
-    fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
-    const report = await scanBacklog({ rootDir });
-    const text = formatScanReportText(report);
-    expect(text).toMatch(/Backlog Scan Report/);
-    expect(text).toMatch(/Summary:/);
-    fsSync.rmSync(rootDir, { recursive: true, force: true });
+    try {
+      fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
+      const report = await scanBacklog({ rootDir });
+      const text = formatScanReportText(report);
+      expect(text).toMatch(/Backlog Scan Report/);
+      expect(text).toMatch(/Summary:/);
+    } finally {
+      fsSync.rmSync(rootDir, { recursive: true, force: true });
+    }
   });
 
   it("formatScanReportJson returns valid JSON", async () => {
     const rootDir = fsSync.mkdtempSync(
       path.join(os.tmpdir(), "doc-vader-scan-report-"),
     );
-    fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
-    const report = await scanBacklog({ rootDir });
-    const json = formatScanReportJson(report);
-    const parsed = JSON.parse(json);
-    expect(parsed).toHaveProperty("scanId");
-    expect(parsed).toHaveProperty("summary");
-    fsSync.rmSync(rootDir, { recursive: true, force: true });
+    try {
+      fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
+      const report = await scanBacklog({ rootDir });
+      const json = formatScanReportJson(report);
+      const parsed = JSON.parse(json);
+      expect(parsed).toHaveProperty("scanId");
+      expect(parsed).toHaveProperty("summary");
+    } finally {
+      fsSync.rmSync(rootDir, { recursive: true, force: true });
+    }
   });
 });
 

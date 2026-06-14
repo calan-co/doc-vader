@@ -2,7 +2,7 @@
 /**
  * Auto-generate documentation and work-item templates, linter configs, and validation logic from the JSON schema in /schemas.
  *
- * - Source of truth: schemas/frontmatter/document/latest.json, schemas/frontmatter/work-item/latest.json
+ * - Source of truth: schemas/frontmatter/by-type/document/latest.json, schemas/frontmatter/by-type/work-item/latest.json
  * - All templates reference the schema via a comment or metadata.
  * - All field rules, enums, and descriptions are embedded from the schema.
  * - Usage: npm run docs:generate-templates
@@ -13,14 +13,18 @@ const path = require("path");
 
 const DOC_SCHEMA_PATH = path.join(
   __dirname,
-  "../schemas/frontmatter/document/latest.json"
+  "../../../schemas/frontmatter/by-type/document/latest.json"
 );
 const WORK_ITEM_SCHEMA_PATH = path.join(
   __dirname,
-  "../schemas/frontmatter/work-item/latest.json"
+  "../../../schemas/frontmatter/by-type/work-item/latest.json"
 );
-const TEMPLATE_DIR = path.join(__dirname, "../docs/templates/backlog/");
-const EXAMPLES_DIR = path.join(__dirname, "../docs/examples/");
+const TEMPLATE_DIR = path.join(__dirname, "../../../docs/templates/backlog/");
+const GENERATED_TEMPLATE_DIR = path.join(
+  __dirname,
+  "../../../docs/templates/generated/"
+);
+const EXAMPLES_DIR = path.join(__dirname, "../../../docs/examples/");
 
 function loadSchema(schemaPath) {
   return JSON.parse(fs.readFileSync(schemaPath, "utf8"));
@@ -65,6 +69,10 @@ function buildFrontmatter(schema, requiredFields, data) {
 }
 
 function generateTemplate(schemaPath, templatePath, outPath, data) {
+  if (path.resolve(templatePath) === path.resolve(outPath)) {
+    throw new Error(`Refusing to overwrite template source: ${templatePath}`);
+  }
+
   const schema = loadSchema(schemaPath);
   const requiredFields = schema.required || [];
   const frontmatter = buildFrontmatter(
@@ -112,16 +120,18 @@ function generateTemplate(schemaPath, templatePath, outPath, data) {
 }
 
 function main() {
+  fs.mkdirSync(GENERATED_TEMPLATE_DIR, { recursive: true });
+
   // Generate templates (frontmatter only, no prepopulated data)
   generateTemplate(
     DOC_SCHEMA_PATH,
     path.join(TEMPLATE_DIR, "document.tpl.md"),
-    path.join(TEMPLATE_DIR, "document.tpl.md")
+    path.join(GENERATED_TEMPLATE_DIR, "document.tpl.md")
   );
   generateTemplate(
     WORK_ITEM_SCHEMA_PATH,
     path.join(TEMPLATE_DIR, "work-item.tpl.md"),
-    path.join(TEMPLATE_DIR, "work-item.tpl.md")
+    path.join(GENERATED_TEMPLATE_DIR, "work-item.tpl.md")
   );
 
   // Optionally, generate example files if data is provided (pseudo-code, replace with real data)
