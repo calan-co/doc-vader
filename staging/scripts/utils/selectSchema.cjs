@@ -1,4 +1,5 @@
 // Utility to select the correct frontmatter schema for a given file
+const fs = require("fs");
 const path = require("path");
 
 /**
@@ -8,8 +9,6 @@ const path = require("path");
  * @returns {string|null} Absolute path to schema file, or null if not found
  */
 function selectSchema(filePath, frontmatter) {
-  const fs = require("fs");
-  
   // 1. Use the type field from frontmatter if it exists
   if (frontmatter && typeof frontmatter === "object" && frontmatter.type) {
     const typeValue = String(frontmatter.type).toLowerCase();

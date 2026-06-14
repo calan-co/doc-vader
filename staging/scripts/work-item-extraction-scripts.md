@@ -68,17 +68,16 @@ git log --format="%ad" --date=short -- 'backlog/<filename>' | head -1
 
 ## 5. Validate Frontmatter Against Schema
 
-Validates extracted frontmatter against the centralized JSON schema using ajv-cli.
+Validates backlog work items against the repository backlog validation profile and centralized frontmatter schemas.
 
 ```sh
-npm install -g ajv-cli
-ajv validate -s schemas/work-item.schema.json -d 'backlog/*.md'
+pnpm run backlog:validate
 ```
 
 **Usage:**
 
-- Run in your project root after installing ajv-cli.
-- Validates all backlog work item files against the schema.
+- Run in your project root.
+- Validates all backlog work item files using `schemas/frontmatter/by-type/work-item/latest.json` through the repository validation pipeline.
 
 ---
 

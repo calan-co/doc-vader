@@ -20,7 +20,6 @@ import {
   normalizeWorkItemMatchPatterns,
 } from "./configurable-rules.js";
 import { getProviderForForge } from "./provider-registry.js";
-import type { BacklogAutomationProvider } from "./provider.js";
 import {
   createRecord,
   finalizeWorkItem,
@@ -72,8 +71,6 @@ async function collectMarkdownFiles(
 function parseWorkItem(
   file: string,
   content: string,
-  resolverOrder: ReturnType<typeof normalizeResolverOrder>,
-  provider: BacklogAutomationProvider,
   generatedAt: string,
   pullRequestPath?: string,
 ): WorkItemScanResult {
@@ -487,8 +484,6 @@ export async function scanBacklog(
       const result = parseWorkItem(
         rel,
         content,
-        resolverOrder,
-        provider,
         generatedAt,
         loadedConfig.automation.pullRequestPath,
       );
@@ -653,6 +648,7 @@ export async function scanBacklog(
                 id: result.id,
                 dryRun,
                 pullRequestPath: loadedConfig.automation.pullRequestPath,
+                provider,
               });
               result.candidateValidation = {
                 eligible: true,

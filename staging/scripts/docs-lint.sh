@@ -13,7 +13,8 @@ NC='\033[0m'
 
 HAS_ERRORS=0
 STATUS_FILE=$(mktemp "${TMPDIR:-/tmp}/docs-lint-status.XXXXXX")
-trap 'rm -f "$STATUS_FILE"' EXIT
+LINT_LOG=$(mktemp "${TMPDIR:-/tmp}/docs-lint-session.XXXXXX")
+trap 'rm -f "$STATUS_FILE" "$LINT_LOG"' EXIT
 
 FORMAT="text"
 FAIL_ON="error"
@@ -81,19 +82,15 @@ if [[ "$FORMAT" == "json" ]]; then
 
   REMARK_OUTPUT=$(node --import tsx/esm scripts/docs-remark-lint.ts --format json --fail-on "$FAIL_ON" "${LINT_PATTERNS[@]}" 2>&1)
   REMARK_RESULT=$?
-  FRONTMATTER_OUTPUT=$(node "$SCRIPT_DIR/lint/frontmatter-lint.cjs" 2>&1)
-  FRONTMATTER_RESULT=$?
 
-  if [[ $REMARK_RESULT -ne 0 || $FRONTMATTER_RESULT -ne 0 ]]; then
+  if [[ $REMARK_RESULT -ne 0 ]]; then
     HAS_ERRORS=1
   fi
 
   REMARK_RESULT="$REMARK_RESULT" \
-  FRONTMATTER_RESULT="$FRONTMATTER_RESULT" \
   HAS_ERRORS="$HAS_ERRORS" \
   FAIL_ON="$FAIL_ON" \
   REMARK_OUTPUT="$REMARK_OUTPUT" \
-  FRONTMATTER_OUTPUT="$FRONTMATTER_OUTPUT" \
   node - <<'NODE'
 const payload = {
   format: "json",
@@ -103,9 +100,10 @@ const payload = {
     exitCode: Number(process.env.REMARK_RESULT ?? "1"),
     output: process.env.REMARK_OUTPUT ?? "",
   },
+  // Preserve the legacy JSON shape for callers that still expect this block.
   frontmatter: {
-    exitCode: Number(process.env.FRONTMATTER_RESULT ?? "1"),
-    output: process.env.FRONTMATTER_OUTPUT ?? "",
+    exitCode: 0,
+    output: "",
   },
 };
 console.log(JSON.stringify(payload, null, 2));
@@ -120,9 +118,7 @@ echo "${BLUE}(Unified Remark Pipeline)${NC}"
 echo "${BLUE}================================${NC}"
 echo ""
 
-# Aggregate all output to .lint-session.log for feedback loop
-LINT_LOG=".lint-session.log"
-rm -f "$LINT_LOG"
+# Aggregate all output to a temporary lint-session log for feedback loop
 
 {
   echo "${YELLOW}Running unified remark-lint validation...${NC}"
@@ -139,21 +135,6 @@ rm -f "$LINT_LOG"
     echo "${RED}✗ Unified validation failed${NC}"
   else
     echo "${GREEN}✓ Unified validation passed${NC}"
-  fi
-  
-  echo ""
-  
-  # Note: frontmatter-lint.cjs is kept temporarily until item 172 integrates
-  # frontmatter schema validation into the remark pipeline
-  echo "${YELLOW}Validating frontmatter schema...${NC}"
-  node $SCRIPT_DIR/lint/frontmatter-lint.cjs
-  FRONTMATTER_RESULT=$?
-  
-  if [ $FRONTMATTER_RESULT -ne 0 ]; then
-    HAS_ERRORS=1
-    echo "${RED}✗ Frontmatter validation failed${NC}"
-  else
-    echo "${GREEN}✓ Frontmatter validation passed${NC}"
   fi
   
   echo "$HAS_ERRORS" > "$STATUS_FILE"

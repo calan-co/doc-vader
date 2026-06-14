@@ -32,6 +32,21 @@ function messageTexts(file: VFile): string[] {
   return file.messages.map((m) => m.message);
 }
 
+type RegistryFixtureCase = {
+  name: string;
+  nodes: Array<{
+    file: string;
+    id: string;
+    refs: string[];
+  }>;
+  expected: Partial<{
+    unresolved: number;
+    duplicateIds: number;
+    ambiguous: number;
+    cycles: number;
+  }>;
+};
+
 // ---------------------------------------------------------------------------
 // Suite 1: processor composition
 // ---------------------------------------------------------------------------
@@ -287,8 +302,17 @@ describe("Epic 170 Phase 1 – exit-gate baseline", () => {
       "tests/fixtures/registry/registry-cases.json",
       "utf8",
     );
-    const data = JSON.parse(raw) as { cases: unknown[] };
-    expect(Array.isArray(data.cases)).toBe(true);
-    expect(data.cases.length).toBeGreaterThanOrEqual(5);
+    const data = JSON.parse(raw) as { cases: RegistryFixtureCase[] };
+    expect(data.cases.map((entry) => entry.name)).toEqual([
+      "basic-resolution",
+      "missing-target",
+      "duplicate-id",
+      "ambiguous-basename",
+      "cycle-detection",
+    ]);
+    for (const entry of data.cases) {
+      expect(entry.nodes.length).toBeGreaterThan(0);
+      expect(entry.expected).toBeDefined();
+    }
   });
 });

@@ -1,0 +1,18 @@
+{
+  "@context": [
+    "./document.context.json",
+    {
+      "@version": 1.1,
+      "wi": "http://example.org/work-item#",
+      "xsd": "http://www.w3.org/2001/XMLSchema#",
+      "id": "wi:identifier",
+      "type": "@type",
+      "priority": "wi:priority",
+      "estimated": {
+        "@id": "wi:estimatedEffort",
+        "@type": "xsd:duration"
+      },
+      "assignee": "wi:assignee"
+    }
+  ]
+}

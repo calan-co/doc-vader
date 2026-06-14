@@ -6,6 +6,8 @@ const path = require("path");
 const { getMarkdownFilesFromArgs, reportErrors } = require("./lint-util.cjs");
 const DOCS_DIR = path.resolve(__dirname, "../../../docs");
 const LINK_REGEX = /\]\(([^)]+)\)/g; // captures the URL part inside (...)
+const FENCED_CODE_REGEX = /```[\s\S]*?```/g;
+const INLINE_CODE_REGEX = /`[^`\r\n]*`/g;
 
 function slugify(text) {
   return text
@@ -84,23 +86,15 @@ function resolveAndCheck(filePath, relPath, link, errors) {
 }
 
 function checkFile(file, relPath, errors) {
-  const content = fs.readFileSync(file, "utf8");
+  const content = fs
+    .readFileSync(file, "utf8")
+    .replace(FENCED_CODE_REGEX, "")
+    .replace(INLINE_CODE_REGEX, "");
 
   let match;
   LINK_REGEX.lastIndex = 0; // reset regex state
   while ((match = LINK_REGEX.exec(content))) {
     const link = match[1];
-    const matchIndex = match.index;
-
-    // Skip links that are inside inline code (backticks)
-    // Count backticks before this match to see if we're inside code
-    const beforeMatch = content.substring(0, matchIndex);
-    const backtickCount = (beforeMatch.match(/`/g) || []).length;
-    // If odd number of backticks, we're inside inline code
-    if (backtickCount % 2 === 1) {
-      continue;
-    }
-
     resolveAndCheck(file, relPath, link, errors);
   }
 }
@@ -127,14 +121,9 @@ function main() {
   const filteredErrors = [];
   for (const file of filesToCheck) {
     const relPath = path.relative(process.cwd(), file);
-    const beforeLen = errors.length;
-    checkFile(file, relPath, errors);
-    // Only keep errors for this file
-    for (let i = beforeLen; i < errors.length; ++i) {
-      if (errors[i].includes(relPath)) {
-        filteredErrors.push(errors[i]);
-      }
-    }
+    const fileErrors = [];
+    checkFile(file, relPath, fileErrors);
+    filteredErrors.push(...fileErrors);
   }
   const scopeMsg =
     args.length > 0 ? ` (scope: ${filesToCheck.length} file(s))` : "";

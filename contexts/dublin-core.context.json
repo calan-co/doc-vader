@@ -1,0 +1,20 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "dc": "http://purl.org/dc/terms/",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "title": "dc:title",
+    "description": "dc:description",
+    "created": {
+      "@id": "dc:created",
+      "@type": "xsd:dateTime"
+    },
+    "modified": {
+      "@id": "dc:modified",
+      "@type": "xsd:dateTime"
+    },
+    "creator": "dc:creator",
+    "subject": "dc:subject",
+    "audience": "dc:audience"
+  }
+}

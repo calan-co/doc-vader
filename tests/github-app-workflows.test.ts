@@ -8,6 +8,8 @@ const appTokenWorkflowFragments = [
   "default: 'doc-vader[bot]'",
   "token: ${{ steps.app-token.outputs.token || github.token }}",
 ] as const;
+const appTokenEnvFragment =
+  "GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}";
 const reusableIngestWorkflowPaths = [
   ".github/workflows/backlog-ingest-pull-request.yml",
   ".github/workflows/backlog-ingest-workflow-run.yml",
@@ -38,9 +40,8 @@ describe("doc-vader GitHub App workflow wiring", () => {
     const sweep = readWorkflow(".github/workflows/backlog-sweep.yml");
 
     expectWorkflowToContain(sweep, appTokenWorkflowFragments);
-    expect(sweep).toContain(
-      "GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}",
-    );
+    expect(sweep).toContain(appTokenEnvFragment);
+    expect(sweep).not.toContain("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
   });
 
   describe.each(reusableIngestWorkflowPaths)(

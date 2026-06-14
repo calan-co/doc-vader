@@ -7,15 +7,18 @@ doc-vader frontmatter properties to semantic vocabulary terms.
 
 | File | Applies to |
 |---|---|
-| [`document.jsonld`](document.jsonld) | All documents (`type: document`) |
-| [`work-item.jsonld`](work-item.jsonld) | Work items (`type: work-item`); extends `document.jsonld` |
+| [`base.context.json`](base.context.json) | Default fallback vocabulary context |
+| [`dublin-core.context.json`](dublin-core.context.json) | Dublin Core term mappings |
+| [`schema-org.context.json`](schema-org.context.json) | Schema.org namespace vocabulary |
+| [`document.context.json`](document.context.json) | All documents (`type: document`) |
+| [`work-item.context.json`](work-item.context.json) | Work items (`type: work-item`); extends `document.context.json` |
 
 ## Usage
 
 Reference a context from your document frontmatter:
 
 ```yaml
-"@context": "https://raw.githubusercontent.com/your-org/doc-vader/main/contexts/document.jsonld"
+"@context": "https://raw.githubusercontent.com/your-org/doc-vader/main/contexts/document.context.json"
 "@type": "schema:TechArticle"
 type: document
 id: my-doc
@@ -28,9 +31,9 @@ the context automatically:
 ```json
 {
   "vocabularies": {
-    "defaultContext": "contexts/document.jsonld",
+    "defaultContext": "contexts/base.context.json",
     "contexts": {
-      "work-item": "contexts/work-item.jsonld"
+      "work-item": "contexts/work-item.context.json"
     }
   }
 }
