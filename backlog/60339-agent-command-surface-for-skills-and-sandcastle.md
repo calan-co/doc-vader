@@ -20,6 +20,8 @@ links:
     - '[[60344-claim-bound-artifact-reservations]]'
     - '[[60345-claim-aware-record-and-close-commands]]'
     - '[[60346-sandcastle-doc-vader-task-adapter]]'
+  evidence:
+    - '[[record-20260614-164243-60339]]'
 tags:
   - agent
   - skills

@@ -14,6 +14,8 @@ links:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60330-unified-remark-validation-pipeline]]'
     - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
+  evidence:
+    - '[[record-20260614-164243-60341]]'
 tags:
   - afk
   - sandcastle

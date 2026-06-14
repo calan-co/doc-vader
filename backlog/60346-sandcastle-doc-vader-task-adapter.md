@@ -17,6 +17,8 @@ links:
     - '[[60345-claim-aware-record-and-close-commands]]'
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
+  evidence:
+    - '[[record-20260614-164243-60346]]'
 tags:
   - afk
   - sandcastle
