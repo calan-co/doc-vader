@@ -10,6 +10,9 @@ status_reason: investigation
 priority: high
 estimated: 8
 links:
+  pull_requests:
+    - 'https://github.com/calan-co/doc-vader/pull/60'
+    - 'https://github.com/calan-co/doc-vader/pull/62'
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
     - '[[record-20260612-context-coordination-pivot]]'
@@ -67,4 +70,6 @@ None - can start immediately.
 - [[archive/242-integration-seam-contract-for-concurrent-conflict-ci]]
 - [[archive/60337-context-coordination-policy-and-ci-seams]]
 
-- 2026-06-12: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+## Status Notes
+
+- 2026-06-12: Consolidation evidence is recorded in backlog/audit/auditing-backlog-report.json; implementation remains in progress until the acceptance criteria above are complete.

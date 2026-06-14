@@ -9,6 +9,9 @@ status: ready
 priority: high
 estimated: 5
 links:
+  pull_requests:
+    - 'https://github.com/calan-co/doc-vader/pull/61'
+    - 'https://github.com/calan-co/doc-vader/pull/62'
   depends_on:
     - '[[60341-task-ready-afk-eligibility-query]]'
     - '[[60342-task-scope-reservation-and-lookup]]'
