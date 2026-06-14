@@ -10,25 +10,25 @@ status_reason: investigation
 priority: high
 estimated: 8
 commits:
-  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: "chore(backlog): consolidate active work item backlog"
+  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
   evidence:
-    - "[[record-20260612-backlog-consolidation]]"
+    - '[[record-20260612-backlog-consolidation]]'
   reference:
-    - "[[archive/170.remark-lint-unified-adoption-epic]]"
-    - "[[archive/172.1.unify-frontmatter-validation-story]]"
-    - "[[archive/172.2.schema-error-position-mapping-task]]"
-    - "[[archive/172.frontmatter-schema-integration-feature]]"
-    - "[[archive/173.1.diataxis-template-story]]"
-    - "[[archive/173.diataxis-and-template-integration-feature]]"
-    - "[[archive/174.1.graph-and-naming-story]]"
-    - "[[archive/174.cross-file-graph-and-naming-feature]]"
-    - "[[archive/175.1.1.link-policy-plugin-task]]"
-    - "[[archive/175.1.policies-and-suggestions-story]]"
-    - "[[archive/175.extended-rules-and-autofix-feature]]"
-    - "[[archive/209-execution_item_ownership_lint]]"
-    - "[[archive/229.unified-remark-processor-test-suite-story]]"
-    - "[[archive/231.diataxis-template-compliance-checklist-task]]"
+    - '[[archive/170.remark-lint-unified-adoption-epic]]'
+    - '[[archive/172.1.unify-frontmatter-validation-story]]'
+    - '[[archive/172.2.schema-error-position-mapping-task]]'
+    - '[[archive/172.frontmatter-schema-integration-feature]]'
+    - '[[archive/173.1.diataxis-template-story]]'
+    - '[[archive/173.diataxis-and-template-integration-feature]]'
+    - '[[archive/174.1.graph-and-naming-story]]'
+    - '[[archive/174.cross-file-graph-and-naming-feature]]'
+    - '[[archive/175.1.1.link-policy-plugin-task]]'
+    - '[[archive/175.1.policies-and-suggestions-story]]'
+    - '[[archive/175.extended-rules-and-autofix-feature]]'
+    - '[[archive/209-execution_item_ownership_lint]]'
+    - '[[archive/229.unified-remark-processor-test-suite-story]]'
+    - '[[archive/231.diataxis-template-compliance-checklist-task]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/60
 tags:

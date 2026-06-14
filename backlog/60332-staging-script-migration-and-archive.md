@@ -10,25 +10,25 @@ status_reason: investigation
 priority: high
 estimated: 8
 commits:
-  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: "chore(backlog): consolidate active work item backlog"
+  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
   evidence:
-    - "[[record-20260612-backlog-consolidation]]"
+    - '[[record-20260612-backlog-consolidation]]'
   reference:
-    - "[[archive/180.staging-script-consolidation-epic]]"
-    - "[[archive/181.audit-staging-scripts-feature]]"
-    - "[[archive/182.migrate-core-scripts-to-typescript-feature]]"
-    - "[[archive/183.deprecate-obsolete-staging-scripts-feature]]"
-    - "[[archive/184.story-inventory-staging-scripts]]"
-    - "[[archive/185.story-migrate-lint-scripts]]"
-    - "[[archive/186.story-migrate-validation-utils]]"
-    - "[[archive/187.story-archive-deprecated-scripts]]"
-    - "[[archive/188.task-create-staging-inventory]]"
-    - "[[archive/189.task-migrate-frontmatter-lint]]"
-    - "[[archive/190.task-migrate-hierarchy-lint]]"
-    - "[[archive/191.task-migrate-frontmatter-utils]]"
-    - "[[archive/192.task-move-deprecated-to-archived]]"
-    - "[[archive/230.define-epic-180-audit-scope-task]]"
+    - '[[archive/180.staging-script-consolidation-epic]]'
+    - '[[archive/181.audit-staging-scripts-feature]]'
+    - '[[archive/182.migrate-core-scripts-to-typescript-feature]]'
+    - '[[archive/183.deprecate-obsolete-staging-scripts-feature]]'
+    - '[[archive/184.story-inventory-staging-scripts]]'
+    - '[[archive/185.story-migrate-lint-scripts]]'
+    - '[[archive/186.story-migrate-validation-utils]]'
+    - '[[archive/187.story-archive-deprecated-scripts]]'
+    - '[[archive/188.task-create-staging-inventory]]'
+    - '[[archive/189.task-migrate-frontmatter-lint]]'
+    - '[[archive/190.task-migrate-hierarchy-lint]]'
+    - '[[archive/191.task-migrate-frontmatter-utils]]'
+    - '[[archive/192.task-move-deprecated-to-archived]]'
+    - '[[archive/230.define-epic-180-audit-scope-task]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/60
 tags:
