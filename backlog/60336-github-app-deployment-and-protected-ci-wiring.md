@@ -12,6 +12,8 @@ estimated: 5
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
+  pull_requests:
+    - 'https://github.com/calan-co/doc-vader/pull/60'
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
     - '[[record-20260612-hosted-app-pivot]]'
@@ -22,8 +24,6 @@ links:
     - '[[archive/60331-ci-adoption-and-legacy-deprecation-gate]]'
     - '[[archive/60334-framework-reconciliation-and-release-readiness-decisions]]'
     - '[[archive/60337-context-coordination-policy-and-ci-seams]]'
-  pull_requests:
-    - https://github.com/calan-co/doc-vader/pull/60
 tags:
   - github
   - app
@@ -66,11 +66,11 @@ HITL: maintainer architecture approval for hosted service, published GitHub App,
 
 [[60338-hosted-saas-github-app-architecture-adr]] owns the architecture decision. This work item remains in progress for the protected CI wiring, migration, and non-weakening guardrail criteria that depend on that decision.
 
+- 2026-06-12: Consolidation evidence is recorded in backlog/audit/auditing-backlog-report.json; implementation remains in progress until the acceptance criteria above are complete.
+
 ## Supersedes
 
 - [[archive/234.github-app-deployment-and-ci-plan-story]]
 - [[archive/60331-ci-adoption-and-legacy-deprecation-gate]]
 - [[archive/60334-framework-reconciliation-and-release-readiness-decisions]]
 - [[archive/60337-context-coordination-policy-and-ci-seams]]
-
-- 2026-06-12: Consolidation evidence is recorded in backlog/audit/auditing-backlog-report.json; implementation remains in progress until the acceptance criteria above are complete.
