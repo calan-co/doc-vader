@@ -300,6 +300,66 @@ function normalizeLifecycle(value: unknown): string {
   return value.trim().toLowerCase();
 }
 
+function extractUncheckedChecklistItemsFromSection(
+  content: string,
+  heading: string,
+): string[] {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const sectionRegex = new RegExp(
+    `^##\\s+${escapedHeading}(?:\\b[^\\n]*)?\\s*\\n([\\s\\S]*?)(?=^##\\s|$)`,
+    "m",
+  );
+  const sectionMatch = content.match(sectionRegex);
+  if (!sectionMatch) {
+    return [];
+  }
+
+  const uncheckedItems: string[] = [];
+  const uncheckedRegex = /^\s*-\s*\[\s\]\s+(.*)$/gm;
+  for (const match of sectionMatch[1].matchAll(uncheckedRegex)) {
+    const item = match[1]?.trim();
+    if (item) {
+      uncheckedItems.push(item);
+    }
+  }
+
+  return uncheckedItems;
+}
+
+function assertNoUncheckedCompletionCriteria(
+  document: MarkdownDocument,
+  targetStatus: string,
+): void {
+  if (targetStatus !== "ready-for-review" && targetStatus !== "closed") {
+    return;
+  }
+
+  const uncheckedTasks = extractUncheckedChecklistItemsFromSection(
+    document.body,
+    "Tasks",
+  );
+  const uncheckedAcceptance = extractUncheckedChecklistItemsFromSection(
+    document.body,
+    "Acceptance Criteria",
+  );
+
+  if (uncheckedTasks.length === 0 && uncheckedAcceptance.length === 0) {
+    return;
+  }
+
+  const issues = [
+    ...uncheckedTasks.map((item) => `Tasks: ${item}`),
+    ...uncheckedAcceptance.map((item) => `Acceptance Criteria: ${item}`),
+  ];
+  throw new Error(
+    `Cannot transition '${String(
+      document.frontmatter.id ?? path.basename(document.filePath),
+    )}' to '${targetStatus}' with unchecked completion criteria:\n- ${issues.join(
+      "\n- ",
+    )}`,
+  );
+}
+
 function normalizeSha(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -795,6 +855,7 @@ export async function transitionWorkItem(
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
   const status = normalizeStatus(options.status);
+  assertNoUncheckedCompletionCriteria(document, status);
   const lifecycle =
     status === "closed" ? "active" : inferLifecycle(status, false);
 
@@ -918,6 +979,7 @@ export async function finalizeWorkItem(
   const document = await readMarkdown(filePath);
   const currentStatus = normalizeStatus(document.frontmatter.status);
   const currentLifecycle = normalizeLifecycle(document.frontmatter.lifecycle);
+  assertNoUncheckedCompletionCriteria(document, "closed");
   const links =
     typeof document.frontmatter.links === "object" &&
     document.frontmatter.links !== null

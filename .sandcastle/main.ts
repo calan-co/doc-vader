@@ -22,11 +22,38 @@
 //   "scripts": { "sandcastle": "npx tsx .sandcastle/main.ts" }
 
 import * as sandcastle from "@ai-hero/sandcastle";
+import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
 import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
+import matter from "gray-matter";
 import { z } from "zod";
 
 const AUTH_MODE = process.env.SANDCASTLE_AUTH_MODE?.trim() || "cli";
+const SANDBOX_MODE = process.env.SANDCASTLE_SANDBOX_PROVIDER?.trim().toLowerCase();
+const PODMAN_USERNS =
+  process.env.SANDCASTLE_PODMAN_USERNS?.trim().toLowerCase() ||
+  (process.platform === "darwin" ? "false" : "keep-id");
+const SANDBOX_PNPM_STORE_PATH =
+  process.env.SANDCASTLE_PNPM_STORE_PATH?.trim() ||
+  "/home/agent/.cache/pnpm/store";
+const HOST_PNPM_STORE_PATH =
+  expandHomePath(
+    process.env.SANDCASTLE_HOST_PNPM_STORE_PATH?.trim() ||
+      "~/.cache/doc-vader/sandcastle/pnpm-store-linux-arm64",
+  );
+const HOST_LINUX_NODE_MODULES_PATH =
+  expandHomePath(
+    process.env.SANDCASTLE_HOST_NODE_MODULES_PATH?.trim() ||
+      "~/.cache/doc-vader/sandcastle/node_modules-linux-arm64",
+  );
+const HOST_SANDCASTLE_CACHE_ROOT = expandHomePath(
+  "~/.cache/doc-vader/sandcastle",
+);
 
 const codexAgentEnv =
   AUTH_MODE === "api-key"
@@ -53,7 +80,7 @@ function preflightCodexAuth(): void {
     delete process.env.OPENAI_KEY;
 
     try {
-      execSync("codex login status", { stdio: "pipe" });
+      execFileSync("codex", ["login", "status"], { stdio: "pipe" });
     } catch {
       throw new Error(
         "Codex CLI login not detected. Run 'codex login' or set SANDCASTLE_AUTH_MODE=api-key with CODEX_API_KEY/OPENAI_API_KEY.",
@@ -85,13 +112,93 @@ const planSchema = z.object({
   ),
 });
 
+type EligibleIssue = {
+  id: string;
+  number: string;
+  title: string;
+  file: string;
+  tags: string[];
+};
+
+function normalizeIssueNumber(id: string): string {
+  return id.trim().replace(/^wi-/, "");
+}
+
+function walkMarkdownFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ent.name.startsWith(".")) {
+      continue;
+    }
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      out.push(...walkMarkdownFiles(p));
+    } else if (ent.isFile() && ent.name.endsWith(".md")) {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+function isAfkWorkItem(data: Record<string, unknown>): boolean {
+  const tags = Array.isArray(data.tags) ? data.tags.map(String) : [];
+  return (
+    data.type === "work-item" &&
+    data.status === "ready" &&
+    tags.includes("afk") &&
+    !tags.includes("hitl")
+  );
+}
+
+function loadEligibleIssues(): Map<string, EligibleIssue> {
+  const issues = new Map<string, EligibleIssue>();
+  for (const file of walkMarkdownFiles("backlog")) {
+    const posix = file.split(path.sep).join("/");
+    if (posix.includes("/archive/") || posix.includes("/records/")) {
+      continue;
+    }
+    const parsed = matter(fs.readFileSync(file, "utf8"));
+    const data = parsed.data as Record<string, unknown>;
+    if (!isAfkWorkItem(data)) {
+      continue;
+    }
+    const id = String(data.id || path.basename(file, ".md"));
+    const number = normalizeIssueNumber(id);
+    issues.set(number, {
+      id,
+      number,
+      title: String(data.title || id),
+      file: posix,
+      tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
+    });
+  }
+  return issues;
+}
+
+function assertPlanContainsOnlyAfkIssues(
+  issues: Array<{ id: string; title: string; branch: string }>,
+): void {
+  const eligibleIssues = loadEligibleIssues();
+  const invalid = issues.filter(
+    (issue) => !eligibleIssues.has(normalizeIssueNumber(issue.id)),
+  );
+  if (invalid.length > 0) {
+    const details = invalid
+      .map((issue) => `${issue.id} (${issue.title})`)
+      .join(", ");
+    throw new Error(
+      `Planner selected non-AFK or unavailable issue(s): ${details}. Sandcastle execution is limited to ready work items tagged afk and not tagged hitl.`,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
-const MAX_ITERATIONS = 10;
+const MAX_ITERATIONS = parsePositiveIntegerEnv("SANDCASTLE_MAX_ITERATIONS", 10);
 
 // Generous timeout overrides to survive Podman startup latency and agents
 // that go silent while waiting on subprocesses.
@@ -102,32 +209,184 @@ const timeouts = {
 };
 
 // Idle timeout in seconds — resets on every agent output event.
-// Default is 600 (10 min); 1800 (30 min) gives long-running tasks more room.
-const IDLE_TIMEOUT_SECONDS = 1800;
+// Default is 1200 (20 min). Override per environment when needed.
+const IDLE_TIMEOUT_SECONDS = parsePositiveIntegerEnv(
+  "SANDCASTLE_IDLE_TIMEOUT_SECONDS",
+  1200,
+);
 
 // Hooks run inside the sandbox before the agent starts each iteration.
-// pnpm install ensures the sandbox always has fresh dependencies.
+// Keep dependency hydration Linux-native and fast by using a persistent
+// pnpm store mount, then do an offline-first install with fetch fallback.
 const hooks = {
   sandbox: {
     onSandboxReady: [
-      { command: "CI=true pnpm install --frozen-lockfile", timeoutMs: 300_000 },
+      {
+        command:
+          "mkdir -p \"$SANDCASTLE_PNPM_STORE_PATH\" && (CI=true pnpm install --frozen-lockfile --offline --store-dir \"$SANDCASTLE_PNPM_STORE_PATH\" || (pnpm fetch --frozen-lockfile --prefer-offline --store-dir \"$SANDCASTLE_PNPM_STORE_PATH\" && CI=true pnpm install --frozen-lockfile --prefer-offline --store-dir \"$SANDCASTLE_PNPM_STORE_PATH\"))",
+        timeoutMs: 300_000,
+      },
     ],
   },
 };
 
-// Copy node_modules from the host into the worktree before each sandbox
-// starts. Avoids a full npm install from scratch; the hook above handles
-// platform-specific binaries and any packages added since the last copy.
-const copyToWorktree = ["node_modules"];
+// Host node_modules may contain platform-specific binaries (e.g. darwin-arm64)
+// that are incompatible with Linux sandboxes, so do not copy by default.
+const copyToWorktree =
+  process.env.SANDCASTLE_COPY_NODE_MODULES === "true"
+    ? ["node_modules"]
+    : [];
 
-const sandboxProvider = podman({
-  mounts: [
+function expandHomePath(input: string): string {
+  if (input === "~") {
+    return os.homedir();
+  }
+  if (input.startsWith("~/")) {
+    return path.join(os.homedir(), input.slice(2));
+  }
+  return input;
+}
+
+function parsePositiveIntegerEnv(name: string, defaultValue: number): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) {
+    return defaultValue;
+  }
+
+  const value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value < 1 || String(value) !== raw) {
+    throw new Error(`${name} must be a positive integer. Received: ${raw}`);
+  }
+
+  return value;
+}
+
+function commandSucceeds(command: string, args: string[] = []): boolean {
+  try {
+    execFileSync(command, args, { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function imageNameFromCwd(): string {
+  const name = process.cwd().split("/").filter(Boolean).pop() || "workspace";
+  return `sandcastle:${name}`;
+}
+
+function gitRepoRoot(): string {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      stdio: "pipe",
+    })
+      .toString()
+      .trim();
+  } catch {
+    return process.cwd();
+  }
+}
+
+function ensureContainerImage(runtime: "podman" | "docker"): void {
+  const imageName = process.env.SANDCASTLE_IMAGE_NAME?.trim() || imageNameFromCwd();
+  const imageExists =
+    runtime === "docker"
+      ? commandSucceeds("docker", ["image", "inspect", imageName])
+      : commandSucceeds("podman", ["image", "exists", imageName]);
+  if (imageExists) {
+    return;
+  }
+
+  const repoRoot = gitRepoRoot();
+  const containerfilePath = `${repoRoot}/.sandcastle/Containerfile`;
+
+  console.log(
+    `[setup] Image '${imageName}' not found for ${runtime}. Building from .sandcastle/Containerfile...`,
+  );
+  execFileSync(runtime, ["build", "-t", imageName, "-f", containerfilePath, repoRoot], {
+    stdio: "inherit",
+  });
+}
+
+function resolveSandboxProvider(): {
+  provider: ReturnType<typeof podman> | ReturnType<typeof docker> | ReturnType<typeof noSandbox>;
+  name: "podman" | "docker" | "no-sandbox";
+} {
+  const configuredMounts = [
     {
-      hostPath: "~/.codex",
+      hostPath: expandHomePath("~/.codex"),
       sandboxPath: "/home/agent/.codex",
     },
-  ],
-});
+    {
+      hostPath: HOST_PNPM_STORE_PATH,
+      sandboxPath: SANDBOX_PNPM_STORE_PATH,
+    },
+    {
+      hostPath: HOST_LINUX_NODE_MODULES_PATH,
+      sandboxPath: "/home/agent/workspace/node_modules",
+    },
+  ] as const;
+
+  // Ensure cache directories exist on host before runtime mount.
+  fs.mkdirSync(HOST_PNPM_STORE_PATH, { recursive: true });
+  fs.mkdirSync(HOST_LINUX_NODE_MODULES_PATH, { recursive: true });
+  fs.mkdirSync(HOST_SANDCASTLE_CACHE_ROOT, { recursive: true });
+
+  if (!SANDBOX_MODE) {
+    throw new Error(
+      "SANDCASTLE_SANDBOX_PROVIDER is required. Set it explicitly to one of: podman, docker, no-sandbox.",
+    );
+  }
+
+  if (SANDBOX_MODE === "podman") {
+    const podmanHealthy = commandSucceeds("podman", ["info"]);
+    if (!podmanHealthy) {
+      throw new Error(
+        "SANDCASTLE_SANDBOX_PROVIDER=podman but Podman is unavailable. Run 'podman machine start' or fix Podman connectivity.",
+      );
+    }
+    ensureContainerImage("podman");
+    return {
+      provider: podman({
+        mounts: configuredMounts,
+        env: { SANDCASTLE_PNPM_STORE_PATH: SANDBOX_PNPM_STORE_PATH },
+        userns: PODMAN_USERNS === "keep-id" ? "keep-id" : false,
+      }),
+      name: "podman",
+    };
+  }
+
+  if (SANDBOX_MODE === "docker") {
+    const dockerHealthy = commandSucceeds("docker", ["info"]);
+    if (!dockerHealthy) {
+      throw new Error(
+        "SANDCASTLE_SANDBOX_PROVIDER=docker but Docker is unavailable.",
+      );
+    }
+    ensureContainerImage("docker");
+    return {
+      provider: docker({
+        mounts: configuredMounts,
+        env: { SANDCASTLE_PNPM_STORE_PATH: SANDBOX_PNPM_STORE_PATH },
+      }),
+      name: "docker",
+    };
+  }
+
+  if (SANDBOX_MODE === "none" || SANDBOX_MODE === "no-sandbox") {
+    return { provider: noSandbox(), name: "no-sandbox" };
+  }
+
+  throw new Error(
+    `Unsupported SANDCASTLE_SANDBOX_PROVIDER value '${SANDBOX_MODE}'. Expected: podman, docker, no-sandbox.`,
+  );
+}
+
+const { provider: sandboxProvider, name: sandboxProviderName } =
+  resolveSandboxProvider();
+console.log(
+  `[setup] Sandbox provider: ${sandboxProviderName} (auth=${AUTH_MODE}, idleTimeout=${IDLE_TIMEOUT_SECONDS}s, maxIterations=${MAX_ITERATIONS})`,
+);
 
 // ---------------------------------------------------------------------------
 // Main loop
@@ -180,6 +439,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   }
 
   const issues = plan.output.issues;
+  assertPlanContainsOnlyAfkIssues(issues);
 
   if (issues.length === 0) {
     // No unblocked work — either everything is done or everything is blocked.

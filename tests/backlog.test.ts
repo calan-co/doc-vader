@@ -105,6 +105,18 @@ describe("backlog", () => {
       const content = readFile("10.no-links.md");
       expect(content).toContain("id: 10");
     });
+
+    it("escapes renamed link ids before matching", () => {
+      createFile(
+        "12.ref.md",
+        "---\nid: 12\nlinks:\n  - 7.old\n  - 7xold\n---\n",
+      );
+      const renameMap = { "7.old.md": "13.new.md" };
+      updateBacklogLinks(testDir, renameMap);
+      const content = readFile("12.ref.md");
+      expect(content).toContain("  - 13.new");
+      expect(content).toContain("  - 7xold");
+    });
   });
 
   describe("renumberDuplicateBacklogItems", () => {

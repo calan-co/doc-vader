@@ -10,12 +10,12 @@ priority: high
 estimated: 6
 links:
   depends_on:
-    - '[[60343-task-claim-store-and-lifecycle]]'
-    - '[[60344-claim-bound-artifact-reservations]]'
+    - "[[60343-task-claim-store-and-lifecycle]]"
+    - "[[60344-claim-bound-artifact-reservations]]"
   reference:
-    - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
+    - "[[60339-agent-command-surface-for-skills-and-sandcastle]]"
   evidence:
-    - '[[record-20260614-164457-60345]]'
+    - "[[record-20260614-164457-60345]]"
 tags:
   - afk
   - sandcastle
