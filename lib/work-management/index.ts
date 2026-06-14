@@ -306,7 +306,8 @@ function extractUncheckedChecklistItemsFromSection(
 ): string[] {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const sectionRegex = new RegExp(
-    `(?:^|\\n)##\\s+${escapedHeading}(?:\\b[^\\n]*)?\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
+    `^##\\s+${escapedHeading}(?:\\b[^\\n]*)?\\s*\\n([\\s\\S]*?)(?=^##\\s|$)`,
+    "m",
   );
   const sectionMatch = content.match(sectionRegex);
   if (!sectionMatch) {

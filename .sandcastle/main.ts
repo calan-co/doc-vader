@@ -25,7 +25,7 @@ import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
 import { noSandbox } from "@ai-hero/sandcastle/sandboxes/no-sandbox";
 import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
-import { execFileSync, execSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -41,18 +41,11 @@ const SANDBOX_PNPM_STORE_PATH =
   process.env.SANDCASTLE_PNPM_STORE_PATH?.trim() ||
   "/home/agent/.cache/pnpm/store";
 const HOST_PNPM_STORE_PATH =
-  expandHomePath(
-    process.env.SANDCASTLE_HOST_PNPM_STORE_PATH?.trim() ||
-      "~/.cache/doc-vader/sandcastle/pnpm-store-linux-arm64",
-  );
+  process.env.SANDCASTLE_HOST_PNPM_STORE_PATH?.trim() ||
+  "~/.cache/doc-vader/sandcastle/pnpm-store-linux-arm64";
 const HOST_LINUX_NODE_MODULES_PATH =
-  expandHomePath(
-    process.env.SANDCASTLE_HOST_NODE_MODULES_PATH?.trim() ||
-      "~/.cache/doc-vader/sandcastle/node_modules-linux-arm64",
-  );
-const HOST_SANDCASTLE_CACHE_ROOT = expandHomePath(
-  "~/.cache/doc-vader/sandcastle",
-);
+  process.env.SANDCASTLE_HOST_NODE_MODULES_PATH?.trim() ||
+  "~/.cache/doc-vader/sandcastle/node_modules-linux-arm64";
 
 const codexAgentEnv =
   AUTH_MODE === "api-key"
@@ -197,7 +190,10 @@ function assertPlanContainsOnlyAfkIssues(
 
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
-const MAX_ITERATIONS = parsePositiveIntegerEnv("SANDCASTLE_MAX_ITERATIONS", 10);
+const MAX_ITERATIONS = Number.parseInt(
+  process.env.SANDCASTLE_MAX_ITERATIONS ?? "10",
+  10,
+);
 
 // Generous timeout overrides to survive Podman startup latency and agents
 // that go silent while waiting on subprocesses.
@@ -209,9 +205,9 @@ const timeouts = {
 
 // Idle timeout in seconds — resets on every agent output event.
 // Default is 1200 (20 min). Override per environment when needed.
-const IDLE_TIMEOUT_SECONDS = parsePositiveIntegerEnv(
-  "SANDCASTLE_IDLE_TIMEOUT_SECONDS",
-  1200,
+const IDLE_TIMEOUT_SECONDS = Number.parseInt(
+  process.env.SANDCASTLE_IDLE_TIMEOUT_SECONDS ?? "1200",
+  10,
 );
 
 // Hooks run inside the sandbox before the agent starts each iteration.
@@ -236,33 +232,9 @@ const copyToWorktree =
     ? ["node_modules"]
     : [];
 
-function expandHomePath(input: string): string {
-  if (input === "~") {
-    return process.env.HOME || input;
-  }
-  if (input.startsWith("~/")) {
-    return path.join(process.env.HOME || "~", input.slice(2));
-  }
-  return input;
-}
-
-function parsePositiveIntegerEnv(name: string, defaultValue: number): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) {
-    return defaultValue;
-  }
-
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isInteger(value) || value < 1 || String(value) !== raw) {
-    throw new Error(`${name} must be a positive integer. Received: ${raw}`);
-  }
-
-  return value;
-}
-
-function commandSucceeds(command: string, args: string[] = []): boolean {
+function commandSucceeds(command: string): boolean {
   try {
-    execFileSync(command, args, { stdio: "pipe" });
+    execSync(command, { stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -286,11 +258,7 @@ function gitRepoRoot(): string {
 
 function ensureContainerImage(runtime: "podman" | "docker"): void {
   const imageName = process.env.SANDCASTLE_IMAGE_NAME?.trim() || imageNameFromCwd();
-  const imageExists =
-    runtime === "docker"
-      ? commandSucceeds("docker", ["image", "inspect", imageName])
-      : commandSucceeds("podman", ["image", "exists", imageName]);
-  if (imageExists) {
+  if (commandSucceeds(`${runtime} image exists ${imageName}`)) {
     return;
   }
 
@@ -300,9 +268,10 @@ function ensureContainerImage(runtime: "podman" | "docker"): void {
   console.log(
     `[setup] Image '${imageName}' not found for ${runtime}. Building from .sandcastle/Containerfile...`,
   );
-  execFileSync(runtime, ["build", "-t", imageName, "-f", containerfilePath, repoRoot], {
-    stdio: "inherit",
-  });
+  execSync(
+    `${runtime} build -t ${imageName} -f "${containerfilePath}" "${repoRoot}"`,
+    { stdio: "inherit" },
+  );
 }
 
 function resolveSandboxProvider(): {
@@ -325,9 +294,12 @@ function resolveSandboxProvider(): {
   ] as const;
 
   // Ensure cache directories exist on host before runtime mount.
-  fs.mkdirSync(HOST_PNPM_STORE_PATH, { recursive: true });
-  fs.mkdirSync(HOST_LINUX_NODE_MODULES_PATH, { recursive: true });
-  fs.mkdirSync(HOST_SANDCASTLE_CACHE_ROOT, { recursive: true });
+  execSync(
+    `mkdir -p ${HOST_PNPM_STORE_PATH} ${HOST_LINUX_NODE_MODULES_PATH} ~/.cache/doc-vader/sandcastle`,
+    {
+      stdio: "pipe",
+    },
+  );
 
   if (!SANDBOX_MODE) {
     throw new Error(
@@ -336,7 +308,7 @@ function resolveSandboxProvider(): {
   }
 
   if (SANDBOX_MODE === "podman") {
-    const podmanHealthy = commandSucceeds("podman", ["info"]);
+    const podmanHealthy = commandSucceeds("podman info");
     if (!podmanHealthy) {
       throw new Error(
         "SANDCASTLE_SANDBOX_PROVIDER=podman but Podman is unavailable. Run 'podman machine start' or fix Podman connectivity.",
@@ -354,7 +326,7 @@ function resolveSandboxProvider(): {
   }
 
   if (SANDBOX_MODE === "docker") {
-    const dockerHealthy = commandSucceeds("docker", ["info"]);
+    const dockerHealthy = commandSucceeds("docker info");
     if (!dockerHealthy) {
       throw new Error(
         "SANDCASTLE_SANDBOX_PROVIDER=docker but Docker is unavailable.",

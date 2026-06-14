@@ -132,7 +132,7 @@ estimated: 1
 
 ## Acceptance Criteria
 
-- [x] Verify the user-facing behavior.
+- [ ] Verify the user-facing behavior.
 `
     );
 
