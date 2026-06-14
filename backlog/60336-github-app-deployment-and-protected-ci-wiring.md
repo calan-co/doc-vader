@@ -9,6 +9,8 @@ status: in-progress
 status_reason: investigation
 priority: high
 estimated: 5
+commits:
+  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
@@ -20,6 +22,8 @@ links:
     - '[[archive/60331-ci-adoption-and-legacy-deprecation-gate]]'
     - '[[archive/60334-framework-reconciliation-and-release-readiness-decisions]]'
     - '[[archive/60337-context-coordination-policy-and-ci-seams]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/60
 tags:
   - github
   - app

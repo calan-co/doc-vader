@@ -9,6 +9,8 @@ status: in-progress
 status_reason: investigation
 priority: high
 estimated: 8
+commits:
+  ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
@@ -27,6 +29,8 @@ links:
     - '[[archive/191.task-migrate-frontmatter-utils]]'
     - '[[archive/192.task-move-deprecated-to-archived]]'
     - '[[archive/230.define-epic-180-audit-scope-task]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/60
 tags:
   - staging
   - script
