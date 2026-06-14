@@ -51,15 +51,15 @@
  * #endregion
  */
 
-import { lintRule } from "unified-lint-rule";
+import { lintRule, type Label, type Severity } from "unified-lint-rule";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import matter from "gray-matter";
-import type { Plugin } from "unified";
 import type { Root } from "mdast";
+import type { Plugin as LintRulePlugin } from "unified-lint-rule";
 
 export const optionsSchema = z.object({
   enabled: z.boolean().optional().default(true),
@@ -83,6 +83,13 @@ interface ResolvedSchema {
   schema: any;
   cacheKey: string;
 }
+
+type FrontmatterSchemaConfig =
+  | Readonly<Options>
+  | Severity
+  | Label
+  | boolean
+  | [level: Label | Severity | boolean, option?: Readonly<Options>];
 
 const validationCache = new Map<string, CacheEntry>();
 
@@ -340,6 +347,6 @@ const remarkFrontmatterSchema = lintRule(
       file.message(msg, { source: "remark-lint:frontmatter-schema" });
     }
   },
-) as unknown as Plugin<[(Readonly<Options> | null | undefined)?], string, Root>;
+) as unknown as LintRulePlugin<Root, Readonly<Options>>;
 
 export default remarkFrontmatterSchema;

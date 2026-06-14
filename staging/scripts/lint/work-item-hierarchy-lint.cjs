@@ -13,13 +13,13 @@
 
 const fs = require("fs");
 const path = require("path");
+const yaml = require("js-yaml");
 
 const BACKLOG_DIR = path.join(__dirname, "../../backlog");
 
 const VALID_HIERARCHY = {
   epic: {
     canContain: ["feature"],
-    cannotBeChildOf: [],
     mustHaveParent: false,
   },
   feature: {
@@ -44,64 +44,44 @@ function extractFrontmatter(content) {
   if (!match) return null;
 
   try {
-    // Simple YAML parsing for frontmatter
-    const lines = match[1].split("\n");
-    const frontmatter = { links: [] };
-    let currentKey = null;
-    let inLinks = false;
-    let currentLink = null;
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-
-      if (trimmed.startsWith("links:")) {
-        inLinks = true;
-        continue;
-      }
-
-      if (inLinks && trimmed.startsWith("- type:")) {
-        if (currentLink) frontmatter.links.push(currentLink);
-        currentLink = { type: trimmed.split(":")[1].trim() };
-        continue;
-      }
-
-      if (inLinks && trimmed.startsWith("target:")) {
-        if (currentLink) {
-          currentLink.target = trimmed
-            .split(":")[1]
-            .trim()
-            .replace(/['"]/g, "");
-        }
-        continue;
-      }
-
-      if (inLinks && trimmed.startsWith("note:")) {
-        if (currentLink) {
-          currentLink.note = trimmed.substring(trimmed.indexOf(":") + 1).trim();
-        }
-        continue;
-      }
-
-      if (!trimmed.startsWith("-") && trimmed.includes(":")) {
-        if (currentLink && inLinks) {
-          frontmatter.links.push(currentLink);
-          currentLink = null;
-          inLinks = false;
-        }
-
-        const [key, ...valueParts] = trimmed.split(":");
-        const value = valueParts.join(":").trim();
-        frontmatter[key.trim()] = value.replace(/['"#]/g, "");
-      }
-    }
-
-    if (currentLink) frontmatter.links.push(currentLink);
-
-    return frontmatter;
+    return yaml.load(match[1]);
   } catch (err) {
     console.warn(`Warning: Could not parse frontmatter: ${err.message}`);
     return null;
   }
+}
+
+function normalizeLinkEntries(links) {
+  if (!links) return [];
+
+  if (Array.isArray(links)) {
+    return links.flatMap((link) => {
+      if (typeof link === "string") {
+        return [{ target: link }];
+      }
+      if (link && typeof link === "object") {
+        return [link];
+      }
+      return [];
+    });
+  }
+
+  if (typeof links === "object") {
+    return Object.entries(links).flatMap(([type, targets]) => {
+      const values = Array.isArray(targets) ? targets : [targets];
+      return values.flatMap((target) => {
+        if (typeof target === "string") {
+          return [{ type, target }];
+        }
+        if (target && typeof target === "object") {
+          return [{ type, ...target }];
+        }
+        return [];
+      });
+    });
+  }
+
+  return [];
 }
 
 function validateWorkItem(filePath, filename) {
@@ -135,7 +115,7 @@ function validateWorkItem(filePath, filename) {
       );
     }
 
-    if (!frontmatter.links || frontmatter.links.length === 0) {
+    if (normalizeLinkEntries(frontmatter.links).length === 0) {
       errors.push(
         `Story has no links to parent feature (stories must implement a feature)`
       );
@@ -155,14 +135,15 @@ function validateWorkItem(filePath, filename) {
 
   // Validate parent links
   if (rules.mustHaveParent) {
-    if (!frontmatter.links || frontmatter.links.length === 0) {
+    const links = normalizeLinkEntries(frontmatter.links);
+    if (links.length === 0) {
       errors.push(
         `${subtype} must link to parent ${rules.mustBeChildOf.join(" or ")}`
       );
     } else {
       let hasValidParent = false;
 
-      for (const link of frontmatter.links) {
+      for (const link of links) {
         if (!link.target) continue;
 
         // Extract work item number from wikilink

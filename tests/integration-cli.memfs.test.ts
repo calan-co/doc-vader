@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execSync } from "child_process";
+import { existsSync } from "fs";
 import path from "path";
 import { vol } from "memfs";
 import "./helper/setupTests";
@@ -19,6 +20,12 @@ const runCli = (args = "") => {
 
 describe("doc-vader CLI integration with memfs", () => {
   beforeAll(() => {
+    if (!existsSync(cliPath)) {
+      throw new Error(
+        "Built CLI not found. Run `pnpm run build` before integration-cli.memfs.test.ts.",
+      );
+    }
+
     // Setup: create a docs directory and a valid markdown file in memfs
     vol.fromJSON(
       {

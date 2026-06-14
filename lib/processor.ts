@@ -52,9 +52,11 @@ export function createTiabProcessor(options: TiabProcessorOptions = {}) {
         }
       : undefined;
 
-  const frontmatterSchemaConfig =
+  const frontmatterSchemaConfig:
+    | FrontmatterSchemaOptions
+    | [LintSeverity, FrontmatterSchemaOptions] =
     severity !== undefined
-      ? ([severity, frontmatterRuleOptions ?? {}] as const)
+      ? [severity, frontmatterRuleOptions ?? {}]
       : (frontmatterRuleOptions ?? { enabled: false });
 
   return unified()
@@ -69,6 +71,6 @@ export function createTiabProcessor(options: TiabProcessorOptions = {}) {
     )
     .use(remarkLintWorkItemArchiveReadiness, options.workItemArchiveReadiness)
     .use(remarkLintWorkItemClosureEvidence, options.workItemClosureEvidence)
-    .use(remarkFrontmatterSchema as any, frontmatterSchemaConfig as any)
+    .use(remarkFrontmatterSchema, frontmatterSchemaConfig)
     .use(remarkStringify);
 }

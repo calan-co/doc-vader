@@ -30,8 +30,8 @@ function checkFile(file, relPath, errors) {
     // Remove inline code (backticks) to avoid false positives in examples
     const lineWithoutInlineCode = line.replace(/`[^`]+`/g, "");
 
-    const regex = /<a\s+(?:id|name)=["'][^"']*["'][^>]*>/gi;
-    if (regex.test(lineWithoutInlineCode)) {
+    HTML_ANCHOR_REGEX.lastIndex = 0;
+    if (HTML_ANCHOR_REGEX.test(lineWithoutInlineCode)) {
       errors.push(
         `Explicit HTML anchor in ${relPath}:${lineNum}\n  Use auto-generated heading anchors instead of <a id="..."> or <a name="...">`
       );

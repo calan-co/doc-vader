@@ -12,6 +12,7 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkLint from "remark-lint";
+import remarkFrontmatterSchema from "../lib/plugins/remark-frontmatter-schema.js";
 import remarkLintChecklist from "../lib/plugins/remark-lint-checklist.js";
 import remarkLintCrossref from "../lib/plugins/remark-lint-crossref.js";
 import remarkLintTemplateCompliance from "../lib/plugins/remark-lint-template-compliance.js";
@@ -77,12 +78,18 @@ for (let i = 0; i < rawArgs.length; i++) {
 
 const effectivePatterns =
   patterns.length > 0 ? patterns : ["docs/**/*.md", "*.md", "backlog/**/*.md"];
+const schemaDir = process.env.DOCS_SCHEMA_DIR?.trim() || "schemas/frontmatter";
+const frontmatterSchemaConfig: [
+  "error",
+  { enabled: true; schemaDir: string },
+] = ["error", { enabled: true, schemaDir }];
 
 // Create processor with all plugins
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
   .use(remarkLint)
+  .use(remarkFrontmatterSchema, frontmatterSchemaConfig)
   .use(remarkLintChecklist, false)
   .use(remarkLintTemplateCompliance, false)
   .use(remarkLintDiataxisClassifier, { enabled: true })

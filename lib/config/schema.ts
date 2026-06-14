@@ -9,6 +9,9 @@
 
 import { Type, type Static } from "@sinclair/typebox";
 
+const JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema";
+const JSON_SCHEMA_2020_12_OPTIONS = { $schema: JSON_SCHEMA_2020_12 } as const;
+
 // ---------------------------------------------------------------------------
 // SchemaMapConfigSchema
 // ---------------------------------------------------------------------------
@@ -42,6 +45,7 @@ export const SchemaMapConfigSchema = Type.Object(
     ),
   },
   {
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "Schema routing rules for type/subtype → schema resolution.",
   },
@@ -72,6 +76,7 @@ export const ValidationConfigSchema = Type.Object(
     ),
   },
   {
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "Controls validation strictness and failure thresholds.",
   },
@@ -94,9 +99,7 @@ export const BacklogConfigSchema = Type.Object(
         default: "backlog",
       }),
     ),
-    schemaMap: Type.Optional(
-      SchemaMapConfigSchema,
-    ),
+    schemaMap: Type.Optional(SchemaMapConfigSchema),
     profiles: Type.Optional(
       Type.Array(Type.String(), {
         description:
@@ -105,6 +108,7 @@ export const BacklogConfigSchema = Type.Object(
     ),
   },
   {
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "Configuration for the backlog audit and validate commands.",
   },
@@ -142,6 +146,7 @@ export const VocabularyConfigSchema = Type.Object(
     ),
   },
   {
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description: "JSON-LD vocabulary context settings for semantic enrichment.",
   },
@@ -160,6 +165,12 @@ export type VocabularyConfig = Static<typeof VocabularyConfigSchema>;
  */
 export const DocVaderConfigSchema = Type.Object(
   {
+    $schema: Type.Optional(
+      Type.String({
+        description:
+          "Optional JSON Schema URI identifying the config schema used to validate this file.",
+      }),
+    ),
     extends: Type.Optional(
       Type.Union([Type.String(), Type.Array(Type.String())], {
         description:
@@ -173,6 +184,7 @@ export const DocVaderConfigSchema = Type.Object(
     vocabularies: Type.Optional(VocabularyConfigSchema),
   },
   {
+    ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description:
       "Root .doc.json configuration. Supports composition via extends.",

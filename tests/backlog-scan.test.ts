@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, afterEach, expect } from "vitest";
+import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import * as fsSync from "node:fs";
 import * as path from "node:path";
 import os from "node:os";
@@ -8,6 +8,7 @@ import {
   formatScanReportJson,
 } from "../lib/backlog/scan-reporter.js";
 import { evaluateConditions } from "../lib/backlog/scan-conditions.js";
+import { writeBacklogConsumerConfig } from "./helpers/backlog-consumer-config.js";
 
 let testDir = "";
 
@@ -16,25 +17,7 @@ function mkFile(name: string, content: string) {
 }
 
 function mkConsumerConfig(automation: Record<string, unknown> = {}) {
-  fsSync.mkdirSync(path.join(testDir, ".doc-vader"), { recursive: true });
-  fsSync.writeFileSync(
-    path.join(testDir, ".doc-vader", "backlog-consumer.json"),
-    JSON.stringify(
-      {
-        roots: {
-          backlog: "backlog",
-          active: "backlog",
-          archive: "backlog/archive",
-          records: "backlog/records",
-          audit: "backlog/audit",
-        },
-        automation,
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
+  writeBacklogConsumerConfig(testDir, automation);
 }
 
 describe("scan-conditions", () => {
@@ -430,25 +413,31 @@ describe("scan reporters", () => {
     const rootDir = fsSync.mkdtempSync(
       path.join(os.tmpdir(), "doc-vader-scan-report-"),
     );
-    fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
-    const report = await scanBacklog({ rootDir });
-    const text = formatScanReportText(report);
-    expect(text).toMatch(/Backlog Scan Report/);
-    expect(text).toMatch(/Summary:/);
-    fsSync.rmSync(rootDir, { recursive: true, force: true });
+    try {
+      fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
+      const report = await scanBacklog({ rootDir });
+      const text = formatScanReportText(report);
+      expect(text).toMatch(/Backlog Scan Report/);
+      expect(text).toMatch(/Summary:/);
+    } finally {
+      fsSync.rmSync(rootDir, { recursive: true, force: true });
+    }
   });
 
   it("formatScanReportJson returns valid JSON", async () => {
     const rootDir = fsSync.mkdtempSync(
       path.join(os.tmpdir(), "doc-vader-scan-report-"),
     );
-    fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
-    const report = await scanBacklog({ rootDir });
-    const json = formatScanReportJson(report);
-    const parsed = JSON.parse(json);
-    expect(parsed).toHaveProperty("scanId");
-    expect(parsed).toHaveProperty("summary");
-    fsSync.rmSync(rootDir, { recursive: true, force: true });
+    try {
+      fsSync.mkdirSync(path.join(rootDir, "backlog"), { recursive: true });
+      const report = await scanBacklog({ rootDir });
+      const json = formatScanReportJson(report);
+      const parsed = JSON.parse(json);
+      expect(parsed).toHaveProperty("scanId");
+      expect(parsed).toHaveProperty("summary");
+    } finally {
+      fsSync.rmSync(rootDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -509,6 +498,94 @@ links:
         "12.archive-ready.md",
       );
       expect(fsSync.existsSync(archived)).toBe(true);
+    },
+  );
+
+  it(
+    "validate-archive-candidates blocks finalization when any linked PR is unmerged",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({ validateArchiveCandidates: true });
+
+      const originalGithubToken = process.env.GITHUB_TOKEN;
+      const originalFetch = globalThis.fetch;
+      process.env.GITHUB_TOKEN = "test-token";
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/pulls/12")) {
+          return {
+            ok: true,
+            status: 200,
+            statusText: "OK",
+            json: async () => ({
+              number: 12,
+              title: "Merged PR",
+              state: "closed",
+              merged: true,
+              merge_commit_sha: "abc123",
+              html_url: "https://github.com/calan-co/doc-vader/pull/12",
+            }),
+          } as Response;
+        }
+        if (url.includes("/pulls/13")) {
+          return {
+            ok: true,
+            status: 200,
+            statusText: "OK",
+            json: async () => ({
+              number: 13,
+              title: "Open PR",
+              state: "open",
+              merged: false,
+              html_url: "https://github.com/calan-co/doc-vader/pull/13",
+            }),
+          } as Response;
+        }
+        throw new Error(`Unexpected fetch request: ${url}`);
+      }) as typeof fetch;
+
+      try {
+        mkFile(
+          "backlog/12.partially-merged.md",
+          `---
+id: "work-item:012"
+type: work-item
+status: ready-for-review
+lifecycle: active
+title: Partially merged candidate
+actual: 8
+completed_date: "2026-01-01"
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/12"
+    - "https://github.com/calan-co/doc-vader/pull/13"
+  evidence:
+    - "[[record-20260101-000000-012]]"
+---
+# Work item
+`,
+        );
+
+        const report = await scanBacklog({
+          rootDir: testDir,
+          consumerConfig: ".doc-vader/backlog-consumer.json",
+        });
+
+        const item = report.items.find((entry) => entry.id === "work-item:012");
+        expect(item?.candidateValidation?.eligible).toBe(false);
+        expect(item?.candidateValidation?.discrepancies.join("\n")).toMatch(
+          /not merged/i,
+        );
+        expect(report.summary.candidatesArchived).toBe(0);
+        expect(fsSync.existsSync(path.join(testDir, "backlog", "archive", "12.partially-merged.md"))).toBe(false);
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (originalGithubToken === undefined) {
+          delete process.env.GITHUB_TOKEN;
+        } else {
+          process.env.GITHUB_TOKEN = originalGithubToken;
+        }
+      }
     },
   );
 
