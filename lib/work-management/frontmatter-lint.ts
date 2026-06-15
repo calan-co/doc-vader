@@ -358,14 +358,16 @@ function extractWikilinkTarget(reference: string): string | null {
   return target.length > 0 ? target : null;
 }
 
+/**
+ * Return unchecked checklist item labels from a named second-level markdown section.
+ */
 function extractUncheckedChecklistItemsFromSection(
   content: string,
   heading: string,
 ): string[] {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const sectionRegex = new RegExp(
-    `^##\\s+${escapedHeading}(?:\\b[^\\n]*)?\\s*\\n([\\s\\S]*?)(?=^##\\s|$)`,
-    "m",
+    `(?:^|\\n)##\\s+${escapedHeading}(?:\\b[^\\n]*)?\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
   );
   const sectionMatch = content.match(sectionRegex);
   if (!sectionMatch) {

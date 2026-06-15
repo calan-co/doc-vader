@@ -159,7 +159,7 @@ estimated: 1
 
 ## Acceptance Criteria
 
-- [ ] Verify the user-facing behavior.
+- [x] Verify the user-facing behavior.
 `,
     );
 
@@ -169,7 +169,9 @@ estimated: 1
         id: "work-item:sample",
         status: "ready-for-review",
       }),
-    ).rejects.toThrow(/unchecked completion criteria/i);
+    ).rejects.toThrow(
+      /unchecked completion criteria:[\s\S]*Tasks: Finish the second part(?![\s\S]*Acceptance Criteria)/i,
+    );
   });
 
   it("refuses to close a work item with unchecked acceptance criteria", async () => {
