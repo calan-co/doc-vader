@@ -5,7 +5,7 @@ summary: Decide the hosted-service and published GitHub App architecture, includ
 type: work-item
 subtype: story
 lifecycle: active
-status: in-progress
+status: running
 status_reason: investigation
 priority: high
 estimated: 5

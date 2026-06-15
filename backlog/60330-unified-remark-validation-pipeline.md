@@ -5,7 +5,7 @@ summary: Deliver schema-backed remark validation, Diataxis/template rules, cross
 type: work-item
 subtype: story
 lifecycle: active
-status: in-progress
+status: running
 status_reason: investigation
 priority: high
 estimated: 8

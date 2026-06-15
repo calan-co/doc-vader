@@ -253,44 +253,50 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values));
 }
 
+function isWithinPath(child: string, parent: string): boolean {
+  const relativePath = path.relative(path.resolve(parent), path.resolve(child));
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+  );
+}
+
 function inferStatusReason(status: string): string {
   switch (status) {
-    case "proposed":
+    case "draft":
       return "needs-triage";
     case "ready":
-      return "prioritized";
-    case "in-progress":
+      return "auto";
+    case "running":
       return "implementation";
-    case "ready-for-review":
-      return "awaiting-review";
-    case "closed":
+    case "paused":
+      return "blocked";
+    case "completed":
       return "completed";
+    case "aborted":
+      return "cancelled";
     default:
       return "recorded";
   }
 }
 
 function inferLifecycle(status: string, archived: boolean): string {
-  if (archived || status === "closed") {
+  if (archived || ["completed", "aborted"].includes(status)) {
     return "inactive";
   }
-  if (status === "proposed") {
+  if (status === "draft") {
     return "draft";
   }
   return "active";
 }
 
-const FINALIZABLE_STATUSES = new Set(["ready-for-review", "closed"]);
+const FINALIZABLE_STATUSES = new Set(["completed"]);
 
 function normalizeStatus(value: unknown): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     return "ready";
   }
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "inprogress") {
-    return "in-progress";
-  }
-  return normalized;
+  return value.trim().toLowerCase();
 }
 
 function normalizeLifecycle(value: unknown): string {
@@ -332,7 +338,7 @@ function assertNoUncheckedCompletionCriteria(
   document: MarkdownDocument,
   targetStatus: string,
 ): void {
-  if (targetStatus !== "ready-for-review" && targetStatus !== "closed") {
+  if (!["completed", "aborted"].includes(targetStatus)) {
     return;
   }
 
@@ -858,8 +864,9 @@ export async function transitionWorkItem(
   const document = await readMarkdown(filePath);
   const status = normalizeStatus(options.status);
   assertNoUncheckedCompletionCriteria(document, status);
-  const lifecycle =
-    status === "closed" ? "active" : inferLifecycle(status, false);
+  const lifecycle = ["completed", "aborted"].includes(status)
+    ? "active"
+    : inferLifecycle(status, false);
 
   document.frontmatter.status = status;
   document.frontmatter.status_reason =
@@ -879,7 +886,7 @@ export async function transitionWorkItem(
   if (typeof options.completedDate === "string") {
     document.frontmatter.completed_date = options.completedDate;
   }
-  if (status === "closed") {
+  if (["completed", "aborted"].includes(status)) {
     document.frontmatter.completed_date ??= new Date()
       .toISOString()
       .slice(0, 10);
@@ -981,7 +988,7 @@ export async function finalizeWorkItem(
   const document = await readMarkdown(filePath);
   const currentStatus = normalizeStatus(document.frontmatter.status);
   const currentLifecycle = normalizeLifecycle(document.frontmatter.lifecycle);
-  assertNoUncheckedCompletionCriteria(document, "closed");
+  assertNoUncheckedCompletionCriteria(document, "completed");
   const links =
     typeof document.frontmatter.links === "object" &&
     document.frontmatter.links !== null
@@ -990,7 +997,7 @@ export async function finalizeWorkItem(
 
   if (!FINALIZABLE_STATUSES.has(currentStatus)) {
     throw new Error(
-      `Cannot finalize '${options.id}' from status '${currentStatus}'. Expected ready-for-review or closed.`,
+      `Cannot finalize '${options.id}' from status '${currentStatus}'. Expected completed.`,
     );
   }
   if (currentLifecycle !== "active") {
@@ -1028,7 +1035,7 @@ export async function finalizeWorkItem(
     }
   }
 
-  document.frontmatter.status = "closed";
+  document.frontmatter.status = "completed";
   document.frontmatter.status_reason = options.statusReason ?? "completed";
   document.frontmatter.lifecycle = "inactive";
   document.frontmatter.completed_date =
@@ -1142,7 +1149,7 @@ export async function migrateBacklog(
   const legacyArchive = path.resolve(rootDir, config.migration.legacyArchive);
   const activeFiles = (await findMarkdownFiles(legacyRoot)).filter(
     (filePath) =>
-      !filePath.includes(`${path.sep}archive${path.sep}`) &&
+      !isWithinPath(filePath, legacyArchive) &&
       path.basename(filePath) !== "AGENTS.md",
   );
   const archiveFiles = (await findMarkdownFiles(legacyArchive)).filter(

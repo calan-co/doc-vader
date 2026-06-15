@@ -19,7 +19,7 @@
               "const": "draft"
             },
             "status": {
-              "enum": ["proposed", "closed"]
+              "enum": ["draft", "aborted"]
             }
           }
         },
@@ -30,7 +30,13 @@
               "const": "active"
             },
             "status": {
-              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
+              "enum": [
+                "ready",
+                "running",
+                "paused",
+                "completed",
+                "aborted"
+              ]
             }
           }
         },
@@ -41,7 +47,13 @@
               "const": "evergreen"
             },
             "status": {
-              "enum": ["ready", "in-progress", "ready-for-review", "closed"]
+              "enum": [
+                "ready",
+                "running",
+                "paused",
+                "completed",
+                "aborted"
+              ]
             }
           }
         },
@@ -52,7 +64,7 @@
               "const": "inactive"
             },
             "status": {
-              "const": "closed"
+              "enum": ["completed", "aborted"]
             }
           }
         }
@@ -64,7 +76,7 @@
         "required": ["status"],
         "properties": {
           "status": {
-            "const": "closed"
+            "enum": ["completed", "aborted"]
           }
         }
       },

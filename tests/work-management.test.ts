@@ -107,7 +107,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: draft
-status: proposed
+status: draft
 status_reason: needs-triage
 priority: medium
 estimated: 1
@@ -127,14 +127,14 @@ estimated: 1
 
     expect(result.frontmatter.status).toBe("ready");
     expect(result.frontmatter.lifecycle).toBe("active");
-    expect(result.frontmatter.status_reason).toBe("prioritized");
+    expect(result.frontmatter.status_reason).toBe("auto");
 
     const updated = await readFile(filePath, "utf8");
     expect(updated).toContain("lifecycle: active");
     expect(updated).toContain("status: ready");
   });
 
-  it("refuses to transition to ready-for-review with unchecked completion criteria", async () => {
+  it("refuses to transition to completed with unchecked completion criteria", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(
       path.join(rootDir, "backlog", "active", "work-item-sample.md"),
@@ -146,7 +146,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: in-progress
+status: running
 status_reason: implementation
 priority: medium
 estimated: 1
@@ -167,14 +167,14 @@ estimated: 1
       transitionWorkItem({
         rootDir,
         id: "work-item:sample",
-        status: "ready-for-review",
+        status: "completed",
       }),
     ).rejects.toThrow(
       /unchecked completion criteria:[\s\S]*Tasks: Finish the second part(?![\s\S]*Acceptance Criteria)/i,
     );
   });
 
-  it("refuses to close a work item with unchecked acceptance criteria", async () => {
+  it("refuses to complete a work item with unchecked acceptance criteria", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(
       path.join(rootDir, "backlog", "active", "work-item-sample.md"),
@@ -186,8 +186,8 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: ready-for-review
-status_reason: awaiting-review
+status: completed
+status_reason: completed
 priority: medium
 estimated: 1
 actual: 1
@@ -210,13 +210,13 @@ links:
       transitionWorkItem({
         rootDir,
         id: "work-item:sample",
-        status: "closed",
+        status: "completed",
         statusReason: "completed",
       }),
     ).rejects.toThrow(/Acceptance Criteria: Verify the user-facing behavior/i);
   });
 
-  it("allows ready-for-review when tasks and acceptance criteria are checked", async () => {
+  it("allows completed when tasks and acceptance criteria are checked", async () => {
     const rootDir = await createTempRepo();
     const filePath = path.join(
       rootDir,
@@ -234,7 +234,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: in-progress
+status: running
 status_reason: implementation
 priority: medium
 estimated: 1
@@ -253,12 +253,12 @@ estimated: 1
     const result = await transitionWorkItem({
       rootDir,
       id: "work-item:sample",
-      status: "ready-for-review",
+      status: "completed",
     });
 
-    expect(result.frontmatter.status).toBe("ready-for-review");
+    expect(result.frontmatter.status).toBe("completed");
     await expect(readFile(filePath, "utf8")).resolves.toContain(
-      "status: ready-for-review",
+      "status: completed",
     );
   });
 
@@ -274,7 +274,7 @@ type: work-item
 subtype: task
 lifecycle: active
 title: "1: Sample task"
-status: in-progress
+status: running
 priority: high
 estimated: 3
 actual: 1
@@ -302,7 +302,7 @@ type: work-item
 subtype: task
 lifecycle: active
 title: "2: Other task"
-status: closed
+status: completed
 priority: medium
 estimated: 2
 actual: 2
@@ -366,7 +366,7 @@ Done.
       `---
 id: wi-001
 title: "1: Sample task"
-status: in-progress
+status: running
 priority: high
 estimated: 3
 ---
@@ -381,7 +381,7 @@ Keep this item.
       `---
 id: wi-001-duplicate
 title: "1: Sample task duplicate"
-status: in-progress
+status: running
 priority: medium
 estimated: 1
 ---
@@ -462,7 +462,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: ready-for-review
+status: completed
 status_reason: awaiting-review
 priority: medium
 estimated: 2
@@ -539,7 +539,7 @@ summary: Validate pull-request ingestion subject matching.
 type: work-item
 subtype: task
 lifecycle: active
-status: ready-for-review
+status: completed
 status_reason: awaiting-review
 priority: high
 estimated: 3
@@ -614,7 +614,7 @@ summary: Validate pull-request ingestion subject matching.
 type: work-item
 subtype: task
 lifecycle: active
-status: ready-for-review
+status: completed
 status_reason: awaiting-review
 priority: high
 estimated: 3
@@ -677,7 +677,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: ready-for-review
+status: completed
 status_reason: awaiting-review
 priority: medium
 estimated: 2
@@ -710,7 +710,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: ready-for-review
+status: completed
 status_reason: awaiting-review
 priority: medium
 estimated: 2
@@ -764,7 +764,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: ready-for-review
+status: completed
 status_reason: awaiting-review
 priority: medium
 estimated: 2
@@ -806,7 +806,7 @@ summary: Sample summary
 type: work-item
 subtype: task
 lifecycle: active
-status: in-progress
+status: running
 status_reason: implementation
 priority: medium
 estimated: 2
@@ -826,6 +826,6 @@ links:
 
     await expect(
       finalizeWorkItem({ rootDir, id: "work-item:sample" }),
-    ).rejects.toThrow(/Expected ready-for-review or closed/i);
+    ).rejects.toThrow(/Expected completed/i);
   });
 });

@@ -169,10 +169,39 @@
           "type": "object",
           "properties": {
             "status": {
+              "const": "draft"
+            },
+            "status_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "needs-triage",
+                    "awaiting-approval",
+                    "deferred",
+                    "blocked-by-dependency",
+                    "blocked",
+                    "needs-info"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
               "const": "proposed"
             },
             "status_reason": {
-              "oneOf": [
+              "anyOf": [
                 {
                   "type": "string",
                   "enum": [
@@ -199,13 +228,71 @@
               "const": "ready"
             },
             "status_reason": {
-              "oneOf": [
+              "anyOf": [
                 {
                   "type": "string",
                   "enum": [
                     "prioritized",
                     "scheduled",
-                    "dependencies-cleared"
+                    "dependencies-cleared",
+                    "auto",
+                    "recoverable"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "running"
+            },
+            "status_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "implementation",
+                    "investigation",
+                    "verification",
+                    "review",
+                    "awaiting-feedback",
+                    "reverting-for-pr-workflow"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "paused"
+            },
+            "status_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "blocked",
+                    "policy",
+                    "system",
+                    "manual"
                   ]
                 },
                 {
@@ -225,7 +312,7 @@
               "const": "in-progress"
             },
             "status_reason": {
-              "oneOf": [
+              "anyOf": [
                 {
                   "type": "string",
                   "enum": [
@@ -252,7 +339,7 @@
               "const": "ready-for-review"
             },
             "status_reason": {
-              "oneOf": [
+              "anyOf": [
                 {
                   "type": "string",
                   "enum": [
@@ -278,10 +365,71 @@
           ],
           "properties": {
             "status": {
+              "const": "completed"
+            },
+            "status_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "awaiting-review",
+                    "verification-pending",
+                    "implementation-complete"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "status_reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "aborted"
+            },
+            "status_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "rejected",
+                    "duplicate",
+                    "obsolete",
+                    "cancelled",
+                    "wontfix"
+                  ]
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonExtensionToken"
+                },
+                {
+                  "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusReasonFreeform"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "status_reason"
+          ],
+          "properties": {
+            "status": {
               "const": "closed"
             },
             "status_reason": {
-              "oneOf": [
+              "anyOf": [
                 {
                   "type": "string",
                   "enum": [
@@ -320,12 +468,16 @@
         "type": "object",
         "properties": {
           "status": {
-            "const": "closed"
+            "enum": [
+              "completed",
+              "closed"
+            ]
           }
         }
       }
     }
   ],
+  "": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/by-type/work-item/1.0.0",
   "$defs": {
     "executionPhase": {
       "type": "object",

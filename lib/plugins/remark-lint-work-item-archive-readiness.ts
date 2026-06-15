@@ -11,9 +11,9 @@ import {
 export const optionsSchema = z.object({
   enabled: z.boolean().optional().default(true),
   statuses: z
-    .array(z.enum(["ready-for-review", "closed"]))
+    .array(z.enum(["completed"]))
     .optional()
-    .default(["ready-for-review", "closed"]),
+    .default(["completed"]),
 });
 
 export type Options = z.input<typeof optionsSchema>;

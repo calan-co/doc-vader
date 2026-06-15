@@ -10,12 +10,12 @@
       "required": ["status"],
       "properties": {
         "status": {
-          "const": "proposed"
+          "const": "draft"
         },
         "status_reason": {
           "anyOf": [
             {
-              "$ref": "/work-management/workflows/default/status-definitions#/$defs/proposedReason"
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/draftReason"
             }
           ]
         }
@@ -42,12 +42,12 @@
       "required": ["status"],
       "properties": {
         "status": {
-          "const": "in-progress"
+          "const": "running"
         },
         "status_reason": {
           "anyOf": [
             {
-              "$ref": "/work-management/workflows/default/status-definitions#/$defs/inProgressReason"
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/runningReason"
             }
           ]
         }
@@ -58,12 +58,12 @@
       "required": ["status"],
       "properties": {
         "status": {
-          "const": "ready-for-review"
+          "const": "paused"
         },
         "status_reason": {
           "anyOf": [
             {
-              "$ref": "/work-management/workflows/default/status-definitions#/$defs/readyForReviewReason"
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/pausedReason"
             }
           ]
         }
@@ -74,12 +74,28 @@
       "required": ["status", "status_reason"],
       "properties": {
         "status": {
-          "const": "closed"
+          "const": "completed"
         },
         "status_reason": {
           "anyOf": [
             {
-              "$ref": "/work-management/workflows/default/status-definitions#/$defs/closedReason"
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/completedReason"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["status", "status_reason"],
+      "properties": {
+        "status": {
+          "const": "aborted"
+        },
+        "status_reason": {
+          "anyOf": [
+            {
+              "$ref": "/work-management/workflows/default/status-definitions#/$defs/abortedReason"
             }
           ]
         }

@@ -38,7 +38,11 @@
       "if": {
         "properties": {
           "status": {
-            "const": "closed"
+            "enum": [
+              "completed",
+              "aborted",
+              "closed"
+            ]
           }
         },
         "required": [
@@ -57,10 +61,16 @@
             "enum": [
               "success",
               "completed",
+              "awaiting-review",
+              "verification-pending",
+              "implementation-complete",
+              "rejected",
               "obsolete",
               "redundant",
               "superseded",
-              "cancelled"
+              "cancelled",
+              "duplicate",
+              "wontfix"
             ]
           },
           "links": {
@@ -75,7 +85,10 @@
       "if": {
         "properties": {
           "status": {
-            "const": "ready-for-review"
+            "enum": [
+              "completed",
+              "ready-for-review"
+            ]
           }
         },
         "required": [
@@ -107,7 +120,11 @@
         ],
         "properties": {
           "status": {
-            "const": "closed"
+            "enum": [
+              "completed",
+              "aborted",
+              "closed"
+            ]
           }
         }
       }

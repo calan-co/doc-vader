@@ -6,7 +6,7 @@
   "sourceDimensions": {
     "status": {
       "path": "/status",
-      "domain": "/work-management/workflows/default/status-definitions.schema.json#/$defs/status"
+      "domain": "/work-management/workflows/default/status-definitions#/$defs/status"
     },
     "reason": {
       "path": "/status_reason",
@@ -14,14 +14,16 @@
       "domainBy": {
         "dimension": "status",
         "cases": {
-          "proposed": "/work-management/workflows/default/status-definitions.schema.json#/$defs/proposedReason",
-          "ready": "/work-management/workflows/default/status-definitions.schema.json#/$defs/readyReason",
-          "in-progress": "/work-management/workflows/default/status-definitions.schema.json#/$defs/inProgressReason",
-          "ready-for-review": "/work-management/workflows/default/status-definitions.schema.json#/$defs/readyForReviewReason",
-          "closed": "/work-management/workflows/default/status-definitions.schema.json#/$defs/closedReason"
+          "draft": "/work-management/workflows/default/status-definitions#/$defs/draftReason",
+          "ready": "/work-management/workflows/default/status-definitions#/$defs/readyReason",
+          "running": "/work-management/workflows/default/status-definitions#/$defs/runningReason",
+          "paused": "/work-management/workflows/default/status-definitions#/$defs/pausedReason",
+          "completed": "/work-management/workflows/default/status-definitions#/$defs/completedReason",
+          "aborted": "/work-management/workflows/default/status-definitions#/$defs/abortedReason"
         },
         "requiredCases": [
-          "closed"
+          "completed",
+          "aborted"
         ]
       }
     }
@@ -46,10 +48,10 @@
   },
   "lookupTables": {
     "statusReasonCategories": {
-      "values": "/work-management/workflows/default/status-definitions.schema.json#/$defs/reasonCategory",
+      "values": "/work-management/workflows/default/status-definitions#/$defs/reasonCategory",
       "total": true,
       "map": {
-        "proposed": {
+        "draft": {
           "needs-triage": "intake",
           "awaiting-approval": "intake",
           "deferred": "intake",
@@ -58,47 +60,55 @@
           "needs-info": "intake"
         },
         "ready": {
+          "auto": "planning",
+          "recoverable": "planning",
           "prioritized": "planning",
           "scheduled": "planning",
           "dependencies-cleared": "planning",
           "unblocked": "planning"
         },
-        "in-progress": {
+        "running": {
           "implementation": "execution",
           "investigation": "execution",
-          "blocked": "execution",
+          "verification": "execution",
+          "review": "review",
           "awaiting-feedback": "execution",
           "reverting-for-pr-workflow": "execution"
         },
-        "ready-for-review": {
+        "paused": {
+          "blocked": "execution",
+          "policy": "execution",
+          "system": "execution",
+          "manual": "execution"
+        },
+        "completed": {
+          "completed": "completed",
           "awaiting-review": "review",
-          "changes-requested": "review",
           "verification-pending": "review",
           "implementation-complete": "review"
         },
-        "closed": {
-          "completed": "completed",
+        "aborted": {
           "rejected": "decision",
           "duplicate": "decision",
           "obsolete": "decision",
           "cancelled": "decision",
-          "merged_to_main": "completed",
-          "merged-to-main": "completed",
-          "success": "completed",
           "wontfix": "decision"
         }
       }
     },
     "statusReasonConnectivities": {
-      "values": "/work-management/workflows/default/status-definitions.schema.json#/$defs/connectivityClass",
+      "values": "/work-management/workflows/default/status-definitions#/$defs/connectivityClass",
       "default": "intermediate",
       "map": {
-        "proposed": {
+        "draft": {
           "needs-triage": "start",
           "awaiting-approval": "start",
           "needs-info": "start"
         },
-        "closed": {
+        "completed": {
+          "*": "end"
+        },
+        "aborted": {
           "*": "end"
         }
       }
@@ -112,7 +122,7 @@
     ],
     "rules": [
       {
-        "id": "forward-proposed-to-ready",
+        "id": "forward-draft-to-ready",
         "from": {
           "category": "intake"
         },
@@ -122,7 +132,7 @@
         "decision": "allow"
       },
       {
-        "id": "forward-ready-to-in-progress",
+        "id": "forward-ready-to-running",
         "from": {
           "category": "planning"
         },
@@ -132,7 +142,7 @@
         "decision": "allow"
       },
       {
-        "id": "forward-in-progress-to-review",
+        "id": "forward-running-to-review",
         "from": {
           "category": "execution"
         },
@@ -142,7 +152,7 @@
         "decision": "allow"
       },
       {
-        "id": "forward-review-to-closed-completed",
+        "id": "forward-review-to-completed",
         "from": {
           "category": "review"
         },
@@ -152,61 +162,94 @@
         "decision": "allow"
       },
       {
-        "id": "decision-close-from-any-active",
+        "id": "abort-from-any-nonterminal",
         "from": {
           "status": [
-            "proposed",
+            "draft",
             "ready",
-            "in-progress",
-            "ready-for-review"
+            "running",
+            "paused"
           ]
         },
         "to": {
-          "status": "closed",
+          "status": "aborted",
           "category": "decision"
         },
         "decision": "allow"
       },
       {
-        "id": "completed-close-from-ready",
+        "id": "completed-from-ready",
         "from": {
           "status": "ready",
           "category": "planning"
         },
         "to": {
-          "status": "closed",
+          "status": "completed",
           "category": "completed"
         },
         "decision": "allow"
       },
       {
-        "id": "completed-close-from-in-progress",
+        "id": "completed-from-running",
         "from": {
-          "status": "in-progress",
+          "status": [
+            "running"
+          ],
           "category": "execution"
         },
         "to": {
-          "status": "closed",
+          "status": "completed",
           "category": "completed"
         },
         "decision": "allow"
       },
       {
-        "id": "rollback-review-to-in-progress",
+        "id": "pause-running",
         "from": {
-          "status": "ready-for-review",
-          "category": "review"
+          "status": [
+            "running"
+          ],
+          "category": "execution"
         },
         "to": {
-          "status": "in-progress",
+          "status": "paused",
           "category": "execution"
         },
         "decision": "allow"
       },
       {
-        "id": "rollback-in-progress-to-ready",
+        "id": "resume-paused",
         "from": {
-          "status": "in-progress",
+          "status": "paused",
+          "category": "execution"
+        },
+        "to": {
+          "status": "running",
+          "category": "execution"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "rollback-review-to-running",
+        "from": {
+          "status": [
+            "completed"
+          ],
+          "category": "review"
+        },
+        "to": {
+          "status": "running",
+          "category": "execution"
+        },
+        "decision": "allow"
+      },
+      {
+        "id": "rollback-running-to-ready",
+        "from": {
+          "status": [
+            "running",
+            "paused"
+          ],
           "category": "execution"
         },
         "to": {
@@ -216,37 +259,42 @@
         "decision": "allow"
       },
       {
-        "id": "rollback-in-progress-to-proposed",
+        "id": "rollback-running-to-draft",
         "from": {
-          "status": "in-progress",
+          "status": [
+            "running",
+            "paused"
+          ],
           "category": "execution"
         },
         "to": {
-          "status": "proposed",
+          "status": "draft",
           "category": "intake"
         },
         "decision": "allow"
       },
       {
-        "id": "rollback-ready-to-proposed",
+        "id": "rollback-ready-to-draft",
         "from": {
           "status": "ready",
           "category": "planning"
         },
         "to": {
-          "status": "proposed",
+          "status": "draft",
           "category": "intake"
         },
         "decision": "allow"
       },
       {
-        "id": "rollback-review-to-proposed-needs-info",
+        "id": "rollback-review-to-draft-needs-info",
         "from": {
-          "status": "ready-for-review",
+          "status": [
+            "completed"
+          ],
           "category": "review"
         },
         "to": {
-          "status": "proposed",
+          "status": "draft",
           "reason": "needs-info"
         },
         "decision": "allow"

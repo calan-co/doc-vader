@@ -225,8 +225,13 @@
     "status": {
       "type": "string",
       "enum": [
+        "draft",
         "proposed",
         "ready",
+        "running",
+        "paused",
+        "completed",
+        "aborted",
         "in-progress",
         "ready-for-review",
         "closed"
@@ -507,12 +512,49 @@
             ]
           }
         },
+        "draft": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "aborted",
+              "closed"
+            ]
+          }
+        },
         "ready": {
           "type": "array",
           "items": {
             "type": "string",
             "enum": [
+              "running",
               "in-progress",
+              "aborted",
+              "closed"
+            ]
+          }
+        },
+        "running": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "paused",
+              "completed",
+              "aborted",
+              "ready-for-review",
+              "closed"
+            ]
+          }
+        },
+        "paused": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "running",
+              "aborted",
               "closed"
             ]
           }
@@ -542,6 +584,20 @@
           "items": {
             "type": "string"
           }
+        },
+        "completed": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "type": "string"
+          }
+        },
+        "aborted": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "type": "string"
+          }
         }
       },
       "examples": [
@@ -563,7 +619,9 @@
             },
             "status": {
               "enum": [
+                "draft",
                 "proposed",
+                "aborted",
                 "closed"
               ]
             }
@@ -578,6 +636,10 @@
             "status": {
               "enum": [
                 "ready",
+                "running",
+                "paused",
+                "completed",
+                "aborted",
                 "in-progress",
                 "ready-for-review",
                 "closed"
@@ -594,6 +656,10 @@
             "status": {
               "enum": [
                 "ready",
+                "running",
+                "paused",
+                "completed",
+                "aborted",
                 "in-progress",
                 "ready-for-review",
                 "closed"
@@ -609,6 +675,8 @@
             },
             "status": {
               "enum": [
+                "completed",
+                "aborted",
                 "closed"
               ]
             }

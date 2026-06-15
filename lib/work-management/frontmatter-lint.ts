@@ -24,7 +24,6 @@ import {
 } from "./transition-profile.js";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const BACKLOG_DIR = join(process.cwd(), "backlog");
 
 function findPackageRoot(startDir: string): string {
   let current = startDir;
@@ -78,6 +77,10 @@ interface StrictSeverityResult {
 }
 
 interface ConsumerSeverityConfig {
+  roots?: {
+    backlog?: string;
+    archive?: string;
+  };
   automation?: {
     prePushValidation?: {
       severity?: Record<string, string>;
@@ -239,6 +242,14 @@ function parseFrontmatter(content: string): Record<string, any> {
 
 function parseJsonFile<T>(filePath: string): T {
   return JSON.parse(readFileSync(filePath, "utf-8")) as T;
+}
+
+function isWithinPath(child: string, parent: string): boolean {
+  const relativePath = relative(resolve(parent), resolve(child));
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+  );
 }
 
 function loadConsumerSeverityConfig(): ConsumerSeverityConfig {
@@ -707,6 +718,7 @@ function toPosixPath(pathValue: string): string {
 function resolveFilesToValidate(
   allBacklogFiles: string[],
   cliArgs: string[],
+  backlogDir: string,
 ): string[] {
   if (cliArgs.length === 0) {
     return allBacklogFiles;
@@ -747,7 +759,7 @@ function resolveFilesToValidate(
     const absolutePath = isAbsolute(rawArg)
       ? normalize(rawArg)
       : resolve(process.cwd(), rawArg);
-    const relativePath = toPosixPath(relative(BACKLOG_DIR, absolutePath));
+    const relativePath = toPosixPath(relative(backlogDir, absolutePath));
 
     if (!relativePath || relativePath.startsWith("..")) {
       continue;
@@ -772,9 +784,17 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
     supportedTypes,
   } = loadSchemas();
   const consumerConfig = loadConsumerSeverityConfig();
+  const backlogDir = resolve(
+    process.cwd(),
+    consumerConfig.roots?.backlog ?? "backlog",
+  );
+  const archiveDir = resolve(
+    process.cwd(),
+    consumerConfig.roots?.archive ?? "backlog/archive",
+  );
   const { strict: strictMode, fileArgs } = parseCliArgs(args);
-  const allBacklogFiles = collectBacklogMarkdownFiles(BACKLOG_DIR);
-  const files = resolveFilesToValidate(allBacklogFiles, fileArgs);
+  const allBacklogFiles = collectBacklogMarkdownFiles(backlogDir);
+  const files = resolveFilesToValidate(allBacklogFiles, fileArgs, backlogDir);
   let hasViolations = false;
   let warningCount = 0;
 
@@ -788,7 +808,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
 
   for (const file of allBacklogFiles) {
     try {
-      const filePath = join(BACKLOG_DIR, file);
+      const filePath = join(backlogDir, file);
       const content = readFileSync(filePath, "utf-8");
       const frontmatter = parseFrontmatter(content);
       if (frontmatter.type !== "work-item") {
@@ -831,7 +851,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
   // Second pass: Validate each backlog frontmatter file
   for (const file of files) {
     try {
-      const filePath = join(BACKLOG_DIR, file);
+      const filePath = join(backlogDir, file);
       const content = readFileSync(filePath, "utf-8");
       const frontmatter = parseFrontmatter(content);
       const type = frontmatter.type;
@@ -918,15 +938,14 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
           ? (frontmatter.links.pull_requests as string[])
           : [];
 
-        const isEnteringReadyForReview =
-          status === "ready-for-review" &&
-          previousStatus !== "ready-for-review";
-        if (isEnteringReadyForReview && pullRequests.length === 0) {
+        const isEnteringCompleted =
+          status === "completed" && previousStatus !== "completed";
+        if (isEnteringCompleted && pullRequests.length === 0) {
           diagnostics.push({
-            code: "ready-for-review-pr-link",
+            code: "completed-pr-link",
             path: "/links/pull_requests",
             message:
-              "Work item is entering 'ready-for-review' but has no linked pull request",
+              "Work item is entering 'completed' but has no linked pull request",
             severity: "error",
           });
         }
@@ -939,7 +958,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
         ).map((ref) => `[[${ref}]]`);
         const dependencyRefs = [...legacyDependsOn, ...canonicalDependsOn];
 
-        if (status === "ready-for-review") {
+        if (status === "completed") {
           for (const dep of dependencyRefs) {
             const depRef = extractWikilinkTarget(dep);
             if (!depRef) {
@@ -955,22 +974,24 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
                 message: `Dependency '${dep}' not found in backlog`,
                 severity: "error",
               });
-            } else if (depItem.status !== "closed") {
+            } else if (!["completed", "aborted"].includes(depItem.status)) {
               diagnostics.push({
-                code: "depends-on-ready-for-review-required",
+                code: "depends-on-completed-required",
                 path: "/links/depends_on",
-                message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'closed' before work item can enter 'ready-for-review' but is '${depItem.status}'`,
+                message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be terminal before work item can enter 'completed' but is '${depItem.status}'`,
                 severity: "error",
               });
             }
           }
         }
 
-        const isClosed = status === "closed";
-        const isEnteringClosed = isClosed && previousStatus !== "closed";
+        const terminalStatuses = ["completed", "aborted"];
+        const isTerminal = terminalStatuses.includes(status);
+        const isEnteringTerminal =
+          isTerminal && !terminalStatuses.includes(previousStatus ?? "");
         const shouldEnforceClosedInvariants =
-          isClosed &&
-          (isEnteringClosed || hasBacklogFileChangedSinceComparison(file));
+          isTerminal &&
+          (isEnteringTerminal || hasBacklogFileChangedSinceComparison(file));
 
         if (shouldEnforceClosedInvariants) {
           const closedStatusReason =
@@ -986,7 +1007,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
             diagnostics.push({
               code: "closed-missing-reason",
               path: "/status_reason",
-              message: "Work item is 'closed' but status_reason is missing",
+              message: "Work item is terminal but status_reason is missing",
               severity: "error",
             });
           }
@@ -995,7 +1016,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
             diagnostics.push({
               code: "closed-missing-completed-date",
               path: "/completed_date",
-              message: "Work item is 'closed' but completed_date is missing",
+              message: "Work item is terminal but completed_date is missing",
               severity: "error",
             });
           }
@@ -1009,7 +1030,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
               code: "closed-missing-evidence-note",
               path: "/body",
               message:
-                "Work item is 'closed' but missing the required timestamped evidence note",
+                "Work item is terminal but missing the required timestamped evidence note",
               severity: "error",
             });
           }
@@ -1071,26 +1092,24 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
                 });
               } else if (
                 isDefaultWorkManagementWorkItem &&
-                !file.startsWith("archive/") &&
-                status === "closed" &&
-                depItem.status !== "closed"
+                !isWithinPath(join(backlogDir, file), archiveDir) &&
+                isTerminal &&
+                !terminalStatuses.includes(depItem.status)
               ) {
                 diagnostics.push({
                   code: "depends-on-closed-required",
                   path: "/links/depends_on",
-                  message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'closed' but is '${depItem.status}'`,
+                  message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be terminal but is '${depItem.status}'`,
                   severity: "error",
                 });
               } else if (
-                status === "in-progress" &&
-                !["in-progress", "ready-for-review", "closed"].includes(
-                  depItem.status,
-                )
+                status === "running" &&
+                !["running", "completed", "aborted"].includes(depItem.status)
               ) {
                 diagnostics.push({
                   code: "depends-on-in-progress-required",
                   path: "/links/depends_on",
-                  message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'in-progress', 'ready-for-review', or 'closed' but is '${depItem.status}'`,
+                  message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'running', 'completed', or 'aborted' but is '${depItem.status}'`,
                   severity: "error",
                 });
               }
@@ -1112,7 +1131,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
             diagnostics.push({
               code: "closed-unchecked-tasks",
               path: "/status",
-              message: `Work item is 'closed' but has unchecked Tasks checklist items (${uncheckedTasks.length})`,
+              message: `Work item is terminal but has unchecked Tasks checklist items (${uncheckedTasks.length})`,
               severity: "error",
             });
           }
@@ -1121,7 +1140,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
             diagnostics.push({
               code: "closed-unchecked-acceptance",
               path: "/status",
-              message: `Work item is 'closed' but has unchecked Acceptance Criteria checklist items (${uncheckedAcceptance.length})`,
+              message: `Work item is terminal but has unchecked Acceptance Criteria checklist items (${uncheckedAcceptance.length})`,
               severity: "error",
             });
           }

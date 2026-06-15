@@ -5,7 +5,7 @@ summary: Implement the `dv task ready` query so Sandcastle and skills can select
 type: work-item
 subtype: story
 lifecycle: active
-status: in-progress
+status: running
 status_reason: implementation
 priority: critical
 estimated: 5
