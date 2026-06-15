@@ -5,7 +5,7 @@ summary: Use the staging inventory and audit scope to migrate core scripts, arch
 type: work-item
 subtype: story
 lifecycle: active
-status: in-progress
+status: running
 status_reason: investigation
 priority: high
 estimated: 8

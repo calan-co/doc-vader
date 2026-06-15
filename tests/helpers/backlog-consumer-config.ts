@@ -4,6 +4,7 @@ import * as path from "node:path";
 export function writeBacklogConsumerConfig(
   rootDir: string,
   automation: Record<string, unknown> = {},
+  roots: Record<string, unknown> = {},
 ): void {
   fsSync.mkdirSync(path.join(rootDir, ".doc-vader"), { recursive: true });
   fsSync.writeFileSync(
@@ -16,6 +17,7 @@ export function writeBacklogConsumerConfig(
           archive: "backlog/archive",
           records: "backlog/records",
           audit: "backlog/audit",
+          ...roots,
         },
         automation,
       },

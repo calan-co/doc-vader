@@ -6,10 +6,10 @@ const run = async (md: string, opts?: any, filePath?: string) =>
   runUtil(md, createProcessor(closureEvidence, opts), filePath);
 
 describe("remark-lint-work-item-closure-evidence", () => {
-  it("passes for a closed work item with closure evidence", async () => {
+  it("passes for a completed work item with closure evidence", async () => {
     const md = `---
 type: work-item
-status: closed
+status: completed
 status_reason: completed
 completed_date: '2026-05-13'
 ---
@@ -25,7 +25,7 @@ completed_date: '2026-05-13'
   it("accepts non-audit evidence references in closure note", async () => {
     const md = `---
 type: work-item
-status: closed
+status: completed
 status_reason: completed
 completed_date: '2026-05-13'
 ---
@@ -38,10 +38,10 @@ completed_date: '2026-05-13'
     expect(result.messages).toHaveLength(0);
   });
 
-  it("reports missing closed-item evidence metadata", async () => {
+  it("reports missing completed-item evidence metadata", async () => {
     const md = `---
 type: work-item
-status: closed
+status: completed
 ---
 
 No closure evidence yet.
@@ -56,10 +56,10 @@ No closure evidence yet.
     );
   });
 
-  it("skips non-closed work items", async () => {
+  it("skips non-terminal work items", async () => {
     const md = `---
 type: work-item
-status: ready-for-review
+status: running
 ---
 `;
     const result = await run(md, undefined, "/repo/backlog/228.test-story.md");

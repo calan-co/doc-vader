@@ -6,6 +6,7 @@ type: work-item
 subtype: task
 lifecycle: active
 status: ready
+status_reason: auto
 priority: high
 estimated: 4
 links:

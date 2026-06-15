@@ -7,7 +7,7 @@ import {
   type RequiredFieldRule,
 } from "../backlog/configurable-rules.js";
 
-export type WorkItemValidationStatus = "ready-for-review" | "closed";
+export type WorkItemValidationStatus = "completed";
 
 export interface WorkItemContext {
   path: string | undefined;
@@ -29,6 +29,11 @@ export interface ArchiveReadinessOptions {
   requiredFields?: Array<string | RequiredFieldRule>;
 }
 
+export interface WorkItemContextRoots {
+  backlogRoot?: string;
+  archiveRoot?: string;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
@@ -43,17 +48,35 @@ function hasNonEmptyString(value: unknown): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export function parseWorkItemContext(file: {
-  path?: string;
-  value?: unknown;
-}): WorkItemContext {
+function isWithinPath(child: string, parent: string): boolean {
+  const normalizedChild = child.replace(/\\/g, "/");
+  const normalizedParent = parent.replace(/\\/g, "/").replace(/\/+$/, "");
+  return (
+    normalizedChild === normalizedParent ||
+    normalizedChild.startsWith(`${normalizedParent}/`)
+  );
+}
+
+export function parseWorkItemContext(
+  file: {
+    path?: string;
+    value?: unknown;
+  },
+  roots: WorkItemContextRoots = {},
+): WorkItemContext {
   const raw =
     typeof file.value === "string" ? file.value : String(file.value ?? "");
   const parsed = matter(raw);
   const frontmatter = asRecord(parsed.data);
   const normalizedPath = file.path?.replace(/\\/g, "/");
-  const isArchived = normalizedPath?.includes("/backlog/archive/") ?? false;
-  const isBacklogFile = normalizedPath?.includes("/backlog/") ?? false;
+  const isArchived =
+    normalizedPath && roots.archiveRoot
+      ? isWithinPath(normalizedPath, roots.archiveRoot)
+      : normalizedPath?.includes("/backlog/archive/") ?? false;
+  const isBacklogFile =
+    normalizedPath && roots.backlogRoot
+      ? isWithinPath(normalizedPath, roots.backlogRoot)
+      : normalizedPath?.includes("/backlog/") ?? false;
   const isWorkItem = frontmatter.type === "work-item";
 
   return {
@@ -153,7 +176,10 @@ export function validateArchiveReadiness(
 export function validateClosedWorkItemEvidence(
   context: WorkItemContext,
 ): ValidationIssue[] {
-  if (!context.isActiveBacklogWorkItem || context.status !== "closed")
+  if (
+    !context.isActiveBacklogWorkItem ||
+    !["completed", "aborted"].includes(context.status ?? "")
+  )
     return [];
 
   const issues: ValidationIssue[] = [];
@@ -162,7 +188,7 @@ export function validateClosedWorkItemEvidence(
     issues.push({
       code: "missing-status-reason",
       message:
-        "[work-item-closure-evidence] Closed work item is missing status_reason.",
+        "[work-item-closure-evidence] Terminal work item is missing status_reason.",
     });
   }
 
@@ -170,7 +196,7 @@ export function validateClosedWorkItemEvidence(
     issues.push({
       code: "missing-completed-date",
       message:
-        "[work-item-closure-evidence] Closed work item is missing completed_date.",
+        "[work-item-closure-evidence] Terminal work item is missing completed_date.",
     });
   }
 
@@ -178,7 +204,7 @@ export function validateClosedWorkItemEvidence(
     issues.push({
       code: "missing-closure-note",
       message:
-        "[work-item-closure-evidence] Closed work item is missing a closure note with evidence.",
+        "[work-item-closure-evidence] Terminal work item is missing a closure note with evidence.",
     });
   }
 

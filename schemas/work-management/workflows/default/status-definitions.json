@@ -8,9 +8,16 @@
   "$defs": {
     "status": {
       "type": "string",
-      "enum": ["proposed", "ready", "in-progress", "ready-for-review", "closed"]
+      "enum": [
+        "draft",
+        "ready",
+        "running",
+        "paused",
+        "completed",
+        "aborted"
+      ]
     },
-    "proposedReason": {
+    "draftReason": {
       "type": "string",
       "enum": [
         "needs-triage",
@@ -23,42 +30,42 @@
     },
     "readyReason": {
       "type": "string",
-      "enum": ["prioritized", "scheduled", "dependencies-cleared", "unblocked"]
+      "enum": [
+        "auto",
+        "recoverable",
+        "prioritized",
+        "scheduled",
+        "dependencies-cleared",
+        "unblocked"
+      ]
     },
-    "inProgressReason": {
+    "runningReason": {
       "type": "string",
       "enum": [
         "implementation",
         "investigation",
-        "blocked",
+        "verification",
+        "review",
         "awaiting-feedback",
         "reverting-for-pr-workflow"
       ]
     },
-    "readyForReviewReason": {
+    "pausedReason": {
+      "type": "string",
+      "enum": ["blocked", "policy", "system", "manual"]
+    },
+    "completedReason": {
       "type": "string",
       "enum": [
+        "completed",
         "awaiting-review",
-        "changes-requested",
         "verification-pending",
         "implementation-complete"
       ]
     },
-    "closedReason": {
+    "abortedReason": {
       "type": "string",
-      "enum": [
-        "completed",
-        "rejected",
-        "duplicate",
-        "obsolete",
-        "cancelled",
-        "obsolete",
-        "cancelled",
-        "merged-to-main",
-        "success",
-        "success",
-        "wontfix"
-      ]
+      "enum": ["rejected", "duplicate", "obsolete", "cancelled", "wontfix"]
     },
     "reasonCategory": {
       "type": "string",

@@ -326,7 +326,9 @@
             },
             "status": {
               "enum": [
+                "draft",
                 "proposed",
+                "aborted",
                 "closed"
               ]
             }
@@ -341,6 +343,10 @@
             "status": {
               "enum": [
                 "ready",
+                "running",
+                "paused",
+                "completed",
+                "aborted",
                 "in-progress",
                 "ready-for-review",
                 "closed"
@@ -357,6 +363,10 @@
             "status": {
               "enum": [
                 "ready",
+                "running",
+                "paused",
+                "completed",
+                "aborted",
                 "in-progress",
                 "ready-for-review",
                 "closed"
@@ -372,6 +382,8 @@
             },
             "status": {
               "enum": [
+                "completed",
+                "aborted",
                 "closed"
               ]
             }
@@ -535,8 +547,13 @@
       "description": "Current actionable workflow state.",
       "type": "string",
       "enum": [
+        "draft",
         "proposed",
         "ready",
+        "running",
+        "paused",
+        "completed",
+        "aborted",
         "in-progress",
         "ready-for-review",
         "closed"
@@ -591,6 +608,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "aborted": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 0
+        },
         "closed": {
           "type": "array",
           "items": {
@@ -598,12 +622,41 @@
           },
           "maxItems": 0
         },
+        "completed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 0
+        },
+        "draft": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "aborted",
+              "closed"
+            ]
+          }
+        },
         "in-progress": {
           "type": "array",
           "items": {
             "type": "string",
             "enum": [
               "ready-for-review",
+              "closed"
+            ]
+          }
+        },
+        "paused": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "running",
+              "aborted",
               "closed"
             ]
           }
@@ -623,7 +676,9 @@
           "items": {
             "type": "string",
             "enum": [
+              "running",
               "in-progress",
+              "aborted",
               "closed"
             ]
           }
@@ -633,6 +688,19 @@
           "items": {
             "type": "string",
             "enum": [
+              "closed"
+            ]
+          }
+        },
+        "running": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "paused",
+              "completed",
+              "aborted",
+              "ready-for-review",
               "closed"
             ]
           }

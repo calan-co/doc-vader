@@ -21,8 +21,7 @@
       {
         "field": "status",
         "values": [
-          "ready-for-review",
-          "closed"
+          "completed"
         ]
       }
     ],

@@ -101,8 +101,8 @@ function hasEvidenceEntry(raw: unknown): boolean {
 export function conditionValidEvidence(
   data: Record<string, unknown>,
 ): ScanCondition {
-  // Evidence is only required for closed work items; all other statuses pass unconditionally.
-  if (data["status"] !== "closed") {
+  // Evidence is only required for terminal work items; all other statuses pass unconditionally.
+  if (!["completed", "aborted"].includes(String(data["status"] ?? ""))) {
     return { code: "valid_evidence", value: true };
   }
   return {

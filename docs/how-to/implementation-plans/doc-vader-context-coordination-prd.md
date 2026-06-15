@@ -200,6 +200,24 @@ Quality is implementation-ready; integration seam confirmation remains an explic
   Rationale: Preserves portability and integration flexibility across multi-repo and externally versioned ecosystems.
 - Use semantic projection as additive drift/impact evidence, not a replacement for source versioning and policy-governed decision records.
   Rationale: Improves semantic accuracy where available while preserving source-anchored governance.
+- Resolve archive roots from `.doc-vader/backlog-consumer.json` rather than assuming `backlog/archive`.
+  Rationale: Keeps archival validation and pruning aligned with the repository's configured work-management roots.
+- Validate archived files against their declared `$schema` when present, and use a configurable fallback schema for legacy archived files that do not declare one.
+  Rationale: Preserves explicit schema pinning without forcing noisy edits across historical records.
+- Do not add `validated_at` or `validated_by` frontmatter fields to archived work items.
+  Rationale: Validation provenance belongs in reports, git history, and command output rather than cluttering every archived artifact.
+- Record pruned archived work items in a single pruned index, not discrete tombstone files and not an archive index.
+  Rationale: The index represents files removed from the archive, while the active archive remains rooted in configured paths.
+- Use `last_seen_commit` to identify the commit where the full archived Markdown file was last present before pruning.
+  Rationale: This keeps historical lookup tied to git-managed source of truth without retaining the full file in the archive directory forever.
+- Keep successor and reference links owned by successor artifacts and discoverable through link indexing/backlinks rather than duplicating them in the pruned index.
+  Rationale: Avoids stale relationship metadata in historical tombstone records.
+- Put archive pruning on the task command surface, such as `dv tasks prune --archived`, rather than introducing a separate backlog entity command.
+  Rationale: Work-management operations act on tasks/work items, not a standalone backlog domain object.
+- Make archive pruning atomic per file: persist and re-read the pruned-index record before deleting that file, then continue to the next candidate.
+  Rationale: A failed candidate must not block the whole run or delete source material before its historical record is durable.
+- Treat live link-resolution checks as normal lint/resolver responsibility, with dedicated tests for pruned-index resolution rather than running a full link-resolution pass after every pruned file.
+  Rationale: Keeps pruning practical while still protecting resolution behavior through validation gates.
 
 ## Testing Decisions
 
@@ -253,6 +271,9 @@ Schema and CLI seams are clear; integration seam boundaries should be confirmed 
 - Paused-state triage emits deterministic, machine-usable remediation instructions.
 - Alias relocation updates preserve hash-verified resolution and migration audit trail.
 - PRD payload validates against schema and renders to markdown reproducibly.
+- Archive validation honors configured archive roots and declared or fallback schemas.
+- Archive pruning preserves historical discovery through a durable pruned index before each deleted file is removed.
+- Active backlog/work-item lifecycle states use canonical statuses without compatibility bloat in current work items.
 
 ## Out of Scope
 
@@ -260,6 +281,32 @@ Schema and CLI seams are clear; integration seam boundaries should be confirmed 
 - Building full immutable evidence storage infrastructure in v1
 - Replacing all existing repository planning artifacts immediately
 - Auto-promotion of non-authoritative advisory outputs into gating decisions
+- Migrating every historical archived work item solely to add validation provenance fields
+- Running full live link-resolution checks after every individual archive prune operation
+
+## Open Questions
+
+- What exact path, schema id, and JSON shape should define the pruned index? Current preference is `backlog/pruned-index.json`, but the schema marker and required record fields still need to be finalized.
+- Should the pruned index be strictly append-only forever, or may it support an explicit future compaction command with conservative age and safety criteria?
+- What exact `.doc-vader/backlog-consumer.json` shape should configure legacy archive fallback schema validation, including severity for missing `$schema` frontmatter?
+- What mechanism should intentionally bypass archive immutability for sanctioned archive migrations and pruning while still preventing ordinary archive edits?
+- What is the final task command name and flag set for archive pruning: `dv tasks prune --archived`, `doc-vader tasks prune --archived`, or another spelling?
+- What default grace period should apply before completed archived Markdown files are eligible for pruning, and should that default live in config, CLI flags, or both?
+- How should `last_seen_commit` be computed when the worktree is dirty or an archived file has uncommitted changes; should pruning refuse uncommitted archive candidates?
+- How should the resolver classify pruned-index records: historical-only, non-active, hidden from ready selection, or another explicit lifecycle category?
+- If a live file and pruned-index record share the same id or historical path, which record wins and what diagnostic should be emitted?
+- Is temp-file plus rename sufficient for per-file pruned-index persistence, or does the implementation need stronger fsync semantics?
+- What prune report format should capture skipped candidates, retries, validation failures, and successful per-file deletions?
+- Should prune failures create audit records, or is structured command output plus the unchanged source file sufficient?
+- Should pruning categorically refuse candidates outside `roots.archive`, even when referenced by legacy config or migration code?
+- Do active non-archived work items need immediate `$schema` remediation, or is explicit schema validation only required for archive/prune lifecycle work?
+- When pruned-index resolver support is complete, what remaining compatibility code for legacy `closed` status and archived schemas can be removed safely?
+- Should this PRD eventually gain the JSON sidecar promised by the artifact strategy, and if so where should that sidecar live?
+- Should claim/lease semantics remain policy-governed privileges only, or become first-class lifecycle records?
+- What is the minimum formula/work-graph schema in v1 versus deferred orchestration capability?
+- What is the default unresolved advisory-alias policy per environment profile?
+- What deterministic tie-break strategy should apply when equally specific bounding scopes match across distributed repos?
+- What is the minimal integration seam contract for concurrent execution conflict tests in CI?
 
 ## Agent Handoff
 
@@ -276,8 +323,3 @@ Ready label: `ready-for-agent`
 - Advisory unresolved-alias behavior remains tunable by policy profile.
 - Cross-version canonicalization blocking remains in effect until active bridge rules exist.
 - Decision dependency closure confidence is deterministic-edge based; inferential edges remain supporting evidence.
-- Open question: should claim/lease semantics remain policy-governed privileges only, or become first-class lifecycle records?
-- Open question: what is the minimum formula/work-graph schema in v1 versus deferred orchestration capability?
-- Open question: what is the default unresolved advisory-alias policy per environment profile?
-- Open question: what deterministic tie-break strategy should apply when equally specific bounding scopes match across distributed repos?
-- Open question: what is the minimal integration seam contract for concurrent execution conflict tests in CI?

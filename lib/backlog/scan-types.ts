@@ -52,7 +52,7 @@ export interface BacklogScanOptions {
   dryRun?: boolean;
   /** Optional path to consumer config JSON. */
   consumerConfig?: string;
-  /** Validate and archive eligible ready-for-review/closed candidates. */
+  /** Validate and archive eligible completed candidates. */
   validateArchiveCandidates?: boolean;
   /** Optional status to set when candidate validation fails. Use "none" to disable updates. */
   invalidCandidateStatus?: string;

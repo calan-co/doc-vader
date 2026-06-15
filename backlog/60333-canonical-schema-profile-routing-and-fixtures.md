@@ -6,6 +6,7 @@ type: work-item
 subtype: story
 lifecycle: active
 status: ready
+status_reason: auto
 priority: high
 estimated: 10
 links:

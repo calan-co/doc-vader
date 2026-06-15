@@ -7,7 +7,7 @@ export const DEFAULT_WORK_ITEM_MATCH_PATTERNS = ["work-item:"];
 export const DEFAULT_PULL_REQUEST_PATH = "links.pull_requests";
 export const DEFAULT_REQUIRED_CANDIDATE_FIELDS: RequiredFieldRule[] = [
   { field: "actual" },
-  { field: "status", values: ["ready-for-review", "closed"] },
+  { field: "status", values: ["completed"] },
 ];
 
 function escapeRegex(value: string): string {

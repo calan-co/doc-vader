@@ -56,7 +56,7 @@ describe("scan-conditions", () => {
   it("evaluateConditions: Phase A PR/workflow condition taxonomy", () => {
     const { conditions } = evaluateConditions({
       id: "work-item:175",
-      status: "ready-for-review",
+      status: "completed",
       lifecycle: "active",
       pr_merged: true,
       workflow_succeeded: true,
@@ -81,7 +81,7 @@ describe("scan-conditions", () => {
   it("evaluateConditions: valid_evidence true when status != closed and no evidence links", () => {
     const { conditions } = evaluateConditions({
       id: "work-item:200",
-      status: "in-progress",
+      status: "running",
       lifecycle: "active",
       links: {
         pull_requests: ["https://github.com/example/repo/pull/1"],
@@ -183,7 +183,7 @@ describe("scanBacklog", () => {
     });
     mkFile(
       "backlog/archive/archived.md",
-      `---\nid: "999"\nstatus: closed\n---\n`,
+      `---\nid: "999"\nstatus: completed\n---\n`,
     );
     const report = await scanBacklog({ rootDir: testDir });
     expect(report.summary.totalFiles).toBe(0);
@@ -195,7 +195,7 @@ describe("scanBacklog", () => {
     });
     mkFile(
       "backlog/archive/archived.md",
-      `---\nid: "999"\nstatus: closed\n---\n`,
+      `---\nid: "999"\nstatus: completed\n---\n`,
     );
     const report = await scanBacklog({
       rootDir: testDir,
@@ -453,7 +453,7 @@ describe("candidate validation and archival", () => {
   });
 
   it(
-    "validate-archive-candidates archives eligible ready-for-review items",
+    "validate-archive-candidates archives eligible completed items",
     { timeout: 15000 },
     async () => {
       mkConsumerConfig({ validateArchiveCandidates: true });
@@ -462,7 +462,8 @@ describe("candidate validation and archival", () => {
         `---
 id: "work-item:012"
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: Archive candidate
 actual: 8
@@ -476,7 +477,7 @@ links:
 # Work item
 
 ## Closure Notes
-- Evidence and implementation complete.
+- 2026-01-01: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
       );
 
@@ -550,7 +551,8 @@ links:
           `---
 id: "work-item:012"
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: Partially merged candidate
 actual: 8
@@ -563,6 +565,9 @@ links:
     - "[[record-20260101-000000-012]]"
 ---
 # Work item
+
+## Closure Notes
+- 2026-01-01: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
         );
 
@@ -599,7 +604,8 @@ links:
         `---
 id: "work-item:015"
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: Referenced candidate
 actual: 3
@@ -611,6 +617,9 @@ links:
     - "[[record-20260102-000000-015]]"
 ---
 # Work item
+
+## Closure Notes
+- 2026-01-02: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
       );
       mkFile(
@@ -618,7 +627,7 @@ links:
         `---
 id: "work-item:016"
 type: work-item
-status: in-progress
+status: running
 lifecycle: active
 title: Dependency
 links:
@@ -658,14 +667,15 @@ links:
     async () => {
       mkConsumerConfig({
         validateArchiveCandidates: true,
-        invalidCandidateStatus: "in-progress",
+        invalidCandidateStatus: "running",
       });
       mkFile(
         "backlog/13.invalid-ready.md",
         `---
 id: "work-item:013"
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: Invalid candidate
 ---
@@ -685,13 +695,13 @@ title: Invalid candidate
 
       const item = report.items.find((entry) => entry.id === "work-item:013");
       expect(item?.candidateValidation?.eligible).toBe(false);
-      expect(item?.candidateValidation?.updatedStatus).toBe("in-progress");
+      expect(item?.candidateValidation?.updatedStatus).toBe("running");
 
       const updatedFile = fsSync.readFileSync(
         path.join(testDir, "backlog", "13.invalid-ready.md"),
         "utf8",
       );
-      expect(updatedFile).toContain("status: in-progress");
+      expect(updatedFile).toContain("status: running");
     },
   );
 
@@ -705,15 +715,22 @@ title: Invalid candidate
         `---
 id: "work-item:021"
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: Ready missing evidence
 actual: 1
+completed_date: "2026-01-03"
 links:
-  - pull_request: "https://github.com/calan-co/doc-vader/pull/21"
-  - evidence: "[[record-20260514-140000-021]]"
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/21"
+  evidence:
+    - "[[record-20260514-140000-021]]"
 ---
 # Work item
+
+## Closure Notes
+- 2026-01-03: Closed as completed with evidence in PR #21.
 `,
       );
 
@@ -755,15 +772,20 @@ links:
         `---
 id: wi-22
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: WI ready missing evidence
 actual: 2
+completed_date: "2026-01-04"
 links:
   pull_requests:
     - "https://github.com/calan-co/doc-vader/pull/22"
 ---
 # Work item
+
+## Closure Notes
+- 2026-01-04: Closed as completed with evidence in PR #22.
 `,
       );
 
@@ -804,7 +826,8 @@ links:
         `---
 id: "work-item:017"
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: Nested ref candidate
 actual: 2
@@ -816,6 +839,9 @@ links:
     - "[[record-20260103-000000-017]]"
 ---
 # Work item
+
+## Closure Notes
+- 2026-01-03: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
       );
 
@@ -828,7 +854,7 @@ links:
         `---
 id: "work-item:018"
 type: work-item
-status: in-progress
+status: running
 lifecycle: active
 title: Referencing from subdir
 links:
@@ -868,7 +894,8 @@ links:
         `---
 id: "work-item:019"
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 title: No inbound candidate
 actual: 2
@@ -880,6 +907,9 @@ links:
     - "[[record-20260104-000000-019]]"
 ---
 # Work item
+
+## Closure Notes
+- 2026-01-04: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
       );
 
@@ -893,7 +923,7 @@ links:
         `---
 id: "work-item:other"
 type: work-item
-status: closed
+status: completed
 lifecycle: archived
 title: Other archived
 ---
@@ -904,7 +934,7 @@ title: Other archived
         `---
 id: "work-item:020"
 type: work-item
-status: in-progress
+status: running
 lifecycle: active
 title: References archived only
 ---
@@ -935,14 +965,14 @@ See [[other]] for prior context.
     async () => {
       mkConsumerConfig({
         validateArchiveCandidates: true,
-        invalidCandidateStatus: "in-progress",
+        invalidCandidateStatus: "running",
       });
       mkFile(
         "backlog/14.invalid-override.md",
         `---
 id: "work-item:014"
 type: work-item
-status: ready-for-review
+status: completed
 lifecycle: active
 title: Invalid candidate override
 ---

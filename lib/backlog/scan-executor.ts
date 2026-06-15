@@ -37,9 +37,15 @@ function toPosix(p: string): string {
   return p.replaceAll("\\", "/");
 }
 
+function isWithinPath(child: string, parent: string): boolean {
+  const relative = path.relative(path.resolve(parent), path.resolve(child));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
 async function collectMarkdownFiles(
   dir: string,
   includeArchive: boolean,
+  archiveDir?: string,
 ): Promise<string[]> {
   let entries: import("node:fs").Dirent[];
   try {
@@ -57,8 +63,10 @@ async function collectMarkdownFiles(
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === "audit") continue;
-      if (!includeArchive && entry.name === "archive") continue;
-      files.push(...(await collectMarkdownFiles(full, includeArchive)));
+      if (!includeArchive && archiveDir && isWithinPath(full, archiveDir)) {
+        continue;
+      }
+      files.push(...(await collectMarkdownFiles(full, includeArchive, archiveDir)));
       continue;
     }
     if (entry.isFile() && entry.name.endsWith(".md")) {
@@ -426,6 +434,7 @@ export async function scanBacklog(
   const consumerConfig = options.consumerConfig;
 
   const loadedConfig = await loadConsumerConfig(rootDir, consumerConfig);
+  const archiveDir = path.resolve(rootDir, loadedConfig.roots.archive);
 
   // Resolve resolver order: CLI flag > consumer config > default
   let resolverOrder: ReturnType<typeof normalizeResolverOrder>;
@@ -473,7 +482,7 @@ export async function scanBacklog(
     throw err;
   }
 
-  const files = await collectMarkdownFiles(backlogDir, includeArchive);
+  const files = await collectMarkdownFiles(backlogDir, includeArchive, archiveDir);
   const relFiles = files.map((file) => toPosix(path.relative(rootDir, file)));
   const items: WorkItemScanResult[] = [];
 
@@ -576,11 +585,13 @@ export async function scanBacklog(
         const context = parseWorkItemContext({
           path: path.resolve(rootDir, rel),
           value: contentForCandidateValidation,
+        }, {
+          backlogRoot: backlogDir,
+          archiveRoot: archiveDir,
         });
         const shouldEvaluate =
           context.isActiveBacklogWorkItem &&
-          (context.status === "ready-for-review" ||
-            context.status === "closed");
+          context.status === "completed";
 
         if (shouldEvaluate) {
           // Candidate sweep should backfill missing evidence links before archive checks,
@@ -630,10 +641,7 @@ export async function scanBacklog(
 
           candidateItemsEvaluated += 1;
           const issues = [
-            ...validateArchiveReadiness(context, [
-              "ready-for-review",
-              "closed",
-            ], {
+            ...validateArchiveReadiness(context, ["completed"], {
               pullRequestPath: loadedConfig.automation.pullRequestPath,
               requiredFields: loadedConfig.automation.requiredCandidateFields,
             }),

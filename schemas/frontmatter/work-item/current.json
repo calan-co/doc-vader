@@ -94,7 +94,7 @@
         },
         "status_reason": {
           "type": "string",
-          "description": "Required when status is 'closed' to capture why the work item was closed."
+          "description": "Required when status is terminal to capture why the work item finished."
         },
         "ordinal": {
           "type": "integer",
@@ -115,7 +115,11 @@
             ],
             "properties": {
               "status": {
-                "const": "closed"
+                "enum": [
+                  "completed",
+                  "aborted",
+                  "closed"
+                ]
               }
             }
           },
@@ -128,10 +132,16 @@
                 "enum": [
                   "success",
                   "completed",
+                  "awaiting-review",
+                  "verification-pending",
+                  "implementation-complete",
+                  "rejected",
                   "obsolete",
                   "redundant",
                   "superseded",
-                  "cancelled"
+                  "cancelled",
+                  "duplicate",
+                  "wontfix"
                 ]
               }
             }
@@ -149,7 +159,11 @@
             ],
             "properties": {
               "status": {
-                "const": "closed"
+                "enum": [
+                  "completed",
+                  "aborted",
+                  "closed"
+                ]
               }
             }
           }
