@@ -1117,7 +1117,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
           }
         }
 
-        if (shouldEnforceClosedInvariants) {
+        if (shouldEnforceClosedInvariants && status === "completed") {
           const uncheckedTasks = extractUncheckedChecklistItemsFromSection(
             content,
             "Tasks",

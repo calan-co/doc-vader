@@ -338,7 +338,7 @@ function assertNoUncheckedCompletionCriteria(
   document: MarkdownDocument,
   targetStatus: string,
 ): void {
-  if (!["completed", "aborted"].includes(targetStatus)) {
+  if (targetStatus !== "completed") {
     return;
   }
 

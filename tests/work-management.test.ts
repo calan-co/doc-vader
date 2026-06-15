@@ -216,6 +216,55 @@ links:
     ).rejects.toThrow(/Acceptance Criteria: Verify the user-facing behavior/i);
   });
 
+  it("allows aborted work items to retain unchecked completion criteria", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-sample.md",
+    );
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: running
+status_reason: implementation
+priority: medium
+estimated: 1
+---
+
+## Tasks
+
+- [x] Implement the first part.
+- [ ] Finish the second part.
+
+## Acceptance Criteria
+
+- [ ] Verify the user-facing behavior.
+`,
+    );
+
+    const result = await transitionWorkItem({
+      rootDir,
+      id: "work-item:sample",
+      status: "aborted",
+      statusReason: "not-planned",
+    });
+
+    expect(result.frontmatter.status).toBe("aborted");
+    expect(result.frontmatter.lifecycle).toBe("active");
+    expect(result.frontmatter.status_reason).toBe("not-planned");
+    const updated = await readFile(filePath, "utf8");
+    expect(updated).toContain("status: aborted");
+  });
+
   it("allows completed when tasks and acceptance criteria are checked", async () => {
     const rootDir = await createTempRepo();
     const filePath = path.join(
