@@ -494,17 +494,21 @@
       "description": "Current actionable workflow state.",
       "type": "string",
       "enum": [
+        "draft",
         "ready",
         "open",
         "proposed",
         "accepted",
         "inProgress",
         "in-progress",
+        "running",
+        "paused",
         "review",
         "ready-for-review",
         "approved",
         "complete",
         "completed",
+        "aborted",
         "closed",
         "deprecated",
         "superseded",
@@ -570,16 +574,20 @@
         },
         "status": {
           "enum": [
+            "draft",
             "ready",
             "open",
             "proposed",
             "accepted",
             "inProgress",
             "in-progress",
+            "running",
+            "paused",
             "review",
             "ready-for-review",
             "complete",
             "completed",
+            "aborted",
             "rejected",
             "duplicate",
             "closed"
@@ -601,11 +609,14 @@
             "accepted",
             "inProgress",
             "in-progress",
+            "running",
+            "paused",
             "review",
             "ready-for-review",
             "approved",
             "complete",
             "completed",
+            "aborted",
             "closed"
           ]
         }
@@ -624,8 +635,11 @@
             "accepted",
             "inProgress",
             "in-progress",
+            "running",
+            "paused",
             "complete",
             "completed",
+            "aborted",
             "approved",
             "deprecated",
             "closed"
@@ -642,6 +656,8 @@
         "status": {
           "enum": [
             "complete",
+            "completed",
+            "aborted",
             "deprecated",
             "superseded",
             "rejected",
@@ -662,6 +678,7 @@
             "superseded",
             "archived",
             "deprecated",
+            "aborted",
             "closed"
           ]
         }

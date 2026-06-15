@@ -6,10 +6,10 @@ const run = async (md: string, opts?: any, filePath?: string) =>
   runUtil(md, createProcessor(archiveReadiness, opts), filePath);
 
 describe("remark-lint-work-item-archive-readiness", () => {
-  it("passes for a ready-for-review work item with archive prerequisites", async () => {
+  it("passes for a completed work item with archive prerequisites", async () => {
     const md = `---
 type: work-item
-status: ready-for-review
+status: completed
 actual: 3
 links:
   pull_requests:
@@ -29,7 +29,7 @@ Ready for archive validation.
   it("reports missing pull requests, evidence, and actual", async () => {
     const md = `---
 type: work-item
-status: ready-for-review
+status: completed
 ---
 `;
     const result = await run(md, undefined, "/repo/backlog/228.test-story.md");
@@ -42,10 +42,10 @@ status: ready-for-review
     );
   });
 
-  it("applies to closed work items too", async () => {
+  it("applies to completed work items", async () => {
     const md = `---
 type: work-item
-status: closed
+status: completed
 actual: 2
 links:
   pull_requests:
@@ -65,7 +65,7 @@ links:
   it("skips archived work items", async () => {
     const md = `---
 type: work-item
-status: closed
+status: completed
 ---
 `;
     const result = await run(
@@ -79,7 +79,7 @@ status: closed
   it("fails on invalid options", async () => {
     const md = `---
 type: work-item
-status: ready-for-review
+status: completed
 ---
 `;
     const result = await run(

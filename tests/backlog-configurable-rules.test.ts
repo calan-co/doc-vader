@@ -18,7 +18,7 @@ describe("configurable backlog rules", () => {
     expect(DEFAULT_PULL_REQUEST_PATH).toBe("links.pull_requests");
     expect(DEFAULT_REQUIRED_CANDIDATE_FIELDS).toEqual([
       { field: "actual" },
-      { field: "status", values: ["ready-for-review", "closed"] },
+      { field: "status", values: ["completed"] },
     ]);
   });
 
@@ -37,15 +37,15 @@ describe("configurable backlog rules", () => {
   it("normalizes required candidate field rules with fallback", () => {
     expect(normalizeRequiredFieldRules(undefined)).toEqual([
       { field: "actual" },
-      { field: "status", values: ["ready-for-review", "closed"] },
+      { field: "status", values: ["completed"] },
     ]);
 
     expect(
       normalizeRequiredFieldRules([
         "actual",
-        { field: "status", values: ["closed", "closed", ""] },
+        { field: "status", values: ["aborted", "aborted", ""] },
       ]),
-    ).toEqual([{ field: "actual" }, { field: "status", values: ["closed"] }]);
+    ).toEqual([{ field: "actual" }, { field: "status", values: ["aborted"] }]);
   });
 
   it("reads nested values by dotted path", () => {
@@ -53,13 +53,13 @@ describe("configurable backlog rules", () => {
       links: {
         pull_requests: ["https://example.com/pr/1"],
       },
-      status: "ready-for-review",
+      status: "completed",
     };
 
     expect(getValueByPath(source, "links.pull_requests")).toEqual([
       "https://example.com/pr/1",
     ]);
-    expect(getValueByPath(source, "status")).toBe("ready-for-review");
+    expect(getValueByPath(source, "status")).toBe("completed");
     expect(getValueByPath(source, "links.missing")).toBeUndefined();
   });
 

@@ -15,8 +15,11 @@ function mkFile(name: string, content: string) {
   fsSync.writeFileSync(path.join(testDir, name), content, "utf8");
 }
 
-function mkConsumerConfig(automation: Record<string, unknown> = {}) {
-  writeBacklogConsumerConfig(testDir, automation);
+function mkConsumerConfig(
+  automation: Record<string, unknown> = {},
+  roots: Record<string, unknown> = {},
+) {
+  writeBacklogConsumerConfig(testDir, automation, roots);
 }
 
 const VALID_ITEM = `---
@@ -204,17 +207,49 @@ describe("configurable matching and candidate rules", () => {
     ]);
   });
 
+  it("uses configured archive root when excluding archive files", async () => {
+    mkConsumerConfig({}, { archive: "history/done" });
+    mkDir("history/done");
+    mkFile(
+      "backlog/1.active.md",
+      `---\nid: work-item:1\ntype: work-item\nstatus: ready\nlifecycle: active\n---\n`,
+    );
+    mkFile(
+      "history/done/2.archived.md",
+      `---\nid: work-item:2\ntype: work-item\nstatus: completed\nlifecycle: inactive\n---\n`,
+    );
+
+    const defaultReport = await scanBacklog({
+      rootDir: testDir,
+      backlogDir: ".",
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+    });
+    expect(defaultReport.items.map((item) => item.id)).toEqual([
+      "work-item:1",
+    ]);
+
+    const archiveReport = await scanBacklog({
+      rootDir: testDir,
+      backlogDir: ".",
+      includeArchive: true,
+      consumerConfig: ".doc-vader/backlog-consumer.json",
+    });
+    expect(archiveReport.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["work-item:1", "work-item:2"]),
+    );
+  });
+
   it("uses automation.requiredCandidateFields qualifying values", async () => {
     mkConsumerConfig({
       validateArchiveCandidates: true,
       requiredCandidateFields: [
         "actual",
-        { field: "status", values: ["closed"] },
+        { field: "status", values: ["aborted"] },
       ],
     });
     mkFile(
       "backlog/3.required-values.md",
-      `---\nid: work-item:3\ntype: work-item\nstatus: ready-for-review\nlifecycle: active\nactual: 2\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/3\n  evidence:\n    - '[[record-20260101-000000-3]]'\n---\n`,
+      `---\nid: work-item:3\ntype: work-item\nstatus: completed\nlifecycle: active\nactual: 2\nlinks:\n  pull_requests:\n    - https://github.com/calan-co/doc-vader/pull/3\n  evidence:\n    - '[[record-20260101-000000-3]]'\n---\n`,
     );
 
     const report = await scanBacklog({
@@ -226,7 +261,7 @@ describe("configurable matching and candidate rules", () => {
     expect(candidate?.candidateValidation?.eligible).toBe(false);
     expect(
       candidate?.candidateValidation?.discrepancies.some((entry) =>
-        entry.includes("must be one of: closed"),
+        entry.includes("must be one of: aborted"),
       ),
     ).toBe(true);
   });

@@ -1,6 +1,6 @@
 ---
 title: Doc-Vader Implementation Plan & Subagent Instructions
-status: proposed
+status: draft
 id: unknown-1778353027734
 type: document
 subtype: generic

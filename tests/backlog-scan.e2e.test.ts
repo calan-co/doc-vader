@@ -64,7 +64,7 @@ describe("backlog scan e2e", () => {
             pullRequestPath: "links.prs",
             requiredCandidateFields: [
               "actual",
-              { field: "status", values: ["closed"] },
+              { field: "status", values: ["aborted"] },
             ],
           },
         },
@@ -79,9 +79,11 @@ describe("backlog scan e2e", () => {
       `---
 id: wi-1
 type: work-item
-status: ready-for-review
+status: completed
+status_reason: completed
 lifecycle: active
 actual: 2
+completed_date: '2026-01-01'
 links:
   prs:
     - https://github.com/calan-co/doc-vader/pull/1
@@ -120,7 +122,7 @@ Tracks wi-1 for config-driven scan.
     expect(item?.candidateValidation?.eligible).toBe(false);
     expect(
       item?.candidateValidation?.discrepancies.some((message) =>
-        message.includes("must be one of: closed"),
+        message.includes("must be one of: aborted"),
       ),
     ).toBe(true);
   });
