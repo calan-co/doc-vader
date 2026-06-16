@@ -30,6 +30,7 @@ export interface ClaimStatus {
 
 export interface ClaimTaskOptions {
   rootDir?: string;
+  claimStorePath?: string;
   holder?: string;
   branch?: string;
   sandbox?: string;
@@ -44,7 +45,12 @@ const CLAIM_LOCK_TIMEOUT_MS = 10_000;
 const CLAIM_LOCK_STALE_MS = 300_000;
 const CLAIM_LOCK_RETRY_MS = 25;
 
-function claimStorePath(rootDir: string): string {
+function claimStorePath(rootDir: string, overridePath?: string): string {
+  if (overridePath?.trim()) {
+    return path.isAbsolute(overridePath)
+      ? overridePath
+      : path.resolve(rootDir, overridePath);
+  }
   const configuredPath = process.env[CLAIM_STORE_ENV]?.trim();
   if (configuredPath) {
     return path.isAbsolute(configuredPath)
@@ -54,10 +60,13 @@ function claimStorePath(rootDir: string): string {
   return path.resolve(rootDir, CLAIM_STORE_PATH);
 }
 
-async function readStore(rootDir: string): Promise<ClaimStoreFile> {
+async function readStore(
+  rootDir: string,
+  claimStorePathOverride?: string,
+): Promise<ClaimStoreFile> {
   try {
     return JSON.parse(
-      await fs.readFile(claimStorePath(rootDir), "utf8"),
+      await fs.readFile(claimStorePath(rootDir, claimStorePathOverride), "utf8"),
     ) as ClaimStoreFile;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -70,8 +79,9 @@ async function readStore(rootDir: string): Promise<ClaimStoreFile> {
 async function writeStoreUnlocked(
   rootDir: string,
   store: ClaimStoreFile,
+  claimStorePathOverride?: string,
 ): Promise<void> {
-  const filePath = claimStorePath(rootDir);
+  const filePath = claimStorePath(rootDir, claimStorePathOverride);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
 }
@@ -80,8 +90,11 @@ async function wait(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function acquireStoreLock(rootDir: string): Promise<() => Promise<void>> {
-  const filePath = claimStorePath(rootDir);
+async function acquireStoreLock(
+  rootDir: string,
+  claimStorePathOverride?: string,
+): Promise<() => Promise<void>> {
+  const filePath = claimStorePath(rootDir, claimStorePathOverride);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const lockPath = `${filePath}.lock`;
   const startedAt = Date.now();
@@ -126,13 +139,14 @@ async function acquireStoreLock(rootDir: string): Promise<() => Promise<void>> {
 
 async function updateStore<T>(
   rootDir: string,
+  claimStorePathOverride: string | undefined,
   update: (store: ClaimStoreFile) => T | Promise<T>,
 ): Promise<T> {
-  const releaseLock = await acquireStoreLock(rootDir);
+  const releaseLock = await acquireStoreLock(rootDir, claimStorePathOverride);
   try {
-    const store = await readStore(rootDir);
+    const store = await readStore(rootDir, claimStorePathOverride);
     const result = await update(store);
-    await writeStoreUnlocked(rootDir, store);
+    await writeStoreUnlocked(rootDir, store, claimStorePathOverride);
     return result;
   } finally {
     await releaseLock();
@@ -171,7 +185,7 @@ export async function claimTask(
 ): Promise<ClaimStatus> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const now = options.now ?? new Date();
-  return updateStore(rootDir, (store) => {
+  return updateStore(rootDir, options.claimStorePath, (store) => {
     const conflictingClaim = store.claims.find(
       (claim) => claim.taskId === taskId && getState(claim, now) === "active",
     );
@@ -230,11 +244,11 @@ export async function claimTask(
 
 export async function getClaimStatus(
   claimId: string,
-  options: { rootDir?: string; now?: Date } = {},
+  options: { rootDir?: string; claimStorePath?: string; now?: Date } = {},
 ): Promise<ClaimStatus> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const now = options.now ?? new Date();
-  const store = await readStore(rootDir);
+  const store = await readStore(rootDir, options.claimStorePath);
   const claim = store.claims.find((entry) => entry.id === claimId);
   if (!claim) {
     return { claimId, state: "missing" };
@@ -249,11 +263,11 @@ export async function getClaimStatus(
 
 export async function releaseClaim(
   claimId: string,
-  options: { rootDir?: string; now?: Date } = {},
+  options: { rootDir?: string; claimStorePath?: string; now?: Date } = {},
 ): Promise<ClaimStatus> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const now = options.now ?? new Date();
-  return updateStore(rootDir, (store) => {
+  return updateStore(rootDir, options.claimStorePath, (store) => {
     const claim = store.claims.find((entry) => entry.id === claimId);
     if (!claim) {
       return { claimId, state: "missing" };
@@ -273,18 +287,18 @@ export async function releaseClaim(
 
 export async function getActiveClaimForTask(
   taskId: string,
-  options: { rootDir?: string; now?: Date } = {},
+  options: { rootDir?: string; claimStorePath?: string; now?: Date } = {},
 ): Promise<TaskClaim | undefined> {
   return (await getActiveClaimsForTask(taskId, options))[0];
 }
 
 export async function getActiveClaimsForTask(
   taskId: string,
-  options: { rootDir?: string; now?: Date } = {},
+  options: { rootDir?: string; claimStorePath?: string; now?: Date } = {},
 ): Promise<TaskClaim[]> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const now = options.now ?? new Date();
-  const store = await readStore(rootDir);
+  const store = await readStore(rootDir, options.claimStorePath);
   return store.claims.filter(
     (claim) => claim.taskId === taskId && getState(claim, now) === "active",
   );
@@ -292,11 +306,11 @@ export async function getActiveClaimsForTask(
 
 export async function getClaimStatusForTask(
   taskId: string,
-  options: { rootDir?: string; now?: Date } = {},
+  options: { rootDir?: string; claimStorePath?: string; now?: Date } = {},
 ): Promise<ClaimStatus | undefined> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const now = options.now ?? new Date();
-  const store = await readStore(rootDir);
+  const store = await readStore(rootDir, options.claimStorePath);
   const claim = store.claims
     .filter((entry) => entry.taskId === taskId && !isReleased(entry))
     .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0];
