@@ -66,9 +66,9 @@ const hooks = {
     onSandboxReady: [
       {
         command:
-          'pnpm install --frozen-lockfile --prefer-offline --store-dir "$SANDCASTLE_PNPM_STORE_PATH"',
+          'CI=true pnpm install --frozen-lockfile --prefer-offline --store-dir "$SANDCASTLE_PNPM_STORE_PATH"',
       },
-      { command: "pnpm run build" },
+      { command: "CI=true pnpm run build" },
     ],
   },
 };
