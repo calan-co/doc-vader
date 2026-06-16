@@ -62,6 +62,8 @@ TypeScript/Node best practices.
   for a breaking change.
 - Fail closed for ambiguous task IDs, missing files, invalid state transitions,
   malformed frontmatter, expired claims, and unknown provider behavior.
+  Failing closed means raising an error and stopping rather than guessing a
+  default behavior or silently succeeding with unsafe assumptions.
 - Keep filesystem writes deterministic: stable ordering, two-space JSON
   formatting where already used, trailing newline, and no timestamps unless the
   domain model requires one.
@@ -73,16 +75,12 @@ TypeScript/Node best practices.
   minimal.
 - Frontmatter must start on line 1 with `---`, use two-space indentation, avoid
   duplicate fields, and satisfy the relevant schema/template.
-- Use the schemas under `schemas/` and templates under `templates/` or
-  `docs/templates/` as the source of truth for required fields, enum values,
-  and status transitions.
+- Use the schemas under `schemas/` and templates under `templates/` as the
+  source of truth for required fields, enum values, and status transitions.
 - Preserve wiki links, evidence links, and existing IDs unless the task
   explicitly requires migration.
 - Do not mark work items closed, archived, or complete without required
   evidence and validation passing.
-- For files under `docs/rfcs/**`, read `docs/rfcs/AGENTS.md` and
-  `docs/rfcs/INTERACTION_PROTOCOL.md` before planning or editing.
-
 ## Testing
 
 - Use Vitest for unit and integration tests. Put tests near established test
@@ -108,12 +106,12 @@ TypeScript/Node best practices.
 - For code changes, normally run:
   - `pnpm run typecheck`
   - `pnpm run test`
-- For documentation changes, run `pnpm run docs:lint` before and after edits.
+- Documentation changes require `pnpm run docs:lint` before and after edits.
 - For backlog-affecting changes, also run:
   - `pnpm run build`
   - `pnpm run backlog:validate`
   - `pnpm run backlog:validate:ci`
-- For schema lifecycle changes, run `pnpm run schemas:policy:check`.
+- Schema lifecycle changes require `pnpm run schemas:policy:check`.
 - If a required validation command cannot run, record the exact command, failure
   reason, and residual risk in the task evidence or final report.
 
