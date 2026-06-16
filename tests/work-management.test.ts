@@ -843,6 +843,41 @@ links:
     }
   });
 
+  it("refuses to finalize a work item with linked PRs when PR verification is unauthenticated", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-unauthenticated-pr.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:unauthenticated-pr
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: awaiting-review
+priority: medium
+estimated: 2
+actual: 2
+links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/1
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Goal
+
+- Validate the change.
+`,
+    );
+
+    await expect(
+      finalizeWorkItem({ rootDir, id: "work-item:unauthenticated-pr" }),
+    ).rejects.toThrow(/authenticated provider/i);
+  });
+
   it("fails closed when finalizing a work item outside the ready gate", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(

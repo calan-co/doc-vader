@@ -1024,15 +1024,22 @@ export async function finalizeWorkItem(
     throw new Error(`Cannot finalize '${options.id}' without linked evidence.`);
   }
 
-  if (options.provider?.isAuthenticated()) {
-    const validationErrors = await validateLinkedPullRequestsMerged({
-      id: options.id,
-      pullRequestLinks,
-      provider: options.provider,
-    });
-    if (validationErrors.length > 0) {
-      throw new Error(validationErrors.join("\n"));
-    }
+  const provider =
+    options.provider ?? getProviderForForge("github", process.env.GITHUB_TOKEN);
+
+  if (!provider.isAuthenticated()) {
+    throw new Error(
+      `Cannot finalize '${options.id}' without an authenticated provider to verify linked PRs.`,
+    );
+  }
+
+  const validationErrors = await validateLinkedPullRequestsMerged({
+    id: options.id,
+    pullRequestLinks,
+    provider,
+  });
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors.join("\n"));
   }
 
   document.frontmatter.status = "completed";
