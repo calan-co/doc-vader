@@ -5,9 +5,9 @@ summary: Implement claim-bound artifact reservation add and remove commands that
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
-priority: high
+status: paused
+status_reason: blocked
+priority: low
 estimated: 5
 links:
   depends_on:

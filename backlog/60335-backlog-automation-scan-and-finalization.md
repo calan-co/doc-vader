@@ -5,9 +5,9 @@ summary: Deliver provider-backed backlog scanning, subject resolution, evidence 
 type: work-item
 subtype: story
 lifecycle: active
-status: running
-status_reason: investigation
-priority: high
+status: ready
+status_reason: auto
+priority: medium
 estimated: 8
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'

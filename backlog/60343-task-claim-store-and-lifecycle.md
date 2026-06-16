@@ -5,9 +5,9 @@ summary: Implement explicit task claims over reserved scope hashes, including lo
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
-priority: critical
+status: paused
+status_reason: blocked
+priority: medium
 estimated: 8
 links:
   depends_on:

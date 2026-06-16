@@ -5,9 +5,9 @@ summary: Implement generic record creation plus task-scoped record and close com
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
-priority: high
+status: paused
+status_reason: blocked
+priority: medium
 estimated: 6
 links:
   depends_on:

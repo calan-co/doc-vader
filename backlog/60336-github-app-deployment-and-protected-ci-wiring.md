@@ -5,9 +5,9 @@ summary: Decide the hosted-service and published GitHub App architecture, includ
 type: work-item
 subtype: story
 lifecycle: active
-status: running
-status_reason: investigation
-priority: high
+status: paused
+status_reason: blocked
+priority: low
 estimated: 5
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'

@@ -7,7 +7,7 @@ subtype: task
 lifecycle: active
 status: ready
 status_reason: auto
-priority: high
+priority: low
 estimated: 4
 links:
   reference:
