@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   claimTask,
   getClaimStatus,
@@ -23,7 +24,7 @@ import {
 
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 const require = createRequire(import.meta.url);
-const tsxImport = require.resolve("tsx");
+const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 
 async function mkTmpRoot(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "doc-vader-task-"));

@@ -104,6 +104,17 @@ function hasOption(args: string[], name: string): boolean {
   return args.some((arg) => arg === name || arg.startsWith(`${name}=`));
 }
 
+function optionValue(args: string[], name: string): string | undefined {
+  const index = args.findIndex(
+    (arg) => arg === name || arg.startsWith(`${name}=`),
+  );
+  if (index < 0) {
+    return undefined;
+  }
+  const token = args[index]!;
+  return token.startsWith(`${name}=`) ? token.slice(name.length + 1) : args[index + 1];
+}
+
 function closeTask(taskId: string, args: string[]): void {
   const claim = json<ClaimResult>([
     "task",
@@ -180,8 +191,11 @@ async function main(): Promise<void> {
       return;
     }
     case "record": {
-      const input = args.includes("--payload") ? undefined : readStdin();
-      const payloadArgs = args.includes("--payload") ? args : [...args, "--payload", "-"];
+      const hasPayload = hasOption(args, "--payload");
+      const payloadValue = optionValue(args, "--payload");
+      const payloadArgs = hasPayload ? args : [...args, "--payload", "-"];
+      const input =
+        !hasPayload || payloadValue === "-" ? readStdin() : undefined;
       process.stdout.write(runDv(["task", "record", "--json", ...payloadArgs], input));
       return;
     }

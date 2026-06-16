@@ -34,7 +34,9 @@ The command path must resolve archive roots from `.doc-vader/backlog-consumer.js
 - [ ] A deterministic CLI invocation validates archived work items and reports machine-usable results.
 - [ ] Archive roots are resolved from `.doc-vader/backlog-consumer.json` rather than hard-coded to `backlog/archive`.
 - [ ] Archived files with declared `$schema` values are validated against those schema declarations.
+- [ ] Schema resolution from `$schema` values is constrained to repo-local or explicitly allowlisted schemas and never resolves arbitrary external schemas.
 - [ ] Legacy archived files without `$schema` use a configurable fallback schema and missing-schema severity.
+- [ ] The command fails explicitly with a clear error when `.doc-vader/backlog-consumer.json` is missing or malformed rather than silently falling back or validating the wrong roots.
 - [ ] Validation does not add `validated_at`, `validated_by`, or equivalent provenance fields to archived work items.
 - [ ] Tests cover configured archive roots, declared schemas, fallback schemas, missing-schema severity, and CLI output.
 

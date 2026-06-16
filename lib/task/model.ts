@@ -340,10 +340,12 @@ export async function loadTaskModel(
     ...(asString(frontmatter.priority)
       ? { priority: asString(frontmatter.priority) }
       : {}),
-    ...(asNumber(frontmatter.estimated)
+    ...(asNumber(frontmatter.estimated) !== undefined
       ? { estimated: asNumber(frontmatter.estimated) }
       : {}),
-    ...(asNumber(frontmatter.actual) ? { actual: asNumber(frontmatter.actual) } : {}),
+    ...(asNumber(frontmatter.actual) !== undefined
+      ? { actual: asNumber(frontmatter.actual) }
+      : {}),
     tags,
     dependencies,
     references: collectStringLinks(links.reference),

@@ -7,7 +7,7 @@ interface RenderContext {
 const templateTokenPattern = /({{[\s\S]*?}}|{%[\s\S]*?%}|{#[\s\S]*?#})/g;
 
 function stripTemplateFrontmatter(template: string): string {
-  return template.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  return template.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n)?/, "");
 }
 
 function tokenizeTemplate(template: string): string[] {
