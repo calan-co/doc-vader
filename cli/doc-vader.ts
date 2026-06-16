@@ -20,6 +20,8 @@ import {
   list as listBacklogItems,
   validate as validateBacklog,
   formatAuditReportText,
+  validateArchiveWorkItems,
+  formatArchiveValidationReport,
   scanBacklog,
   formatScanReport,
 } from "../lib/controllers/backlogController.js";
@@ -659,6 +661,44 @@ docSystem
 const backlog = program
   .command("backlog")
   .description("Backlog domain commands");
+
+const backlogArchive = backlog
+  .command("archive")
+  .description("Archive validation commands");
+
+backlogArchive
+  .command("validate")
+  .description("Validate archived work items using configured archive roots")
+  .option("-f, --format <format>", "Output format: text|json", "text")
+  .option(
+    "--consumer-config <path>",
+    "Path to consumer config JSON",
+    ".doc-vader/backlog-consumer.json",
+  )
+  .option("--fail-on <level>", "Fail level for exit code: error|warning", "error")
+  .action(
+    async (opts: {
+      format: string;
+      consumerConfig: string;
+      failOn: "error" | "warning";
+    }) => {
+      try {
+        const report = await validateArchiveWorkItems({
+          format: opts.format as "text" | "json",
+          consumerConfig: opts.consumerConfig,
+          failOn: opts.failOn,
+        });
+        const output = formatArchiveValidationReport(report);
+        console.log(output);
+        if (report.exitCode !== 0) {
+          process.exit(report.exitCode);
+        }
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exit(1);
+      }
+    }
+  );
 
 backlog
   .command("validate")
