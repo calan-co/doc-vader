@@ -12,6 +12,8 @@ estimated: 2
 links:
   depends_on:
     - '[[60349-atomic-archive-pruning-command]]'
+  evidence:
+    - '[[record-20260616-043441-60352]]'
 tags:
   - archive
   - pruning

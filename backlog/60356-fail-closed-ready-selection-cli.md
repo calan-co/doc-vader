@@ -15,6 +15,8 @@ links:
     - '[[60355-simple-local-claim-lock]]'
   reference:
     - '[[60341-task-ready-afk-eligibility-query]]'
+  evidence:
+    - '[[record-20260616-043441-60356]]'
 tags:
   - afk
   - sandcastle

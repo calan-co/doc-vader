@@ -12,6 +12,8 @@ estimated: 3
 links:
   reference:
     - '[[60347-configured-archive-validation-cli-slice]]'
+  evidence:
+    - '[[record-20260616-043441-60348]]'
 tags:
   - archive
   - pruning

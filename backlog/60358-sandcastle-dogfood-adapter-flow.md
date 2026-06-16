@@ -15,6 +15,8 @@ links:
     - '[[60357-claim-aware-task-record-payload]]'
   reference:
     - '[[60346-sandcastle-doc-vader-task-adapter]]'
+  evidence:
+    - '[[record-20260616-043441-60358]]'
 tags:
   - afk
   - sandcastle
