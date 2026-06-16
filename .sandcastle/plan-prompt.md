@@ -4,7 +4,7 @@ Here are the open issues in the repo:
 
 <issues-json>
 
-!`pnpm exec tsx scripts/sandcastle/dv-adapter.ts list`
+!`CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts list`
 
 </issues-json>
 
@@ -15,6 +15,11 @@ priority tasks appear before lower priority tasks, with stable tie-breaks.
 # TASK
 
 Analyze the open issues and build a dependency graph. For each issue, determine whether it **blocks** or **is blocked by** any other open issue.
+
+Do not run shell commands or inspect repository files during planning. The
+`issues-json` payload is the bounded authoritative input for this phase. Infer
+dependency and overlap risk only from each issue's id, title, summary, priority,
+tags, dependencies, references, file path, and body section excerpts.
 
 An issue B is **blocked by** issue A if:
 

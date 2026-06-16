@@ -18,11 +18,27 @@ interface AdapterTask {
   canonicalTask: JsonRecord;
 }
 
+interface PlannerTask {
+  id: string;
+  number: string;
+  title: string;
+  summary: string;
+  status: string;
+  priority: string;
+  tags: string[];
+  dependencies: string[];
+  references: string[];
+  file: string;
+  bodySections: Array<{ heading: string; excerpt: string }>;
+}
+
 interface ClaimResult {
   claimId: string;
   taskId: string;
   state: string;
 }
+
+const MAX_SECTION_EXCERPT_LENGTH = 420;
 
 function fail(message: string): never {
   console.error(message);
@@ -46,6 +62,7 @@ function runDv(args: string[], input?: string): string {
   return execFileSync(command, commandArgs, {
     cwd: repoRoot(),
     encoding: "utf8",
+    env: { ...process.env, CI: "true" },
     input,
     stdio: input === undefined ? ["ignore", "pipe", "inherit"] : ["pipe", "pipe", "inherit"],
   });
@@ -77,6 +94,37 @@ function taskBody(task: JsonRecord): string {
     .join("\n\n");
 }
 
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function bodySectionExcerpts(task: JsonRecord): PlannerTask["bodySections"] {
+  const sections = task.bodySections;
+  if (!Array.isArray(sections)) {
+    return [];
+  }
+  return sections
+    .filter((section): section is { heading: string; body: string } => {
+      return (
+        typeof section === "object" &&
+        section !== null &&
+        typeof (section as JsonRecord).heading === "string" &&
+        typeof (section as JsonRecord).body === "string"
+      );
+    })
+    .map((section) => {
+      const normalized = section.body.replace(/\s+/g, " ").trim();
+      const excerpt =
+        normalized.length > MAX_SECTION_EXCERPT_LENGTH
+          ? `${normalized.slice(0, MAX_SECTION_EXCERPT_LENGTH - 3)}...`
+          : normalized;
+      return {
+        heading: section.heading,
+        excerpt,
+      };
+    });
+}
+
 function toAdapterTask(task: JsonRecord): AdapterTask {
   const id = String(task.id ?? "");
   if (!id) {
@@ -90,9 +138,29 @@ function toAdapterTask(task: JsonRecord): AdapterTask {
     body: taskBody(task),
     status,
     state: status === "completed" || status === "aborted" ? "closed" : "open",
-    tags: Array.isArray(task.tags) ? task.tags.map(String) : [],
+    tags: stringArray(task.tags),
     file: String(task.filePath ?? ""),
     canonicalTask: task,
+  };
+}
+
+function toPlannerTask(task: JsonRecord): PlannerTask {
+  const id = String(task.id ?? "");
+  if (!id) {
+    fail("dv task show returned a task without an id.");
+  }
+  return {
+    id: taskNumber(id),
+    number: taskNumber(id),
+    title: String(task.title ?? id),
+    summary: String(task.summary ?? ""),
+    status: String(task.status ?? "unknown"),
+    priority: String(task.priority ?? "unknown"),
+    tags: stringArray(task.tags),
+    dependencies: stringArray(task.dependencies),
+    references: stringArray(task.references),
+    file: String(task.filePath ?? ""),
+    bodySections: bodySectionExcerpts(task),
   };
 }
 
@@ -164,7 +232,7 @@ async function main(): Promise<void> {
         "--json",
       ]);
       const tasks = ready.candidates.map((candidate) =>
-        toAdapterTask(json<JsonRecord>(["task", "show", candidate.id, "--json"])),
+        toPlannerTask(json<JsonRecord>(["task", "show", candidate.id, "--json"])),
       );
       console.log(JSON.stringify(tasks, null, 2));
       return;

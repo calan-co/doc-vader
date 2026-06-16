@@ -19,7 +19,7 @@ Make a single commit summarizing the merge.
 
 For each branch that was merged, close its issue only after validation passes. The command below reuses the existing active implementation claim for the task, closes the task, then releases that claim. Replace `<TASK_ID>` with the issue id from the list below and `<EFFORT>` with the actual effort hours as a number:
 
-`pnpm exec tsx scripts/sandcastle/dv-adapter.ts close-task <TASK_ID> --actual <EFFORT>`
+`CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts close-task <TASK_ID> --actual <EFFORT>`
 
 Here are all the issues:
 

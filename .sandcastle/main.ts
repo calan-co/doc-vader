@@ -26,6 +26,7 @@ import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 // The planner emits its plan as JSON inside <plan> tags; Output.object extracts
@@ -38,9 +39,42 @@ const planSchema = z.object({
   ),
 });
 
+const sandcastleConfigDir = path.dirname(fileURLToPath(import.meta.url));
+
+const loadDotEnv = (envPath = path.join(sandcastleConfigDir, ".env")) => {
+  if (!fs.existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(
+      trimmed,
+    );
+    if (!match) continue;
+
+    const [, key, rawValue] = match;
+    if (process.env[key] !== undefined) continue;
+
+    let value = rawValue.trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
+
+loadDotEnv();
 
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
@@ -49,15 +83,40 @@ const HOST_SANDCASTLE_CACHE = path.join(os.homedir(), ".cache", "doc-vader", "sa
 const HOST_PNPM_STORE = path.join(HOST_SANDCASTLE_CACHE, "pnpm-store-linux");
 const HOST_CLAIM_STORE_DIR = path.join(HOST_SANDCASTLE_CACHE, "claims");
 const HOST_CLAIM_STORE = path.join(HOST_CLAIM_STORE_DIR, "task-claims.json");
+const HOST_CODEX_AUTH = path.join(os.homedir(), ".codex", "auth.json");
+const HOST_CODEX_CONFIG = path.join(os.homedir(), ".codex", "config.toml");
+const HOST_SANDBOX_CODEX_HOME = path.join(HOST_SANDCASTLE_CACHE, "codex-home");
 const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
 const SANDBOX_CLAIM_STORE_DIR = "/home/agent/.cache/doc-vader/claims";
 const SANDBOX_CLAIM_STORE = `${SANDBOX_CLAIM_STORE_DIR}/task-claims.json`;
+const SANDBOX_CODEX_HOME = "/home/agent/.codex";
+const CODEX_MODEL = process.env.SANDCASTLE_CODEX_MODEL ?? "gpt-5.4-mini";
+
+if (!fs.existsSync(HOST_CODEX_AUTH)) {
+  throw new Error(
+    `Codex auth file not found at ${HOST_CODEX_AUTH}. Run \`codex login\` on the host before running Sandcastle.`,
+  );
+}
+
+if (!fs.existsSync(HOST_CODEX_CONFIG)) {
+  throw new Error(
+    `Codex config file not found at ${HOST_CODEX_CONFIG}. Run \`codex doctor\` or \`codex login\` on the host before running Sandcastle.`,
+  );
+}
 
 fs.mkdirSync(HOST_PNPM_STORE, { recursive: true });
 fs.mkdirSync(HOST_CLAIM_STORE_DIR, { recursive: true });
+fs.mkdirSync(HOST_SANDBOX_CODEX_HOME, { recursive: true });
 if (!fs.existsSync(HOST_CLAIM_STORE)) {
   fs.writeFileSync(HOST_CLAIM_STORE, '{"claims":[]}\n', "utf8");
 }
+fs.copyFileSync(HOST_CODEX_AUTH, path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"));
+fs.copyFileSync(HOST_CODEX_CONFIG, path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"));
+fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"), 0o600);
+fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"), 0o600);
+
+const codexAgent = () =>
+  sandcastle.codex(CODEX_MODEL);
 
 // Hooks run inside the sandbox before the agent starts each iteration.
 // pnpm install ensures the sandbox always has fresh dependencies.
@@ -65,10 +124,13 @@ const hooks = {
   sandbox: {
     onSandboxReady: [
       {
+        // Sandcastle may run hook entries concurrently, so keep dependent setup
+        // steps in one shell command: build requires the install to complete.
+        // Keep Nx runtime state out of host-owned .nx paths inside rootless
+        // sandboxes, where those paths can be visible but unwritable.
         command:
-          'CI=true pnpm install --frozen-lockfile --prefer-offline --store-dir "$SANDCASTLE_PNPM_STORE_PATH"',
+          'export NX_DAEMON=false NX_CACHE_DIRECTORY=/tmp/doc-vader-nx-cache NX_WORKSPACE_DATA_DIRECTORY=/tmp/doc-vader-nx-workspace-data; codex login status >/dev/null && CI=true pnpm install --frozen-lockfile --prefer-offline --store-dir "$SANDCASTLE_PNPM_STORE_PATH" && CI=true pnpm run build',
       },
-      { command: "CI=true pnpm run build" },
     ],
   },
 };
@@ -83,8 +145,17 @@ const sandboxProvider = podman({
       hostPath: HOST_CLAIM_STORE_DIR,
       sandboxPath: SANDBOX_CLAIM_STORE_DIR,
     },
+    {
+      hostPath: HOST_SANDBOX_CODEX_HOME,
+      sandboxPath: SANDBOX_CODEX_HOME,
+    },
   ],
   env: {
+    CI: "true",
+    CODEX_HOME: SANDBOX_CODEX_HOME,
+    NX_DAEMON: "false",
+    NX_CACHE_DIRECTORY: "/tmp/doc-vader-nx-cache",
+    NX_WORKSPACE_DATA_DIRECTORY: "/tmp/doc-vader-nx-workspace-data",
     SANDCASTLE_PNPM_STORE_PATH: SANDBOX_PNPM_STORE,
     DOC_VADER_TASK_CLAIM_STORE: SANDBOX_CLAIM_STORE,
   },
@@ -118,7 +189,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
-    agent: sandcastle.codex("gpt-5.4-mini"),
+    agent: codexAgent(),
     promptFile: "./.sandcastle/plan-prompt.md",
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or
@@ -165,7 +236,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          agent: sandcastle.codex("gpt-5.4-mini"),
+          agent: codexAgent(),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -179,7 +250,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            agent: sandcastle.codex("gpt-5.4-mini"),
+            agent: codexAgent(),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -250,7 +321,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: sandboxProvider,
     name: "merger",
     maxIterations: 1,
-    agent: sandcastle.codex("gpt-5.4-mini"),
+    agent: codexAgent(),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
