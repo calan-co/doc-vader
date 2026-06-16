@@ -358,6 +358,48 @@ function extractWikilinkTarget(reference: string): string | null {
   return target.length > 0 ? target : null;
 }
 
+function collectDependencyReferences(
+  frontmatter: Record<string, unknown>,
+  content: string,
+): string[] {
+  const refs: string[] = [];
+  const links = frontmatter.links;
+
+  const legacyDependsOn =
+    typeof links === "object" &&
+    links !== null &&
+    !Array.isArray(links) &&
+    Array.isArray((links as Record<string, unknown>).depends_on)
+      ? ((links as Record<string, unknown>).depends_on as string[])
+      : [];
+  const canonicalDependsOn = extractCanonicalRelationshipDependencies(content).map(
+    (ref) => `[[${ref}]]`,
+  );
+
+  for (const reference of [...legacyDependsOn, ...canonicalDependsOn]) {
+    const trimmed = reference.trim();
+    if (trimmed.length > 0) {
+      refs.push(trimmed);
+    }
+  }
+
+  return refs;
+}
+
+function resolveDependencyReference(
+  reference: string,
+  workItemsMap: Map<string, WorkItemRef>,
+): { depItem: WorkItemRef | null } | null {
+  const depRef = extractWikilinkTarget(reference);
+  if (!depRef) {
+    return null;
+  }
+
+  return {
+    depItem: workItemsMap.get(depRef) ?? null,
+  };
+}
+
 function extractUncheckedChecklistItemsFromSection(
   content: string,
   heading: string,
@@ -929,22 +971,16 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
           });
         }
 
-        const legacyDependsOn = Array.isArray(frontmatter.links?.depends_on)
-          ? (frontmatter.links.depends_on as string[])
-          : [];
-        const canonicalDependsOn = extractCanonicalRelationshipDependencies(
-          content,
-        ).map((ref) => `[[${ref}]]`);
-        const dependencyRefs = [...legacyDependsOn, ...canonicalDependsOn];
+        const dependencyRefs = collectDependencyReferences(frontmatter, content);
 
         if (status === "ready-for-review") {
           for (const dep of dependencyRefs) {
-            const depRef = extractWikilinkTarget(dep);
-            if (!depRef) {
+            const resolvedDependency = resolveDependencyReference(dep, workItemsMap);
+            if (!resolvedDependency) {
               continue;
             }
 
-            const depItem = workItemsMap.get(depRef);
+            const { depItem } = resolvedDependency;
 
             if (!depItem) {
               diagnostics.push({
@@ -953,7 +989,10 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
                 message: `Dependency '${dep}' not found in backlog`,
                 severity: "error",
               });
-            } else if (depItem.status !== "closed") {
+              continue;
+            }
+
+            if (depItem.status !== "closed") {
               diagnostics.push({
                 code: "depends-on-ready-for-review-required",
                 path: "/links/depends_on",
@@ -1056,42 +1095,47 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
 
         if (dependencyRefs.length > 0) {
           for (const dep of dependencyRefs) {
-            const depRef = extractWikilinkTarget(dep);
-            if (depRef) {
-              const depItem = workItemsMap.get(depRef);
+            const resolvedDependency = resolveDependencyReference(dep, workItemsMap);
+            if (!resolvedDependency) {
+              continue;
+            }
 
-              if (!depItem) {
-                diagnostics.push({
-                  code: "depends-on-not-found",
-                  path: "/links/depends_on",
-                  message: `Dependency '${dep}' not found in backlog`,
-                  severity: "error",
-                });
-              } else if (
-                isDefaultWorkManagementWorkItem &&
-                !file.startsWith("archive/") &&
-                status === "closed" &&
-                depItem.status !== "closed"
-              ) {
-                diagnostics.push({
-                  code: "depends-on-closed-required",
-                  path: "/links/depends_on",
-                  message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'closed' but is '${depItem.status}'`,
-                  severity: "error",
-                });
-              } else if (
-                status === "in-progress" &&
-                !["in-progress", "ready-for-review", "closed"].includes(
-                  depItem.status,
-                )
-              ) {
-                diagnostics.push({
-                  code: "depends-on-in-progress-required",
-                  path: "/links/depends_on",
-                  message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'in-progress', 'ready-for-review', or 'closed' but is '${depItem.status}'`,
-                  severity: "error",
-                });
-              }
+            const { depItem } = resolvedDependency;
+
+            if (!depItem) {
+              diagnostics.push({
+                code: "depends-on-not-found",
+                path: "/links/depends_on",
+                message: `Dependency '${dep}' not found in backlog`,
+                severity: "error",
+              });
+              continue;
+            }
+
+            if (
+              isDefaultWorkManagementWorkItem &&
+              !file.startsWith("archive/") &&
+              status === "closed" &&
+              depItem.status !== "closed"
+            ) {
+              diagnostics.push({
+                code: "depends-on-closed-required",
+                path: "/links/depends_on",
+                message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'closed' but is '${depItem.status}'`,
+                severity: "error",
+              });
+            } else if (
+              status === "in-progress" &&
+              !["in-progress", "ready-for-review", "closed"].includes(
+                depItem.status,
+              )
+            ) {
+              diagnostics.push({
+                code: "depends-on-in-progress-required",
+                path: "/links/depends_on",
+                message: `Dependency '${dep}' (${depItem.id}: ${depItem.title}) must be 'in-progress', 'ready-for-review', or 'closed' but is '${depItem.status}'`,
+                severity: "error",
+              });
             }
           }
         }

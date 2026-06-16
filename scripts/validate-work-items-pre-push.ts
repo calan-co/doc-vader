@@ -223,31 +223,12 @@ async function preloadSupportSchemas(
   ajv: InstanceType<typeof Ajv2020>,
   supportDir: string,
 ): Promise<void> {
-  async function walk(dir: string): Promise<void> {
-    let entries: import("node:fs").Dirent[];
-    try {
-      entries = readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(fullPath);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
-
-      const schema = JSON.parse(readFileSync(fullPath, "utf8")) as Record<string, unknown>;
-      if (typeof schema.$id === "string" && !ajv.getSchema(schema.$id)) {
-        ajv.addSchema(schema, schema.$id);
-      }
+  for (const fullPath of collectFilesByExtension(supportDir, ".json")) {
+    const schema = JSON.parse(readFileSync(fullPath, "utf8")) as Record<string, unknown>;
+    if (typeof schema.$id === "string" && !ajv.getSchema(schema.$id)) {
+      ajv.addSchema(schema, schema.$id);
     }
   }
-
-  await walk(supportDir);
 }
 
 async function buildValidators(config: ValidationConfig) {
@@ -397,6 +378,38 @@ function isArchiveFile(filePath: string): boolean {
   return filePath.startsWith("backlog/archive/");
 }
 
+function collectFilesByExtension(
+  dirPath: string,
+  extension: string,
+): string[] {
+  if (!existsSync(dirPath)) {
+    return [];
+  }
+
+  const files: string[] = [];
+
+  function visit(currentDir: string): void {
+    for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
+
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        visit(fullPath);
+        continue;
+      }
+
+      if (entry.isFile() && entry.name.endsWith(extension)) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  visit(dirPath);
+  return files;
+}
+
 function dependencyLookupCandidates(reference: string): string[] {
   const normalized = reference
     .trim()
@@ -453,58 +466,37 @@ function indexWorkItemReference(
 function buildWorkItemIndex(): Map<string, WorkItemReference> {
   const backlogRoot = path.join(ROOT_DIR, "backlog");
   const index = new Map<string, WorkItemReference>();
-
-  function visitDirectory(dirPath: string): void {
-    if (!existsSync(dirPath)) {
-      return;
+  for (const fullPath of collectFilesByExtension(backlogRoot, ".md")) {
+    const content = readFileSync(fullPath, "utf8");
+    const parsed = matter(content);
+    const frontmatter = parsed.data as Record<string, unknown>;
+    if (frontmatter.type !== "work-item") {
+      continue;
     }
 
-    for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
-      if (entry.name.startsWith(".")) {
-        continue;
-      }
+    const id =
+      typeof frontmatter.id === "string" && frontmatter.id.trim().length > 0
+        ? frontmatter.id.trim()
+        : path.basename(fullPath, ".md");
+    const status =
+      typeof frontmatter.status === "string"
+        ? frontmatter.status.trim().toLowerCase()
+        : "";
+    const title =
+      typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
+        ? frontmatter.title.trim()
+        : path.basename(fullPath, ".md");
 
-      const fullPath = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        visitDirectory(fullPath);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".md")) {
-        continue;
-      }
+    const ref: WorkItemReference = {
+      id,
+      filePath: fullPath,
+      status,
+      title,
+    };
 
-      const content = readFileSync(fullPath, "utf8");
-      const parsed = matter(content);
-      const frontmatter = parsed.data as Record<string, unknown>;
-      if (frontmatter.type !== "work-item") {
-        continue;
-      }
-
-      const id =
-        typeof frontmatter.id === "string" && frontmatter.id.trim().length > 0
-          ? frontmatter.id.trim()
-          : path.basename(fullPath, ".md");
-      const status =
-        typeof frontmatter.status === "string"
-          ? frontmatter.status.trim().toLowerCase()
-          : "";
-      const title =
-        typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
-          ? frontmatter.title.trim()
-          : path.basename(fullPath, ".md");
-
-      const ref: WorkItemReference = {
-        id,
-        filePath: fullPath,
-        status,
-        title,
-      };
-
-      indexWorkItemReference(index, ref);
-    }
+    indexWorkItemReference(index, ref);
   }
 
-  visitDirectory(backlogRoot);
   return index;
 }
 
