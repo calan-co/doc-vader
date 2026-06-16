@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
@@ -11,6 +11,7 @@ import {
   releaseClaim,
 } from "../lib/task/claims.js";
 import { loadTaskModel } from "../lib/task/model.js";
+import { loadCanonicalTask, renderSandcastlePrompt } from "../lib/task/canonical.js";
 import { selectReadyTasks } from "../lib/task/ready.js";
 import {
   recordTaskEvidence,
@@ -25,6 +26,21 @@ import {
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
+const claimStoreEnv = "DOC_VADER_TASK_CLAIM_STORE";
+let previousClaimStoreEnv: string | undefined;
+
+beforeEach(() => {
+  previousClaimStoreEnv = process.env[claimStoreEnv];
+  delete process.env[claimStoreEnv];
+});
+
+afterEach(() => {
+  if (previousClaimStoreEnv === undefined) {
+    delete process.env[claimStoreEnv];
+  } else {
+    process.env[claimStoreEnv] = previousClaimStoreEnv;
+  }
+});
 
 async function mkTmpRoot(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "doc-vader-task-"));
@@ -58,6 +74,13 @@ async function mkTmpRoot(): Promise<string> {
     path.resolve(__dirname, "../templates/reference/task/prompt.md.tpl"),
     path.join(root, "templates/reference/task/prompt.md.tpl"),
   );
+  await fs.copyFile(
+    path.resolve(
+      __dirname,
+      "../templates/reference/task/sandcastle-prompt.md.tpl",
+    ),
+    path.join(root, "templates/reference/task/sandcastle-prompt.md.tpl"),
+  );
   return root;
 }
 
@@ -88,7 +111,7 @@ function runCli(
   });
 }
 
-describe("task command surface", () => {
+describe.sequential("task command surface", () => {
   it("loads deterministic canonical task JSON", async () => {
     const root = await mkTmpRoot();
     try {
@@ -159,6 +182,36 @@ tags:
       expect(prompt).toContain("Implement wi-101: Prompt Task");
       expect(prompt).toContain("Use `dv task show wi-101 --json`");
       expect(prompt).toContain("Templjs rendering is presentation only");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("shows and prompts from the canonical task JSON at the CLI boundary", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "101-prompt-task.md",
+        `id: wi-101
+title: Prompt Task
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+
+      const [showOutput, promptOutput, expectedModel] = await Promise.all([
+        Promise.resolve(runCli(root, ["task", "show", "101", "--json"])),
+        Promise.resolve(runCli(root, ["task", "prompt", "101"])),
+        loadCanonicalTask({ rootDir: root, taskId: "101" }),
+      ]);
+
+      expect(JSON.parse(showOutput)).toEqual(expectedModel);
+      expect(promptOutput.trimEnd()).toBe(
+        (await renderSandcastlePrompt({ task: expectedModel })).trimEnd(),
+      );
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -1073,7 +1126,7 @@ tags:
       );
       expect(show).toMatchObject({ id: "wi-208", title: "Dogfood" });
       const prompt = runCli(root, ["task", "prompt", "wi-208"]);
-      expect(prompt).toContain("Implement wi-208: Dogfood");
+      expect(prompt).toContain("Implement `Dogfood` from `backlog/208-dogfood.md`.");
 
       const evidence = JSON.parse(
         runCli(
