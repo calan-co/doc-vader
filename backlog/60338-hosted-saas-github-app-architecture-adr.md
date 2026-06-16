@@ -7,7 +7,7 @@ subtype: story
 lifecycle: active
 status: ready
 status_reason: auto
-priority: high
+priority: low
 estimated: 6
 links:
   evidence:

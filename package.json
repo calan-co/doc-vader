@@ -18,10 +18,11 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@8.15.0",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
     "build": "nx build doc-vader",
     "changeset": "changeset",
+    "clean": "nx reset && rm -rf node_modules dist",
     "typecheck": "tsc --noEmit",
     "test": "nx test doc-vader --watch=false",
     "prepare": "husky",
@@ -40,7 +41,8 @@
   "license": "ISC",
   "type": "module",
   "bin": {
-    "doc-vader": "dist/cli/doc-vader.js"
+    "doc-vader": "dist/cli/doc-vader.js",
+    "dv": "dist/cli/doc-vader.js"
   },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.7.0",
