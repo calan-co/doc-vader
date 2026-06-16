@@ -52,5 +52,19 @@ describe("staging archive", () => {
     const readme = readFileSync(archivedReadmePath, "utf8");
     expect(readme).toMatch(/deprecated staging scripts/i);
     expect(readme).toMatch(/wi-192/i);
+    expect(readme).toMatch(/lib\/frontmatter\/index\.ts/i);
+    expect(readme).toMatch(/lib\/schema\/resolver\.ts/i);
+    expect(readme).not.toMatch(/staging\/scripts\/utils\/frontmatter\.cjs/i);
+    expect(readme).not.toMatch(/staging\/scripts\/utils\/selectSchema\.cjs/i);
+
+    const centralConfigPath = path.join(
+      repoRoot,
+      "docs/guide/centralized-remark-config.md",
+    );
+    const centralConfig = readFileSync(centralConfigPath, "utf8");
+    expect(centralConfig).toMatch(/remark-frontmatter-schema\.ts/i);
+    expect(centralConfig).toMatch(/Superseded by `remark-frontmatter-schema\.ts`/i);
+    expect(centralConfig).toMatch(/✅ Migrated/i);
+    expect(centralConfig).not.toMatch(/Pending integration \(item 172\)/i);
   });
 });
