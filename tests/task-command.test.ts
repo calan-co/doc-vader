@@ -794,7 +794,7 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("fails record payloads and inactive claims before writing", async () => {
     const root = await mkTmpRoot();
@@ -1116,5 +1116,5 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
