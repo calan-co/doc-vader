@@ -30,6 +30,10 @@ async function mkTmpRoot(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "doc-vader-task-"));
   await fs.mkdir(path.join(root, "backlog"), { recursive: true });
   await fs.mkdir(path.join(root, ".doc-vader"), { recursive: true });
+  process.env.DOC_VADER_TASK_CLAIM_STORE = path.join(
+    root,
+    ".doc-vader/task-claims.json",
+  );
   await fs.writeFile(
     path.join(root, ".doc-vader/backlog-consumer.json"),
     JSON.stringify(
@@ -1034,6 +1038,10 @@ tags:
 
   it("supports the full dogfood flow without hand-editing backlog evidence", async () => {
     const root = await mkTmpRoot();
+    const claimStore = path.join(root, ".doc-vader/task-claims.json");
+    const taskEnv = {
+      DOC_VADER_TASK_CLAIM_STORE: claimStore,
+    };
     try {
       await writeTask(
         root,
@@ -1047,32 +1055,39 @@ tags:
   - afk`,
       );
 
-      const ready = JSON.parse(runCli(root, ["task", "ready", "--json"]));
+      const ready = JSON.parse(
+        runCli(root, ["task", "ready", "--json"], undefined, taskEnv),
+      );
       expect(ready.candidates.map((task: { id: string }) => task.id)).toEqual([
         "wi-208",
       ]);
 
       const claim = JSON.parse(
-        runCli(root, [
-          "task",
-          "claim",
-          "wi-208",
-          "--holder",
-          "sandcastle",
-          "--branch",
-          "feature/wi-208",
-          "--sandbox",
+        runCli(
           root,
-          "--json",
-        ]),
+          [
+            "task",
+            "claim",
+            "wi-208",
+            "--holder",
+            "sandcastle",
+            "--branch",
+            "feature/wi-208",
+            "--sandbox",
+            root,
+            "--json",
+          ],
+          undefined,
+          taskEnv,
+        ),
       );
       expect(claim.state).toBe("active");
 
       const show = JSON.parse(
-        runCli(root, ["task", "show", "wi-208", "--json"]),
+        runCli(root, ["task", "show", "wi-208", "--json"], undefined, taskEnv),
       );
       expect(show).toMatchObject({ id: "wi-208", title: "Dogfood" });
-      const prompt = runCli(root, ["task", "prompt", "wi-208"]);
+      const prompt = runCli(root, ["task", "prompt", "wi-208"], undefined, taskEnv);
       expect(prompt).toContain("Implement wi-208: Dogfood");
 
       const evidence = JSON.parse(
@@ -1094,6 +1109,7 @@ tags:
             observation: "Ready, claim, show, prompt, record, and release passed.",
             outcome: "pass",
           }),
+          taskEnv,
         ),
       );
       expect(evidence).toMatchObject({
@@ -1102,7 +1118,12 @@ tags:
       });
 
       const released = JSON.parse(
-        runCli(root, ["task", "release", "--claim", claim.claimId, "--json"]),
+        runCli(
+          root,
+          ["task", "release", "--claim", claim.claimId, "--json"],
+          undefined,
+          taskEnv,
+        ),
       );
       expect(released.state).toBe("released");
 
