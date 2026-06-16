@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @precommitRule Enforces allowed documentation status values and valid state transitions for markdown files with YAML frontmatter.
- * @note Canonical allowed status values and lifecycle/status transitions are now enforced by JSON schema (see schemas/frontmatter/document/latest.json).
+ * @note Canonical allowed status values and lifecycle/status transitions are now enforced by JSON schema (see schemas/frontmatter/by-type/document/latest.json).
  * @note This script only enforces procedural/cross-file logic (e.g., git-based transition checks) that cannot be expressed in schema.
  * @note All required status value validation is now in schema. This script only checks for valid transitions using git history.
  */
@@ -22,7 +22,7 @@ const { execSync } = require("child_process");
 // Load allowed statuses and transitions from schema
 const SCHEMA_PATH = path.resolve(
   __dirname,
-  "../../schemas/frontmatter/document/latest.json"
+  "../../schemas/frontmatter/by-type/document/latest.json"
 );
 const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, "utf8"));
 

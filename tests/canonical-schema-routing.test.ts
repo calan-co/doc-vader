@@ -20,6 +20,14 @@ describe("canonical schema routing surfaces", () => {
       "docs/reference/work-management/overview.md",
     );
     const readmePath = path.join(repoRoot, "README.md");
+    const templateGeneratorPath = path.join(
+      repoRoot,
+      "staging/scripts/generate-templates-from-schema.js",
+    );
+    const docStatusLintPath = path.join(
+      repoRoot,
+      "staging/scripts/lint/doc-status-transition-lint.cjs",
+    );
 
     const template = readFileSync(templatePath, "utf8");
     expect(template).toContain(
@@ -62,6 +70,19 @@ describe("canonical schema routing surfaces", () => {
     const readme = readFileSync(readmePath, "utf8");
     expect(readme).toContain(
       '"changed": "schemas/frontmatter/by-type/work-item/latest.json"',
+    );
+
+    const templateGenerator = readFileSync(templateGeneratorPath, "utf8");
+    expect(templateGenerator).toContain(
+      "schemas/frontmatter/by-type/document/latest.json",
+    );
+    expect(templateGenerator).toContain(
+      "schemas/frontmatter/by-type/work-item/latest.json",
+    );
+
+    const docStatusLint = readFileSync(docStatusLintPath, "utf8");
+    expect(docStatusLint).toContain(
+      "schemas/frontmatter/by-type/document/latest.json",
     );
   });
 });

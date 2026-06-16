@@ -2,7 +2,7 @@
 /**
  * Auto-generate documentation and work-item templates, linter configs, and validation logic from the JSON schema in /schemas.
  *
- * - Source of truth: schemas/frontmatter/document/latest.json, schemas/frontmatter/work-item/latest.json
+ * - Source of truth: schemas/frontmatter/by-type/document/latest.json, schemas/frontmatter/by-type/work-item/latest.json
  * - All templates reference the schema via a comment or metadata.
  * - All field rules, enums, and descriptions are embedded from the schema.
  * - Usage: npm run docs:generate-templates
@@ -13,11 +13,11 @@ const path = require("path");
 
 const DOC_SCHEMA_PATH = path.join(
   __dirname,
-  "../schemas/frontmatter/document/latest.json"
+  "../schemas/frontmatter/by-type/document/latest.json"
 );
 const WORK_ITEM_SCHEMA_PATH = path.join(
   __dirname,
-  "../schemas/frontmatter/work-item/latest.json"
+  "../schemas/frontmatter/by-type/work-item/latest.json"
 );
 const TEMPLATE_DIR = path.join(__dirname, "../docs/templates/backlog/");
 const EXAMPLES_DIR = path.join(__dirname, "../docs/examples/");
