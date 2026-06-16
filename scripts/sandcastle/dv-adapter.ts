@@ -222,6 +222,33 @@ function closeTask(taskId: string, args: string[]): void {
   );
 }
 
+function releaseTask(taskId: string): void {
+  const claim = json<ClaimResult>([
+    "task",
+    "claim-for",
+    taskId,
+    "--json",
+  ]);
+  const released = json<JsonRecord>([
+    "task",
+    "release",
+    "--claim",
+    claim.claimId,
+    "--json",
+  ]);
+  console.log(
+    JSON.stringify(
+      {
+        taskId,
+        claim,
+        released,
+      },
+      null,
+      2,
+    ),
+  );
+}
+
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
   switch (command) {
@@ -280,13 +307,18 @@ async function main(): Promise<void> {
       closeTask(taskId, args.slice(1));
       return;
     }
+    case "release-task": {
+      const taskId = args[0] ?? fail("Usage: dv-adapter.ts release-task <task-id>");
+      releaseTask(taskId);
+      return;
+    }
     case "release": {
       process.stdout.write(runDv(["task", "release", "--json", ...args]));
       return;
     }
     default:
       fail(
-        "Usage: dv-adapter.ts <list|view|prompt|claim|record|transition|close|close-task|release> ...",
+        "Usage: dv-adapter.ts <list|view|prompt|claim|record|transition|close|close-task|release-task|release> ...",
       );
   }
 }

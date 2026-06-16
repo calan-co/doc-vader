@@ -38,6 +38,15 @@ const DEFAULT_EXEMPT_PREFIXES = [
 ];
 
 const RELEASE_TYPES = new Set(["major", "minor", "patch"]);
+const GIT_LOCAL_ENV_VARS = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_DIR",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_PREFIX",
+  "GIT_WORK_TREE",
+];
 
 function toPosix(filePath: string): string {
   return filePath.replaceAll("\\", "/");
@@ -250,9 +259,20 @@ function changedFilesSince(rootDir: string, sinceRef: string): string[] {
   return output.split(/\r?\n/).filter(Boolean);
 }
 
+export function changesetStatusEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  const sanitizedEnv = { ...env };
+  for (const name of GIT_LOCAL_ENV_VARS) {
+    delete sanitizedEnv[name];
+  }
+  return sanitizedEnv;
+}
+
 function runChangesetStatus(rootDir: string, sinceRef: string): void {
   execFileSync("pnpm", ["changeset", "status", `--since=${sinceRef}`], {
     cwd: rootDir,
+    env: changesetStatusEnv(),
     stdio: "inherit",
   });
 }

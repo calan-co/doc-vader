@@ -6,7 +6,7 @@
 //                               listing unblocked issues with branch names.
 //   Phase 2 (Execute + Review): For each issue, a sandbox is created via
 //                               createSandbox(). The implementer runs first
-//                               (100 iterations). If it produces commits, a
+//                               (10 iterations). If it produces commits, a
 //                               reviewer runs in the same sandbox on the same
 //                               branch (1 iteration). All issue pipelines run
 //                               concurrently via Promise.allSettled().
@@ -23,6 +23,7 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -79,6 +80,7 @@ loadDotEnv();
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
+const AGENT_IDLE_TIMEOUT_SECONDS = 300;
 const HOST_SANDCASTLE_CACHE = path.join(os.homedir(), ".cache", "doc-vader", "sandcastle");
 const HOST_PNPM_STORE = path.join(HOST_SANDCASTLE_CACHE, "pnpm-store-linux");
 const HOST_CLAIM_STORE_DIR = path.join(HOST_SANDCASTLE_CACHE, "claims");
@@ -117,6 +119,48 @@ fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"), 0o600);
 
 const codexAgent = () =>
   sandcastle.codex(CODEX_MODEL);
+
+const releaseTaskClaim = (taskId: string) => {
+  try {
+    execFileSync(
+      "pnpm",
+      [
+        "exec",
+        "tsx",
+        "scripts/sandcastle/dv-adapter.ts",
+        "release-task",
+        taskId,
+      ],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CI: "true",
+          DOC_VADER_TASK_CLAIM_STORE: HOST_CLAIM_STORE,
+        },
+        stdio: ["ignore", "pipe", "inherit"],
+      },
+    );
+    console.log(`Released claim for ${taskId} after no-commit implementation.`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`Could not release claim for ${taskId}: ${message}`);
+  }
+};
+
+const branchHasCommits = (branch: string) => {
+  try {
+    const count = execFileSync("git", ["rev-list", "--count", `HEAD..${branch}`], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return Number(count) > 0;
+  } catch {
+    return false;
+  }
+};
 
 // Hooks run inside the sandbox before the agent starts each iteration.
 // pnpm install ensures the sandbox always has fresh dependencies.
@@ -188,6 +232,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
+    idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
     agent: codexAgent(),
     promptFile: "./.sandcastle/plan-prompt.md",
@@ -230,12 +275,14 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         hooks,
         copyToWorktree,
       });
+      let producedCommits = false;
 
       try {
         // Run the implementer
         const implement = await sandbox.run({
           name: "implementer",
-          maxIterations: 100,
+          maxIterations: 10,
+          idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
           agent: codexAgent(),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
@@ -244,12 +291,14 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             BRANCH: issue.branch,
           },
         });
+        producedCommits = implement.commits.length > 0;
 
         // Only review if the implementer produced commits
-        if (implement.commits.length > 0) {
+        if (producedCommits) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
+            idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
             agent: codexAgent(),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
@@ -267,6 +316,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
         return implement;
       } finally {
+        if (!producedCommits && !branchHasCommits(issue.branch)) {
+          releaseTaskClaim(issue.id);
+        }
         await sandbox.close();
       }
     }),
@@ -321,6 +373,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: sandboxProvider,
     name: "merger",
     maxIterations: 1,
+    idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
     agent: codexAgent(),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {

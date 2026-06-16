@@ -45,7 +45,12 @@ If applicable, use RGR to complete the task.
 
 # FEEDBACK LOOPS
 
-Before committing, run `pnpm run typecheck` and `pnpm run test` to ensure the tests pass.
+Before committing, run validation with heartbeat output so Sandcastle can distinguish long-running validation from an idle agent:
+
+```sh
+CI=true scripts/sandcastle/run-with-heartbeat.sh typecheck pnpm run typecheck
+CI=true scripts/sandcastle/run-with-heartbeat.sh test pnpm run test
+```
 
 # EVIDENCE AND CLAIM HANDOFF
 
@@ -78,11 +83,11 @@ If the task is abandoned or cannot be completed, release the claim before stoppi
 
 Make a git commit. The commit message must:
 
-1. Start with `RALPH:` prefix
-2. Include task completed + PRD reference
-3. Key decisions made
-4. Files changed
-5. Blockers or notes for next iteration
+1. Use the repository conventional commit format, such as `feat(scope): summary`, `fix(scope): summary`, `test(scope): summary`, or `docs(scope): summary`
+2. Include task completed + PRD reference in the commit body when applicable
+3. Include key decisions made
+4. Include files changed
+5. Include blockers or notes for next iteration
 
 Keep it concise.
 
