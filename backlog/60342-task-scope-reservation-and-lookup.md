@@ -5,9 +5,9 @@ summary: Implement immutable scope graph reservation, hashing, storage, and look
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
-priority: critical
+status: paused
+status_reason: blocked
+priority: low
 estimated: 5
 links:
   depends_on:

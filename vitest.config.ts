@@ -10,6 +10,7 @@ export default {
       "**/.pnpm-store/**",
       "**/.nx/**",
       "**/.sandcastle/**",
+      "**/.sandcastle_bk/**",
       "**/dist/**",
     ],
     //globalSetup: "tests/helper/globalSetup.ts",

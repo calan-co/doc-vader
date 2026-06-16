@@ -5,9 +5,9 @@ summary: Wire Sandcastle-facing prompts and adapter guidance to the `dv task` co
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
-priority: high
+status: paused
+status_reason: blocked
+priority: medium
 estimated: 5
 links:
   pull_requests:

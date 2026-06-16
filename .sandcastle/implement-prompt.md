@@ -2,9 +2,19 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Pull in the issue using `node --input-type=module -e 'import fs from "node:fs/promises";import path from "node:path";import matter from "gray-matter";const wanted=String(process.argv[1]||"");async function walk(dir){const out=[];for(const ent of await fs.readdir(dir,{withFileTypes:true})){if(ent.name.startsWith("."))continue;const p=path.join(dir,ent.name);if(ent.isDirectory())out.push(...await walk(p));else if(ent.isFile()&&ent.name.endsWith(".md"))out.push(p)}return out}function isAfk(d){const tags=Array.isArray(d.tags)?d.tags.map(String):[];return d.type==="work-item"&&d.status==="ready"&&tags.includes("afk")&&!tags.includes("hitl")}for(const file of await walk("backlog")){const posix=file.split(path.sep).join("/");if(posix.includes("/archive/")||posix.includes("/records/"))continue;const raw=await fs.readFile(file,"utf8");const parsed=matter(raw);const d=parsed.data||{};const id=String(d.id||path.basename(file,".md"));const num=id.replace(/^wi-/,"");if(d.type==="work-item"&&(id===wanted||num===wanted||("wi-"+wanted)===id)){if(!isAfk(d)){console.error("Refusing non-AFK Sandcastle task: "+num+" (status="+String(d.status||"unknown")+", tags="+JSON.stringify(Array.isArray(d.tags)?d.tags:[])+")");process.exit(3)}console.log(JSON.stringify({id,number:num,title:String(d.title||id),body:parsed.content.trim(),status:String(d.status||"open"),state:d.status==="closed"?"closed":"open",tags:Array.isArray(d.tags)?d.tags.map(String):[],file:posix,frontmatter:d},null,2));process.exit(0)}}console.error("AFK work item not found: "+wanted);process.exit(1)' {{TASK_ID}}`. If it has a parent PRD, pull that in too.
+First claim the task:
 
-Only work on the issue specified.
+`pnpm exec tsx scripts/sandcastle/dv-adapter.ts claim {{TASK_ID}} --holder sandcastle --branch {{BRANCH}} --json`
+
+Save the returned `claimId`. Use that exact claim for evidence recording. Do not release it after successful implementation; the merger closes the task with this active claim and releases it after close.
+
+Pull in the issue using `pnpm exec tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`. If the task has a parent PRD, pull that in too.
+
+Load the implementation prompt rendered from the same task JSON:
+
+`pnpm exec tsx scripts/sandcastle/dv-adapter.ts prompt {{TASK_ID}}`
+
+Only work on the claimed task. If claim, view, or prompt fails, stop.
 
 Work on branch {{BRANCH}}. Make commits and run tests.
 
@@ -37,15 +47,32 @@ If applicable, use RGR to complete the task.
 
 Before committing, run `pnpm run typecheck` and `pnpm run test` to ensure the tests pass.
 
-# COMPLETION EVIDENCE
+# EVIDENCE AND CLAIM HANDOFF
 
-Before reporting completion:
+After implementation and validation, record evidence using the saved `claimId`.
 
-1. Review the work item's `## Tasks` and `## Acceptance Criteria`.
-2. Change a checkbox to `[x]` only when the repository contains direct implementation evidence and passing verification for that line.
-3. Leave any unproven checkbox as `[ ]` and report it as remaining work.
-4. Run `pnpm run docs:lint`, `pnpm run backlog:validate`, `pnpm run backlog:validate:ci`, and `pnpm run test`.
-5. Do not transition the work item to `ready-for-review` or `closed` while any `## Tasks` or `## Acceptance Criteria` checkbox remains unchecked.
+Create an evidence payload:
+
+```sh
+cat > /tmp/doc-vader-evidence.json <<'JSON'
+{
+  "type": "test-result",
+  "summary": "Sandcastle task validation passed",
+  "observation": "Implementation completed and required validation commands passed.",
+  "outcome": "pass"
+}
+JSON
+```
+
+Record evidence:
+
+`pnpm exec tsx scripts/sandcastle/dv-adapter.ts record --claim <claimId> --payload /tmp/doc-vader-evidence.json`
+
+Keep the claim active after evidence is recorded. The merge phase uses the active claim as the mutex guard when closing the task.
+
+If the task is abandoned or cannot be completed, release the claim before stopping:
+
+`pnpm exec tsx scripts/sandcastle/dv-adapter.ts release --claim <claimId>`
 
 # COMMIT
 

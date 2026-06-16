@@ -45,6 +45,24 @@ import {
 } from "../lib/controllers/prdController.js";
 import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
+import {
+  claimTask,
+  getActiveClaimsForTask,
+  getClaimStatus,
+  formatReadyPorcelain,
+  loadTaskModel,
+  readTaskRecordPayload,
+  recordTaskEvidence,
+  optionsFromTransitionPayload,
+  releaseClaim,
+  renderTaskPrompt,
+  renderTaskView,
+  readTaskTransitionPayload,
+  selectReadyTasks,
+  TaskCommandError,
+  toTaskErrorPayload,
+  transitionTask,
+} from "../lib/task/index.js";
 
 const program = new Command()
   .name("doc-vader")
@@ -65,6 +83,54 @@ const collectCsvOption = (value: string, previous: string[] = []) => [
     .map((entry) => entry.trim())
     .filter(Boolean),
 ];
+
+function printTaskJson(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+function failTaskCommand(error: unknown, json = false): never {
+  if (json) {
+    console.error(JSON.stringify(toTaskErrorPayload(error), null, 2));
+  } else if (error instanceof TaskCommandError) {
+    console.error(`${error.code}: ${error.message}`);
+  } else {
+    console.error(error instanceof Error ? error.message : String(error));
+  }
+  process.exit(1);
+}
+
+function assertTaskClaimable(task: Awaited<ReturnType<typeof loadTaskModel>>): void {
+  const failures: string[] = [];
+  if (!task.validation.isActive) failures.push("not-active");
+  if (!task.validation.isReady) failures.push("not-ready");
+  if (!task.validation.isAfk) failures.push("not-afk");
+  if (task.validation.isHitl) failures.push("hitl");
+  if (!task.validation.dependenciesSatisfied) {
+    failures.push("dependencies-not-satisfied");
+  }
+  if (failures.length > 0) {
+    throw new TaskCommandError(
+      "TASK_NOT_CLAIMABLE",
+      `Task '${task.id}' is not eligible for a local claim.`,
+      { taskId: task.id, failures },
+    );
+  }
+}
+
+function parseTaskNumber(value: string | undefined, optionName: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new TaskCommandError(
+      "TASK_INVALID_NUMBER",
+      `${optionName} must be a finite number.`,
+      { optionName, value },
+    );
+  }
+  return parsed;
+}
 
 // --- DOMAIN: work-management ---
 const workManagement = program
@@ -112,6 +178,392 @@ workManagement
       process.exit(1);
     }
   });
+
+// --- DOMAIN: task ---
+const task = program
+  .command("task")
+  .description("Sandcastle dogfood task commands");
+
+task
+  .command("ready")
+  .description("List fail-closed AFK-ready task candidates")
+  .option("--json", "Emit deterministic candidate and exclusion JSON")
+  .option("--porcelain", "Emit stable script-friendly candidate lines")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(
+    async (opts: { json?: boolean; porcelain?: boolean; backlogDir?: string }) => {
+      try {
+        if (opts.json && opts.porcelain) {
+          throw new TaskCommandError(
+            "TASK_READY_FORMAT_CONFLICT",
+            "Use either --json or --porcelain, not both.",
+          );
+        }
+        const report = await selectReadyTasks({ backlogDir: opts.backlogDir });
+        if (opts.json) {
+          printTaskJson(report);
+          return;
+        }
+        const output = formatReadyPorcelain(report);
+        if (output.length > 0) {
+          console.log(output);
+        }
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
+  .command("show")
+  .description("Show canonical task context")
+  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .option("--json", "Emit canonical task JSON")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(async (taskId: string, opts: { json?: boolean; backlogDir?: string }) => {
+    try {
+      const model = await loadTaskModel(taskId, {
+        backlogDir: opts.backlogDir,
+      });
+      if (opts.json) {
+        printTaskJson(model);
+        return;
+      }
+      console.log(await renderTaskView(model));
+    } catch (error) {
+      failTaskCommand(error, opts.json);
+    }
+  });
+
+task
+  .command("prompt")
+  .description("Render a Sandcastle-oriented prompt from canonical task JSON")
+  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(async (taskId: string, opts: { backlogDir?: string }) => {
+    try {
+      const model = await loadTaskModel(taskId, {
+        backlogDir: opts.backlogDir,
+      });
+      console.log(await renderTaskPrompt(model));
+    } catch (error) {
+      failTaskCommand(error);
+    }
+  });
+
+task
+  .command("claim")
+  .description("Create a conservative local task claim")
+  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--holder <holder>", "Claim holder identity")
+  .option("--branch <branch>", "Branch or ref context")
+  .option("--sandbox <path>", "Sandbox or workspace path")
+  .option("--ttl-minutes <minutes>", "Claim time-to-live in minutes")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(
+    async (
+      taskId: string,
+      opts: {
+        json?: boolean;
+        holder?: string;
+        branch?: string;
+        sandbox?: string;
+        ttlMinutes?: string;
+        backlogDir?: string;
+      },
+    ) => {
+      try {
+        const model = await loadTaskModel(taskId, {
+          backlogDir: opts.backlogDir,
+        });
+        assertTaskClaimable(model);
+        const ttlMinutes =
+          typeof opts.ttlMinutes === "string"
+            ? Number.parseInt(opts.ttlMinutes, 10)
+            : undefined;
+        if (ttlMinutes !== undefined && !Number.isFinite(ttlMinutes)) {
+          throw new TaskCommandError(
+            "TASK_CLAIM_INVALID_TTL",
+            "Claim TTL must be a finite number of minutes.",
+          );
+        }
+        const result = await claimTask(model.id, {
+          holder: opts.holder,
+          branch: opts.branch,
+          sandbox: opts.sandbox,
+          ttlMinutes,
+        });
+        if (opts.json) {
+          printTaskJson(result);
+          return;
+        }
+        console.log(`${result.claimId} ${result.state} ${result.taskId}`);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
+  .command("status")
+  .description("Report local task claim status")
+  .requiredOption("--claim <claim-id>", "Claim id")
+  .option("--json", "Emit machine-readable JSON")
+  .action(async (opts: { claim: string; json?: boolean }) => {
+    try {
+      const result = await getClaimStatus(opts.claim);
+      if (opts.json) {
+        printTaskJson(result);
+        return;
+      }
+      console.log(`${result.claimId} ${result.state}`);
+    } catch (error) {
+      failTaskCommand(error, opts.json);
+    }
+  });
+
+task
+  .command("claim-for")
+  .description("Find the single active local claim for a task")
+  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(
+    async (taskId: string, opts: { json?: boolean; backlogDir?: string }) => {
+      try {
+        const model = await loadTaskModel(taskId, {
+          backlogDir: opts.backlogDir,
+        });
+        const claims = await getActiveClaimsForTask(model.id);
+        if (claims.length === 0) {
+          throw new TaskCommandError(
+            "TASK_CLAIM_NOT_FOUND",
+            `Task '${model.id}' does not have an active claim.`,
+            { taskId: model.id },
+          );
+        }
+        if (claims.length > 1) {
+          throw new TaskCommandError(
+            "TASK_CLAIM_AMBIGUOUS",
+            `Task '${model.id}' has multiple active claims.`,
+            {
+              taskId: model.id,
+              claimIds: claims.map((claim) => claim.id),
+            },
+          );
+        }
+        const claim = claims[0]!;
+        const result = {
+          claimId: claim.id,
+          taskId: claim.taskId,
+          state: "active",
+          claim,
+        };
+        if (opts.json) {
+          printTaskJson(result);
+          return;
+        }
+        console.log(`${result.claimId} ${result.state} ${result.taskId}`);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
+  .command("release")
+  .description("Release a local task claim")
+  .requiredOption("--claim <claim-id>", "Claim id")
+  .option("--json", "Emit machine-readable JSON")
+  .action(async (opts: { claim: string; json?: boolean }) => {
+    try {
+      const result = await releaseClaim(opts.claim);
+      if (opts.json) {
+        printTaskJson(result);
+        return;
+      }
+      console.log(`${result.claimId} ${result.state}`);
+    } catch (error) {
+      failTaskCommand(error, opts.json);
+    }
+  });
+
+task
+  .command("record")
+  .description("Create and link claim-scoped task evidence")
+  .requiredOption("--claim <claim-id>", "Active claim id")
+  .requiredOption("--payload <json-file|->", "Record payload JSON file or stdin")
+  .option("--json", "Emit machine-readable JSON")
+  .option(
+    "--consumer-config <path>",
+    "Path to consumer config JSON",
+    ".doc-vader/backlog-consumer.json",
+  )
+  .option("--dry-run", "Validate and render mutation without writing files")
+  .action(
+    async (opts: {
+      claim: string;
+      payload: string;
+      json?: boolean;
+      consumerConfig?: string;
+      dryRun?: boolean;
+    }) => {
+      try {
+        const payload = await readTaskRecordPayload(opts.payload, process.stdin);
+        const result = await recordTaskEvidence({
+          claimId: opts.claim,
+          payload,
+          consumerConfig: opts.consumerConfig,
+          dryRun: opts.dryRun,
+        });
+        if (opts.json) {
+          printTaskJson(result);
+          return;
+        }
+        console.log(`${result.taskId} ${result.evidenceLink}`);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
+  .command("transition")
+  .description("Transition a claimed task using the work-management profile")
+  .requiredOption("--claim <claim-id>", "Active claim id")
+  .option("--status <status>", "Target work-management status")
+  .option("--reason <reason>", "Target status reason")
+  .option("--actual <hours>", "Actual effort in hours")
+  .option("--assignee <assignee>", "Assignee or owner handle")
+  .option("--completed-date <date>", "Completion date in YYYY-MM-DD form")
+  .option("--payload <json-file|->", "Transition payload JSON file or stdin")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .option(
+    "--consumer-config <path>",
+    "Path to consumer config JSON",
+    ".doc-vader/backlog-consumer.json",
+  )
+  .option("--dry-run", "Validate and render mutation without writing files")
+  .action(
+    async (opts: {
+      claim: string;
+      status?: string;
+      reason?: string;
+      actual?: string;
+      assignee?: string;
+      completedDate?: string;
+      payload?: string;
+      json?: boolean;
+      backlogDir?: string;
+      consumerConfig?: string;
+      dryRun?: boolean;
+    }) => {
+      try {
+        const flagFields = [
+          opts.status,
+          opts.reason,
+          opts.actual,
+          opts.assignee,
+          opts.completedDate,
+        ].filter((value) => value !== undefined);
+        if (opts.payload && flagFields.length > 0) {
+          throw new TaskCommandError(
+            "TASK_TRANSITION_ARGUMENT_CONFLICT",
+            "Use either --payload or transition flags, not both.",
+          );
+        }
+        const payloadOptions = opts.payload
+          ? optionsFromTransitionPayload(
+              await readTaskTransitionPayload(opts.payload, process.stdin),
+            )
+          : undefined;
+        const status = payloadOptions?.status ?? opts.status;
+        if (!status) {
+          throw new TaskCommandError(
+            "TASK_TRANSITION_INVALID_TARGET",
+            "Transition target status is required.",
+          );
+        }
+        const result = await transitionTask({
+          claimId: opts.claim,
+          status,
+          expectedFromStatus: payloadOptions?.expectedFromStatus,
+          statusReason: payloadOptions?.statusReason ?? opts.reason,
+          actual:
+            payloadOptions?.actual ?? parseTaskNumber(opts.actual, "--actual"),
+          assignee: payloadOptions?.assignee ?? opts.assignee,
+          completedDate: payloadOptions?.completedDate ?? opts.completedDate,
+          backlogDir: opts.backlogDir,
+          consumerConfig: opts.consumerConfig,
+          dryRun: opts.dryRun,
+        });
+        if (opts.json) {
+          printTaskJson(result);
+          return;
+        }
+        console.log(
+          `${result.taskId} ${result.fromStatus}->${result.toStatus}`,
+        );
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
+  .command("close")
+  .description("Mark a claimed task completed without finalizing or archiving it")
+  .requiredOption("--claim <claim-id>", "Active claim id")
+  .option("--reason <reason>", "Completion status reason", "completed")
+  .option("--actual <hours>", "Actual effort in hours")
+  .option("--assignee <assignee>", "Assignee or owner handle")
+  .option("--completed-date <date>", "Completion date in YYYY-MM-DD form")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .option(
+    "--consumer-config <path>",
+    "Path to consumer config JSON",
+    ".doc-vader/backlog-consumer.json",
+  )
+  .option("--dry-run", "Validate and render mutation without writing files")
+  .action(
+    async (opts: {
+      claim: string;
+      reason?: string;
+      actual?: string;
+      assignee?: string;
+      completedDate?: string;
+      json?: boolean;
+      backlogDir?: string;
+      consumerConfig?: string;
+      dryRun?: boolean;
+    }) => {
+      try {
+        const result = await transitionTask({
+          claimId: opts.claim,
+          status: "completed",
+          statusReason: opts.reason,
+          actual: parseTaskNumber(opts.actual, "--actual"),
+          assignee: opts.assignee,
+          completedDate: opts.completedDate,
+          backlogDir: opts.backlogDir,
+          consumerConfig: opts.consumerConfig,
+          dryRun: opts.dryRun,
+        });
+        if (opts.json) {
+          printTaskJson(result);
+          return;
+        }
+        console.log(
+          `${result.taskId} ${result.fromStatus}->${result.toStatus}`,
+        );
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
 
 // --- DOMAIN: frontmatter ---
 const frontmatter = program

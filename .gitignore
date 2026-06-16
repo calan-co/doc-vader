@@ -30,6 +30,14 @@ Thumbs.db
 coverage/
 .integration-output/
 
+# Local Doc-Vader runtime state
+.doc-vader/
+!.doc-vader/
+!.doc-vader/backlog-consumer.json
+.doc-vader/task-claims.json
+.doc-vader/runtime/
+.sandcastle_bk/
+
 # External repositories
 ## TGDP Templates https://gitlab.com/tgdp/templates
 docs/source-files/templates/

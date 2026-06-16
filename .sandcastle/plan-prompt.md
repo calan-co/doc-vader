@@ -4,11 +4,13 @@ Here are the open issues in the repo:
 
 <issues-json>
 
-!`node --input-type=module -e 'import fs from "node:fs/promises";import path from "node:path";import matter from "gray-matter";async function walk(dir){const out=[];for(const ent of await fs.readdir(dir,{withFileTypes:true})){if(ent.name.startsWith("."))continue;const p=path.join(dir,ent.name);if(ent.isDirectory())out.push(...await walk(p));else if(ent.isFile()&&ent.name.endsWith(".md"))out.push(p)}return out}function isAfk(d){const tags=Array.isArray(d.tags)?d.tags.map(String):[];return d.type==="work-item"&&d.status==="ready"&&tags.includes("afk")&&!tags.includes("hitl")}const items=[];for(const file of await walk("backlog")){const posix=file.split(path.sep).join("/");if(posix.includes("/archive/")||posix.includes("/records/"))continue;const raw=await fs.readFile(file,"utf8");const parsed=matter(raw);const d=parsed.data||{};if(isAfk(d)){const id=String(d.id||path.basename(file,".md"));const number=id.replace(/^wi-/,"");items.push({id:number,number,title:String(d.title||id),body:parsed.content.trim(),status:String(d.status||"open"),state:"open",tags:Array.isArray(d.tags)?d.tags.map(String):[],file:posix})}}console.log(JSON.stringify(items,null,2))'`
+!`pnpm exec tsx scripts/sandcastle/dv-adapter.ts list`
 
 </issues-json>
 
-The list above has already been filtered to issues ready for work.
+The list above has already been filtered to issues ready for work. Its order is
+the default deterministic priority order from `dv task ready --json`: higher
+priority tasks appear before lower priority tasks, with stable tie-breaks.
 
 # TASK
 
@@ -23,6 +25,12 @@ An issue B is **blocked by** issue A if:
 An issue is **unblocked** if it has zero blocking dependencies on other open issues.
 
 For each unblocked issue, assign a branch name using the exact format `sandcastle/issue-{id}` (no slug or other suffix). This must be deterministic so that re-planning the same issue always produces the same branch name and accumulated progress is preserved.
+
+Within a priority group, the input order is canonical. Preserve that relative
+order unless dependency or merge-conflict analysis shows a concrete reason to
+defer or sequence an issue differently. If you reorder same-priority issues,
+the reason must be visible in your own reasoning before emitting the final plan;
+do not reorder same-priority issues for convenience or preference.
 
 # OUTPUT
 

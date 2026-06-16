@@ -1,0 +1,243 @@
+import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { TaskCommandError } from "./errors.js";
+
+export type ClaimState = "active" | "expired" | "released" | "missing";
+
+export interface TaskClaim {
+  id: string;
+  taskId: string;
+  holder: string;
+  branch?: string;
+  sandbox?: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string;
+  releasedAt?: string;
+}
+
+interface ClaimStoreFile {
+  claims: TaskClaim[];
+}
+
+export interface ClaimStatus {
+  claimId: string;
+  taskId?: string;
+  state: ClaimState;
+  claim?: TaskClaim;
+}
+
+export interface ClaimTaskOptions {
+  rootDir?: string;
+  holder?: string;
+  branch?: string;
+  sandbox?: string;
+  ttlMinutes?: number;
+  now?: Date;
+}
+
+const DEFAULT_TTL_MINUTES = 240;
+const CLAIM_STORE_PATH = ".doc-vader/task-claims.json";
+const CLAIM_STORE_ENV = "DOC_VADER_TASK_CLAIM_STORE";
+
+function claimStorePath(rootDir: string): string {
+  const configuredPath = process.env[CLAIM_STORE_ENV]?.trim();
+  if (configuredPath) {
+    return path.isAbsolute(configuredPath)
+      ? configuredPath
+      : path.resolve(rootDir, configuredPath);
+  }
+  return path.resolve(rootDir, CLAIM_STORE_PATH);
+}
+
+async function readStore(rootDir: string): Promise<ClaimStoreFile> {
+  try {
+    return JSON.parse(
+      await fs.readFile(claimStorePath(rootDir), "utf8"),
+    ) as ClaimStoreFile;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { claims: [] };
+    }
+    throw error;
+  }
+}
+
+async function writeStore(rootDir: string, store: ClaimStoreFile): Promise<void> {
+  const filePath = claimStorePath(rootDir);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(store, null, 2)}\n`, "utf8");
+}
+
+function isReleased(claim: TaskClaim): boolean {
+  return typeof claim.releasedAt === "string" && claim.releasedAt.length > 0;
+}
+
+function isExpired(claim: TaskClaim, now: Date): boolean {
+  return Date.parse(claim.expiresAt) <= now.getTime();
+}
+
+function getState(claim: TaskClaim, now: Date): Exclude<ClaimState, "missing"> {
+  if (isReleased(claim)) {
+    return "released";
+  }
+  if (isExpired(claim, now)) {
+    return "expired";
+  }
+  return "active";
+}
+
+function normalizeHolder(holder: string | undefined): string {
+  const value = holder?.trim();
+  if (value) {
+    return value;
+  }
+  return process.env.USER ?? process.env.USERNAME ?? "local-agent";
+}
+
+export async function claimTask(
+  taskId: string,
+  options: ClaimTaskOptions = {},
+): Promise<ClaimStatus> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const now = options.now ?? new Date();
+  const store = await readStore(rootDir);
+  const conflictingClaim = store.claims.find(
+    (claim) => claim.taskId === taskId && getState(claim, now) === "active",
+  );
+  if (conflictingClaim) {
+    throw new TaskCommandError(
+      "TASK_CLAIM_CONFLICT",
+      `Task '${taskId}' already has an active local claim.`,
+      {
+        taskId,
+        claim: {
+          id: conflictingClaim.id,
+          holder: conflictingClaim.holder,
+          branch: conflictingClaim.branch,
+          sandbox: conflictingClaim.sandbox,
+          expiresAt: conflictingClaim.expiresAt,
+        },
+      },
+    );
+  }
+
+  const expiredClaim = store.claims.find(
+    (claim) => claim.taskId === taskId && getState(claim, now) === "expired",
+  );
+  if (expiredClaim) {
+    throw new TaskCommandError(
+      "TASK_CLAIM_EXPIRED",
+      `Task '${taskId}' has an expired local claim that must be released explicitly.`,
+      {
+        taskId,
+        claimId: expiredClaim.id,
+        expiresAt: expiredClaim.expiresAt,
+      },
+    );
+  }
+
+  const ttlMinutes = options.ttlMinutes ?? DEFAULT_TTL_MINUTES;
+  const claim: TaskClaim = {
+    id: `claim-${randomUUID()}`,
+    taskId,
+    holder: normalizeHolder(options.holder),
+    ...(options.branch ? { branch: options.branch } : {}),
+    ...(options.sandbox ? { sandbox: options.sandbox } : {}),
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + ttlMinutes * 60_000).toISOString(),
+  };
+  store.claims.push(claim);
+  await writeStore(rootDir, store);
+  return {
+    claimId: claim.id,
+    taskId,
+    state: "active",
+    claim,
+  };
+}
+
+export async function getClaimStatus(
+  claimId: string,
+  options: { rootDir?: string; now?: Date } = {},
+): Promise<ClaimStatus> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const now = options.now ?? new Date();
+  const store = await readStore(rootDir);
+  const claim = store.claims.find((entry) => entry.id === claimId);
+  if (!claim) {
+    return { claimId, state: "missing" };
+  }
+  return {
+    claimId,
+    taskId: claim.taskId,
+    state: getState(claim, now),
+    claim,
+  };
+}
+
+export async function releaseClaim(
+  claimId: string,
+  options: { rootDir?: string; now?: Date } = {},
+): Promise<ClaimStatus> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const now = options.now ?? new Date();
+  const store = await readStore(rootDir);
+  const claim = store.claims.find((entry) => entry.id === claimId);
+  if (!claim) {
+    return { claimId, state: "missing" };
+  }
+  if (!isReleased(claim)) {
+    claim.releasedAt = now.toISOString();
+    claim.updatedAt = now.toISOString();
+    await writeStore(rootDir, store);
+  }
+  return {
+    claimId,
+    taskId: claim.taskId,
+    state: getState(claim, now),
+    claim,
+  };
+}
+
+export async function getActiveClaimForTask(
+  taskId: string,
+  options: { rootDir?: string; now?: Date } = {},
+): Promise<TaskClaim | undefined> {
+  return (await getActiveClaimsForTask(taskId, options))[0];
+}
+
+export async function getActiveClaimsForTask(
+  taskId: string,
+  options: { rootDir?: string; now?: Date } = {},
+): Promise<TaskClaim[]> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const now = options.now ?? new Date();
+  const store = await readStore(rootDir);
+  return store.claims.filter(
+    (claim) => claim.taskId === taskId && getState(claim, now) === "active",
+  );
+}
+
+export async function getClaimStatusForTask(
+  taskId: string,
+  options: { rootDir?: string; now?: Date } = {},
+): Promise<ClaimStatus | undefined> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const now = options.now ?? new Date();
+  const store = await readStore(rootDir);
+  const claim = store.claims
+    .filter((entry) => entry.taskId === taskId && !isReleased(entry))
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0];
+  if (!claim) {
+    return undefined;
+  }
+  return {
+    claimId: claim.id,
+    taskId,
+    state: getState(claim, now),
+    claim,
+  };
+}
