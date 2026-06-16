@@ -261,18 +261,17 @@ async function resolveOptions(
     );
   }
 
-  const archiveValidation =
-    config.automation?.archiveValidation ??
-    {
-      fallbackSchema:
-        config.automation?.prePushValidation?.schemas?.archive ??
-        DEFAULT_FALLBACK_SCHEMA,
-      missingSchemaSeverity: normalizeSeverity(
-        config.automation?.prePushValidation?.severity?.archive,
-        DEFAULT_MISSING_SCHEMA_SEVERITY,
-      ),
-      allowedSchemas: [],
-    };
+  const legacyArchiveValidation = config.automation?.prePushValidation;
+  const configuredArchiveValidation = config.automation?.archiveValidation;
+  const archiveValidation = configuredArchiveValidation ?? {
+    fallbackSchema:
+      legacyArchiveValidation?.schemas?.archive ?? DEFAULT_FALLBACK_SCHEMA,
+    missingSchemaSeverity: normalizeSeverity(
+      legacyArchiveValidation?.severity?.archive,
+      DEFAULT_MISSING_SCHEMA_SEVERITY,
+    ),
+    allowedSchemas: [],
+  };
 
   const fallbackSchema = archiveValidation.fallbackSchema?.trim() || DEFAULT_FALLBACK_SCHEMA;
   const missingSchemaSeverity = normalizeSeverity(
@@ -348,7 +347,7 @@ async function loadSchema(
   rootDir: string,
   schemaSpec: string,
   allowedSchemas: string[],
-): Promise<{ schema: Record<string, unknown>; resolvedSpec: string; isExternal: boolean }> {
+): Promise<{ schema: Record<string, unknown>; isExternal: boolean }> {
   const normalized = normalizeSchemaSpec(rootDir, schemaSpec);
   if (normalized.isExternal) {
     if (!allowedSchemas.includes(normalized.spec)) {
@@ -368,7 +367,6 @@ async function loadSchema(
     }
     return {
       schema: (await response.json()) as Record<string, unknown>,
-      resolvedSpec: normalized.spec,
       isExternal: true,
     };
   }
@@ -389,22 +387,29 @@ async function loadSchema(
   }
   return {
     schema: await readJsonFile<Record<string, unknown>>(normalized.localPath),
-    resolvedSpec: normalized.localPath,
     isExternal: false,
   };
 }
 
-function formatFinding(
-  finding: ArchiveValidationFinding,
-): string {
-  const prefix =
-    finding.kind === "missing-schema"
-      ? "missing schema"
-      : finding.kind === "fallback"
-      ? "fallback schema"
-      : "declared schema";
+function formatFinding(finding: ArchiveValidationFinding): string {
+  let prefix: string;
+  switch (finding.kind) {
+    case "missing-schema":
+      prefix = "missing schema";
+      break;
+    case "fallback":
+      prefix = "fallback schema";
+      break;
+    case "declared":
+      prefix = "declared schema";
+      break;
+  }
   const errors = finding.errors.join("; ");
   return `${finding.file}: ${prefix} '${finding.schema}' [${finding.severity}]${errors.length > 0 ? ` - ${errors}` : ""}`;
+}
+
+function toReportFilePath(rootDir: string, filePath: string): string {
+  return path.relative(rootDir, filePath).replaceAll("\\", "/");
 }
 
 function formatReportText(report: ArchiveValidationReport): string {
@@ -500,7 +505,7 @@ export async function validateArchiveWorkItems(
       missingSchemas += 1;
       if (options.archiveValidation.missingSchemaSeverity !== "none") {
         findings.push({
-          file: path.relative(options.rootDir, filePath).replaceAll("\\", "/"),
+          file: toReportFilePath(options.rootDir, filePath),
           schema: schemaSpec,
           kind: "missing-schema",
           severity: options.archiveValidation.missingSchemaSeverity,
@@ -532,7 +537,7 @@ export async function validateArchiveWorkItems(
       });
       schemaViolations += 1;
       findings.push({
-        file: path.relative(options.rootDir, filePath).replaceAll("\\", "/"),
+        file: toReportFilePath(options.rootDir, filePath),
         schema: schemaSpec,
         kind,
         severity: "error",
