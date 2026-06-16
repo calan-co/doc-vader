@@ -15,6 +15,8 @@ links:
     - '[[60355-simple-local-claim-lock]]'
   reference:
     - '[[60345-claim-aware-record-and-close-commands]]'
+  evidence:
+    - '[[record-20260616-043441-60357]]'
 tags:
   - afk
   - sandcastle

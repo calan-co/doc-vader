@@ -13,6 +13,8 @@ links:
   depends_on:
     - '[[60347-configured-archive-validation-cli-slice]]'
     - '[[60351-pruned-index-link-resolution-support]]'
+  evidence:
+    - '[[record-20260616-043441-60353]]'
 tags:
   - archive
   - compatibility

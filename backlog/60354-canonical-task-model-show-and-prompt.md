@@ -13,6 +13,8 @@ links:
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60341-task-ready-afk-eligibility-query]]'
+  evidence:
+    - '[[record-20260616-043441-60354]]'
 tags:
   - afk
   - sandcastle

@@ -12,6 +12,8 @@ estimated: 3
 links:
   depends_on:
     - '[[60348-pruned-index-contract-and-historical-resolver-semantics]]'
+  evidence:
+    - '[[record-20260616-043441-60350]]'
 tags:
   - linkity
   - wikilinks

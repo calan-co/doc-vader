@@ -12,6 +12,8 @@ estimated: 5
 links:
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
+  evidence:
+    - '[[record-20260616-043441-60347]]'
 tags:
   - archive
   - validation

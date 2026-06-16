@@ -13,6 +13,8 @@ links:
   depends_on:
     - '[[60349-atomic-archive-pruning-command]]'
     - '[[60350-linkity-wikilink-resolution-integration-contract]]'
+  evidence:
+    - '[[record-20260616-043441-60351]]'
 tags:
   - linkity
   - wikilinks

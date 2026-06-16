@@ -15,6 +15,8 @@ links:
     - '[[60348-pruned-index-contract-and-historical-resolver-semantics]]'
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
+  evidence:
+    - '[[record-20260616-043441-60349]]'
 tags:
   - archive
   - pruning

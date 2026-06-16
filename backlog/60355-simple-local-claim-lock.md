@@ -13,6 +13,8 @@ links:
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60343-task-claim-store-and-lifecycle]]'
+  evidence:
+    - '[[record-20260616-043441-60355]]'
 tags:
   - afk
   - sandcastle
