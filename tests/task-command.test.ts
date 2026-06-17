@@ -212,15 +212,13 @@ tags:
   - afk`,
       );
 
-      const [showOutput, promptOutput, expectedModel] = await Promise.all([
-        Promise.resolve(runCli(root, ["task", "show", "101", "--json"])),
-        Promise.resolve(runCli(root, ["task", "prompt", "101"])),
-        loadCanonicalTask({ rootDir: root, taskId: "101" }),
-      ]);
+      const canonicalTask = await loadCanonicalTask({ rootDir: root, taskId: "101" });
+      const showOutput = runCli(root, ["task", "show", "101", "--json"]);
+      const promptOutput = runCli(root, ["task", "prompt", "101"]);
 
-      expect(JSON.parse(showOutput)).toEqual(expectedModel);
+      expect(JSON.parse(showOutput)).toEqual(canonicalTask);
       expect(promptOutput.trimEnd()).toBe(
-        (await renderSandcastlePrompt({ task: expectedModel })).trimEnd(),
+        (await renderSandcastlePrompt({ task: canonicalTask })).trimEnd(),
       );
     } finally {
       await fs.rm(root, { recursive: true, force: true });
