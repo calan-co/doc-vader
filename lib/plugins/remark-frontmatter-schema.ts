@@ -84,6 +84,16 @@ interface ResolvedSchema {
   cacheKey: string;
 }
 
+interface ValidationPosition {
+  line: number;
+  column: number;
+}
+
+type MessagePlace = {
+  line: number;
+  column: number;
+};
+
 type FrontmatterSchemaConfig =
   | Readonly<Options>
   | Severity
@@ -103,6 +113,59 @@ const ajvInstanceCache = new Map<string, InstanceType<typeof Ajv2020>>();
 
 // Only allow safe, non-traversing name segments for schema type resolution.
 const SAFE_NAME_RE = /^[a-zA-Z0-9_-]+$/;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function resolveFrontmatterPosition(
+  frontmatterBlock: string | undefined,
+  instancePath: string | undefined,
+): MessagePlace {
+  const normalizedBlock =
+    typeof frontmatterBlock === "string"
+      ? frontmatterBlock.replace(/^\r?\n/, "")
+      : "";
+  const lines = normalizedBlock.split(/\r?\n/);
+  const baseLine = 2;
+  const segments = String(instancePath ?? "")
+    .split("/")
+    .filter(Boolean)
+    .filter((segment) => !/^\d+$/.test(segment));
+
+  if (segments.length === 0) {
+    return { line: baseLine, column: 1 };
+  }
+
+  let searchFrom = 0;
+  let lastMatch: ValidationPosition | null = null;
+
+  for (const segment of segments) {
+    const segmentPattern = new RegExp(
+      `^(\\s*)['"]?${escapeRegExp(segment)}['"]?\\s*:`,
+    );
+    let matched = false;
+
+    for (let i = searchFrom; i < lines.length; i++) {
+      const line = lines[i];
+      const match = line.match(segmentPattern);
+      if (!match) continue;
+
+      const indent = match[1].length;
+      lastMatch = {
+        line: baseLine + i,
+        column: indent + 1,
+      };
+      searchFrom = i + 1;
+      matched = true;
+      break;
+    }
+
+    if (!matched) break;
+  }
+
+  return lastMatch ?? { line: baseLine, column: 1 };
+}
 
 function schemaContainsRemoteRef(value: unknown): boolean {
   if (Array.isArray(value)) {
@@ -318,11 +381,19 @@ const remarkFrontmatterSchema = lintRule(
     if (!rawContent.trimStart().startsWith("---")) return;
 
     let frontmatter: Record<string, unknown>;
+    let frontmatterBlock = "";
     try {
       const parsed = matter(rawContent);
       frontmatter = parsed.data as Record<string, unknown>;
+      frontmatterBlock =
+        rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ??
+        parsed.matter ??
+        "";
     } catch {
-      file.message("[frontmatter-schema] Failed to parse frontmatter YAML");
+      file.message("[frontmatter-schema] Failed to parse frontmatter YAML", {
+        place: { line: 2, column: 1 },
+        source: "remark-lint:frontmatter-schema",
+      });
       return;
     }
 
@@ -336,7 +407,10 @@ const remarkFrontmatterSchema = lintRule(
       errors = await runValidation(filePath, frontmatter, schemaDir);
     } catch (err: unknown) {
       const reason = err instanceof Error ? err.message : String(err);
-      file.message(`[frontmatter-schema] Validation error: ${reason}`);
+      file.message(`[frontmatter-schema] Validation error: ${reason}`, {
+        place: { line: 2, column: 1 },
+        source: "remark-lint:frontmatter-schema",
+      });
       return;
     }
 
@@ -344,7 +418,10 @@ const remarkFrontmatterSchema = lintRule(
 
     for (const error of errors) {
       const msg = `[frontmatter-schema] ${error.path}: ${error.message}`;
-      file.message(msg, { source: "remark-lint:frontmatter-schema" });
+      file.message(msg, {
+        source: "remark-lint:frontmatter-schema",
+        place: resolveFrontmatterPosition(frontmatterBlock, error.path),
+      });
     }
   },
 ) as unknown as LintRulePlugin<Root, Readonly<Options>>;

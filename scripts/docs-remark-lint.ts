@@ -75,6 +75,7 @@ const processorOptions: TiabProcessorOptions = {
   namingConventions: { enabled: true },
   noAsciiDiagrams: { enabled: false },
   noHtmlAnchors: { enabled: true },
+  templateCompliance: { enabled: false, requiredHeadings: ["__disabled__"] },
   workItemArchiveReadiness: { enabled: true },
   workItemClosureEvidence: { enabled: true },
   frontmatterSchema: { enabled: true, schemaDir, severity: "error" },
@@ -115,6 +116,7 @@ async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
             messages: vfile.messages.map((msg: any) => ({
               line: msg.line || 1,
               column: msg.column || 1,
+              position: msg.place || null,
               message: msg.message,
               source: msg.source || "remark-lint",
               severity: msg.fatal === true ? "error" : "warning",

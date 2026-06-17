@@ -16,6 +16,8 @@ links:
     - https://github.com/calan-co/doc-vader/pull/60
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
   reference:
     - '[[archive/170.remark-lint-unified-adoption-epic]]'
     - '[[archive/172.1.unify-frontmatter-validation-story]]'
