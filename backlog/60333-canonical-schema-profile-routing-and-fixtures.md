@@ -5,10 +5,12 @@ summary: Finish schema/template/config unification, profile-aware routing, JSON-
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: medium
 estimated: 10
+actual: 2
+completed_date: '2026-06-17'
 links:
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
@@ -59,16 +61,16 @@ Complete the schema/template/config foundation end to end: remove incompatible s
 
 ## Acceptance Criteria
 
-- [ ] Schema metadata and IDs are compatible with JSON Schema tooling and AJV resolution.
-- [ ] Config loading, schema resolution, template resolution, and validation callers share one deterministic resolver path.
-- [ ] Schema/template packs can be added by presence detection or explicit config without source-code changes.
-- [ ] ADR-style schema/template extension fixtures prove the extension mechanism works outside built-in document types.
-- [ ] JSON-LD context/type support, x-* subtype extensibility, and vocabulary contexts are configured and tested.
-- [ ] One or more selected profiles route schema behavior deterministically and expose selected-profile/routing outcomes.
-- [ ] Framework/profile conflicts resolve through deterministic, non-interactive behavior suitable for local validation, CI, and hosted-service execution.
-- [ ] Execution-item status validity linting detects invalid phase/item references with deterministic diagnostics.
-- [ ] Code defaults and frontmatter schema directives use canonical paths.
-- [ ] Documentation and fixtures cover minimal, feature-complete, profile-routed, and extension cases.
+- [x] Schema metadata and IDs are compatible with JSON Schema tooling and AJV resolution.
+- [x] Config loading, schema resolution, template resolution, and validation callers share one deterministic resolver path.
+- [x] Schema/template packs can be added by presence detection or explicit config without source-code changes.
+- [x] ADR-style schema/template extension fixtures prove the extension mechanism works outside built-in document types.
+- [x] JSON-LD context/type support, x-* subtype extensibility, and vocabulary contexts are configured and tested.
+- [x] One or more selected profiles route schema behavior deterministically and expose selected-profile/routing outcomes.
+- [x] Framework/profile conflicts resolve through deterministic, non-interactive behavior suitable for local validation, CI, and hosted-service execution.
+- [x] Execution-item status validity linting detects invalid phase/item references with deterministic diagnostics.
+- [x] Code defaults and frontmatter schema directives use canonical paths.
+- [x] Documentation and fixtures cover minimal, feature-complete, profile-routed, and extension cases.
 
 ## Blocked By
 

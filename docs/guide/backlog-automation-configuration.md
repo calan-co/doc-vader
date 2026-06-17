@@ -192,7 +192,7 @@ Comprehensive scans (all strategies):
     "prePushValidation": {
       "schemas": {
         "baseline": "schemas/frontmatter/work-item/1.0.0.json",
-        "changed": "schemas/frontmatter/work-item/latest.json",
+        "changed": "schemas/frontmatter/by-type/work-item/latest.json",
         "archive": "schemas/frontmatter/work-item/1.0.0.json"
       },
       "severity": {
@@ -494,4 +494,3 @@ doc-vader backlog scan --strict --generate-evidence
 - [Resolver Strategy Guide](../reference/work-management/resolver-strategy-guide.md)
 - [ADR-003: Multi-Strategy Subject Resolution](../architecture/decisions/adr-003-multi-strategy-subject-resolution.md)
 - [ADR-004: Backlog Scan Lifecycle](../architecture/decisions/adr-004-backlog-scan-lifecycle.md)
-
