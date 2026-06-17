@@ -5,10 +5,12 @@ summary: Use the staging inventory and audit scope to migrate core scripts, arch
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: low
 estimated: 8
+actual: 8
+completed_date: '2026-06-17'
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
@@ -55,11 +57,11 @@ Turn the staging inventory into implementation: migrate core lint and validation
 
 ## Acceptance Criteria
 
-- [ ] Inventory categories are applied to every relevant staging script and schema asset.
-- [ ] Core lint and validation behavior is migrated to typed TypeScript/ESM modules with tests.
-- [ ] Deprecated assets are moved to an archived location with rationale and replacement guidance.
-- [ ] Active package scripts and docs no longer reference archived/deprecated entrypoints.
-- [ ] Validation confirms the migration did not regress the unified pipeline or backlog checks.
+- [x] Inventory categories are applied to every relevant staging script and schema asset.
+- [x] Core lint and validation behavior is migrated to typed TypeScript/ESM modules with tests.
+- [x] Deprecated assets are moved to an archived location with rationale and replacement guidance.
+- [x] Active package scripts and docs no longer reference archived/deprecated entrypoints.
+- [x] Validation confirms the migration did not regress the unified pipeline or backlog checks.
 
 ## Blocked By
 

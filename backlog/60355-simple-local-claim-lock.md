@@ -5,17 +5,18 @@ summary: Implement a conservative local claim lock so one Sandcastle dogfood age
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: critical
 estimated: 5
+actual: 5
+completed_date: '2026-06-17'
 links:
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60343-task-claim-store-and-lifecycle]]'
   evidence:
     - '[[record-20260616-043441-60355]]'
-    - '[[task-record-preflight]]'
     - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
