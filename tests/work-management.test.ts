@@ -846,7 +846,12 @@ links:
   it("refuses to finalize a work item with linked PRs when PR verification is unauthenticated", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(
-      path.join(rootDir, "backlog", "active", "work-item-unauthenticated-pr.md"),
+      path.join(
+        rootDir,
+        "backlog",
+        "active",
+        "work-item-unauthenticated-pr.md",
+      ),
       `---
 $schema: schemas/work-management/frontmatter/work-item.json
 id: work-item:unauthenticated-pr
