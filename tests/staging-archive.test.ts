@@ -31,10 +31,14 @@ const archivedSources = [
 ] as const;
 
 const activeSupportSources = ["staging/scripts/lint/lint-util.cjs"] as const;
+const archivedReadmePath = path.join(repoRoot, "staging/archived/README.md");
+const centralConfigPath = path.join(
+  repoRoot,
+  "docs/guide/centralized-remark-config.md",
+);
 
 const archivedPath = (sourcePath: string) =>
   sourcePath.replace(/^staging\//, "staging/archived/");
-const archivedReadmePath = path.join(repoRoot, "staging/archived/README.md");
 
 describe("staging archive", () => {
   it("moves deprecated staging scripts into staging/archived", () => {
@@ -49,18 +53,14 @@ describe("staging archive", () => {
       expect(existsSync(path.join(repoRoot, sourcePath))).toBe(true);
     }
 
-    const readme = readFileSync(archivedReadmePath, "utf8");
-    expect(readme).toMatch(/deprecated staging scripts/i);
-    expect(readme).toMatch(/wi-192/i);
-    expect(readme).toMatch(/lib\/frontmatter\/index\.ts/i);
-    expect(readme).toMatch(/lib\/schema\/resolver\.ts/i);
-    expect(readme).not.toMatch(/staging\/scripts\/utils\/frontmatter\.cjs/i);
-    expect(readme).not.toMatch(/staging\/scripts\/utils\/selectSchema\.cjs/i);
+    const archivedReadme = readFileSync(archivedReadmePath, "utf8");
+    expect(archivedReadme).toMatch(/deprecated staging scripts/i);
+    expect(archivedReadme).toMatch(/wi-192/i);
+    expect(archivedReadme).toMatch(/lib\/frontmatter\/index\.ts/i);
+    expect(archivedReadme).toMatch(/lib\/schema\/resolver\.ts/i);
+    expect(archivedReadme).not.toMatch(/staging\/scripts\/utils\/frontmatter\.cjs/i);
+    expect(archivedReadme).not.toMatch(/staging\/scripts\/utils\/selectSchema\.cjs/i);
 
-    const centralConfigPath = path.join(
-      repoRoot,
-      "docs/guide/centralized-remark-config.md",
-    );
     const centralConfig = readFileSync(centralConfigPath, "utf8");
     expect(centralConfig).toMatch(/remark-frontmatter-schema\.ts/i);
     expect(centralConfig).toMatch(/Superseded by `remark-frontmatter-schema\.ts`/i);
