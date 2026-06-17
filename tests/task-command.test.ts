@@ -32,10 +32,6 @@ async function mkTmpRoot(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "doc-vader-task-"));
   await fs.mkdir(path.join(root, "backlog"), { recursive: true });
   await fs.mkdir(path.join(root, ".doc-vader"), { recursive: true });
-  process.env.DOC_VADER_TASK_CLAIM_STORE = path.join(
-    root,
-    ".doc-vader/task-claims.json",
-  );
   await fs.writeFile(
     path.join(root, ".doc-vader/backlog-consumer.json"),
     JSON.stringify(
@@ -305,7 +301,9 @@ tags:
   it("uses configured claim store path when no explicit override is provided", async () => {
     const root = await mkTmpRoot();
     const otherRoot = await mkTmpRoot();
+    const previousClaimStoreEnv = process.env.DOC_VADER_TASK_CLAIM_STORE;
     try {
+      delete process.env.DOC_VADER_TASK_CLAIM_STORE;
       await fs.writeFile(
         path.join(root, ".doc-vader/backlog-consumer.json"),
         JSON.stringify(
@@ -362,6 +360,11 @@ tags:
         getClaimStatus(claim.claimId, { rootDir: otherRoot }),
       ).resolves.toMatchObject({ state: "active", taskId: "wi-106" });
     } finally {
+      if (previousClaimStoreEnv === undefined) {
+        delete process.env.DOC_VADER_TASK_CLAIM_STORE;
+      } else {
+        process.env.DOC_VADER_TASK_CLAIM_STORE = previousClaimStoreEnv;
+      }
       await fs.rm(root, { recursive: true, force: true });
       await fs.rm(otherRoot, { recursive: true, force: true });
     }
@@ -1259,10 +1262,6 @@ tags:
 
   it("supports the full dogfood flow without hand-editing backlog evidence", async () => {
     const root = await mkTmpRoot();
-    const claimStore = path.join(root, ".doc-vader/task-claims.json");
-    const taskEnv = {
-      DOC_VADER_TASK_CLAIM_STORE: claimStore,
-    };
     try {
       await writeTask(
         root,
@@ -1277,38 +1276,33 @@ tags:
       );
 
       const ready = JSON.parse(
-        runCli(root, ["task", "ready", "--json"], undefined, taskEnv),
+        runCli(root, ["task", "ready", "--json"]),
       );
       expect(ready.candidates.map((task: { id: string }) => task.id)).toEqual([
         "wi-208",
       ]);
 
       const claim = JSON.parse(
-        runCli(
+        runCli(root, [
+          "task",
+          "claim",
+          "wi-208",
+          "--holder",
+          "sandcastle",
+          "--branch",
+          "feature/wi-208",
+          "--sandbox",
           root,
-          [
-            "task",
-            "claim",
-            "wi-208",
-            "--holder",
-            "sandcastle",
-            "--branch",
-            "feature/wi-208",
-            "--sandbox",
-            root,
-            "--json",
-          ],
-          undefined,
-          taskEnv,
-        ),
+          "--json",
+        ]),
       );
       expect(claim.state).toBe("active");
 
       const show = JSON.parse(
-        runCli(root, ["task", "show", "wi-208", "--json"], undefined, taskEnv),
+        runCli(root, ["task", "show", "wi-208", "--json"]),
       );
       expect(show).toMatchObject({ id: "wi-208", title: "Dogfood" });
-      const prompt = runCli(root, ["task", "prompt", "wi-208"], undefined, taskEnv);
+      const prompt = runCli(root, ["task", "prompt", "wi-208"]);
       expect(prompt).toContain("Implement wi-208: Dogfood");
 
       const evidence = JSON.parse(
@@ -1330,7 +1324,6 @@ tags:
             observation: "Ready, claim, show, prompt, record, and release passed.",
             outcome: "pass",
           }),
-          taskEnv,
         ),
       );
       expect(evidence).toMatchObject({
@@ -1339,12 +1332,7 @@ tags:
       });
 
       const released = JSON.parse(
-        runCli(
-          root,
-          ["task", "release", "--claim", claim.claimId, "--json"],
-          undefined,
-          taskEnv,
-        ),
+        runCli(root, ["task", "release", "--claim", claim.claimId, "--json"]),
       );
       expect(released.state).toBe("released");
 
