@@ -492,3 +492,46 @@ export function formatReadyPorcelain(selection: ReadyTaskSelection): string {
     )
     .join("\n");
 }
+
+function formatReadyReason(reason: ReadyTaskExclusion["reasons"][number]): string {
+  const details = reason.details ? ` ${JSON.stringify(reason.details)}` : "";
+  return `${reason.code}: ${reason.message}${details}`;
+}
+
+export function formatReadyText(selection: ReadyTaskSelection): string {
+  const lines: string[] = [];
+  lines.push("Ready task candidates");
+  lines.push(`Candidates: ${selection.candidates.length}`);
+  lines.push(`Exclusions: ${selection.exclusions.length}`);
+  lines.push("");
+
+  if (selection.candidates.length > 0) {
+    lines.push("Selected");
+    for (const candidate of selection.candidates) {
+      lines.push(
+        `- ${candidate.id} | ${candidate.title} | ${candidate.filePath}`,
+      );
+    }
+    lines.push("");
+  } else {
+    lines.push("Selected");
+    lines.push("- None");
+    lines.push("");
+  }
+
+  lines.push("Excluded");
+  if (selection.exclusions.length === 0) {
+    lines.push("- None");
+    return lines.join("\n");
+  }
+
+  for (const exclusion of selection.exclusions) {
+    const label = exclusion.id ?? exclusion.filePath;
+    lines.push(`- ${label} | ${exclusion.title ?? "Untitled"} | ${exclusion.filePath}`);
+    for (const reason of exclusion.reasons) {
+      lines.push(`  - ${formatReadyReason(reason)}`);
+    }
+  }
+
+  return lines.join("\n");
+}
