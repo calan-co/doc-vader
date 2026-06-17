@@ -16,6 +16,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/60
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
+    - '[[record-sandcastle-task-validation-passed]]'
   reference:
     - '[[archive/180.staging-script-consolidation-epic]]'
     - '[[archive/181.audit-staging-scripts-feature]]'
