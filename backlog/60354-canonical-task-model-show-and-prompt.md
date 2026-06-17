@@ -15,6 +15,8 @@ links:
     - '[[60341-task-ready-afk-eligibility-query]]'
   evidence:
     - '[[record-20260616-043441-60354]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - sandcastle

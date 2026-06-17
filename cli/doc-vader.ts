@@ -54,13 +54,14 @@ import {
   getActiveClaimsForTask,
   getClaimStatus,
   formatReadyPorcelain,
+  loadCanonicalTask,
   loadTaskModel,
   readTaskRecordPayload,
   recordTaskEvidence,
   optionsFromTransitionPayload,
   releaseClaim,
-  renderTaskPrompt,
-  renderTaskView,
+  renderHumanTask,
+  renderSandcastlePrompt,
   readTaskTransitionPayload,
   selectReadyTasks,
   TaskCommandError,
@@ -226,14 +227,15 @@ task
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
   .action(async (taskId: string, opts: { json?: boolean; backlogDir?: string }) => {
     try {
-      const model = await loadTaskModel(taskId, {
+      const model = await loadCanonicalTask({
+        taskId,
         backlogDir: opts.backlogDir,
       });
       if (opts.json) {
         printTaskJson(model);
         return;
       }
-      console.log(await renderTaskView(model));
+      console.log(await renderHumanTask({ task: model }));
     } catch (error) {
       failTaskCommand(error, opts.json);
     }
@@ -246,10 +248,11 @@ task
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
   .action(async (taskId: string, opts: { backlogDir?: string }) => {
     try {
-      const model = await loadTaskModel(taskId, {
+      const model = await loadCanonicalTask({
+        taskId,
         backlogDir: opts.backlogDir,
       });
-      console.log(await renderTaskPrompt(model));
+      console.log(await renderSandcastlePrompt({ task: model }));
     } catch (error) {
       failTaskCommand(error);
     }
