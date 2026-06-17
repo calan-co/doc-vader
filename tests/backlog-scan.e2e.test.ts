@@ -1,12 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createRequire } from "node:module";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const cliPath = path.join(repoRoot, "cli", "doc-vader.ts");
@@ -14,15 +12,13 @@ const cliPath = path.join(repoRoot, "cli", "doc-vader.ts");
 let testDir = "";
 
 function runCli(args: string[]): { code: number; stdout: string; stderr: string } {
-  const tsxPackageJsonPath = require.resolve("tsx/package.json");
-  const tsxCliPath = path.join(path.dirname(tsxPackageJsonPath), "dist", "cli.mjs");
   const result = spawnSync(
     process.execPath,
-    [tsxCliPath, cliPath, ...args],
+    ["--import", "tsx", cliPath, ...args],
     {
       cwd: repoRoot,
       encoding: "utf8",
-      env: process.env,
+      env: { ...process.env, TMPDIR: process.env.TMPDIR ?? "/tmp" },
     },
   );
 
