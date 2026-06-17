@@ -4,13 +4,14 @@ Here are the open issues in the repo:
 
 <issues-json>
 
-!`CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts list`
+!`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts list`
 
 </issues-json>
 
-The list above has already been filtered to issues ready for work. Its order is
-the default deterministic priority order from `dv task ready --json`: higher
-priority tasks appear before lower priority tasks, with stable tie-breaks.
+The list above has already been filtered to issues ready for work or recovered
+in-progress work. Its order is the default deterministic order from the adapter:
+recovered work that has been safely adopted is listed with `mode: "recovered"`,
+and fresh ready tasks are listed with `mode: "fresh"`.
 
 # TASK
 
@@ -29,7 +30,7 @@ An issue B is **blocked by** issue A if:
 
 An issue is **unblocked** if it has zero blocking dependencies on other open issues.
 
-For each unblocked issue, assign a branch name using the exact format `sandcastle/issue-{id}` (no slug or other suffix). This must be deterministic so that re-planning the same issue always produces the same branch name and accumulated progress is preserved.
+For each unblocked fresh issue, assign a branch name using the exact format `sandcastle/issue-{id}` (no slug or other suffix). For recovered issues, preserve the branch, mode, claimId, and recovery fields from the input exactly so accumulated progress is preserved.
 
 Within a priority group, the input order is canonical. Preserve that relative
 order unless dependency or merge-conflict analysis shows a concrete reason to
@@ -42,7 +43,7 @@ do not reorder same-priority issues for convenience or preference.
 Output your plan as a JSON object wrapped in `<plan>` tags:
 
 <plan>
-{"issues": [{"id": "42", "title": "Fix auth bug", "branch": "sandcastle/issue-42"}]}
+{"issues": [{"id": "42", "title": "Fix auth bug", "branch": "sandcastle/issue-42", "mode": "fresh"}]}
 </plan>
 
 Include only unblocked issues. If every issue is blocked, include the single highest-priority candidate (the one with the fewest or weakest dependencies).

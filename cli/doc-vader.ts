@@ -49,6 +49,8 @@ import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
 import {
   claimTask,
+  listTaskClaims,
+  recoverClaim,
   getActiveClaimsForTask,
   getClaimStatus,
   formatReadyPorcelain,
@@ -367,6 +369,89 @@ task
           return;
         }
         console.log(`${result.claimId} ${result.state} ${result.taskId}`);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
+  .command("claims")
+  .description("List local task claims")
+  .option("--json", "Emit machine-readable JSON")
+  .action(async (opts: { json?: boolean }) => {
+    try {
+      const result = await listTaskClaims();
+      if (opts.json) {
+        printTaskJson({ claims: result });
+        return;
+      }
+      for (const claim of result) {
+        console.log(`${claim.claimId} ${claim.state} ${claim.taskId ?? ""}`);
+      }
+    } catch (error) {
+      failTaskCommand(error, opts.json);
+    }
+  });
+
+task
+  .command("recover")
+  .description("Inspect or deliberately recover an expired local task claim")
+  .argument("<claim-id>", "Claim id")
+  .option("--json", "Emit machine-readable JSON")
+  .option(
+    "--action <action>",
+    "Recovery action: inspect, release, adopt, or abandon",
+    "inspect",
+  )
+  .option("--holder <holder>", "Adopting claim holder identity")
+  .option("--ttl-minutes <minutes>", "Adopted claim time-to-live in minutes")
+  .option("--reason <reason>", "Abandonment reason")
+  .option("--force", "Override recovery classification safety checks")
+  .action(
+    async (
+      claimId: string,
+      opts: {
+        json?: boolean;
+        action?: string;
+        holder?: string;
+        ttlMinutes?: string;
+        reason?: string;
+        force?: boolean;
+      },
+    ) => {
+      try {
+        if (!["inspect", "release", "adopt", "abandon"].includes(opts.action ?? "")) {
+          throw new TaskCommandError(
+            "TASK_RECOVERY_INVALID_ACTION",
+            "Recovery action must be inspect, release, adopt, or abandon.",
+            { action: opts.action },
+          );
+        }
+        const ttlMinutes =
+          typeof opts.ttlMinutes === "string"
+            ? Number.parseInt(opts.ttlMinutes, 10)
+            : undefined;
+        if (ttlMinutes !== undefined && !Number.isFinite(ttlMinutes)) {
+          throw new TaskCommandError(
+            "TASK_RECOVERY_INVALID_TTL",
+            "Recovery TTL must be a finite number of minutes.",
+          );
+        }
+        const result = await recoverClaim(claimId, {
+          action: opts.action as "inspect" | "release" | "adopt" | "abandon",
+          holder: opts.holder,
+          ttlMinutes,
+          reason: opts.reason,
+          force: opts.force,
+        });
+        if (opts.json) {
+          printTaskJson(result);
+          return;
+        }
+        console.log(
+          `${result.claimId} ${result.state} ${result.classification}`,
+        );
       } catch (error) {
         failTaskCommand(error, opts.json);
       }

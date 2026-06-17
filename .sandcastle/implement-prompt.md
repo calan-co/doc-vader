@@ -2,21 +2,30 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
+Mode: {{MODE}}
+Existing claim: {{CLAIM_ID}}
+
+Recovery context:
+
+```json
+{{RECOVERY_CONTEXT}}
+```
+
 First claim the task:
 
-`CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts claim {{TASK_ID}} --holder sandcastle --branch {{BRANCH}} --json`
+`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts claim {{TASK_ID}} --holder "$SANDCASTLE_CLAIM_HOLDER" --branch {{BRANCH}} --json`
 
-Save the returned `claimId`. Use that exact claim for evidence recording. Do not release it after successful implementation; the merger closes the task with this active claim and releases it after close.
+Save the returned `claimId`. For recovered work, this may return the existing adopted claim idempotently. Use that exact claim for evidence recording. Do not release it after successful implementation; the merger closes the task with this active claim and releases it after close.
 
-Pull in the issue using `CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`. If the task has a parent PRD, pull that in too.
+Pull in the issue using `CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`. If the task has a parent PRD, pull that in too.
 
 Load the implementation prompt rendered from the same task JSON:
 
-`CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts prompt {{TASK_ID}}`
+`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts prompt {{TASK_ID}}`
 
 Only work on the claimed task. If claim, view, or prompt fails, stop.
 
-Work on branch {{BRANCH}}. Make commits and run tests.
+Work on branch {{BRANCH}}. If mode is `recovered`, inspect existing branch commits, diff, evidence, and tests before deciding what work remains. Do not assume existing commits are complete. Make commits and run tests.
 
 # CONTEXT
 
@@ -71,13 +80,13 @@ JSON
 
 Record evidence:
 
-`CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts record --claim <claimId> --payload /tmp/doc-vader-evidence.json`
+`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts record --claim <claimId> --payload /tmp/doc-vader-evidence.json`
 
 Keep the claim active after evidence is recorded. The merge phase uses the active claim as the mutex guard when closing the task.
 
 If the task is abandoned or cannot be completed, release the claim before stopping:
 
-`CI=true pnpm exec tsx scripts/sandcastle/dv-adapter.ts release --claim <claimId>`
+`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts release --claim <claimId>`
 
 # COMMIT
 

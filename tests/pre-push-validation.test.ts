@@ -3,16 +3,16 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, chmodSync 
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 const repoRoot = path.resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
+const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const scriptPath = path.join(repoRoot, "scripts/validate-work-items-pre-push.ts");
-const tsxPath =
-  process.platform === "win32"
-    ? path.join(repoRoot, "node_modules/.bin/tsx.cmd")
-    : path.join(repoRoot, "node_modules/.bin/tsx");
 const latestSchemaPath = path.join(
   repoRoot,
   "schemas/frontmatter/by-type/work-item/latest.json",
@@ -76,7 +76,10 @@ function commitWorkItem(relativePath: string, frontmatterBody: string) {
 }
 
 function runValidator(env?: Record<string, string>) {
-  return run(tsxPath, [scriptPath], testDir, env);
+  return run(process.execPath, ["--import", tsxImport, scriptPath], testDir, {
+    TMPDIR: process.env.TMPDIR ?? "/tmp",
+    ...env,
+  });
 }
 
 async function preloadSupportSchemas(ajv: Ajv2020) {
@@ -383,7 +386,7 @@ type: work-item
 
     write(
       ".husky/pre-push",
-      `#!/usr/bin/env sh\n\n\"${tsxPath}\" \"${scriptPath}\"\n`,
+      `#!/usr/bin/env sh\n\nTMPDIR="\${TMPDIR:-/tmp}" "${process.execPath}" --import "${tsxImport}" "${scriptPath}"\n`,
     );
     chmodSync(path.join(testDir, ".husky/pre-push"), 0o755);
 

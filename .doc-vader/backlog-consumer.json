@@ -7,6 +7,9 @@
     "records": "backlog/records",
     "audit": "backlog/audit"
   },
+  "task": {
+    "claimStorePath": ".doc-vader/task-claims.json"
+  },
   "automation": {
     "autoCloseOnMerge": true,
     "autoEvidenceFromWorkflowRuns": true,

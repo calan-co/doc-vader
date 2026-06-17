@@ -30,15 +30,46 @@ interface PlannerTask {
   references: string[];
   file: string;
   bodySections: Array<{ heading: string; excerpt: string }>;
+  branch?: string;
+  mode: "fresh" | "recovered";
+  claimId?: string;
+  recovery?: RecoveryMetadata;
 }
 
 interface ClaimResult {
   claimId: string;
   taskId: string;
   state: string;
+  claim?: JsonRecord;
+}
+
+interface ClaimStatus {
+  claimId: string;
+  taskId?: string;
+  state: string;
+  claim?: JsonRecord;
+}
+
+interface ClaimRecoveryReport {
+  claimId: string;
+  taskId?: string;
+  state: string;
+  classification: string;
+  reasons: string[];
+  claim?: JsonRecord;
+  git?: JsonRecord;
+}
+
+interface RecoveryMetadata {
+  classification: string;
+  reasons: string[];
+  uniqueCommitCount?: number;
+  headSha?: string;
+  branchExists?: boolean;
 }
 
 const MAX_SECTION_EXCERPT_LENGTH = 420;
+const RECOVERY_TTL_MINUTES = "240";
 
 function fail(message: string): never {
   console.error(message);
@@ -54,7 +85,7 @@ function dvArgs(args: string[]): [string, string[]] {
   if (existsSync(distCli)) {
     return ["node", [distCli, ...args]];
   }
-  return ["pnpm", ["exec", "tsx", "cli/doc-vader.ts", ...args]];
+  return ["node", ["--import", "tsx", "cli/doc-vader.ts", ...args]];
 }
 
 function runDv(args: string[], input?: string): string {
@@ -62,7 +93,7 @@ function runDv(args: string[], input?: string): string {
   return execFileSync(command, commandArgs, {
     cwd: repoRoot(),
     encoding: "utf8",
-    env: { ...process.env, CI: "true" },
+    env: { ...process.env, CI: "true", TMPDIR: process.env.TMPDIR ?? "/tmp" },
     input,
     stdio: input === undefined ? ["ignore", "pipe", "inherit"] : ["pipe", "pipe", "inherit"],
   });
@@ -96,6 +127,22 @@ function taskBody(task: JsonRecord): string {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
+}
+
+function recordValue(value: unknown): JsonRecord | undefined {
+  return typeof value === "object" && value !== null
+    ? (value as JsonRecord)
+    : undefined;
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function bodySectionExcerpts(task: JsonRecord): PlannerTask["bodySections"] {
@@ -144,7 +191,15 @@ function toAdapterTask(task: JsonRecord): AdapterTask {
   };
 }
 
-function toPlannerTask(task: JsonRecord): PlannerTask {
+function toPlannerTask(
+  task: JsonRecord,
+  options: {
+    mode?: "fresh" | "recovered";
+    branch?: string;
+    claimId?: string;
+    recovery?: RecoveryMetadata;
+  } = {},
+): PlannerTask {
   const id = String(task.id ?? "");
   if (!id) {
     fail("dv task show returned a task without an id.");
@@ -161,6 +216,10 @@ function toPlannerTask(task: JsonRecord): PlannerTask {
     references: stringArray(task.references),
     file: String(task.filePath ?? ""),
     bodySections: bodySectionExcerpts(task),
+    mode: options.mode ?? "fresh",
+    ...(options.branch ? { branch: options.branch } : {}),
+    ...(options.claimId ? { claimId: options.claimId } : {}),
+    ...(options.recovery ? { recovery: options.recovery } : {}),
   };
 }
 
@@ -181,6 +240,175 @@ function optionValue(args: string[], name: string): string | undefined {
   }
   const token = args[index]!;
   return token.startsWith(`${name}=`) ? token.slice(name.length + 1) : args[index + 1];
+}
+
+function claimHolder(args: string[]): string {
+  return (
+    optionValue(args, "--holder") ??
+    process.env.SANDCASTLE_CLAIM_HOLDER ??
+    "sandcastle"
+  );
+}
+
+function claimBranch(claim: JsonRecord | undefined): string | undefined {
+  const git = recordValue(claim?.git);
+  return stringValue(git?.branch) ?? stringValue(claim?.branch);
+}
+
+function claimHolderValue(claim: JsonRecord | undefined): string | undefined {
+  return stringValue(claim?.holder);
+}
+
+function recoveryMetadata(report: ClaimRecoveryReport): RecoveryMetadata {
+  const git = recordValue(report.git);
+  return {
+    classification: report.classification,
+    reasons: report.reasons,
+    ...(numberValue(git?.uniqueCommitCount) !== undefined
+      ? { uniqueCommitCount: numberValue(git?.uniqueCommitCount) }
+      : {}),
+    ...(stringValue(git?.headSha) ? { headSha: stringValue(git?.headSha) } : {}),
+    ...(typeof git?.branchExists === "boolean"
+      ? { branchExists: git.branchExists }
+      : {}),
+  };
+}
+
+function recoverClaim(
+  claimId: string,
+  action = "inspect",
+  holder = process.env.SANDCASTLE_CLAIM_HOLDER ?? "sandcastle",
+): ClaimRecoveryReport {
+  return json<ClaimRecoveryReport>([
+    "task",
+    "recover",
+    claimId,
+    "--action",
+    action,
+    "--holder",
+    holder,
+    "--ttl-minutes",
+    RECOVERY_TTL_MINUTES,
+    "--json",
+  ]);
+}
+
+function listClaims(): ClaimStatus[] {
+  return json<{ claims: ClaimStatus[] }>(["task", "claims", "--json"]).claims;
+}
+
+function recoverReadyClaims(holder: string): PlannerTask[] {
+  const recovered: PlannerTask[] = [];
+  for (const status of listClaims()) {
+    const branch = claimBranch(status.claim);
+    if (!status.taskId || !branch) {
+      continue;
+    }
+
+    if (status.state === "active") {
+      if (claimHolderValue(status.claim) !== holder) {
+        continue;
+      }
+      const task = json<JsonRecord>(["task", "show", status.taskId, "--json"]);
+      recovered.push(
+        toPlannerTask(task, {
+          mode: "recovered",
+          branch,
+          claimId: status.claimId,
+          recovery: {
+            classification: "active_sandcastle_claim",
+            reasons: ["active_claim_matches_current_holder"],
+          },
+        }),
+      );
+      continue;
+    }
+
+    if (status.state !== "expired") {
+      continue;
+    }
+
+    const report = recoverClaim(status.claimId, "inspect", holder);
+    if (report.classification === "release_safe") {
+      recoverClaim(status.claimId, "release", holder);
+      console.error(`Released stale claim ${status.claimId} for ${status.taskId}.`);
+      continue;
+    }
+    if (report.classification !== "adopt_recommended") {
+      console.error(
+        `Skipped stale claim ${status.claimId} for ${status.taskId}: ${report.classification}.`,
+      );
+      continue;
+    }
+
+    const adopted = recoverClaim(status.claimId, "adopt", holder);
+    const adoptedBranch =
+      stringValue(recordValue(adopted.git)?.branch) ??
+      stringValue(recordValue(report.git)?.branch) ??
+      branch;
+    const task = json<JsonRecord>(["task", "show", status.taskId, "--json"]);
+    recovered.push(
+      toPlannerTask(task, {
+        mode: "recovered",
+        branch: adoptedBranch,
+        claimId: adopted.claimId,
+        recovery: recoveryMetadata(report),
+      }),
+    );
+    console.error(`Adopted stale claim ${status.claimId} for ${status.taskId}.`);
+  }
+  return recovered;
+}
+
+function idempotentClaim(taskId: string, args: string[]): void {
+  const holder = claimHolder(args);
+  const requestedBranch = optionValue(args, "--branch");
+  const existing = listClaims().find((status) => {
+    return (
+      status.taskId === `wi-${taskNumber(taskId)}` &&
+      status.state === "active" &&
+      claimHolderValue(status.claim) === holder &&
+      (!requestedBranch || claimBranch(status.claim) === requestedBranch)
+    );
+  });
+  if (existing) {
+    console.log(
+      JSON.stringify(
+        {
+          claimId: existing.claimId,
+          taskId: existing.taskId,
+          state: existing.state,
+          claim: existing.claim,
+          idempotent: true,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  const expired = listClaims().find((status) => {
+    return (
+      status.taskId === `wi-${taskNumber(taskId)}` &&
+      status.state === "expired" &&
+      (!requestedBranch || claimBranch(status.claim) === requestedBranch)
+    );
+  });
+  if (expired) {
+    const report = recoverClaim(expired.claimId, "inspect", holder);
+    if (report.classification === "adopt_recommended") {
+      console.log(
+        JSON.stringify(recoverClaim(expired.claimId, "adopt", holder), null, 2),
+      );
+      return;
+    }
+    if (report.classification === "release_safe") {
+      recoverClaim(expired.claimId, "release", holder);
+    }
+  }
+
+  process.stdout.write(runDv(["task", "claim", taskId, "--json", ...args.slice(1)]));
 }
 
 function closeTask(taskId: string, args: string[]): void {
@@ -253,14 +481,29 @@ async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
   switch (command) {
     case "list": {
+      const holder = process.env.SANDCASTLE_CLAIM_HOLDER ?? "sandcastle";
+      const recovered = recoverReadyClaims(holder);
       const ready = json<{ candidates: Array<{ id: string }> }>([
         "task",
         "ready",
         "--json",
       ]);
-      const tasks = ready.candidates.map((candidate) =>
-        toPlannerTask(json<JsonRecord>(["task", "show", candidate.id, "--json"])),
-      );
+      const recoveredIds = new Set(recovered.map((task) => task.id));
+      const tasks = [
+        ...recovered,
+        ...ready.candidates
+          .filter((candidate) => !recoveredIds.has(taskNumber(candidate.id)))
+          .map((candidate) => {
+            const id = taskNumber(candidate.id);
+            return toPlannerTask(
+              json<JsonRecord>(["task", "show", candidate.id, "--json"]),
+              {
+                mode: "fresh",
+                branch: `sandcastle/issue-${id}`,
+              },
+            );
+          }),
+      ];
       console.log(JSON.stringify(tasks, null, 2));
       return;
     }
@@ -282,7 +525,7 @@ async function main(): Promise<void> {
     }
     case "claim": {
       const taskId = args[0] ?? fail("Usage: dv-adapter.ts claim <task-id> [dv claim flags]");
-      process.stdout.write(runDv(["task", "claim", taskId, "--json", ...args.slice(1)]));
+      idempotentClaim(taskId, args);
       return;
     }
     case "record": {

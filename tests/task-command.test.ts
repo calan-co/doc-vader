@@ -8,6 +8,8 @@ import { pathToFileURL } from "node:url";
 import {
   claimTask,
   getClaimStatus,
+  listTaskClaims,
+  recoverClaim,
   releaseClaim,
 } from "../lib/task/claims.js";
 import { loadTaskModel } from "../lib/task/model.js";
@@ -296,6 +298,71 @@ tags:
     }
   });
 
+  it("uses configured claim store path when no explicit override is provided", async () => {
+    const root = await mkTmpRoot();
+    const otherRoot = await mkTmpRoot();
+    try {
+      await fs.writeFile(
+        path.join(root, ".doc-vader/backlog-consumer.json"),
+        JSON.stringify(
+          {
+            roots: {
+              backlog: "backlog",
+              active: "backlog",
+              archive: "backlog/archive",
+              records: "backlog/records",
+              audit: "backlog/audit",
+            },
+            task: {
+              claimStorePath: path.join(root, "shared", "claims.json"),
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(otherRoot, ".doc-vader/backlog-consumer.json"),
+        JSON.stringify(
+          {
+            roots: {
+              backlog: "backlog",
+              active: "backlog",
+              archive: "backlog/archive",
+              records: "backlog/records",
+              audit: "backlog/audit",
+            },
+            task: {
+              claimStorePath: path.join(root, "shared", "claims.json"),
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const claim = await claimTask("wi-106", {
+        rootDir: root,
+        holder: "agent-a",
+      });
+
+      await expect(
+        claimTask("wi-106", {
+          rootDir: otherRoot,
+          holder: "agent-b",
+        }),
+      ).rejects.toMatchObject({ code: "TASK_CLAIM_CONFLICT" });
+      await expect(
+        getClaimStatus(claim.claimId, { rootDir: otherRoot }),
+      ).resolves.toMatchObject({ state: "active", taskId: "wi-106" });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+      await fs.rm(otherRoot, { recursive: true, force: true });
+    }
+  });
+
   it("reports expired claims without silently authorizing a replacement", async () => {
     const root = await mkTmpRoot();
     try {
@@ -324,6 +391,103 @@ tags:
           now: later,
         }),
       ).rejects.toMatchObject({ code: "TASK_CLAIM_EXPIRED" });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("classifies and recovers expired branch-aware claims", { timeout: 15_000 }, async () => {
+    const root = await mkTmpRoot();
+    try {
+      execFileSync("git", ["init", "--initial-branch", "main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["config", "user.email", "agent@example.com"], {
+        cwd: root,
+      });
+      execFileSync("git", ["config", "user.name", "Agent"], { cwd: root });
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      execFileSync("git", ["add", "README.md"], { cwd: root });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-107"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(path.join(root, "README.md"), "base\nwork\n", "utf8");
+      execFileSync("git", ["add", "README.md"], { cwd: root });
+      execFileSync("git", ["commit", "-m", "feat: work"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "main"], { cwd: root, stdio: "ignore" });
+
+      const claim = await claimTask("wi-107", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+        branch: "sandcastle/issue-107",
+        baseRef: "HEAD",
+        ttlMinutes: 1,
+        now: new Date("2026-06-15T12:00:00.000Z"),
+      });
+      const later = new Date("2026-06-15T12:02:00.000Z");
+
+      await expect(
+        recoverClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now: later,
+        }),
+      ).resolves.toMatchObject({
+        state: "expired",
+        classification: "adopt_recommended",
+        git: {
+          branch: "sandcastle/issue-107",
+          branchExists: true,
+          uniqueCommitCount: 1,
+        },
+      });
+      await expect(
+        recoverClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          action: "release",
+          now: later,
+        }),
+      ).rejects.toMatchObject({ code: "TASK_RECOVERY_UNSAFE_RELEASE" });
+      await expect(
+        recoverClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          action: "adopt",
+          holder: "agent-b",
+          now: later,
+        }),
+      ).resolves.toMatchObject({
+        state: "active",
+        classification: "manual_review_required",
+      });
+      await expect(
+        listTaskClaims({
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now: later,
+        }),
+      ).resolves.toMatchObject([
+        {
+          claimId: claim.claimId,
+          state: "active",
+          claim: {
+            holder: "agent-b",
+            schemaVersion: "task-claim/v2",
+            git: { branch: "sandcastle/issue-107" },
+          },
+        },
+      ]);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

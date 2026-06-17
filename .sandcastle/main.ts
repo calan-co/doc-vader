@@ -36,7 +36,14 @@ import { z } from "zod";
 // https://standardschema.dev.
 const planSchema = z.object({
   issues: z.array(
-    z.object({ id: z.string(), title: z.string(), branch: z.string() }),
+    z.object({
+      id: z.string(),
+      title: z.string(),
+      branch: z.string(),
+      mode: z.enum(["fresh", "recovered"]).default("fresh"),
+      claimId: z.string().optional(),
+      recovery: z.record(z.string(), z.unknown()).optional(),
+    }),
   ),
 });
 
@@ -117,15 +124,19 @@ fs.copyFileSync(HOST_CODEX_CONFIG, path.join(HOST_SANDBOX_CODEX_HOME, "config.to
 fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"), 0o600);
 fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"), 0o600);
 
+const SANDCASTLE_RUN_ID =
+  process.env.SANDCASTLE_RUN_ID ?? `sandcastle-${Date.now()}`;
+const SANDCASTLE_CLAIM_HOLDER = `sandcastle:${SANDCASTLE_RUN_ID}`;
+
 const codexAgent = () =>
   sandcastle.codex(CODEX_MODEL);
 
 const releaseTaskClaim = (taskId: string) => {
   try {
     execFileSync(
-      "pnpm",
+      "node",
       [
-        "exec",
+        "--import",
         "tsx",
         "scripts/sandcastle/dv-adapter.ts",
         "release-task",
@@ -137,7 +148,9 @@ const releaseTaskClaim = (taskId: string) => {
         env: {
           ...process.env,
           CI: "true",
+          TMPDIR: "/tmp",
           DOC_VADER_TASK_CLAIM_STORE: HOST_CLAIM_STORE,
+          SANDCASTLE_CLAIM_HOLDER,
         },
         stdio: ["ignore", "pipe", "inherit"],
       },
@@ -173,7 +186,7 @@ const hooks = {
         // Keep Nx runtime state out of host-owned .nx paths inside rootless
         // sandboxes, where those paths can be visible but unwritable.
         command:
-          'export NX_DAEMON=false NX_CACHE_DIRECTORY=/tmp/doc-vader-nx-cache NX_WORKSPACE_DATA_DIRECTORY=/tmp/doc-vader-nx-workspace-data; codex login status >/dev/null && CI=true pnpm install --frozen-lockfile --prefer-offline --store-dir "$SANDCASTLE_PNPM_STORE_PATH" && CI=true pnpm run build',
+          'export TMPDIR=/tmp NX_DAEMON=false NX_CACHE_DIRECTORY=/tmp/doc-vader-nx-cache NX_WORKSPACE_DATA_DIRECTORY=/tmp/doc-vader-nx-workspace-data; codex login status >/dev/null && CI=true pnpm install --frozen-lockfile --prefer-offline --store-dir "$SANDCASTLE_PNPM_STORE_PATH" && CI=true pnpm run build',
       },
     ],
   },
@@ -196,12 +209,14 @@ const sandboxProvider = podman({
   ],
   env: {
     CI: "true",
+    TMPDIR: "/tmp",
     CODEX_HOME: SANDBOX_CODEX_HOME,
     NX_DAEMON: "false",
     NX_CACHE_DIRECTORY: "/tmp/doc-vader-nx-cache",
     NX_WORKSPACE_DATA_DIRECTORY: "/tmp/doc-vader-nx-workspace-data",
     SANDCASTLE_PNPM_STORE_PATH: SANDBOX_PNPM_STORE,
     DOC_VADER_TASK_CLAIM_STORE: SANDBOX_CLAIM_STORE,
+    SANDCASTLE_CLAIM_HOLDER,
   },
 });
 
@@ -289,12 +304,20 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             TASK_ID: issue.id,
             ISSUE_TITLE: issue.title,
             BRANCH: issue.branch,
+            MODE: issue.mode,
+            CLAIM_ID: issue.claimId ?? "",
+            RECOVERY_CONTEXT: issue.recovery
+              ? JSON.stringify(issue.recovery, null, 2)
+              : "{}",
           },
         });
         producedCommits = implement.commits.length > 0;
+        const shouldReview =
+          producedCommits ||
+          (issue.mode === "recovered" && branchHasCommits(issue.branch));
 
         // Only review if the implementer produced commits
-        if (producedCommits) {
+        if (shouldReview) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
@@ -340,7 +363,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     .filter(
       (entry) =>
         entry.outcome.status === "fulfilled" &&
-        entry.outcome.value.commits.length > 0,
+        (entry.outcome.value.commits.length > 0 ||
+          (entry.issue.mode === "recovered" &&
+            branchHasCommits(entry.issue.branch))),
     )
     .map((entry) => entry.issue);
 

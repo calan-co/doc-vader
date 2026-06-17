@@ -1,12 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import path from "path";
 
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 const CLI_TEST_TIMEOUT_MS = 15_000;
 const runCli = (args = "") => {
   try {
-    return execSync(`pnpm exec tsx ${cliPath} ${args}`, { encoding: "utf-8" });
+    return execFileSync(
+      process.execPath,
+      ["--import", "tsx", cliPath, ...args.split(/\s+/).filter(Boolean)],
+      {
+        encoding: "utf-8",
+        env: { ...process.env, TMPDIR: process.env.TMPDIR ?? "/tmp" },
+      },
+    );
   } catch (err) {
     if (typeof err === "object" && err !== null) {
       // execSync throws a child_process.ExecSyncError which has stdout
