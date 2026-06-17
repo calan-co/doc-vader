@@ -8,20 +8,10 @@
 import { glob } from "glob";
 import { readFileSync } from "node:fs";
 import process from "node:process";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkLint from "remark-lint";
-import remarkFrontmatterSchema from "../lib/plugins/remark-frontmatter-schema.js";
-import remarkLintChecklist from "../lib/plugins/remark-lint-checklist.js";
-import remarkLintCrossref from "../lib/plugins/remark-lint-crossref.js";
-import remarkLintTemplateCompliance from "../lib/plugins/remark-lint-template-compliance.js";
-import remarkLintDiataxisClassifier from "../lib/plugins/remark-diataxis-classifier.js";
-import remarkLintNamingConventions from "../lib/plugins/remark-lint-naming-conventions.js";
-import remarkLintNoAsciiDiagrams from "../lib/plugins/remark-lint-no-ascii-diagrams.js";
-import remarkLintNoHtmlAnchors from "../lib/plugins/remark-lint-no-html-anchors.js";
-import remarkLintWorkItemArchiveReadiness from "../lib/plugins/remark-lint-work-item-archive-readiness.js";
-import remarkLintWorkItemClosureEvidence from "../lib/plugins/remark-lint-work-item-closure-evidence.js";
+import {
+  createTiabProcessor,
+  type TiabProcessorOptions,
+} from "../lib/processor.js";
 import { VFile } from "vfile";
 
 type OutputFormat = "text" | "json";
@@ -79,36 +69,56 @@ for (let i = 0; i < rawArgs.length; i++) {
 const effectivePatterns =
   patterns.length > 0 ? patterns : ["docs/**/*.md", "*.md", "backlog/**/*.md"];
 const schemaDir = process.env.DOCS_SCHEMA_DIR?.trim() || "schemas/frontmatter";
-const frontmatterSchemaConfig: [
-  "error",
-  { enabled: true; schemaDir: string },
-] = ["error", { enabled: true, schemaDir }];
+const processorOptions: TiabProcessorOptions = {
+  crossref: { rootDir: process.cwd() },
+  diataxisClassifier: { enabled: true },
+  namingConventions: { enabled: true },
+  noAsciiDiagrams: { enabled: false },
+  noHtmlAnchors: { enabled: true },
+  templateCompliance: { enabled: false, requiredHeadings: ["__disabled__"] },
+  workItemArchiveReadiness: { enabled: true },
+  workItemClosureEvidence: { enabled: true },
+  frontmatterSchema: { enabled: true, schemaDir, severity: "error" },
+};
 
-// Create processor with all plugins
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkLint)
-  .use(remarkFrontmatterSchema, frontmatterSchemaConfig)
-  .use(remarkLintChecklist, false)
-  .use(remarkLintTemplateCompliance, false)
-  .use(remarkLintDiataxisClassifier, { enabled: true })
-  .use(remarkLintNoAsciiDiagrams, { enabled: false })
-  .use(remarkLintNoHtmlAnchors, {})
-  .use(remarkLintWorkItemArchiveReadiness, {})
-  .use(remarkLintWorkItemClosureEvidence, {})
-  .use(remarkLintCrossref, { rootDir: process.cwd() })
-  .use(remarkLintNamingConventions, {});
+const processor = createTiabProcessor(processorOptions);
 
 interface LintResult {
   file: string;
-  messages: Array<{
-    line: number;
-    column: number;
-    message: string;
-    source: string;
-    severity: "error" | "warning";
-  }>;
+  messages: LintMessage[];
+}
+
+interface LintMessage {
+  line: number;
+  column: number;
+  position: RawLintMessage["place"];
+  message: string;
+  source: string;
+  severity: "error" | "warning";
+}
+
+interface RawLintMessage {
+  line?: number | null;
+  column?: number | null;
+  place?: {
+    line?: number | null;
+    column?: number | null;
+  } | null;
+  message: string;
+  source?: string | null;
+  fatal?: boolean | null;
+}
+
+function toLintMessage(message: RawLintMessage): LintMessage {
+  const place = message.place ?? null;
+  return {
+    line: message.line ?? 1,
+    column: message.column ?? 1,
+    position: place,
+    message: message.message,
+    source: message.source ?? "remark-lint",
+    severity: message.fatal === true ? "error" : "warning",
+  };
 }
 
 async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
@@ -130,13 +140,9 @@ async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
         if (vfile.messages.length > 0) {
           results.push({
             file,
-            messages: vfile.messages.map((msg: any) => ({
-              line: msg.line || 1,
-              column: msg.column || 1,
-              message: msg.message,
-              source: msg.source || "remark-lint",
-              severity: msg.fatal === true ? "error" : "warning",
-            })),
+            messages: vfile.messages.map((message) =>
+              toLintMessage(message as RawLintMessage),
+            ),
           });
         }
       } catch (err) {

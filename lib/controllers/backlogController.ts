@@ -8,6 +8,12 @@ export {
   auditBacklog as validate,
   formatAuditReportText,
 } from "../backlog/audit.js";
+export {
+  formatArchiveValidationReport,
+  formatArchiveValidationReportJson,
+  formatArchiveValidationReportText,
+  validateArchiveWorkItems,
+} from "../backlog/archive-validation.js";
 export { scanBacklog } from "../backlog/scan-executor.js";
 export {
   formatScanReport,

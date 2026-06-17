@@ -5,10 +5,12 @@ summary: Add a deterministic archive validation command path that honors configu
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+actual: 2
+completed_date: '2026-06-16'
 links:
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'

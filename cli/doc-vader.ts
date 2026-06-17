@@ -20,6 +20,8 @@ import {
   list as listBacklogItems,
   validate as validateBacklog,
   formatAuditReportText,
+  validateArchiveWorkItems,
+  formatArchiveValidationReport,
   scanBacklog,
   formatScanReport,
 } from "../lib/controllers/backlogController.js";
@@ -47,6 +49,8 @@ import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
 import {
   claimTask,
+  listTaskClaims,
+  recoverClaim,
   getActiveClaimsForTask,
   getClaimStatus,
   formatReadyPorcelain,
@@ -372,6 +376,89 @@ task
   );
 
 task
+  .command("claims")
+  .description("List local task claims")
+  .option("--json", "Emit machine-readable JSON")
+  .action(async (opts: { json?: boolean }) => {
+    try {
+      const result = await listTaskClaims();
+      if (opts.json) {
+        printTaskJson({ claims: result });
+        return;
+      }
+      for (const claim of result) {
+        console.log(`${claim.claimId} ${claim.state} ${claim.taskId ?? ""}`);
+      }
+    } catch (error) {
+      failTaskCommand(error, opts.json);
+    }
+  });
+
+task
+  .command("recover")
+  .description("Inspect or deliberately recover an expired local task claim")
+  .argument("<claim-id>", "Claim id")
+  .option("--json", "Emit machine-readable JSON")
+  .option(
+    "--action <action>",
+    "Recovery action: inspect, release, adopt, or abandon",
+    "inspect",
+  )
+  .option("--holder <holder>", "Adopting claim holder identity")
+  .option("--ttl-minutes <minutes>", "Adopted claim time-to-live in minutes")
+  .option("--reason <reason>", "Abandonment reason")
+  .option("--force", "Override recovery classification safety checks")
+  .action(
+    async (
+      claimId: string,
+      opts: {
+        json?: boolean;
+        action?: string;
+        holder?: string;
+        ttlMinutes?: string;
+        reason?: string;
+        force?: boolean;
+      },
+    ) => {
+      try {
+        if (!["inspect", "release", "adopt", "abandon"].includes(opts.action ?? "")) {
+          throw new TaskCommandError(
+            "TASK_RECOVERY_INVALID_ACTION",
+            "Recovery action must be inspect, release, adopt, or abandon.",
+            { action: opts.action },
+          );
+        }
+        const ttlMinutes =
+          typeof opts.ttlMinutes === "string"
+            ? Number.parseInt(opts.ttlMinutes, 10)
+            : undefined;
+        if (ttlMinutes !== undefined && !Number.isFinite(ttlMinutes)) {
+          throw new TaskCommandError(
+            "TASK_RECOVERY_INVALID_TTL",
+            "Recovery TTL must be a finite number of minutes.",
+          );
+        }
+        const result = await recoverClaim(claimId, {
+          action: opts.action as "inspect" | "release" | "adopt" | "abandon",
+          holder: opts.holder,
+          ttlMinutes,
+          reason: opts.reason,
+          force: opts.force,
+        });
+        if (opts.json) {
+          printTaskJson(result);
+          return;
+        }
+        console.log(
+          `${result.claimId} ${result.state} ${result.classification}`,
+        );
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
   .command("release")
   .description("Release a local task claim")
   .requiredOption("--claim <claim-id>", "Claim id")
@@ -659,6 +746,44 @@ docSystem
 const backlog = program
   .command("backlog")
   .description("Backlog domain commands");
+
+const backlogArchive = backlog
+  .command("archive")
+  .description("Archive validation commands");
+
+backlogArchive
+  .command("validate")
+  .description("Validate archived work items using configured archive roots")
+  .option("-f, --format <format>", "Output format: text|json", "text")
+  .option(
+    "--consumer-config <path>",
+    "Path to consumer config JSON",
+    ".doc-vader/backlog-consumer.json",
+  )
+  .option("--fail-on <level>", "Fail level for exit code: error|warning", "error")
+  .action(
+    async (opts: {
+      format: string;
+      consumerConfig: string;
+      failOn: "error" | "warning";
+    }) => {
+      try {
+        const report = await validateArchiveWorkItems({
+          format: opts.format as "text" | "json",
+          consumerConfig: opts.consumerConfig,
+          failOn: opts.failOn,
+        });
+        const output = formatArchiveValidationReport(report);
+        console.log(output);
+        if (report.exitCode !== 0) {
+          process.exit(report.exitCode);
+        }
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exit(1);
+      }
+    }
+  );
 
 backlog
   .command("validate")

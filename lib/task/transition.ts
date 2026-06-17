@@ -34,6 +34,7 @@ export interface TaskTransitionOptions {
   assignee?: string;
   completedDate?: string;
   rootDir?: string;
+  claimStorePath?: string;
   backlogDir?: string;
   consumerConfig?: string;
   dryRun?: boolean;
@@ -234,7 +235,10 @@ export async function transitionTask(
 ): Promise<TaskTransitionResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const consumerConfig = options.consumerConfig ?? ".doc-vader/backlog-consumer.json";
-  const claim = await getClaimStatus(options.claimId, { rootDir });
+  const claim = await getClaimStatus(options.claimId, {
+    rootDir,
+    claimStorePath: options.claimStorePath,
+  });
   if (claim.state !== "active" || !claim.taskId) {
     throw new TaskCommandError(
       "TASK_TRANSITION_INVALID_CLAIM",

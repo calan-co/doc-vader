@@ -8,6 +8,8 @@ import { pathToFileURL } from "node:url";
 import {
   claimTask,
   getClaimStatus,
+  listTaskClaims,
+  recoverClaim,
   releaseClaim,
 } from "../lib/task/claims.js";
 import { loadTaskModel } from "../lib/task/model.js";
@@ -61,6 +63,10 @@ async function mkTmpRoot(): Promise<string> {
   return root;
 }
 
+function claimStorePath(root: string): string {
+  return path.join(root, ".doc-vader", "task-claims.json");
+}
+
 async function writeTask(
   root: string,
   fileName: string,
@@ -84,7 +90,11 @@ function runCli(
     cwd: root,
     encoding: "utf8",
     input,
-    env: { ...process.env, ...env },
+    env: {
+      ...process.env,
+      DOC_VADER_TASK_CLAIM_STORE: claimStorePath(root),
+      ...env,
+    },
   });
 }
 
@@ -215,6 +225,7 @@ tags:
       const now = new Date("2026-06-15T12:00:00.000Z");
       const claim = await claimTask("wi-103", {
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         holder: "agent-a",
         now,
       });
@@ -223,15 +234,34 @@ tags:
       await expect(
         claimTask("wi-103", {
           rootDir: root,
+          claimStorePath: claimStorePath(root),
           holder: "agent-b",
           now,
         }),
       ).rejects.toMatchObject({ code: "TASK_CLAIM_CONFLICT" });
-      await expect(getClaimStatus(claim.claimId, { rootDir: root, now }))
+      await expect(
+        getClaimStatus(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now,
+        }),
+      )
         .resolves.toMatchObject({ state: "active", taskId: "wi-103" });
-      await expect(releaseClaim(claim.claimId, { rootDir: root, now }))
+      await expect(
+        releaseClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now,
+        }),
+      )
         .resolves.toMatchObject({ state: "released", taskId: "wi-103" });
-      await expect(getClaimStatus("claim-missing", { rootDir: root, now }))
+      await expect(
+        getClaimStatus("claim-missing", {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now,
+        }),
+      )
         .resolves.toMatchObject({ state: "missing" });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
@@ -241,30 +271,93 @@ tags:
   it("supports a shared claim store path for sandbox mutexes", async () => {
     const root = await mkTmpRoot();
     const otherRoot = await mkTmpRoot();
-    const previousClaimStore = process.env.DOC_VADER_TASK_CLAIM_STORE;
     const sharedClaimStore = path.join(root, "shared", "task-claims.json");
     try {
-      process.env.DOC_VADER_TASK_CLAIM_STORE = sharedClaimStore;
       const claim = await claimTask("wi-104", {
         rootDir: root,
+        claimStorePath: sharedClaimStore,
         holder: "agent-a",
       });
 
       await expect(
         claimTask("wi-104", {
           rootDir: otherRoot,
+          claimStorePath: sharedClaimStore,
+          holder: "agent-b",
+        }),
+      ).rejects.toMatchObject({ code: "TASK_CLAIM_CONFLICT" });
+      await expect(
+        getClaimStatus(claim.claimId, {
+          rootDir: otherRoot,
+          claimStorePath: sharedClaimStore,
+        }),
+      ).resolves.toMatchObject({ state: "active", taskId: "wi-104" });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+      await fs.rm(otherRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("uses configured claim store path when no explicit override is provided", async () => {
+    const root = await mkTmpRoot();
+    const otherRoot = await mkTmpRoot();
+    try {
+      await fs.writeFile(
+        path.join(root, ".doc-vader/backlog-consumer.json"),
+        JSON.stringify(
+          {
+            roots: {
+              backlog: "backlog",
+              active: "backlog",
+              archive: "backlog/archive",
+              records: "backlog/records",
+              audit: "backlog/audit",
+            },
+            task: {
+              claimStorePath: path.join(root, "shared", "claims.json"),
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(otherRoot, ".doc-vader/backlog-consumer.json"),
+        JSON.stringify(
+          {
+            roots: {
+              backlog: "backlog",
+              active: "backlog",
+              archive: "backlog/archive",
+              records: "backlog/records",
+              audit: "backlog/audit",
+            },
+            task: {
+              claimStorePath: path.join(root, "shared", "claims.json"),
+            },
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const claim = await claimTask("wi-106", {
+        rootDir: root,
+        holder: "agent-a",
+      });
+
+      await expect(
+        claimTask("wi-106", {
+          rootDir: otherRoot,
           holder: "agent-b",
         }),
       ).rejects.toMatchObject({ code: "TASK_CLAIM_CONFLICT" });
       await expect(
         getClaimStatus(claim.claimId, { rootDir: otherRoot }),
-      ).resolves.toMatchObject({ state: "active", taskId: "wi-104" });
+      ).resolves.toMatchObject({ state: "active", taskId: "wi-106" });
     } finally {
-      if (previousClaimStore === undefined) {
-        delete process.env.DOC_VADER_TASK_CLAIM_STORE;
-      } else {
-        process.env.DOC_VADER_TASK_CLAIM_STORE = previousClaimStore;
-      }
       await fs.rm(root, { recursive: true, force: true });
       await fs.rm(otherRoot, { recursive: true, force: true });
     }
@@ -275,21 +368,126 @@ tags:
     try {
       const claim = await claimTask("wi-104", {
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         holder: "agent-a",
         ttlMinutes: 1,
         now: new Date("2026-06-15T12:00:00.000Z"),
       });
       const later = new Date("2026-06-15T12:02:00.000Z");
 
-      await expect(getClaimStatus(claim.claimId, { rootDir: root, now: later }))
+      await expect(
+        getClaimStatus(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now: later,
+        }),
+      )
         .resolves.toMatchObject({ state: "expired" });
       await expect(
         claimTask("wi-104", {
           rootDir: root,
+          claimStorePath: claimStorePath(root),
           holder: "agent-b",
           now: later,
         }),
       ).rejects.toMatchObject({ code: "TASK_CLAIM_EXPIRED" });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("classifies and recovers expired branch-aware claims", { timeout: 15_000 }, async () => {
+    const root = await mkTmpRoot();
+    try {
+      execFileSync("git", ["init", "--initial-branch", "main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["config", "user.email", "agent@example.com"], {
+        cwd: root,
+      });
+      execFileSync("git", ["config", "user.name", "Agent"], { cwd: root });
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      execFileSync("git", ["add", "README.md"], { cwd: root });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-107"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(path.join(root, "README.md"), "base\nwork\n", "utf8");
+      execFileSync("git", ["add", "README.md"], { cwd: root });
+      execFileSync("git", ["commit", "-m", "feat: work"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "main"], { cwd: root, stdio: "ignore" });
+
+      const claim = await claimTask("wi-107", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+        branch: "sandcastle/issue-107",
+        baseRef: "HEAD",
+        ttlMinutes: 1,
+        now: new Date("2026-06-15T12:00:00.000Z"),
+      });
+      const later = new Date("2026-06-15T12:02:00.000Z");
+
+      await expect(
+        recoverClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now: later,
+        }),
+      ).resolves.toMatchObject({
+        state: "expired",
+        classification: "adopt_recommended",
+        git: {
+          branch: "sandcastle/issue-107",
+          branchExists: true,
+          uniqueCommitCount: 1,
+        },
+      });
+      await expect(
+        recoverClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          action: "release",
+          now: later,
+        }),
+      ).rejects.toMatchObject({ code: "TASK_RECOVERY_UNSAFE_RELEASE" });
+      await expect(
+        recoverClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          action: "adopt",
+          holder: "agent-b",
+          now: later,
+        }),
+      ).resolves.toMatchObject({
+        state: "active",
+        classification: "manual_review_required",
+      });
+      await expect(
+        listTaskClaims({
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          now: later,
+        }),
+      ).resolves.toMatchObject([
+        {
+          claimId: claim.claimId,
+          state: "active",
+          claim: {
+            holder: "agent-b",
+            schemaVersion: "task-claim/v2",
+            git: { branch: "sandcastle/issue-107" },
+          },
+        },
+      ]);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -471,9 +669,16 @@ status: dependency-blocked
 tags:
   - afk`,
       );
-      await claimTask("wi-203", { rootDir: root, holder: "agent-a" });
+      await claimTask("wi-203", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
 
-      const report = await selectReadyTasks({ rootDir: root });
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
 
       expect(report.candidates.map((task) => task.id)).toEqual(["wi-200"]);
       expect(report.candidates[0]).toMatchObject({
@@ -602,7 +807,10 @@ tags:
   - afk`,
       );
 
-      const report = await selectReadyTasks({ rootDir: root });
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
 
       expect(report.candidates.map((task) => task.id)).toEqual([
         "wi-301",
@@ -648,11 +856,15 @@ links:
       );
       await claimTask("wi-204", {
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         holder: "agent-a",
         ttlMinutes: -1,
       });
 
-      const report = await selectReadyTasks({ rootDir: root });
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
 
       expect(report.candidates).toHaveLength(0);
       expect(
@@ -685,11 +897,13 @@ tags:
       );
       const claim = await claimTask("wi-205", {
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         holder: "agent-a",
       });
 
       const result = await recordTaskEvidence({
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         claimId: claim.claimId,
         payload: validateTaskRecordPayload({
           id: "record:wi-205-evidence",
@@ -820,6 +1034,7 @@ tags:
       await expect(
         recordTaskEvidence({
           rootDir: root,
+          claimStorePath: claimStorePath(root),
           claimId: "claim-missing",
           payload: validateTaskRecordPayload({
             type: "test-result",
@@ -830,11 +1045,13 @@ tags:
       ).rejects.toMatchObject({ code: "TASK_RECORD_INVALID_CLAIM" });
       const orphanClaim = await claimTask("wi-999", {
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         holder: "agent-a",
       });
       await expect(
         recordTaskEvidence({
           rootDir: root,
+          claimStorePath: claimStorePath(root),
           claimId: orphanClaim.claimId,
           payload: validateTaskRecordPayload({
             id: "record:should-not-write",
@@ -870,11 +1087,13 @@ tags:
       );
       const claim = await claimTask("wi-208", {
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         holder: "agent-a",
       });
 
       const running = await transitionTask({
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         claimId: claim.claimId,
         status: "running",
         statusReason: "implementation",
@@ -915,12 +1134,14 @@ tags:
       );
       const claim = await claimTask("wi-209", {
         rootDir: root,
+        claimStorePath: claimStorePath(root),
         holder: "agent-a",
       });
 
       await expect(
         transitionTask({
           rootDir: root,
+          claimStorePath: claimStorePath(root),
           claimId: claim.claimId,
           status: "completed",
           statusReason: "completed",
