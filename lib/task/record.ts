@@ -164,12 +164,16 @@ export async function recordTaskEvidence(options: {
   claimId: string;
   payload: TaskRecordPayload;
   rootDir?: string;
+  claimStorePath?: string;
   consumerConfig?: string;
   dryRun?: boolean;
 }): Promise<TaskRecordResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const consumerConfig = options.consumerConfig ?? ".doc-vader/backlog-consumer.json";
-  const claim = await getClaimStatus(options.claimId, { rootDir });
+  const claim = await getClaimStatus(options.claimId, {
+    rootDir,
+    claimStorePath: options.claimStorePath,
+  });
   if (claim.state !== "active" || !claim.taskId) {
     throw new TaskCommandError(
       "TASK_RECORD_INVALID_CLAIM",

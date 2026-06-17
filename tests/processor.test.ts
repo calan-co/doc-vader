@@ -331,7 +331,37 @@ describe("createTiabProcessor – crossref plugin", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Suite 6: processor isolation — independent instances
+// Suite 6: shared pipeline layers
+// ---------------------------------------------------------------------------
+
+describe("createTiabProcessor – shared validation layers", () => {
+  it("reports naming and raw HTML anchor violations through the unified pipeline", async () => {
+    const md = "# Doc\n\n<a id=\"legacy-anchor\"></a>\n";
+    const file = await lint(
+      md,
+      {
+        namingConventions: { enabled: true },
+        noHtmlAnchors: { enabled: true },
+      },
+      "docs/guide/bad name.md",
+    );
+
+    expect(
+      file.messages.some((m) =>
+        m.message.includes("Invalid filename") &&
+        m.message.includes("bad name.md"),
+      ),
+    ).toBe(true);
+    expect(
+      file.messages.some((m) =>
+        m.message.includes("Avoid raw HTML anchor tags"),
+      ),
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 7: processor isolation — independent instances
 // ---------------------------------------------------------------------------
 
 describe("createTiabProcessor – instance isolation", () => {
@@ -355,7 +385,7 @@ describe("createTiabProcessor – instance isolation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Suite 7: Phase 1 exit-gate baseline
+// Suite 8: Phase 1 exit-gate baseline
 // ---------------------------------------------------------------------------
 
 describe("Epic 170 Phase 1 – exit-gate baseline", () => {

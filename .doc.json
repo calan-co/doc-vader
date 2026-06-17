@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/config/doc-vader-config.json",
   "schemaMap": {
     "byType": {
-      "document": "schemas/frontmatter/document/current.json",
-      "work-item": "schemas/frontmatter/work-item/current.json"
+      "document": "schemas/frontmatter/by-type/document/latest.json",
+      "work-item": "schemas/frontmatter/by-type/work-item/latest.json"
     }
   },
   "vocabularies": {

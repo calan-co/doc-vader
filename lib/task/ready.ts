@@ -73,6 +73,7 @@ interface ReadyDocument {
 export interface SelectReadyTasksOptions {
   rootDir?: string;
   backlogDir?: string;
+  claimStorePath?: string;
   now?: Date;
 }
 
@@ -310,6 +311,7 @@ async function evaluateDocument(
   document: ReadyDocument,
   documents: ReadyDocument[],
   rootDir: string,
+  claimStorePath: string | undefined,
   now: Date,
 ): Promise<{ candidate?: ReadyTaskCandidate; exclusion?: ReadyTaskExclusion }> {
   if (document.parseError) {
@@ -404,7 +406,11 @@ async function evaluateDocument(
   }
 
   if (id) {
-    const claimStatus = await getClaimStatusForTask(id, { rootDir, now });
+    const claimStatus = await getClaimStatusForTask(id, {
+      rootDir,
+      claimStorePath,
+      now,
+    });
     const exclusion = claimStatus ? claimReason(claimStatus) : undefined;
     if (exclusion) {
       reasons.push(exclusion);
@@ -458,7 +464,9 @@ export async function selectReadyTasks(
   const now = options.now ?? new Date();
   const documents = await readReadyDocuments(rootDir, backlogDir);
   const results = await Promise.all(
-    documents.map((document) => evaluateDocument(document, documents, rootDir, now)),
+    documents.map((document) =>
+      evaluateDocument(document, documents, rootDir, options.claimStorePath, now),
+    ),
   );
   return {
     schemaVersion: "task-ready/v1",
