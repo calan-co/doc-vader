@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  changesetStatusEnv,
   evaluateChangesetRequirement,
   formatValidationErrors,
   validateChangesetFile,
@@ -79,5 +80,23 @@ describe("validateChangesetFile", () => {
     );
 
     expect(result.errors).toEqual(["changeset has no package release entries"]);
+  });
+});
+
+describe("changesetStatusEnv", () => {
+  it("removes Git hook local environment variables before invoking Changesets", () => {
+    const result = changesetStatusEnv({
+      GIT_ASKPASS: "/tmp/askpass",
+      GIT_COMMON_DIR: "/repo/.git",
+      GIT_DIR: "/repo/.git/worktrees/feature",
+      GIT_INDEX_FILE: "/tmp/index",
+      GIT_WORK_TREE: "/repo",
+      PATH: "/bin",
+    });
+
+    expect(result).toEqual({
+      GIT_ASKPASS: "/tmp/askpass",
+      PATH: "/bin",
+    });
   });
 });
