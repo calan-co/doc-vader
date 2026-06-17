@@ -67,6 +67,22 @@ function claimStorePath(root: string): string {
   return path.join(root, ".doc-vader", "task-claims.json");
 }
 
+async function withClaimStoreEnvCleared<T>(
+  fn: () => Promise<T>,
+): Promise<T> {
+  const previous = process.env.DOC_VADER_TASK_CLAIM_STORE;
+  delete process.env.DOC_VADER_TASK_CLAIM_STORE;
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.DOC_VADER_TASK_CLAIM_STORE;
+    } else {
+      process.env.DOC_VADER_TASK_CLAIM_STORE = previous;
+    }
+  }
+}
+
 async function writeTask(
   root: string,
   fileName: string,
@@ -343,20 +359,22 @@ tags:
         "utf8",
       );
 
-      const claim = await claimTask("wi-106", {
-        rootDir: root,
-        holder: "agent-a",
-      });
+      await withClaimStoreEnvCleared(async () => {
+        const claim = await claimTask("wi-106", {
+          rootDir: root,
+          holder: "agent-a",
+        });
 
-      await expect(
-        claimTask("wi-106", {
-          rootDir: otherRoot,
-          holder: "agent-b",
-        }),
-      ).rejects.toMatchObject({ code: "TASK_CLAIM_CONFLICT" });
-      await expect(
-        getClaimStatus(claim.claimId, { rootDir: otherRoot }),
-      ).resolves.toMatchObject({ state: "active", taskId: "wi-106" });
+        await expect(
+          claimTask("wi-106", {
+            rootDir: otherRoot,
+            holder: "agent-b",
+          }),
+        ).rejects.toMatchObject({ code: "TASK_CLAIM_CONFLICT" });
+        await expect(
+          getClaimStatus(claim.claimId, { rootDir: otherRoot }),
+        ).resolves.toMatchObject({ state: "active", taskId: "wi-106" });
+      });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
       await fs.rm(otherRoot, { recursive: true, force: true });

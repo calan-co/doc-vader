@@ -1024,15 +1024,15 @@ export async function finalizeWorkItem(
     throw new Error(`Cannot finalize '${options.id}' without linked evidence.`);
   }
 
-  if (options.provider?.isAuthenticated()) {
-    const validationErrors = await validateLinkedPullRequestsMerged({
-      id: options.id,
-      pullRequestLinks,
-      provider: options.provider,
-    });
-    if (validationErrors.length > 0) {
-      throw new Error(validationErrors.join("\n"));
-    }
+  const provider = requireAuthenticatedProvider(options.provider, options.id);
+
+  const validationErrors = await validateLinkedPullRequestsMerged({
+    id: options.id,
+    pullRequestLinks,
+    provider,
+  });
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors.join("\n"));
   }
 
   document.frontmatter.status = "completed";
@@ -1068,6 +1068,22 @@ export async function finalizeWorkItem(
     frontmatter: document.frontmatter,
     dryRun: Boolean(options.dryRun),
   };
+}
+
+function requireAuthenticatedProvider(
+  provider: BacklogAutomationProvider | undefined,
+  workItemId: string,
+): BacklogAutomationProvider {
+  const resolvedProvider =
+    provider ?? getProviderForForge("github", process.env.GITHUB_TOKEN);
+
+  if (!resolvedProvider.isAuthenticated()) {
+    throw new Error(
+      `Cannot finalize '${workItemId}' without an authenticated provider to verify linked PRs.`,
+    );
+  }
+
+  return resolvedProvider;
 }
 
 async function validateLinkedPullRequestsMerged(options: {

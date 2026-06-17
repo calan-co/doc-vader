@@ -18,6 +18,7 @@ links:
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
     - '[[record-20260612-context-coordination-pivot]]'
+    - '[[record-sandcastle-task-validation-passed]]'
   reference:
     - '[[archive/210.vendor-adapter-and-scan-lifecycle-epic]]'
     - '[[archive/210.1.vendor-adapter-and-scan-lifecycle-feature]]'
