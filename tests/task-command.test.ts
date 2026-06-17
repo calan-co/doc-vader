@@ -349,7 +349,6 @@ tags:
 
       const claim = await claimTask("wi-106", {
         rootDir: root,
-        claimStorePath: sharedClaimStore,
         holder: "agent-a",
       });
 
