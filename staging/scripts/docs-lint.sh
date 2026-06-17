@@ -98,41 +98,43 @@ try {
 } catch {
   remarkPayload = null;
 }
+let payload;
 
-const payload =
-  remarkPayload && typeof remarkPayload === "object"
-    ? {
-        ...remarkPayload,
-        format: "json",
-        failOn: process.env.FAIL_ON,
-        passed:
-          typeof remarkPayload.passed === "boolean"
-            ? remarkPayload.passed
-            : process.env.HAS_ERRORS === "0",
-        remark: {
-          exitCode: Number(process.env.REMARK_RESULT ?? "1"),
-          output: process.env.REMARK_OUTPUT ?? "",
-        },
-        // Preserve the legacy JSON shape for callers that still expect this block.
-        frontmatter: {
-          exitCode: 0,
-          output: "",
-        },
-      }
-    : {
-        format: "json",
-        failOn: process.env.FAIL_ON,
-        passed: process.env.HAS_ERRORS === "0",
-        remark: {
-          exitCode: Number(process.env.REMARK_RESULT ?? "1"),
-          output: process.env.REMARK_OUTPUT ?? "",
-        },
-        // Preserve the legacy JSON shape for callers that still expect this block.
-        frontmatter: {
-          exitCode: 0,
-          output: "",
-        },
-      };
+if (remarkPayload && typeof remarkPayload === "object") {
+  payload = {
+    ...remarkPayload,
+    format: "json",
+    failOn: process.env.FAIL_ON,
+    passed:
+      typeof remarkPayload.passed === "boolean"
+        ? remarkPayload.passed
+        : process.env.HAS_ERRORS === "0",
+    remark: {
+      exitCode: Number(process.env.REMARK_RESULT ?? "1"),
+      output: process.env.REMARK_OUTPUT ?? "",
+    },
+    // Preserve the legacy JSON shape for callers that still expect this block.
+    frontmatter: {
+      exitCode: 0,
+      output: "",
+    },
+  };
+} else {
+  payload = {
+    format: "json",
+    failOn: process.env.FAIL_ON,
+    passed: process.env.HAS_ERRORS === "0",
+    remark: {
+      exitCode: Number(process.env.REMARK_RESULT ?? "1"),
+      output: process.env.REMARK_OUTPUT ?? "",
+    },
+    // Preserve the legacy JSON shape for callers that still expect this block.
+    frontmatter: {
+      exitCode: 0,
+      output: "",
+    },
+  };
+}
 console.log(JSON.stringify(payload, null, 2));
 NODE
 

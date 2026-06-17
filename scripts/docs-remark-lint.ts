@@ -85,13 +85,40 @@ const processor = createTiabProcessor(processorOptions);
 
 interface LintResult {
   file: string;
-  messages: Array<{
-    line: number;
-    column: number;
-    message: string;
-    source: string;
-    severity: "error" | "warning";
-  }>;
+  messages: LintMessage[];
+}
+
+interface LintMessage {
+  line: number;
+  column: number;
+  position: RawLintMessage["place"];
+  message: string;
+  source: string;
+  severity: "error" | "warning";
+}
+
+interface RawLintMessage {
+  line?: number | null;
+  column?: number | null;
+  place?: {
+    line?: number | null;
+    column?: number | null;
+  } | null;
+  message: string;
+  source?: string | null;
+  fatal?: boolean | null;
+}
+
+function toLintMessage(message: RawLintMessage): LintMessage {
+  const place = message.place ?? null;
+  return {
+    line: message.line ?? 1,
+    column: message.column ?? 1,
+    position: place,
+    message: message.message,
+    source: message.source ?? "remark-lint",
+    severity: message.fatal === true ? "error" : "warning",
+  };
 }
 
 async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
@@ -113,14 +140,9 @@ async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
         if (vfile.messages.length > 0) {
           results.push({
             file,
-            messages: vfile.messages.map((msg: any) => ({
-              line: msg.line || 1,
-              column: msg.column || 1,
-              position: msg.place || null,
-              message: msg.message,
-              source: msg.source || "remark-lint",
-              severity: msg.fatal === true ? "error" : "warning",
-            })),
+            messages: vfile.messages.map((message) =>
+              toLintMessage(message as RawLintMessage),
+            ),
           });
         }
       } catch (err) {

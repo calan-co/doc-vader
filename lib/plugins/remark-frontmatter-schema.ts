@@ -84,12 +84,7 @@ interface ResolvedSchema {
   cacheKey: string;
 }
 
-interface ValidationPosition {
-  line: number;
-  column: number;
-}
-
-type MessagePlace = {
+type MessagePosition = {
   line: number;
   column: number;
 };
@@ -121,50 +116,52 @@ function escapeRegExp(value: string): string {
 function resolveFrontmatterPosition(
   frontmatterBlock: string | undefined,
   instancePath: string | undefined,
-): MessagePlace {
-  const normalizedBlock =
+): MessagePosition {
+  const frontmatterText =
     typeof frontmatterBlock === "string"
       ? frontmatterBlock.replace(/^\r?\n/, "")
       : "";
-  const lines = normalizedBlock.split(/\r?\n/);
-  const baseLine = 2;
-  const segments = String(instancePath ?? "")
+  const frontmatterLines = frontmatterText.split(/\r?\n/);
+  const rootPosition = { line: 2, column: 1 };
+  const pathSegments = String(instancePath ?? "")
     .split("/")
     .filter(Boolean)
     .filter((segment) => !/^\d+$/.test(segment));
 
-  if (segments.length === 0) {
-    return { line: baseLine, column: 1 };
+  if (pathSegments.length === 0) {
+    return rootPosition;
   }
 
-  let searchFrom = 0;
-  let lastMatch: ValidationPosition | null = null;
+  let nextSearchLine = 0;
+  let resolvedPosition: MessagePosition | null = null;
 
-  for (const segment of segments) {
+  for (const segment of pathSegments) {
     const segmentPattern = new RegExp(
       `^(\\s*)['"]?${escapeRegExp(segment)}['"]?\\s*:`,
     );
-    let matched = false;
+    let segmentFound = false;
 
-    for (let i = searchFrom; i < lines.length; i++) {
-      const line = lines[i];
-      const match = line.match(segmentPattern);
+    for (
+      let lineIndex = nextSearchLine;
+      lineIndex < frontmatterLines.length;
+      lineIndex++
+    ) {
+      const match = frontmatterLines[lineIndex].match(segmentPattern);
       if (!match) continue;
 
-      const indent = match[1].length;
-      lastMatch = {
-        line: baseLine + i,
-        column: indent + 1,
+      resolvedPosition = {
+        line: 2 + lineIndex,
+        column: match[1].length + 1,
       };
-      searchFrom = i + 1;
-      matched = true;
+      nextSearchLine = lineIndex + 1;
+      segmentFound = true;
       break;
     }
 
-    if (!matched) break;
+    if (!segmentFound) break;
   }
 
-  return lastMatch ?? { line: baseLine, column: 1 };
+  return resolvedPosition ?? rootPosition;
 }
 
 function schemaContainsRemoteRef(value: unknown): boolean {
