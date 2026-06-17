@@ -20,6 +20,8 @@ links:
     - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
   evidence:
     - '[[record-20260614-164457-60341]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - sandcastle
