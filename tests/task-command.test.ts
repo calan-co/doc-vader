@@ -368,7 +368,9 @@ tags:
   it("uses configured claim store path when no explicit override is provided", async () => {
     const root = await mkTmpRoot();
     const otherRoot = await mkTmpRoot();
+    const previousClaimStoreEnv = process.env.DOC_VADER_TASK_CLAIM_STORE;
     try {
+      delete process.env.DOC_VADER_TASK_CLAIM_STORE;
       await fs.writeFile(
         path.join(root, ".doc-vader/backlog-consumer.json"),
         JSON.stringify(
@@ -427,6 +429,11 @@ tags:
         ).resolves.toMatchObject({ state: "active", taskId: "wi-106" });
       });
     } finally {
+      if (previousClaimStoreEnv === undefined) {
+        delete process.env.DOC_VADER_TASK_CLAIM_STORE;
+      } else {
+        process.env.DOC_VADER_TASK_CLAIM_STORE = previousClaimStoreEnv;
+      }
       await fs.rm(root, { recursive: true, force: true });
       await fs.rm(otherRoot, { recursive: true, force: true });
     }
@@ -1337,7 +1344,9 @@ tags:
   - afk`,
       );
 
-      const ready = JSON.parse(runCli(root, ["task", "ready", "--json"]));
+      const ready = JSON.parse(
+        runCli(root, ["task", "ready", "--json"]),
+      );
       expect(ready.candidates.map((task: { id: string }) => task.id)).toEqual([
         "wi-208",
       ]);
