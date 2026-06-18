@@ -54,6 +54,7 @@ import {
   getActiveClaimsForTask,
   getClaimStatus,
   formatReadyPorcelain,
+  formatReadyText,
   loadCanonicalTask,
   loadTaskModel,
   readTaskRecordPayload,
@@ -209,7 +210,9 @@ task
           printTaskJson(report);
           return;
         }
-        const output = formatReadyPorcelain(report);
+        const output = opts.porcelain
+          ? formatReadyPorcelain(report)
+          : formatReadyText(report);
         if (output.length > 0) {
           console.log(output);
         }

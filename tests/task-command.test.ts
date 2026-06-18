@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -368,7 +369,11 @@ tags:
   it("uses configured claim store path when no explicit override is provided", async () => {
     const root = await mkTmpRoot();
     const otherRoot = await mkTmpRoot();
-    const previousClaimStoreEnv = process.env.DOC_VADER_TASK_CLAIM_STORE;
+    const sharedClaimStore = path.join(
+      root,
+      "shared",
+      `claims-${randomUUID()}.json`,
+    );
     try {
       delete process.env.DOC_VADER_TASK_CLAIM_STORE;
       await fs.writeFile(
@@ -382,9 +387,7 @@ tags:
               records: "backlog/records",
               audit: "backlog/audit",
             },
-            task: {
-              claimStorePath: path.join(root, "shared", "claims.json"),
-            },
+            task: { claimStorePath: sharedClaimStore },
           },
           null,
           2,
@@ -402,9 +405,7 @@ tags:
               records: "backlog/records",
               audit: "backlog/audit",
             },
-            task: {
-              claimStorePath: path.join(root, "shared", "claims.json"),
-            },
+            task: { claimStorePath: sharedClaimStore },
           },
           null,
           2,
@@ -429,11 +430,6 @@ tags:
         ).resolves.toMatchObject({ state: "active", taskId: "wi-106" });
       });
     } finally {
-      if (previousClaimStoreEnv === undefined) {
-        delete process.env.DOC_VADER_TASK_CLAIM_STORE;
-      } else {
-        process.env.DOC_VADER_TASK_CLAIM_STORE = previousClaimStoreEnv;
-      }
       await fs.rm(root, { recursive: true, force: true });
       await fs.rm(otherRoot, { recursive: true, force: true });
     }
@@ -787,6 +783,11 @@ tags:
       ]);
       const porcelain = runCli(root, ["task", "ready", "--porcelain"]);
       expect(porcelain.trim()).toBe("wi-200\tbacklog/200-ready.md\tReady");
+      const text = runCli(root, ["task", "ready"]);
+      expect(text).toContain("Ready task candidates");
+      expect(text).toContain("Candidates: 1");
+      expect(text).toContain("- wi-200 | Ready | backlog/200-ready.md");
+      expect(text).toContain("hitl: HITL tasks are not AFK-ready candidates.");
       const json = JSON.parse(runCli(root, ["task", "ready", "--json"]));
       expect(json.schemaVersion).toBe("task-ready/v1");
       expect(json.candidates).toHaveLength(1);
