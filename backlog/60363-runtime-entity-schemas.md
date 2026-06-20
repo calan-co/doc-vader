@@ -14,6 +14,8 @@ links:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60363]]'
 tags:
   - afk
   - runtime

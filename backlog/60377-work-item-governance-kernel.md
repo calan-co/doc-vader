@@ -17,6 +17,8 @@ links:
     - '[[../docs/architecture/decisions/adr-006-task-command-surface-work-item-canonical-model]]'
     - '[[../docs/architecture/decisions/adr-009-storage-and-format-seams]]'
     - '[[../docs/how-to/implementation-plans/doc-vader-entity-governance-architecture-prd]]'
+  evidence:
+    - '[[record-20260620-022741-60377]]'
 tags:
   - afk
   - architecture

@@ -16,6 +16,8 @@ links:
   reference:
     - '[[60340-artifact-graph-and-nested-claim-architecture-adr]]'
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60375]]'
 tags:
   - afk
   - runtime

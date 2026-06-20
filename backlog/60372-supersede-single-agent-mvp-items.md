@@ -22,6 +22,8 @@ links:
     - '[[60373-claim-command-surface]]'
     - '[[60374-lock-command-surface]]'
     - '[[60375-lock-path-normalization-and-rename-gate]]'
+  evidence:
+    - '[[record-20260620-022741-60372]]'
 tags:
   - afk
   - backlog

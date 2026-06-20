@@ -14,6 +14,8 @@ links:
     - '[[60364-atomic-claim-and-lock-acquisition]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60365]]'
 tags:
   - afk
   - runtime

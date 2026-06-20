@@ -12,6 +12,8 @@ estimated: 3
 links:
   reference:
     - '[[174.1.graph-and-naming-story]]'
+  evidence:
+    - '[[record-20260620-022741-60359]]'
 tags:
   - recovery
   - registry

@@ -15,6 +15,8 @@ links:
     - '[[60363-runtime-entity-schemas]]'
   reference:
     - '[[60343-task-claim-store-and-lifecycle]]'
+  evidence:
+    - '[[record-20260620-022741-60362]]'
 tags:
   - afk
   - runtime

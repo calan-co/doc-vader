@@ -20,6 +20,8 @@ links:
   reference:
     - '[[60358-sandcastle-dogfood-adapter-flow]]'
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60370]]'
 tags:
   - afk
   - sandcastle
