@@ -34,6 +34,7 @@ export interface TaskTransitionOptions {
   assignee?: string;
   completedDate?: string;
   rootDir?: string;
+  claimStorePath?: string;
   backlogDir?: string;
   consumerConfig?: string;
   dryRun?: boolean;
@@ -208,6 +209,85 @@ async function assertCompletedHasEvidence(
   }
 }
 
+async function applyTaskTransition(options: {
+  task: Awaited<ReturnType<typeof loadTaskModel>>;
+  rootDir: string;
+  consumerConfig: string;
+  status: string;
+  expectedFromStatus?: string;
+  statusReason?: string;
+  actual?: number;
+  assignee?: string;
+  completedDate?: string;
+  dryRun?: boolean;
+}): Promise<Omit<TaskTransitionResult, "claimId">> {
+  const toStatus = normalizeStatus(options.status);
+  const fromStatus = normalizeStatus(options.task.status);
+  if (
+    options.expectedFromStatus &&
+    normalizeStatus(options.expectedFromStatus) !== fromStatus
+  ) {
+    throw new TaskCommandError(
+      "TASK_TRANSITION_FROM_STATUS_MISMATCH",
+      `Expected from status '${options.expectedFromStatus}' does not match current status '${fromStatus}'.`,
+      { expectedFromStatus: options.expectedFromStatus, currentStatus: fromStatus },
+    );
+  }
+  const toStatusReason =
+    options.statusReason?.trim() ?? defaultStatusReason(toStatus);
+  const previous = {
+    status: fromStatus,
+    status_reason:
+      options.task.statusReason ?? defaultStatusReason(fromStatus) ?? null,
+  };
+  const current = {
+    status: toStatus,
+    status_reason: toStatusReason ?? null,
+  };
+
+  let evaluation: ReturnType<typeof evaluateTransition>;
+  try {
+    evaluation = evaluateTransition(previous, current);
+  } catch (error) {
+    throw new TaskCommandError(
+      "TASK_TRANSITION_INVALID_TARGET",
+      error instanceof Error ? error.message : String(error),
+      { fromStatus, toStatus, toStatusReason },
+    );
+  }
+  if (!evaluation.allowed) {
+    throw new TaskCommandError(
+      "TASK_TRANSITION_DISALLOWED",
+      `Transition from '${fromStatus}' to '${toStatus}' is not allowed by the work-management profile.`,
+      { fromStatus, toStatus, toStatusReason },
+    );
+  }
+
+  if (toStatus === "completed") {
+    await assertCompletedHasEvidence(options.rootDir, options.task.filePath);
+  }
+
+  const workItem = await transitionWorkItem({
+    rootDir: options.rootDir,
+    consumerConfig: options.consumerConfig,
+    id: options.task.id,
+    status: toStatus,
+    statusReason: toStatusReason,
+    actual: options.actual,
+    assignee: options.assignee,
+    completedDate: options.completedDate,
+    dryRun: options.dryRun,
+  });
+
+  return {
+    taskId: options.task.id,
+    fromStatus,
+    toStatus,
+    matchedRuleId: evaluation.matchedRuleId,
+    workItem,
+  };
+}
+
 export function optionsFromTransitionPayload(
   payload: TaskTransitionPayload,
 ): Omit<TaskTransitionOptions, "claimId"> {
@@ -234,7 +314,10 @@ export async function transitionTask(
 ): Promise<TaskTransitionResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const consumerConfig = options.consumerConfig ?? ".doc-vader/backlog-consumer.json";
-  const claim = await getClaimStatus(options.claimId, { rootDir });
+  const claim = await getClaimStatus(options.claimId, {
+    rootDir,
+    claimStorePath: options.claimStorePath,
+  });
   if (claim.state !== "active" || !claim.taskId) {
     throw new TaskCommandError(
       "TASK_TRANSITION_INVALID_CLAIM",
@@ -255,57 +338,13 @@ export async function transitionTask(
     );
   }
 
-  const toStatus = normalizeStatus(options.status);
-  const fromStatus = normalizeStatus(task.status);
-  if (
-    options.expectedFromStatus &&
-    normalizeStatus(options.expectedFromStatus) !== fromStatus
-  ) {
-    throw new TaskCommandError(
-      "TASK_TRANSITION_FROM_STATUS_MISMATCH",
-      `Expected from status '${options.expectedFromStatus}' does not match current status '${fromStatus}'.`,
-      { expectedFromStatus: options.expectedFromStatus, currentStatus: fromStatus },
-    );
-  }
-  const toStatusReason =
-    options.statusReason?.trim() ?? defaultStatusReason(toStatus);
-  const previous = {
-    status: fromStatus,
-    status_reason: task.statusReason ?? defaultStatusReason(fromStatus) ?? null,
-  };
-  const current = {
-    status: toStatus,
-    status_reason: toStatusReason ?? null,
-  };
-
-  let evaluation: ReturnType<typeof evaluateTransition>;
-  try {
-    evaluation = evaluateTransition(previous, current);
-  } catch (error) {
-    throw new TaskCommandError(
-      "TASK_TRANSITION_INVALID_TARGET",
-      error instanceof Error ? error.message : String(error),
-      { fromStatus, toStatus, toStatusReason },
-    );
-  }
-  if (!evaluation.allowed) {
-    throw new TaskCommandError(
-      "TASK_TRANSITION_DISALLOWED",
-      `Transition from '${fromStatus}' to '${toStatus}' is not allowed by the work-management profile.`,
-      { fromStatus, toStatus, toStatusReason },
-    );
-  }
-
-  if (toStatus === "completed") {
-    await assertCompletedHasEvidence(rootDir, task.filePath);
-  }
-
-  const workItem = await transitionWorkItem({
+  const result = await applyTaskTransition({
+    task,
     rootDir,
     consumerConfig,
-    id: task.id,
-    status: toStatus,
-    statusReason: toStatusReason,
+    status: options.status,
+    expectedFromStatus: options.expectedFromStatus,
+    statusReason: options.statusReason,
     actual: options.actual,
     assignee: options.assignee,
     completedDate: options.completedDate,
@@ -314,10 +353,6 @@ export async function transitionTask(
 
   return {
     claimId: options.claimId,
-    taskId: task.id,
-    fromStatus,
-    toStatus,
-    matchedRuleId: evaluation.matchedRuleId,
-    workItem,
+    ...result,
   };
 }

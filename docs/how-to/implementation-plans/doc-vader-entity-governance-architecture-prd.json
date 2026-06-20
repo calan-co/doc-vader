@@ -1,0 +1,229 @@
+{
+  "entityType": "plan",
+  "documentKind": "product-requirements",
+  "artifactStrategy": {
+    "sourceOfTruth": "json-payload",
+    "renderedViews": [
+      "markdown"
+    ],
+    "preservation": "Store this content JSON sidecar next to the rendered Markdown PRD and treat JSON as canonical for automation."
+  },
+  "contextGrounding": {
+    "codebaseContext": "Doc-Vader already has documentation validation, backlog hygiene, work-item mutation, record creation, governance profiles, task commands, and an active runtime backlog around claims, locks, execution logs, and extension authoring. Architecture exploration found that these capabilities should be unified as entity governance rather than extended as separate document, backlog, and task silos.",
+    "domainVocabulary": [
+      "entity governance",
+      "artifact",
+      "entity",
+      "record",
+      "Work Item",
+      "Task projection",
+      "Work Item Governance Kernel",
+      "runtime entity",
+      "claim",
+      "lock",
+      "execution log",
+      "gate",
+      "policy",
+      "manifest",
+      "package",
+      "storage adapter",
+      "format adapter"
+    ],
+    "adrAlignment": "This PRD is aligned with ADR-005 through ADR-009. ADR-001 remains the validation substrate decision; ADR-002 through ADR-004 remain the provider, resolver, and scan decisions.",
+    "sourceContext": [
+      "Architecture review found Work Item governance rules duplicated across work-management, task, scan, lint, and plugin modules.",
+      "Backlog review identified 60361 as the current local runtime authority contract.",
+      "Challenge pass decided that Work Item remains canonical and Task is the command projection.",
+      "The stale backlog implementation plan should be replaced by a runtime/entity-governance roadmap."
+    ]
+  },
+  "problemStatement": "Doc-Vader's active roadmap has outgrown its historical framing as documentation automation and backlog hygiene. Without an entity-governance architecture, consumers get inconsistent task, backlog, scan, and lint behavior, while package authors lack stable primitives for extending the system.",
+  "solution": "Adopt entity governance as the top-level product architecture. Define built-in document and work-management packages, promote Work Item governance into a deep kernel, adopt Git plus SQLite as the local runtime authority, and prioritize the runtime entity spine before hosted SaaS, artifact graph, archive pruning, and prototype recovery. Define storage and format seams in MVP so entity semantics are not coupled to Markdown, JSON, SQLite, or file layout.",
+  "coverageModel": {
+    "actors": [
+      "human consumer",
+      "AI consumer",
+      "package author",
+      "repository maintainer",
+      "runtime command author"
+    ],
+    "journeyStages": [
+      "entity definition",
+      "validation and linting",
+      "ready selection",
+      "runtime coordination",
+      "evidence and audit",
+      "extension authoring"
+    ],
+    "concerns": [
+      "daily usability",
+      "consistent governance answers",
+      "package adoption",
+      "fail-closed safety",
+      "schema-first evolution",
+      "runtime locality"
+    ],
+    "notes": "The PRD aligns architecture and backlog direction; it does not implement the kernel or runtime store directly."
+  },
+  "userStories": [
+    {
+      "story": "As a human consumer, I want task and backlog commands to return the same readiness answer, so that I do not have to learn which command is authoritative.",
+      "covers": {
+        "actor": "human consumer",
+        "journeyStage": "ready selection",
+        "concern": "daily usability"
+      }
+    },
+    {
+      "story": "As an AI consumer, I want machine-readable verdicts for readiness, policy, dependencies, and evidence, so that automation can fail closed without guessing.",
+      "covers": {
+        "actor": "AI consumer",
+        "journeyStage": "runtime coordination",
+        "concern": "fail-closed safety"
+      }
+    },
+    {
+      "story": "As a package author, I want stable entity primitives and extension seams, so that I can add custom governed entities without copying Work Item internals.",
+      "covers": {
+        "actor": "package author",
+        "journeyStage": "extension authoring",
+        "concern": "package adoption"
+      }
+    },
+    {
+      "story": "As a repository maintainer, I want runtime claims, locks, and execution logs to use one local authority, so that multi-agent work is coordinated and auditable.",
+      "covers": {
+        "actor": "repository maintainer",
+        "journeyStage": "runtime coordination",
+        "concern": "runtime locality"
+      }
+    },
+    {
+      "story": "As a package author, I want storage and format adapters to be separate seams, so that custom entities can choose file, JSON, SQLite, or future hosted backing without rewriting governance rules.",
+      "covers": {
+        "actor": "package author",
+        "journeyStage": "entity definition",
+        "concern": "package adoption"
+      }
+    }
+  ],
+  "coverageReview": {
+    "status": "complete",
+    "notes": "Stories cover the two primary audiences plus maintainers and runtime command authors.",
+    "gaps": []
+  },
+  "qualityReview": {
+    "dimensions": [
+      {
+        "name": "grounding",
+        "score": 5,
+        "rationale": "Grounded in current code exploration, ADRs, PRDs, and active backlog."
+      },
+      {
+        "name": "coverage",
+        "score": 4,
+        "rationale": "Covers core architecture alignment; hosted SaaS and artifact graph remain deferred."
+      },
+      {
+        "name": "decision-rationale",
+        "score": 5,
+        "rationale": "Durable decisions are captured in ADRs with explicit tradeoffs."
+      },
+      {
+        "name": "testability",
+        "score": 4,
+        "rationale": "Kernel and runtime seams are testable, but implementation remains future work."
+      },
+      {
+        "name": "automation-readiness",
+        "score": 5,
+        "rationale": "The PRD uses JSON source and names machine-readable verdicts as a success path."
+      }
+    ],
+    "notes": "This is an architecture-alignment PRD, not a feature implementation PRD."
+  },
+  "implementationDecisions": [
+    {
+      "statement": "Adopt entity governance as the top-level architecture identity.",
+      "rationale": "The active roadmap spans documents, work items, runtime entities, policy, manifests, and package authoring.",
+      "category": "architecture"
+    },
+    {
+      "statement": "Keep Work Item canonical and Task as the command projection.",
+      "rationale": "This preserves existing schema artifacts while keeping agent command UX ergonomic.",
+      "category": "interface"
+    },
+    {
+      "statement": "Use Git plus SQLite as the local runtime authority for the MVP.",
+      "rationale": "It supports atomic local multi-agent coordination without prematurely adopting hosted authority.",
+      "category": "architecture"
+    },
+    {
+      "statement": "Define storage and format seams in MVP while implementing only minimal adapters.",
+      "rationale": "The architecture needs to separate entity semantics from Markdown, JSON, SQLite, and file layout before core modules harden.",
+      "category": "architecture"
+    },
+    {
+      "statement": "Prioritize the Work Item Governance Kernel before widening task command behavior.",
+      "rationale": "Shared verdicts prevent scan, lint, task, and work-management drift.",
+      "category": "architecture"
+    }
+  ],
+  "testingDecisions": {
+    "behaviorContract": "The architecture is valid when one kernel can produce shared Work Item governance verdicts and the runtime spine can coordinate claims, locks, and execution logs through SQLite-backed tests.",
+    "modulesUnderTest": [
+      "Work Item Governance Kernel",
+      "storage adapters",
+      "format adapters",
+      "runtime entity schemas",
+      "SQLite runtime store",
+      "task command adapter",
+      "backlog scan adapter",
+      "remark validation adapter"
+    ],
+    "seams": [
+      {
+        "name": "Kernel verdict seam",
+        "level": "integration",
+        "rationale": "Task, scan, lint, and work-management behavior should share the same governance answer."
+      },
+      {
+        "name": "Runtime authority seam",
+        "level": "integration",
+        "rationale": "Claims, locks, and execution logs must be proven transactionally."
+      },
+      {
+        "name": "Storage/format adapter seam",
+        "level": "integration",
+        "rationale": "Markdown/YAML, JSON, and SQLite adapters must produce canonical records that governance modules can consume without storage-specific knowledge."
+      }
+    ],
+    "priorArt": [
+      "Existing work-management tests",
+      "Existing task command tests",
+      "Existing backlog scan tests",
+      "Existing schema routing tests"
+    ],
+    "validationGates": [
+      "pnpm run docs:lint",
+      "pnpm run backlog:validate:ci"
+    ],
+    "seamReview": {
+      "status": "ready",
+      "notes": "The next implementation slice should create kernel and runtime tests before widening commands."
+    }
+  },
+  "successCriteria": [
+    "Architecture docs name entity governance as the top-level identity.",
+    "Backlog roadmap prioritizes the runtime entity spine.",
+    "Work Item governance extraction is tracked as an explicit work item.",
+    "Storage and format adapter seams are tracked as MVP architecture.",
+    "Deferred hosted, artifact graph, archive, and prototype recovery lanes are named."
+  ],
+  "outOfScope": [
+    "Implementing the Work Item Governance Kernel.",
+    "Implementing SQLite runtime storage.",
+    "Designing hosted SaaS authority.",
+    "Designing section-level artifact claims."
+  ]
+}

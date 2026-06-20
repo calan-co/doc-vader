@@ -53,7 +53,7 @@ doc-vader already has schema-backed work-management entities, lifecycle tooling,
 
 ### ADR Alignment
 
-No authoritative ADR was found for this exact context-governance/AFK model; alignment is based on current repository schemas, templates, and work-management conventions.
+This PRD predates the entity-governance ADR set and remains a broader future-direction input. MVP execution is governed by [[adr-005-entity-governance-primitive-model.md]], [[adr-006-task-command-surface-work-item-canonical-model.md]], [[adr-007-local-runtime-authority-git-sqlite.md]], [[adr-008-work-item-governance-kernel.md]], and [[adr-009-storage-and-format-seams.md]]. Full Work Graph and Decision Graph engines are deferred; MVP keeps only the graph facts needed for readiness, runtime ownership, evidence traceability, and dependency-aware selection.
 
 ### Source Context
 
@@ -68,7 +68,7 @@ Concurrent human and AI contributors need curated, collaborative, trustworthy co
 
 ## Solution
 
-Adopt a JSON-first, policy-composed context-governance model in doc-vader where readiness, execution privileges, CCQ, dependency closure, and interruption states are explicit and machine-verifiable. Add concurrency-safe coordination primitives (claim/lease semantics, dependency-aware ready selection, formula/work-graph contracts) to support parallel contributors without policy or integrity drift. In v1, support verifiable decisions and best-effort reproducibility from manifests; defer authoritative replay infrastructure.
+Adopt a JSON-first, policy-composed context-governance model in doc-vader where readiness, execution privileges, CCQ, dependency closure, and interruption states are explicit and machine-verifiable. Add concurrency-safe coordination primitives (claim/lease semantics and dependency-aware ready selection) to support parallel contributors without policy or integrity drift. Treat formula/work-graph contracts as a follow-on orchestration lane, not an MVP prerequisite. In v1, support verifiable decisions and best-effort reproducibility from manifests; defer authoritative replay infrastructure.
 
 ## Coverage Model
 
@@ -266,6 +266,7 @@ Schema and CLI seams are clear; integration seam boundaries should be confirmed 
 - Concurrent contributors can execute in parallel with deterministic conflict-avoidance semantics under bounded scope and privileges.
 - Dependency-aware ready selection only surfaces unblocked execution candidates for AFK and human paths.
 - Formula/work-graph instantiation produces deterministic, policy-conformant execution structures.
+- MVP runtime uses only minimal graph facts for readiness and evidence traceability; full Work Graph and Decision Graph engines remain out of MVP.
 - Gating decisions fail closed when required verification evidence is missing.
 - Policy composition is monotonic and explainable with actionable block reasons.
 - Paused-state triage emits deterministic, machine-usable remediation instructions.
@@ -303,7 +304,7 @@ Schema and CLI seams are clear; integration seam boundaries should be confirmed 
 - When pruned-index resolver support is complete, what remaining compatibility code for legacy `closed` status and archived schemas can be removed safely?
 - Should this PRD eventually gain the JSON sidecar promised by the artifact strategy, and if so where should that sidecar live?
 - Should claim/lease semantics remain policy-governed privileges only, or become first-class lifecycle records?
-- What is the minimum formula/work-graph schema in v1 versus deferred orchestration capability?
+- What is the minimum formula/work-graph schema after the MVP runtime spine, and which parts should remain deferred orchestration capability?
 - What is the default unresolved advisory-alias policy per environment profile?
 - What deterministic tie-break strategy should apply when equally specific bounding scopes match across distributed repos?
 - What is the minimal integration seam contract for concurrent execution conflict tests in CI?

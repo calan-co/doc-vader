@@ -4,7 +4,7 @@ $content_schema: schemas/work-management/content/prd.json
 $template: templates/reference/work-management/prd.md.tpl
 id: plan:sandcastle-dogfood-command-surface-prd
 title: Sandcastle Dogfood Command Surface PRD
-summary: Minimal fail-closed dv task command surface for safely dogfooding Doc-Vader improvements with Sandcastle.
+summary: Fail-closed dv task command surface for safely dogfooding Doc-Vader improvements with Sandcastle over the entity-governance runtime.
 type: plan
 subtype: x-prd
 lifecycle: active
@@ -23,7 +23,7 @@ tags:
 
 ## Context Grounding
 
-Doc-Vader currently has backlog validation, work-item mutation, record creation, PRD validation/rendering, and a library-level AFK eligibility helper. It does not yet expose the Sandcastle-facing `dv task` command surface needed for deterministic dogfooding. Active backlog items define the fuller architecture, but the minimum safe dogfood path should narrow scope to conservative ready selection, local claim locking, task view/prompt rendering, claim-aware evidence recording, and stop-before-close handoff.
+Doc-Vader currently has backlog validation, work-item mutation, record creation, PRD validation/rendering, and a library-level AFK eligibility helper. It does not yet expose the Sandcastle-facing `dv task` command surface needed for deterministic dogfooding. The architecture now treats Doc-Vader as an entity-governance runtime: Work Item is canonical, Task is the Sandcastle command projection, and the local MVP runtime authority is Git-managed durable files plus SQLite-backed claims, locks, and execution logs.
 
 ### Domain Vocabulary
 
@@ -39,7 +39,7 @@ Doc-Vader currently has backlog validation, work-item mutation, record creation,
 
 - dv task claim
 
-- dv task release
+- dv claim complete
 
 - dv task record --claim
 
@@ -47,7 +47,9 @@ Doc-Vader currently has backlog validation, work-item mutation, record creation,
 
 - templjs render
 
-- local claim lock
+- SQLite runtime authority
+
+- claim-owned file locks
 
 - AFK-ready
 
@@ -57,15 +59,17 @@ Doc-Vader currently has backlog validation, work-item mutation, record creation,
 
 - claim-aware evidence
 
-- stop-before-close
+- storage adapter
+
+- format adapter
 
 ### ADR Alignment
 
-No authoritative ADR was found for the minimal Sandcastle dogfood command surface. This PRD intentionally narrows the existing Sandcastle command-surface backlog to a safe local MVP and defers hosted authority, immutable scope graphs, artifact reservations, and revocation semantics.
+This PRD is governed by the entity-governance ADR set: [[adr-005-entity-governance-primitive-model.md]], [[adr-006-task-command-surface-work-item-canonical-model.md]], [[adr-007-local-runtime-authority-git-sqlite.md]], [[adr-008-work-item-governance-kernel.md]], and [[adr-009-storage-and-format-seams.md]]. It narrows Sandcastle dogfooding to a safe local runtime MVP and defers hosted authority, full Work Graph or Decision Graph engines, immutable scope graphs, and nested artifact reservations.
 
 ### Source Context
 
-- Conversation decision: initial Sandcastle dogfooding should use a conservative single-agent fail-closed path rather than waiting for the full claim/scope architecture.
+- Conversation decision: Sandcastle dogfooding should use the Git plus SQLite local multi-agent runtime path rather than the prior single-agent claim-lock or scope-graph-first plan.
 
 - Conversation decision: `dv task prompt` renders a templjs prompt from the same authoritative task JSON used by `dv task show --json`.
 
@@ -83,7 +87,7 @@ The maintainer wants to use Sandcastle to improve Doc-Vader itself, but the curr
 
 ## Solution
 
-Deliver a narrow Sandcastle dogfood MVP: deterministic AFK-ready selection, a simple local claim lock, task show/prompt rendering from canonical task JSON, claim-aware record creation through schema-validated payloads, and a documented stop-before-close workflow. This enables one Sandcastle agent at a time to select, claim, inspect, implement, validate, record evidence, and release work without needing the full immutable scope graph or hosted claim authority.
+Deliver a Sandcastle dogfood MVP over the entity-governance runtime: deterministic AFK-ready selection, SQLite-backed claim creation, claim-owned file locks, task show/prompt rendering from canonical task JSON, claim-aware record creation through schema-validated payloads, and claim completion that preserves validation and evidence gates. This enables local Sandcastle agents to select, claim, inspect, implement, validate, record evidence, and complete runtime execution without needing hosted authority, a full Work Graph engine, or immutable scope graphs.
 
 ## Coverage Model
 
@@ -109,7 +113,7 @@ Deliver a narrow Sandcastle dogfood MVP: deterministic AFK-ready selection, a si
 
 - evidence recording
 
-- handoff and release
+- handoff and completion
 
 ### Concerns
 
@@ -127,14 +131,14 @@ Deliver a narrow Sandcastle dogfood MVP: deterministic AFK-ready selection, a si
 
 ### Coverage Notes
 
-The coverage model targets safe local dogfooding, not full multi-agent production coordination.
+The coverage model targets safe local dogfooding on the Git plus SQLite runtime adapter, not hosted production coordination.
 
 ## User Stories
 
 1. As a Sandcastle planner, I want `dv task ready --json` to return only AFK-ready work with structured exclusion reasons, so that Sandcastle never starts HITL, invalid, dependency-blocked, or already claimed work.
    Covers: Sandcastle planner / ready selection / deterministic selection
 
-2. As a repository maintainer, I want a simple local claim lock before Sandcastle edits files, so that dogfooding prevents duplicate local agents from selecting the same task without waiting for hosted claim authority.
+2. As a repository maintainer, I want claim creation and file locks before Sandcastle edits files, so that dogfooding prevents duplicate local agents from selecting or mutating conflicting task work without waiting for hosted claim authority.
    Covers: repository maintainer / claim acquisition / fail-closed safety
 
 3. As an implementation agent, I want `dv task show --json` and `dv task prompt` to use the same authoritative task JSON, so that machine selection and human-readable execution context cannot drift.
@@ -144,7 +148,7 @@ The coverage model targets safe local dogfooding, not full multi-agent productio
    Covers: implementation agent / evidence recording / no hand-edited backlog state
 
 5. As a review or merge agent, I want the dogfood flow to stop before close unless validation and evidence are recorded, so that early Sandcastle use cannot bypass existing close/finalize gates.
-   Covers: review or merge agent / handoff and release / minimal scope
+   Covers: review or merge agent / handoff and completion / minimal scope
 
 6. As a repository maintainer, I want the dogfood MVP decomposed into parallelizable vertical slices, so that agents can converge on a safe Sandcastle integration point efficiently.
    Covers: repository maintainer / implementation execution / parallelizable implementation
@@ -181,8 +185,8 @@ The PRD is intentionally small enough for immediate agent execution while preser
 
   Category: `api-contract`
 
-- Use a simple local claim lock for the dogfood MVP instead of waiting for immutable scope graphs.
-  Rationale: A conservative lock prevents duplicate local selection and unblocks dogfooding while deferring production-grade claim architecture.
+- Use SQLite-backed claims and claim-owned file locks for the dogfood MVP instead of waiting for immutable scope graphs.
+  Rationale: The local runtime authority prevents duplicate local selection and conflicting file mutations while preserving a storage-adapter boundary for future hosted authority.
 
   Category: `architecture`
 
@@ -206,14 +210,14 @@ The PRD is intentionally small enough for immediate agent execution while preser
 
   Category: `schema`
 
-- Stop before automatic close in the first dogfood milestone unless validation, evidence, and release behavior are complete.
+- Stop before Work Item lifecycle closure until validation, evidence, and claim completion behavior are complete.
   Rationale: Early Sandcastle use should improve implementation throughput without bypassing existing closure and review gates.
 
   Category: `interaction`
 
 ## Testing Decisions
 
-The MVP is valid when the CLI can list exactly eligible AFK tasks, claim one with a local lock, render both JSON and templated prompt from one task model, record claim-linked evidence from a JSON payload, and release the claim while validation gates remain enforceable.
+The MVP is valid when the CLI can list exactly eligible AFK tasks, create a runtime claim, acquire file locks, render both JSON and templated prompt from one task model, record claim-linked evidence from a JSON payload, and complete or halt the claim while validation gates remain enforceable.
 
 ### Modules Under Test
 
@@ -221,7 +225,9 @@ The MVP is valid when the CLI can list exactly eligible AFK tasks, claim one wit
 
 - AFK ready selection query
 
-- local claim lock store
+- SQLite runtime store
+
+- file lock command surface
 
 - task JSON loader
 
@@ -233,7 +239,7 @@ The MVP is valid when the CLI can list exactly eligible AFK tasks, claim one wit
 
 ### Test Seams
 
-- Task command CLI contract (`cli`): Sandcastle will call commands, so selection, show, prompt, claim, record, and release must be tested through the CLI boundary.
+- Task command CLI contract (`cli`): Sandcastle will call commands, so selection, show, prompt, claim, lock, record, and complete must be tested through the CLI boundary.
 
   Prior art:
 
@@ -241,7 +247,7 @@ The MVP is valid when the CLI can list exactly eligible AFK tasks, claim one wit
 
   - Existing AFK eligibility unit coverage in `tests/backlog-afk-query.test.ts`.
 
-- Dogfood lifecycle integration fixture (`integration`): A representative task must flow through ready, claim, show, prompt, record, validate, and release without hand-edited state.
+- Dogfood lifecycle integration fixture (`integration`): A representative task must flow through ready, claim, lock, show, prompt, record, validate, and complete or halt without hand-edited state.
 
 - Record payload schema contract (`schema-contract`): `dv task record --claim --payload` should fail before writes when payloads are malformed or missing required evidence fields.
 
@@ -275,19 +281,21 @@ The CLI seam is the highest useful seam because Sandcastle integrates through co
 
 - Sandcastle can call `dv task ready --json` and receive only safe AFK candidates.
 
-- Sandcastle can claim one task locally and another claim attempt fails while the claim is active.
+- Sandcastle can claim one task locally, acquire file locks, and conflicting claim or lock attempts fail while ownership is active.
 
 - `dv task show --json` and `dv task prompt` render from the same canonical task model.
 
 - Sandcastle can call `dv task record --claim --payload` to create and link evidence without hand-editing backlog files.
 
-- The dogfood flow has documented stop-before-close and release behavior.
+- The dogfood flow has documented claim completion, halt, and recovery behavior that does not bypass Work Item lifecycle gates.
 
 - A representative integration fixture proves the command sequence works end to end.
 
 ## Out of Scope
 
 - Hosted claim authority
+
+- Full Work Graph or Decision Graph engines
 
 - Immutable content-addressed scope graphs
 
@@ -301,13 +309,13 @@ The CLI seam is the highest useful seam because Sandcastle integrates through co
 
 - Linkity pruned-index resolver integration
 
-- Multiple concurrent Sandcastle agents modifying overlapping files
+- Multiple concurrent Sandcastle agents modifying overlapping files without claim-owned locks
 
 ## Agent Handoff
 
 Ready label: `ready-for-agent`
 
-- Implement the minimum dogfood surface before expanding to the full Sandcastle command architecture.
+- Implement the runtime-backed dogfood surface before expanding to the full Sandcastle command architecture.
 
 - Keep all selection and claim failures fail-closed.
 
@@ -325,8 +333,8 @@ Ready label: `ready-for-agent`
 
 ## Further Notes
 
-- The first dogfood milestone should support one local Sandcastle agent at a time.
+- The first dogfood milestone should support multiple local agents when their claim and lock ownership does not conflict.
 
 - Discrete CLI flags for record creation can be added later as sugar over the JSON payload contract.
 
-- A future milestone can replace the local claim lock with the fuller scope graph and hosted-authority-ready claim model.
+- A future milestone can add immutable scope graphs, nested artifact reservations, and hosted authority without changing the Task projection contract.

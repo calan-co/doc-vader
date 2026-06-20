@@ -140,7 +140,7 @@ As of item 171 completion, the following tools have been consolidated into the u
 | `diagram-lint.cjs`            | `remark-lint-no-ascii-diagrams`                   | ✅ Migrated |
 | `anchor-lint.cjs`             | `remark-lint-no-html-anchors`                     | ✅ Migrated |
 | `crossref-lint.cjs`           | `remark-lint-crossref`                            | ✅ Migrated |
-| `frontmatter-lint.cjs`        | Pending integration (item 172)                    | ⏳ Deferred |
+| `frontmatter-lint.cjs`        | Superseded by `remark-frontmatter-schema.ts`      | ✅ Migrated |
 
 To run all validations via the unified pipeline:
 

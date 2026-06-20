@@ -66,10 +66,10 @@ table used when no `$schema` field is present in a document's frontmatter:
 
 ```json
 {
-  "default": "schemas/frontmatter/document/current.json",
+  "default": "schemas/frontmatter/by-type/document/latest.json",
   "byType": {
-    "document":  "schemas/frontmatter/document/current.json",
-    "work-item": "schemas/frontmatter/work-item/current.json"
+    "document":  "schemas/frontmatter/by-type/document/latest.json",
+    "work-item": "schemas/frontmatter/by-type/work-item/latest.json"
   }
 }
 ```

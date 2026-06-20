@@ -5,10 +5,12 @@ summary: Deliver provider-backed backlog scanning, subject resolution, evidence 
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: medium
 estimated: 8
+actual: 8
+completed_date: '2026-06-17'
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
@@ -18,6 +20,7 @@ links:
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
     - '[[record-20260612-context-coordination-pivot]]'
+    - '[[record-sandcastle-task-validation-passed]]'
   reference:
     - '[[archive/210.vendor-adapter-and-scan-lifecycle-epic]]'
     - '[[archive/210.1.vendor-adapter-and-scan-lifecycle-feature]]'
@@ -49,14 +52,14 @@ Implement the provider abstraction, subject resolver chain, scan executor/report
 
 ## Acceptance Criteria
 
-- [ ] Provider abstraction and GitHub provider support payload parsing, PR identity, metadata, and normalized references.
-- [ ] Subject resolver chain supports payload tokens and linked PR fallback with clear failure diagnostics.
-- [ ] Backlog scan produces text and JSON reports and can optionally generate evidence records.
-- [ ] Work-item link, commit record, refresh/finalize commands are idempotent and explicit-subject based.
-- [ ] Finalization is blocked until all linked PRs are merged or policy explicitly says otherwise.
-- [ ] Evidence and alias provenance preserve advisory versus authoritative state without silently escalating trust.
-- [ ] Conflict seam reporting covers overlap, dependency violation, and policy-blocked transitions with deterministic outcomes.
-- [ ] Tests cover scan decisions, resolver ordering, evidence creation, and finalization policy.
+- [x] Provider abstraction and GitHub provider support payload parsing, PR identity, metadata, and normalized references.
+- [x] Subject resolver chain supports payload tokens and linked PR fallback with clear failure diagnostics.
+- [x] Backlog scan produces text and JSON reports and can optionally generate evidence records.
+- [x] Work-item link, commit record, refresh/finalize commands are idempotent and explicit-subject based.
+- [x] Finalization is blocked until all linked PRs are merged or policy explicitly says otherwise.
+- [x] Evidence and alias provenance preserve advisory versus authoritative state without silently escalating trust.
+- [x] Conflict seam reporting covers overlap, dependency violation, and policy-blocked transitions with deterministic outcomes.
+- [x] Tests cover scan decisions, resolver ordering, evidence creation, and finalization policy.
 
 ## Blocked By
 

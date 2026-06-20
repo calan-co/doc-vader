@@ -15,9 +15,8 @@ links:
     - https://github.com/calan-co/doc-vader/pull/62
   depends_on:
     - '[[60341-task-ready-afk-eligibility-query]]'
-    - '[[60342-task-scope-reservation-and-lookup]]'
-    - '[[60343-task-claim-store-and-lifecycle]]'
-    - '[[60344-claim-bound-artifact-reservations]]'
+    - '[[60373-claim-command-surface]]'
+    - '[[60374-lock-command-surface]]'
     - '[[60345-claim-aware-record-and-close-commands]]'
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
@@ -36,7 +35,7 @@ Make Sandcastle consume Doc-Vader's task command surface instead of repository-s
 
 ## Background
 
-The authoritative Sandcastle registry treats an issue tracker as a command-backed integration surface. Doc-Vader should fit that shape while preserving its stronger AFK guardrails: ready selection, explicit scope reservation, explicit claim, claim-bound artifact reservations, evidence recording, graph-aware planning, and safe close.
+The authoritative Sandcastle registry treats an issue tracker as a command-backed integration surface. Doc-Vader should fit that shape while preserving its stronger AFK guardrails: ready selection, explicit claim, claim-owned file locks, evidence recording, dependency-aware planning metadata, and safe completion.
 
 ## Tasks
 
@@ -44,7 +43,7 @@ The authoritative Sandcastle registry treats an issue tracker as a command-backe
 - [ ] Provide tool installation and required environment guidance for Sandcastle initialization.
 - [ ] Replace existing Sandcastle prompt snippets or local guidance that hand-edit backlog state with `dv` commands.
 - [ ] Ensure the default Sandcastle selection path uses `dv task ready` and never selects HITL work.
-- [ ] Ensure execution flow composes `reserve`, `claim`, record, close, and release commands explicitly.
+- [ ] Ensure execution flow composes ready selection, claim creation, lock acquisition, record creation, and claim completion commands explicitly.
 - [ ] Add integration tests or fixtures that prove the command sequence works for a representative AFK task.
 
 ## Deliverables
@@ -56,11 +55,11 @@ The authoritative Sandcastle registry treats an issue tracker as a command-backe
 ## Acceptance Criteria
 
 - [ ] Sandcastle can discover AFK-ready Doc-Vader tasks through `dv task ready`.
-- [ ] Sandcastle can reserve scope, claim a task, record evidence, close success, and release or revoke when needed through documented commands.
+- [ ] Sandcastle can claim a task, acquire locks, record evidence, complete success, and halt/recover when needed through documented commands.
 - [ ] Sandcastle guidance does not include inline scripts that bypass Doc-Vader validation or claim policy.
 - [ ] HITL work remains excluded from the Sandcastle-ready path.
 - [ ] Hosted SaaS and published GitHub App concerns remain referenced to [[60338-hosted-saas-github-app-architecture-adr]] rather than implemented here.
 
 ## Blocked By
 
-[[60341-task-ready-afk-eligibility-query]], [[60342-task-scope-reservation-and-lookup]], [[60343-task-claim-store-and-lifecycle]], [[60344-claim-bound-artifact-reservations]], [[60345-claim-aware-record-and-close-commands]]
+[[60341-task-ready-afk-eligibility-query]], [[60373-claim-command-surface]], [[60374-lock-command-surface]], [[60345-claim-aware-record-and-close-commands]]

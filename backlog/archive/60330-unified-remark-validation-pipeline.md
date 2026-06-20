@@ -5,10 +5,12 @@ summary: Deliver schema-backed remark validation, Diataxis/template rules, cross
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: medium
 estimated: 8
+actual: 1
+completed_date: '2026-06-17'
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
@@ -16,6 +18,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/60
   evidence:
     - '[[record-20260612-backlog-consolidation]]'
+    - '[[record-sandcastle-task-validation-passed]]'
   reference:
     - '[[archive/170.remark-lint-unified-adoption-epic]]'
     - '[[archive/172.1.unify-frontmatter-validation-story]]'
@@ -54,11 +57,11 @@ Implement the unified remark processor path end to end: schema validation, YAML 
 
 ## Acceptance Criteria
 
-- [ ] Frontmatter schema validation runs inside the unified remark pipeline with stable human and JSON diagnostics.
-- [ ] Diataxis placement and template compliance are enforced by reusable remark rules and documented checklist fixtures.
-- [ ] Cross-file references, naming rules, backlog semantics, and execution ownership use a shared registry or equivalent stable project graph.
-- [ ] Link policy, dependency-cycle detection, and safe non-mutating suggestions are available in validation output.
-- [ ] Processor composition, CLI integration, representative fixtures, and baseline performance are covered by tests.
+- [x] Frontmatter schema validation runs inside the unified remark pipeline with stable human and JSON diagnostics.
+- [x] Diataxis placement and template compliance are enforced by reusable remark rules and documented checklist fixtures.
+- [x] Cross-file references, naming rules, backlog semantics, and execution ownership use a shared registry or equivalent stable project graph.
+- [x] Link policy, dependency-cycle detection, and safe non-mutating suggestions are available in validation output.
+- [x] Processor composition, CLI integration, representative fixtures, and baseline performance are covered by tests.
 
 ## Blocked By
 

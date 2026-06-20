@@ -1,5 +1,5 @@
 ---
-"doc-vader": patch
+"@calan-co/doc-vader": patch
 ---
 
 feat(epic-210): canonical schema integration — TypeBox config, DRY schema resolver, JSON-LD vocabulary support

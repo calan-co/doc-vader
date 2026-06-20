@@ -5,10 +5,12 @@ summary: Document and test the minimal Sandcastle sequence over `dv task` comman
 type: work-item
 subtype: story
 lifecycle: active
-status: paused
-status_reason: blocked
+status: completed
+status_reason: completed
 priority: critical
 estimated: 5
+actual: 5
+completed_date: '2026-06-18'
 links:
   depends_on:
     - '[[60356-fail-closed-ready-selection-cli]]'

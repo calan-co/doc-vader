@@ -103,6 +103,8 @@ TypeScript/Node best practices.
 
 - Run the narrowest meaningful validation after each code change, then the
   broader gate before committing.
+- Inside Sandcastle, run longer validation through
+  `scripts/sandcastle/run-with-heartbeat.sh` so logs continue to show progress.
 - For code changes, normally run:
   - `pnpm run typecheck`
   - `pnpm run test`
@@ -131,7 +133,8 @@ TypeScript/Node best practices.
 
 - Commit only the files needed for the claimed task. Leave unrelated worktree
   changes untouched.
-- Use the Sandcastle-required `RALPH:` commit prefix for implementation commits.
+- Use the repository conventional commit format, such as `feat(scope): summary`,
+  `fix(scope): summary`, `test(scope): summary`, or `docs(scope): summary`.
 - Include the completed task, PRD reference when applicable, key decisions,
   files changed, validation run, and blockers or follow-up notes.
 - Record evidence with the active claim before handing off successful work. Keep

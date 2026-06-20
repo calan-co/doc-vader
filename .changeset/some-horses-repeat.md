@@ -1,5 +1,5 @@
 ---
-"doc-vader": minor
+"@calan-co/doc-vader": minor
 ---
 
 Implement remark-frontmatter-schema plugin for unified frontmatter validation

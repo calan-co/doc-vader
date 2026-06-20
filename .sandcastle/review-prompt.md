@@ -30,6 +30,8 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
    - Are new/changed behaviours covered by tests?
    - Are there unsafe casts, `any` types, or unchecked assumptions?
    - Does the change introduce injection vulnerabilities, credential leaks, or other security issues?
+   - Do checked work-item boxes have concrete evidence in code/docs/tests?
+   - Are any required unchecked boxes still unsatisfied or missing evidence?
 
 4. **Maintain balance**: Avoid over-simplification that could:
    - Reduce code clarity or maintainability
@@ -41,6 +43,13 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
 5. **Apply project standards**: Follow the coding standards defined in @.sandcastle/CODING_STANDARDS.md
 
 6. **Preserve functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
+
+7. **Audit temporary completion protocol**:
+   - Open the work item for the branch.
+   - Verify every checked `- [x]` item under task, deliverable, or acceptance sections is supported by branch changes and validation output.
+   - If an item is checked without evidence, either fix the implementation so it is true or revert that checkbox to `- [ ]`.
+   - If an item is satisfied but still unchecked, check it and note the evidence in your commit.
+   - Do not mark the work item complete or closed during review.
 
 # EXECUTION
 
