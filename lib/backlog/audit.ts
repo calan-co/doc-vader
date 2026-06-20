@@ -288,10 +288,10 @@ async function resolveSchemaMap(
 ): Promise<SchemaMapConfig> {
   const defaults: SchemaMapConfig = {
     byType: {
-      "work-item": "schemas/frontmatter/work-item/1.0.0.json",
-      document: "schemas/frontmatter/document/current.json",
+      "work-item": "schemas/frontmatter/by-type/work-item/latest.json",
+      document: "schemas/frontmatter/by-type/document/latest.json",
     },
-    default: "schemas/frontmatter/document/current.json",
+    default: "schemas/frontmatter/by-type/document/latest.json",
   };
   const sources = [
     ...(schemaMapPaths ?? []),

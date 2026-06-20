@@ -1,0 +1,9 @@
+.git
+.sandcastle/logs
+.sandcastle/worktrees
+.sandcastle_bk
+.nx
+.pnpm-store
+coverage
+dist
+node_modules

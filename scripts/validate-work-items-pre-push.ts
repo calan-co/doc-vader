@@ -45,10 +45,11 @@ interface ConsumerPrePushValidationConfig {
 }
 
 const ROOT_DIR = process.cwd();
+const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const DEFAULT_CONFIG: ValidationConfig = {
   baselineSchema: "schemas/frontmatter/work-item/1.0.0.json",
-  changedSchema: "schemas/frontmatter/work-item/latest.json",
+  changedSchema: "schemas/frontmatter/by-type/work-item/latest.json",
   archiveSchema: "schemas/frontmatter/work-item/1.0.0.json",
   baselineSeverity: "error",
   changedSeverity: "error",
@@ -218,16 +219,30 @@ async function loadSchemaObject(spec: string): Promise<Record<string, unknown>> 
   return JSON.parse(readFileSync(resolved, "utf8")) as Record<string, unknown>;
 }
 
+async function preloadSupportSchemas(
+  ajv: InstanceType<typeof Ajv2020>,
+  supportDir: string,
+): Promise<void> {
+  for (const fullPath of collectFilesByExtension(supportDir, ".json")) {
+    const schema = JSON.parse(readFileSync(fullPath, "utf8")) as Record<string, unknown>;
+    if (typeof schema.$id === "string" && !ajv.getSchema(schema.$id)) {
+      ajv.addSchema(schema, schema.$id);
+    }
+  }
+}
+
 async function buildValidators(config: ValidationConfig) {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
 
   // Support /frontmatter/document/1.0.0 refs used by local work-item schemas.
-  const documentSchemaPath = path.resolve(ROOT_DIR, "schemas/frontmatter/document/1.0.0.json");
+  const documentSchemaPath = path.resolve(SCRIPT_ROOT, "schemas/frontmatter/document/1.0.0.json");
   if (existsSync(documentSchemaPath)) {
     const documentSchema = JSON.parse(readFileSync(documentSchemaPath, "utf8")) as Record<string, unknown>;
     ajv.addSchema(documentSchema, "/frontmatter/document/1.0.0");
   }
+
+  await preloadSupportSchemas(ajv, path.resolve(SCRIPT_ROOT, "schemas/frontmatter/support"));
 
   const compiled = new Map<string, ReturnType<Ajv2020["compile"]>>();
   const uniqueSpecs = new Set([
@@ -363,6 +378,37 @@ function isArchiveFile(filePath: string): boolean {
   return filePath.startsWith("backlog/archive/");
 }
 
+function collectFilesByExtension(
+  dirPath: string,
+  extension: string,
+): string[] {
+  if (!existsSync(dirPath)) {
+    return [];
+  }
+
+  const files: string[] = [];
+
+  function visit(currentDir: string): void {
+    for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) {
+        continue;
+      }
+
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        visit(fullPath);
+        continue;
+      }
+
+      if (entry.isFile() && entry.name.endsWith(extension)) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  visit(dirPath);
+  return files;
+}
 function dependencyLookupCandidates(reference: string): string[] {
   const normalized = reference
     .trim()
@@ -420,57 +466,37 @@ function buildWorkItemIndex(): Map<string, WorkItemReference> {
   const backlogRoot = path.join(ROOT_DIR, "backlog");
   const index = new Map<string, WorkItemReference>();
 
-  function visitDirectory(dirPath: string): void {
-    if (!existsSync(dirPath)) {
-      return;
+  for (const fullPath of collectFilesByExtension(backlogRoot, ".md")) {
+    const content = readFileSync(fullPath, "utf8");
+    const parsed = matter(content);
+    const frontmatter = parsed.data as Record<string, unknown>;
+    if (frontmatter.type !== "work-item") {
+      continue;
     }
 
-    for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
-      if (entry.name.startsWith(".")) {
-        continue;
-      }
+    const id =
+      typeof frontmatter.id === "string" && frontmatter.id.trim().length > 0
+        ? frontmatter.id.trim()
+        : path.basename(fullPath, ".md");
+    const status =
+      typeof frontmatter.status === "string"
+        ? frontmatter.status.trim().toLowerCase()
+        : "";
+    const title =
+      typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
+        ? frontmatter.title.trim()
+        : path.basename(fullPath, ".md");
 
-      const fullPath = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        visitDirectory(fullPath);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".md")) {
-        continue;
-      }
+    const ref: WorkItemReference = {
+      id,
+      filePath: fullPath,
+      status,
+      title,
+    };
 
-      const content = readFileSync(fullPath, "utf8");
-      const parsed = matter(content);
-      const frontmatter = parsed.data as Record<string, unknown>;
-      if (frontmatter.type !== "work-item") {
-        continue;
-      }
-
-      const id =
-        typeof frontmatter.id === "string" && frontmatter.id.trim().length > 0
-          ? frontmatter.id.trim()
-          : path.basename(fullPath, ".md");
-      const status =
-        typeof frontmatter.status === "string"
-          ? frontmatter.status.trim().toLowerCase()
-          : "";
-      const title =
-        typeof frontmatter.title === "string" && frontmatter.title.trim().length > 0
-          ? frontmatter.title.trim()
-          : path.basename(fullPath, ".md");
-
-      const ref: WorkItemReference = {
-        id,
-        filePath: fullPath,
-        status,
-        title,
-      };
-
-      indexWorkItemReference(index, ref);
-    }
+    indexWorkItemReference(index, ref);
   }
 
-  visitDirectory(backlogRoot);
   return index;
 }
 

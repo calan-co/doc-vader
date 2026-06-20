@@ -150,6 +150,20 @@ describe("remark-frontmatter-schema", () => {
       expect(result.messages[0].message).toContain("frontmatter-schema");
     });
 
+    it("attaches line and column information for schema errors with known fields", async () => {
+      const md =
+        "---\ntype: testdoc\ntitle: My Title\nrequired_field: 123\n---\n# Hello";
+      const file = new VFile({ value: md, path: "/tmp/positioned.md" });
+      const result = await processFile(file, {
+        enabled: true,
+        schemaDir: tmpDir,
+      });
+
+      expect(result.messages.length).toBeGreaterThan(0);
+      expect(result.messages[0].line).toBe(4);
+      expect(result.messages[0].column).toBe(1);
+    });
+
     it("revalidates when the schema file changes on disk", async () => {
       const cacheTmpDir = await fs.mkdtemp(
         path.join(os.tmpdir(), "remark-fm-schema-cache-"),

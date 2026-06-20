@@ -1,7 +1,7 @@
 ---
 id: wi-60342
-title: Task Scope Reservation and Lookup
-summary: Implement immutable scope graph reservation, hashing, storage, and lookup commands so claims can bind to an approved task execution boundary.
+title: Deferred Task Scope Reservation and Lookup
+summary: Preserve future immutable scope graph reservation, hashing, storage, and lookup design after the MVP runtime uses claim-owned repo-relative file locks.
 type: work-item
 subtype: story
 lifecycle: active
@@ -11,10 +11,11 @@ priority: low
 estimated: 5
 links:
   depends_on:
-    - '[[60341-task-ready-afk-eligibility-query]]'
+    - '[[60372-supersede-single-agent-mvp-items]]'
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60340-artifact-graph-and-nested-claim-architecture-adr]]'
+    - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
     - '[[record-20260614-164457-60342]]'
 tags:
@@ -26,28 +27,27 @@ tags:
 
 ## Goal
 
-Add immutable scope graph reservation and lookup for task execution claims.
+Preserve immutable scope graph reservation and lookup as a future capability after the MVP runtime spine lands.
 
 ## Background
 
-The MVP claim model uses an explicit scope graph rather than an implicit task ID or mutable scope payload. `reserve` creates, validates, stores, or recovers a content-addressed scope graph and returns a `scope_hash`. Active claims reference a scope hash and cannot expand it in place.
+The architecture session moved scope graphs out of MVP. MVP claim ownership is represented by a generic target claim plus claim-owned repo-relative file locks in the Git plus SQLite runtime authority. This item now captures the deferred graph-reservation model so it can be reintroduced later through storage and format adapters without constraining the MVP claim path.
+
+Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-seams.md`.
 
 ## Tasks
 
-- [ ] Define the MVP canonical scope graph payload and stable JSON canonicalization rules.
+- [ ] Define the future canonical scope graph payload and stable JSON canonicalization rules.
 - [ ] Store local scope graphs in the configured runtime store, such as `.doc-vader/runtime/`, without committing runtime state.
-- [ ] Implement `dv task reserve <task-id> [--payload <json-or-file>] [--dry-run] [--json|--porcelain]`.
-- [ ] Implement `dv task scopes <task-id> [--json]` for lookup and recovery.
-- [ ] Implement `dv task scope <scope-hash> [--json]` for graph inspection.
-- [ ] Implement scope derivation commands that create a new hash when adding or removing artifact refs without mutating the existing graph.
+- [ ] Define future `reserve`, `scopes`, `scope`, and scope-derivation command contracts without adding them to the MVP command surface.
 - [ ] Reject reservation for work known to be unclaimable.
 - [ ] Cover stable hash, duplicate payload, malformed payload, unclaimable task, dry-run, and lookup behavior in tests.
 
 ## Deliverables
 
-- Scope graph canonicalization and hashing support.
-- Local scope graph store abstraction ready for hosted replacement.
-- `dv task reserve`, `dv task scopes`, `dv task scope`, and scope derivation CLI commands.
+- Deferred scope graph canonicalization and hashing design.
+- Storage and format adapter requirements for any future scope graph store.
+- Command contract notes for future `reserve`, `scopes`, `scope`, and scope derivation commands.
 - Tests for deterministic storage, lookup, and fail-closed reservation.
 
 ## Acceptance Criteria
@@ -61,4 +61,4 @@ The MVP claim model uses an explicit scope graph rather than an implicit task ID
 
 ## Blocked By
 
-[[60341-task-ready-afk-eligibility-query]]
+[[60372-supersede-single-agent-mvp-items]]

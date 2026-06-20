@@ -5,10 +5,12 @@ summary: Implement the `dv task ready` query so Sandcastle and skills can select
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+actual: 1
+completed_date: '2026-06-18'
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
@@ -20,6 +22,7 @@ links:
     - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
   evidence:
     - '[[record-20260614-164457-60341]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - sandcastle
@@ -37,12 +40,12 @@ Sandcastle must not select HITL, blocked, unknown, invalid, archived, closed, de
 
 ## Tasks
 
-- [ ] Resolve task candidates through the canonical backlog/work-item loader instead of ad hoc file scanning.
-- [ ] Normalize AFK/HITL classification before applying guard logic, failing closed for missing, unknown, invalid, or HITL values.
-- [ ] Exclude archived, closed, blocked, dependency-blocked, invalid, and already-claimed tasks.
-- [ ] Run the runtime gates needed for Sandcastle-ready selection without mutating claims.
-- [ ] Emit human-readable output by default, stable machine output with `--json`, and script-friendly output with `--porcelain`.
-- [ ] Cover AFK, HITL, blocked dependency, invalid classification, and already-claimed fixtures in tests.
+- [x] Resolve task candidates through the canonical backlog/work-item loader instead of ad hoc file scanning.
+- [x] Normalize AFK/HITL classification before applying guard logic, failing closed for missing, unknown, invalid, or HITL values.
+- [x] Exclude archived, closed, blocked, dependency-blocked, invalid, and already-claimed tasks.
+- [x] Run the runtime gates needed for Sandcastle-ready selection without mutating claims.
+- [x] Emit human-readable output by default, stable machine output with `--json`, and script-friendly output with `--porcelain`.
+- [x] Cover AFK, HITL, blocked dependency, invalid classification, and already-claimed fixtures in tests.
 
 ## Deliverables
 
@@ -52,11 +55,11 @@ Sandcastle must not select HITL, blocked, unknown, invalid, archived, closed, de
 
 ## Acceptance Criteria
 
-- [ ] `dv task ready` returns only AFK, unclaimed, runtime-pass active tasks.
-- [ ] HITL, unknown, invalid, blocked, dependency-blocked, archived, closed, and claimed tasks are excluded with structured reasons available in JSON output.
-- [ ] Default output is human-readable; `--json` and `--porcelain` are deterministic.
-- [ ] The command does not create, renew, release, or mutate claims.
-- [ ] Tests prove fail-closed behavior for missing or unsupported classification data.
+- [x] `dv task ready` returns only AFK, unclaimed, runtime-pass active tasks.
+- [x] HITL, unknown, invalid, blocked, dependency-blocked, archived, closed, and claimed tasks are excluded with structured reasons available in JSON output.
+- [x] Default output is human-readable; `--json` and `--porcelain` are deterministic.
+- [x] The command does not create, renew, release, or mutate claims.
+- [x] Tests prove fail-closed behavior for missing or unsupported classification data.
 
 ## Blocked By
 

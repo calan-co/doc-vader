@@ -1,8 +1,8 @@
 # doc-vader
 
-> Documentation automation, validation, and governance for structured Markdown projects.
+> Entity governance, documentation automation, validation, and workflow guardrails for structured repositories.
 
-`doc-vader` is a CLI and library for enforcing documentation quality, backlog hygiene, and workflow guardrails across Markdown-based projects. It validates frontmatter schemas, audits backlog metadata, applies governance profiles (Diataxis, TGDP, SDLC), and automates work-item lifecycle transitions.
+`doc-vader` is a CLI and library for applying governance rules to extensible repository entities. It validates frontmatter schemas, audits backlog metadata, applies governance profiles (Diataxis, TGDP, SDLC), automates work-item lifecycle transitions, and is evolving toward a runtime with explicit storage and format adapter seams.
 
 ## Features
 
@@ -210,7 +210,7 @@ Example:
     "prePushValidation": {
       "schemas": {
         "baseline": "schemas/frontmatter/work-item/1.0.0.json",
-        "changed": "schemas/frontmatter/work-item/latest.json",
+        "changed": "schemas/frontmatter/by-type/work-item/latest.json",
         "archive": "schemas/frontmatter/work-item/1.0.0.json"
       },
       "severity": {

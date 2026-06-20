@@ -80,7 +80,7 @@ fi
 if [[ "$FORMAT" == "json" ]]; then
   cd "$PROJECT_ROOT" || { echo "Failed to cd to $PROJECT_ROOT"; exit 1; }
 
-  REMARK_OUTPUT=$(node --import tsx/esm scripts/docs-remark-lint.ts --format json --fail-on "$FAIL_ON" "${LINT_PATTERNS[@]}" 2>&1)
+  REMARK_OUTPUT=$(node --import tsx/esm scripts/docs-remark-lint.ts --format json --fail-on "$FAIL_ON" "${LINT_PATTERNS[@]}")
   REMARK_RESULT=$?
 
   if [[ $REMARK_RESULT -ne 0 ]]; then
@@ -92,20 +92,49 @@ if [[ "$FORMAT" == "json" ]]; then
   FAIL_ON="$FAIL_ON" \
   REMARK_OUTPUT="$REMARK_OUTPUT" \
   node - <<'NODE'
-const payload = {
-  format: "json",
-  failOn: process.env.FAIL_ON,
-  passed: process.env.HAS_ERRORS === "0",
-  remark: {
-    exitCode: Number(process.env.REMARK_RESULT ?? "1"),
-    output: process.env.REMARK_OUTPUT ?? "",
-  },
-  // Preserve the legacy JSON shape for callers that still expect this block.
-  frontmatter: {
-    exitCode: 0,
-    output: "",
-  },
-};
+let remarkPayload = null;
+try {
+  remarkPayload = JSON.parse(process.env.REMARK_OUTPUT ?? "");
+} catch {
+  remarkPayload = null;
+}
+let payload;
+
+if (remarkPayload && typeof remarkPayload === "object") {
+  payload = {
+    ...remarkPayload,
+    format: "json",
+    failOn: process.env.FAIL_ON,
+    passed:
+      typeof remarkPayload.passed === "boolean"
+        ? remarkPayload.passed
+        : process.env.HAS_ERRORS === "0",
+    remark: {
+      exitCode: Number(process.env.REMARK_RESULT ?? "1"),
+      output: process.env.REMARK_OUTPUT ?? "",
+    },
+    // Preserve the legacy JSON shape for callers that still expect this block.
+    frontmatter: {
+      exitCode: 0,
+      output: "",
+    },
+  };
+} else {
+  payload = {
+    format: "json",
+    failOn: process.env.FAIL_ON,
+    passed: process.env.HAS_ERRORS === "0",
+    remark: {
+      exitCode: Number(process.env.REMARK_RESULT ?? "1"),
+      output: process.env.REMARK_OUTPUT ?? "",
+    },
+    // Preserve the legacy JSON shape for callers that still expect this block.
+    frontmatter: {
+      exitCode: 0,
+      output: "",
+    },
+  };
+}
 console.log(JSON.stringify(payload, null, 2));
 NODE
 

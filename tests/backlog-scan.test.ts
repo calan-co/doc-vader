@@ -20,6 +20,60 @@ function mkConsumerConfig(automation: Record<string, unknown> = {}) {
   writeBacklogConsumerConfig(testDir, automation);
 }
 
+type MockGithubPullRequest = {
+  title: string;
+  state: "open" | "closed";
+  merged: boolean;
+  merge_commit_sha?: string;
+  html_url: string;
+};
+
+function mockGithubFetch(
+  responses: Record<number, MockGithubPullRequest>,
+): () => void {
+  const originalGithubToken = process.env.GITHUB_TOKEN;
+  const originalFetch = globalThis.fetch;
+  process.env.GITHUB_TOKEN = "test-token";
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    for (const [numberText, response] of Object.entries(responses)) {
+      if (url.includes(`/pulls/${numberText}`)) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: async () => ({
+            number: Number(numberText),
+            ...response,
+          }),
+        } as Response;
+      }
+    }
+    throw new Error(`Unexpected fetch request: ${url}`);
+  }) as typeof fetch;
+
+  return () => {
+    globalThis.fetch = originalFetch;
+    if (originalGithubToken === undefined) {
+      delete process.env.GITHUB_TOKEN;
+    } else {
+      process.env.GITHUB_TOKEN = originalGithubToken;
+    }
+  };
+}
+
+async function withMockGithubFetch(
+  responses: Record<number, MockGithubPullRequest>,
+  callback: () => void | Promise<void>,
+): Promise<void> {
+  const restoreGithub = mockGithubFetch(responses);
+  try {
+    await callback();
+  } finally {
+    restoreGithub();
+  }
+}
+
 describe("scan-conditions", () => {
   it("evaluateConditions: full valid frontmatter → no errors", () => {
     const { conditions, errors } = evaluateConditions({
@@ -457,9 +511,20 @@ describe("candidate validation and archival", () => {
     { timeout: 15000 },
     async () => {
       mkConsumerConfig({ validateArchiveCandidates: true });
-      mkFile(
-        "backlog/12.archive-ready.md",
-        `---
+      await withMockGithubFetch(
+        {
+          12: {
+            title: "Merged PR",
+            state: "closed",
+            merged: true,
+            merge_commit_sha: "abc123",
+            html_url: "https://github.com/calan-co/doc-vader/pull/12",
+          },
+        },
+        async () => {
+          mkFile(
+            "backlog/12.archive-ready.md",
+            `---
 id: "work-item:012"
 type: work-item
 status: completed
@@ -479,26 +544,30 @@ links:
 ## Closure Notes
 - 2026-01-01: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
+          );
+
+          const report = await scanBacklog({
+            rootDir: testDir,
+            consumerConfig: ".doc-vader/backlog-consumer.json",
+          });
+
+          expect(report.summary.candidateItemsEvaluated).toBe(1);
+          expect(report.summary.candidatesArchived).toBe(1);
+          expect(report.summary.candidateDiscrepancies).toBe(0);
+          const item = report.items.find(
+            (entry) => entry.id === "work-item:012",
+          );
+          expect(item?.candidateValidation?.eligible).toBe(true);
+
+          const archived = path.join(
+            testDir,
+            "backlog",
+            "archive",
+            "12.archive-ready.md",
+          );
+          expect(fsSync.existsSync(archived)).toBe(true);
+        },
       );
-
-      const report = await scanBacklog({
-        rootDir: testDir,
-        consumerConfig: ".doc-vader/backlog-consumer.json",
-      });
-
-      expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.candidatesArchived).toBe(1);
-      expect(report.summary.candidateDiscrepancies).toBe(0);
-      const item = report.items.find((entry) => entry.id === "work-item:012");
-      expect(item?.candidateValidation?.eligible).toBe(true);
-
-      const archived = path.join(
-        testDir,
-        "backlog",
-        "archive",
-        "12.archive-ready.md",
-      );
-      expect(fsSync.existsSync(archived)).toBe(true);
     },
   );
 
@@ -507,48 +576,26 @@ links:
     { timeout: 15000 },
     async () => {
       mkConsumerConfig({ validateArchiveCandidates: true });
-
-      const originalGithubToken = process.env.GITHUB_TOKEN;
-      const originalFetch = globalThis.fetch;
-      process.env.GITHUB_TOKEN = "test-token";
-      globalThis.fetch = (async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.includes("/pulls/12")) {
-          return {
-            ok: true,
-            status: 200,
-            statusText: "OK",
-            json: async () => ({
-              number: 12,
-              title: "Merged PR",
-              state: "closed",
-              merged: true,
-              merge_commit_sha: "abc123",
-              html_url: "https://github.com/calan-co/doc-vader/pull/12",
-            }),
-          } as Response;
-        }
-        if (url.includes("/pulls/13")) {
-          return {
-            ok: true,
-            status: 200,
-            statusText: "OK",
-            json: async () => ({
-              number: 13,
-              title: "Open PR",
-              state: "open",
-              merged: false,
-              html_url: "https://github.com/calan-co/doc-vader/pull/13",
-            }),
-          } as Response;
-        }
-        throw new Error(`Unexpected fetch request: ${url}`);
-      }) as typeof fetch;
-
-      try {
-        mkFile(
-          "backlog/12.partially-merged.md",
-          `---
+      await withMockGithubFetch(
+        {
+          12: {
+            title: "Merged PR",
+            state: "closed",
+            merged: true,
+            merge_commit_sha: "abc123",
+            html_url: "https://github.com/calan-co/doc-vader/pull/12",
+          },
+          13: {
+            title: "Open PR",
+            state: "open",
+            merged: false,
+            html_url: "https://github.com/calan-co/doc-vader/pull/13",
+          },
+        },
+        async () => {
+          mkFile(
+            "backlog/12.partially-merged.md",
+            `---
 id: "work-item:012"
 type: work-item
 status: completed
@@ -569,28 +616,82 @@ links:
 ## Closure Notes
 - 2026-01-01: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
-        );
+          );
 
-        const report = await scanBacklog({
-          rootDir: testDir,
-          consumerConfig: ".doc-vader/backlog-consumer.json",
-        });
+          const report = await scanBacklog({
+            rootDir: testDir,
+            consumerConfig: ".doc-vader/backlog-consumer.json",
+          });
 
-        const item = report.items.find((entry) => entry.id === "work-item:012");
-        expect(item?.candidateValidation?.eligible).toBe(false);
-        expect(item?.candidateValidation?.discrepancies.join("\n")).toMatch(
-          /not merged/i,
-        );
-        expect(report.summary.candidatesArchived).toBe(0);
-        expect(fsSync.existsSync(path.join(testDir, "backlog", "archive", "12.partially-merged.md"))).toBe(false);
-      } finally {
-        globalThis.fetch = originalFetch;
-        if (originalGithubToken === undefined) {
-          delete process.env.GITHUB_TOKEN;
-        } else {
-          process.env.GITHUB_TOKEN = originalGithubToken;
-        }
-      }
+          const item = report.items.find(
+            (entry) => entry.id === "work-item:012",
+          );
+          expect(item?.candidateValidation?.eligible).toBe(false);
+          expect(item?.candidateValidation?.discrepancies.join("\n")).toMatch(
+            /not merged/i,
+          );
+          expect(report.summary.candidatesArchived).toBe(0);
+          expect(
+            fsSync.existsSync(
+              path.join(
+                testDir,
+                "backlog",
+                "archive",
+                "12.partially-merged.md",
+              ),
+            ),
+          ).toBe(false);
+        },
+      );
+    },
+  );
+
+  it(
+    "validate-archive-candidates fails closed when linked PRs cannot be verified",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({ validateArchiveCandidates: true });
+
+      mkFile(
+        "backlog/14.unauthenticated-pr.md",
+        `---
+id: "work-item:014"
+type: work-item
+status: completed
+status_reason: completed
+lifecycle: active
+title: Unauthenticated PR candidate
+actual: 5
+completed_date: "2026-01-05"
+links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/14"
+  evidence:
+    - "[[record-20260105-000000-014]]"
+---
+# Work item
+
+## Closure Notes
+- 2026-01-05: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+`,
+      );
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+      });
+
+      const item = report.items.find((entry) => entry.id === "work-item:014");
+      expect(item?.candidateValidation?.eligible).toBe(false);
+      expect(item?.candidateValidation?.discrepancies.join("\n")).toMatch(
+        /authenticated provider/i,
+      );
+      expect(report.summary.candidatesArchived).toBe(0);
+      expect(
+        fsSync.existsSync(
+          path.join(testDir, "backlog", "archive", "14.unauthenticated-pr.md"),
+        ),
+      ).toBe(false);
     },
   );
 
@@ -599,9 +700,20 @@ links:
     { timeout: 15000 },
     async () => {
       mkConsumerConfig({ validateArchiveCandidates: true });
-      mkFile(
-        "backlog/15.referenced-ready.md",
-        `---
+      await withMockGithubFetch(
+        {
+          15: {
+            title: "Merged PR",
+            state: "closed",
+            merged: true,
+            merge_commit_sha: "abc123",
+            html_url: "https://github.com/calan-co/doc-vader/pull/15",
+          },
+        },
+        async () => {
+          mkFile(
+            "backlog/15.referenced-ready.md",
+            `---
 id: "work-item:015"
 type: work-item
 status: completed
@@ -621,10 +733,10 @@ links:
 ## Closure Notes
 - 2026-01-02: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
-      );
-      mkFile(
-        "backlog/16.depends-on-15.md",
-        `---
+          );
+          mkFile(
+            "backlog/16.depends-on-15.md",
+            `---
 id: "work-item:016"
 type: work-item
 status: running
@@ -636,28 +748,32 @@ links:
 ---
 # Work item
 `,
+          );
+
+          const report = await scanBacklog({
+            rootDir: testDir,
+            consumerConfig: ".doc-vader/backlog-consumer.json",
+          });
+
+          expect(report.summary.candidateItemsEvaluated).toBe(1);
+          expect(report.summary.candidatesArchived).toBe(1);
+          expect(report.summary.candidateDiscrepancies).toBe(0);
+
+          const item = report.items.find(
+            (entry) => entry.id === "work-item:015",
+          );
+          expect(item?.candidateValidation?.eligible).toBe(true);
+          expect(item?.candidateValidation?.discrepancies.length).toBe(0);
+
+          const archived = path.join(
+            testDir,
+            "backlog",
+            "archive",
+            "15.referenced-ready.md",
+          );
+          expect(fsSync.existsSync(archived)).toBe(true);
+        },
       );
-
-      const report = await scanBacklog({
-        rootDir: testDir,
-        consumerConfig: ".doc-vader/backlog-consumer.json",
-      });
-
-      expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.candidatesArchived).toBe(1);
-      expect(report.summary.candidateDiscrepancies).toBe(0);
-
-      const item = report.items.find((entry) => entry.id === "work-item:015");
-      expect(item?.candidateValidation?.eligible).toBe(true);
-      expect(item?.candidateValidation?.discrepancies.length).toBe(0);
-
-      const archived = path.join(
-        testDir,
-        "backlog",
-        "archive",
-        "15.referenced-ready.md",
-      );
-      expect(fsSync.existsSync(archived)).toBe(true);
     },
   );
 
@@ -710,9 +826,20 @@ title: Invalid candidate
     { timeout: 15000 },
     async () => {
       mkConsumerConfig({ validateArchiveCandidates: true });
-      mkFile(
-        "backlog/21.ready-missing-evidence.md",
-        `---
+      await withMockGithubFetch(
+        {
+          21: {
+            title: "Merged PR",
+            state: "closed",
+            merged: true,
+            merge_commit_sha: "abc123",
+            html_url: "https://github.com/calan-co/doc-vader/pull/21",
+          },
+        },
+        async () => {
+          mkFile(
+            "backlog/21.ready-missing-evidence.md",
+            `---
 id: "work-item:021"
 type: work-item
 status: completed
@@ -732,30 +859,32 @@ links:
 ## Closure Notes
 - 2026-01-03: Closed as completed with evidence in PR #21.
 `,
+          );
+
+          const report = await scanBacklog({
+            rootDir: testDir,
+            consumerConfig: ".doc-vader/backlog-consumer.json",
+            generateEvidence: true,
+            resolverOrder: ["payload_subject_tokens"],
+          });
+
+          expect(report.summary.candidateItemsEvaluated).toBe(1);
+          expect(report.summary.evidenceRecordsCreated).toBe(0);
+          expect(report.summary.candidatesArchived).toBe(1);
+
+          const archived = path.join(
+            testDir,
+            "backlog",
+            "archive",
+            "21.ready-missing-evidence.md",
+          );
+          expect(fsSync.existsSync(archived)).toBe(true);
+
+          const archivedContent = fsSync.readFileSync(archived, "utf8");
+          expect(archivedContent).toContain("evidence:");
+          expect(archivedContent).toContain("[[record-");
+        },
       );
-
-      const report = await scanBacklog({
-        rootDir: testDir,
-        consumerConfig: ".doc-vader/backlog-consumer.json",
-        generateEvidence: true,
-        resolverOrder: ["payload_subject_tokens"],
-      });
-
-      expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.evidenceRecordsCreated).toBe(0);
-      expect(report.summary.candidatesArchived).toBe(1);
-
-      const archived = path.join(
-        testDir,
-        "backlog",
-        "archive",
-        "21.ready-missing-evidence.md",
-      );
-      expect(fsSync.existsSync(archived)).toBe(true);
-
-      const archivedContent = fsSync.readFileSync(archived, "utf8");
-      expect(archivedContent).toContain("evidence:");
-      expect(archivedContent).toContain("[[record-");
     },
   );
 
@@ -767,9 +896,20 @@ links:
         validateArchiveCandidates: true,
         workItemMatchPatterns: ["wi-"],
       });
-      mkFile(
-        "backlog/22.wi-ready-missing-evidence.md",
-        `---
+      await withMockGithubFetch(
+        {
+          22: {
+            title: "Merged PR",
+            state: "closed",
+            merged: true,
+            merge_commit_sha: "abc123",
+            html_url: "https://github.com/calan-co/doc-vader/pull/22",
+          },
+        },
+        async () => {
+          mkFile(
+            "backlog/22.wi-ready-missing-evidence.md",
+            `---
 id: wi-22
 type: work-item
 status: completed
@@ -787,30 +927,32 @@ links:
 ## Closure Notes
 - 2026-01-04: Closed as completed with evidence in PR #22.
 `,
+          );
+
+          const report = await scanBacklog({
+            rootDir: testDir,
+            consumerConfig: ".doc-vader/backlog-consumer.json",
+            generateEvidence: true,
+          });
+
+          expect(report.summary.candidateItemsEvaluated).toBe(1);
+          expect(report.summary.evidenceRecordsCreated).toBe(1);
+          expect(report.summary.candidatesArchived).toBe(1);
+
+          const archived = path.join(
+            testDir,
+            "backlog",
+            "archive",
+            "22.wi-ready-missing-evidence.md",
+          );
+          expect(fsSync.existsSync(archived)).toBe(true);
+
+          const archivedContent = fsSync.readFileSync(archived, "utf8");
+          expect(archivedContent).toContain("evidence:");
+          expect(archivedContent).toContain("[[record-");
+          expect(archivedContent).toContain("wi-22");
+        },
       );
-
-      const report = await scanBacklog({
-        rootDir: testDir,
-        consumerConfig: ".doc-vader/backlog-consumer.json",
-        generateEvidence: true,
-      });
-
-      expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.evidenceRecordsCreated).toBe(1);
-      expect(report.summary.candidatesArchived).toBe(1);
-
-      const archived = path.join(
-        testDir,
-        "backlog",
-        "archive",
-        "22.wi-ready-missing-evidence.md",
-      );
-      expect(fsSync.existsSync(archived)).toBe(true);
-
-      const archivedContent = fsSync.readFileSync(archived, "utf8");
-      expect(archivedContent).toContain("evidence:");
-      expect(archivedContent).toContain("[[record-");
-      expect(archivedContent).toContain("wi-22");
     },
   );
 
@@ -821,9 +963,20 @@ links:
       // Candidate is in the root backlog folder.
       // The referencing file declares dependency via frontmatter `links.depends_on`.
       mkConsumerConfig({ validateArchiveCandidates: true });
-      mkFile(
-        "backlog/17.nested-ref-candidate.md",
-        `---
+      await withMockGithubFetch(
+        {
+          17: {
+            title: "Merged PR",
+            state: "closed",
+            merged: true,
+            merge_commit_sha: "abc123",
+            html_url: "https://github.com/calan-co/doc-vader/pull/17",
+          },
+        },
+        async () => {
+          mkFile(
+            "backlog/17.nested-ref-candidate.md",
+            `---
 id: "work-item:017"
 type: work-item
 status: completed
@@ -843,15 +996,15 @@ links:
 ## Closure Notes
 - 2026-01-03: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
-      );
+          );
 
-      // A file in a subdirectory references the candidate by basename in frontmatter links.
-      fsSync.mkdirSync(path.join(testDir, "backlog", "sprint-10"), {
-        recursive: true,
-      });
-      mkFile(
-        "backlog/sprint-10/18.referencing-from-subdir.md",
-        `---
+          // A file in a subdirectory references the candidate by basename in frontmatter links.
+          fsSync.mkdirSync(path.join(testDir, "backlog", "sprint-10"), {
+            recursive: true,
+          });
+          mkFile(
+            "backlog/sprint-10/18.referencing-from-subdir.md",
+            `---
 id: "work-item:018"
 type: work-item
 status: running
@@ -863,18 +1016,22 @@ links:
 ---
 # Work item
 `,
+          );
+
+          const report = await scanBacklog({
+            rootDir: testDir,
+            consumerConfig: ".doc-vader/backlog-consumer.json",
+          });
+
+          expect(report.summary.candidateItemsEvaluated).toBe(1);
+          expect(report.summary.candidatesArchived).toBe(1);
+          expect(report.summary.candidateDiscrepancies).toBe(0);
+          const item = report.items.find(
+            (entry) => entry.id === "work-item:017",
+          );
+          expect(item?.candidateValidation?.eligible).toBe(true);
+        },
       );
-
-      const report = await scanBacklog({
-        rootDir: testDir,
-        consumerConfig: ".doc-vader/backlog-consumer.json",
-      });
-
-      expect(report.summary.candidateItemsEvaluated).toBe(1);
-      expect(report.summary.candidatesArchived).toBe(1);
-      expect(report.summary.candidateDiscrepancies).toBe(0);
-      const item = report.items.find((entry) => entry.id === "work-item:017");
-      expect(item?.candidateValidation?.eligible).toBe(true);
     },
   );
 

@@ -1,7 +1,7 @@
 ---
 id: wi-60344
-title: Claim Bound Artifact Reservations
-summary: Implement claim-bound artifact reservation add and remove commands that enforce approved scope membership before any artifact mutation.
+title: Deferred Claim Bound Artifact Reservations
+summary: Preserve future claim-bound artifact reservation semantics after MVP claim-owned file locks and path normalization land.
 type: work-item
 subtype: story
 lifecycle: active
@@ -11,10 +11,13 @@ priority: low
 estimated: 5
 links:
   depends_on:
-    - '[[60343-task-claim-store-and-lifecycle]]'
+    - '[[60372-supersede-single-agent-mvp-items]]'
   reference:
     - '[[60339-agent-command-surface-for-skills-and-sandcastle]]'
     - '[[60340-artifact-graph-and-nested-claim-architecture-adr]]'
+    - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+    - '[[60374-lock-command-surface]]'
+    - '[[60375-lock-path-normalization-and-rename-gate]]'
   evidence:
     - '[[record-20260614-164457-60344]]'
 tags:
@@ -26,37 +29,36 @@ tags:
 
 ## Goal
 
-Require every mutated artifact to be covered by a claim-bound reservation.
+Preserve future artifact reservation behavior without making it an MVP dependency.
 
 ## Background
 
-The MVP does not need separate output, context, or work expansion rules. The same rule applies to every scope lane: a reservation or mutation is allowed only when the artifact ref resolves inside the approved bounding scope graph. This preserves the benefit of a bounding graph while avoiding discrete per-output lease complexity.
+The architecture session moved claim-bound artifact reservations out of MVP. The MVP rule is file-based: every changed file in the branch/worktree diff must be locked by the active claim through normalized repo-relative file paths. Future artifact reservations can reintroduce graph and nested-artifact semantics once [[60340-artifact-graph-and-nested-claim-architecture-adr]] is complete.
 
 ## Tasks
 
-- [ ] Implement artifact-ref resolution against the MVP scope graph model.
-- [ ] Implement `dv task claim <claim-id> add <artifact-ref>... [--dry-run] [--json|--porcelain]`.
-- [ ] Implement `dv task claim <claim-id> remove <artifact-ref>... [--dry-run] [--json|--porcelain]`.
+- [ ] Define future artifact-ref resolution against the deferred graph model.
+- [ ] Define future reservation add/remove command contracts without adding them to the MVP command surface.
 - [ ] Make multi-ref add atomic: if any ref is outside scope or conflicting, reserve none.
-- [ ] Allow auto-reservation on mutation only when the artifact is inside the approved scope graph and conflict-free.
-- [ ] Reject all reservation attempts outside the approved scope graph with structured reasons.
+- [ ] Define future auto-reservation behavior only when the artifact is inside the approved graph and conflict-free.
+- [ ] Define structured rejection reasons for future reservation attempts outside the approved graph.
 - [ ] Cover inside-scope, outside-scope, conflicting, repeated, multi-ref atomic, remove, and dry-run behavior in tests.
 
 ## Deliverables
 
-- Claim-bound reservation add/remove commands.
-- Scope membership guard used by mutation paths.
+- Future claim-bound reservation add/remove command contract.
+- Mapping from MVP file locks to future artifact-reservation concepts.
 - Tests for artifact reservation conflict and fail-closed behavior.
 
 ## Acceptance Criteria
 
 - [ ] Mutating commands can verify that every mutated artifact is reserved by the active claim.
 - [ ] `claim add` atomically reserves one or more artifact refs only when every ref is inside the claim scope and conflict-free.
-- [ ] `claim add` rejects refs outside the approved scope graph instead of expanding the claim.
-- [ ] `claim remove` releases claim-bound artifact reservations without changing the immutable scope graph.
+- [ ] Future reservation commands reject refs outside the approved graph instead of expanding the claim.
+- [ ] Future reservation commands release claim-bound artifact reservations without changing the immutable graph.
 - [ ] Auto-reservation, where implemented, follows the same scope-membership and conflict rules.
 - [ ] Section-level artifact reservations are not introduced before [[60340-artifact-graph-and-nested-claim-architecture-adr]] is complete.
 
 ## Blocked By
 
-[[60343-task-claim-store-and-lifecycle]]
+[[60372-supersede-single-agent-mvp-items]]

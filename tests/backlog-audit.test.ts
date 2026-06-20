@@ -180,7 +180,7 @@ describe("auditBacklog", () => {
     await writeFile(
       schemaMapA,
       JSON.stringify(
-        { default: "schemas/frontmatter/document/current.json" },
+        { default: "schemas/frontmatter/by-type/document/latest.json" },
         null,
         2,
       ),
@@ -241,5 +241,25 @@ describe("auditBacklog", () => {
     });
 
     expect(report.totals.unresolved_wikilinks).toBe(0);
+  });
+
+  it("routes work items through the canonical frontmatter schema by default", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-canonical-routing-");
+    cleanupDirs.push(tmp);
+
+    await writeFile(
+      path.join(tmp, "7.canonical.md"),
+      `---\nid: wi-7\ntitle: Canonical Route\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\npriority: high\n---\n`,
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      failOn: "error",
+      format: "json",
+    });
+
+    expect(report.totals.schema_violations).toBe(0);
+    expect(report.schema_violations).toHaveLength(0);
   });
 });
