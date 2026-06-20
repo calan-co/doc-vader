@@ -95,6 +95,7 @@ const HOST_CLAIM_STORE = path.join(HOST_CLAIM_STORE_DIR, "task-claims.json");
 const HOST_CODEX_AUTH = path.join(os.homedir(), ".codex", "auth.json");
 const HOST_CODEX_CONFIG = path.join(os.homedir(), ".codex", "config.toml");
 const HOST_SANDBOX_CODEX_HOME = path.join(HOST_SANDCASTLE_CACHE, "codex-home");
+const HOST_REPO_ROOT = process.cwd();
 const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
 const SANDBOX_CLAIM_STORE_DIR = "/home/agent/.cache/doc-vader/claims";
 const SANDBOX_CLAIM_STORE = `${SANDBOX_CLAIM_STORE_DIR}/task-claims.json`;
@@ -134,6 +135,50 @@ const codexAgent = () =>
 
 const sandcastleInternalBranch = (phase: string, iteration: number) =>
   `sandcastle/${phase}-${SANITIZED_RUN_ID}-${iteration}`;
+
+const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+
+const overlayPaths: string[] = [
+  ".containerignore",
+  ".dockerignore",
+  ".sandcastle/CODING_STANDARDS.md",
+  ".sandcastle/implement-prompt.md",
+  ".sandcastle/merge-prompt.md",
+  ".sandcastle/plan-prompt.md",
+  ".sandcastle/review-prompt.md",
+  "README.md",
+  "backlog",
+  "cli",
+  "docs",
+  "lib",
+  "schemas",
+  "scripts",
+  "templates",
+  "tests",
+];
+
+const overlayCommand = (relativePath: string) => {
+  const sourcePath = path.join(HOST_REPO_ROOT, relativePath);
+  const source = fs.existsSync(sourcePath) ? fs.statSync(sourcePath) : undefined;
+  if (source?.isDirectory()) {
+    return [
+      `mkdir -p ${shellQuote(relativePath)}`,
+      "rsync -a --delete --exclude node_modules --exclude .pnpm-store --exclude dist --exclude .nx",
+      shellQuote(`${sourcePath}/`),
+      shellQuote(`${relativePath}/`),
+    ].join(" ");
+  }
+
+  const parent = path.dirname(relativePath);
+  const mkdirParent = parent === "." ? "true" : `mkdir -p ${shellQuote(parent)}`;
+  return [
+    mkdirParent,
+    "&&",
+    "rsync -a",
+    shellQuote(sourcePath),
+    shellQuote(relativePath),
+  ].join(" ");
+};
 
 const releaseTaskClaim = (taskId: string) => {
   try {
@@ -188,6 +233,9 @@ const hooks = {
         command:
           'case "$PWD" in */.sandcastle/worktrees/*) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside .sandcastle/worktrees: $PWD" >&2; exit 1 ;; esac',
       },
+      ...overlayPaths.map((relativePath) => ({
+        command: overlayCommand(relativePath),
+      })),
     ],
   },
   sandbox: {
@@ -232,25 +280,10 @@ const sandboxProvider = podman({
   },
 });
 
-// Keep Linux sandboxes isolated from host node_modules, but overlay current
-// uncommitted repo inputs so Sandcastle can dogfood backlog/prompt changes
-// before they are committed.
-const copyToWorktree: string[] = [
-  ".sandcastle/CODING_STANDARDS.md",
-  ".sandcastle/implement-prompt.md",
-  ".sandcastle/merge-prompt.md",
-  ".sandcastle/plan-prompt.md",
-  ".sandcastle/review-prompt.md",
-  "README.md",
-  "backlog",
-  "cli",
-  "docs",
-  "lib",
-  "schemas",
-  "scripts",
-  "templates",
-  "tests",
-];
+// Directory overlays are handled by host.onWorktreeReady with rsync content
+// copies. Sandcastle's built-in directory copy nests existing directories
+// (for example `schemas/schemas`), which breaks Nx project discovery.
+const copyToWorktree: string[] = [];
 
 // ---------------------------------------------------------------------------
 // Main loop
