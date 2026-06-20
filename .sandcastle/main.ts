@@ -95,7 +95,6 @@ const HOST_CLAIM_STORE = path.join(HOST_CLAIM_STORE_DIR, "task-claims.json");
 const HOST_CODEX_AUTH = path.join(os.homedir(), ".codex", "auth.json");
 const HOST_CODEX_CONFIG = path.join(os.homedir(), ".codex", "config.toml");
 const HOST_SANDBOX_CODEX_HOME = path.join(HOST_SANDCASTLE_CACHE, "codex-home");
-const HOST_REPO_ROOT = process.cwd();
 const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
 const SANDBOX_CLAIM_STORE_DIR = "/home/agent/.cache/doc-vader/claims";
 const SANDBOX_CLAIM_STORE = `${SANDBOX_CLAIM_STORE_DIR}/task-claims.json`;
@@ -113,6 +112,11 @@ if (!fs.existsSync(HOST_CODEX_CONFIG)) {
     `Codex config file not found at ${HOST_CODEX_CONFIG}. Run \`codex doctor\` or \`codex login\` on the host before running Sandcastle.`,
   );
 }
+
+const HOST_REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+  cwd: process.cwd(),
+  encoding: "utf8",
+}).trim();
 
 fs.mkdirSync(HOST_PNPM_STORE, { recursive: true });
 fs.mkdirSync(HOST_CLAIM_STORE_DIR, { recursive: true });
