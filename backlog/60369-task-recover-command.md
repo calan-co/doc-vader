@@ -16,6 +16,8 @@ links:
     - '[[60368-fail-closed-ready-list-show]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60369]]'
 tags:
   - afk
   - runtime

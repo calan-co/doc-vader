@@ -25,6 +25,8 @@ links:
     - '[[60375-lock-path-normalization-and-rename-gate]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60371]]'
 tags:
   - afk
   - runtime

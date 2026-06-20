@@ -15,6 +15,8 @@ links:
     - '[[60365-task-halt-command]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60367]]'
 tags:
   - afk
   - runtime

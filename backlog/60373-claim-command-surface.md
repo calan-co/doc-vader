@@ -18,6 +18,8 @@ links:
     - '[[60367-claim-prune-and-rm]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+  evidence:
+    - '[[record-20260620-022741-60373]]'
 tags:
   - afk
   - runtime
