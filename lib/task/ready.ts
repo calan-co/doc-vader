@@ -242,7 +242,7 @@ function toDependency(
     ...(status ? { status } : {}),
     ...(lifecycle ? { lifecycle } : {}),
     ...(dependency ? { filePath: dependency.relativePath } : {}),
-    satisfied: status === "closed" || lifecycle === "inactive",
+    satisfied: status === "completed" || status === "closed" || lifecycle === "inactive",
     stateKnown: Boolean(dependency && !dependency.parseError && status),
   };
 }
@@ -493,11 +493,6 @@ export function formatReadyPorcelain(selection: ReadyTaskSelection): string {
     .join("\n");
 }
 
-function formatReadyReason(reason: ReadyTaskExclusion["reasons"][number]): string {
-  const details = reason.details ? ` ${JSON.stringify(reason.details)}` : "";
-  return `${reason.code}: ${reason.message}${details}`;
-}
-
 function appendSelectedSection(
   lines: string[],
   candidates: ReadyTaskCandidate[],
@@ -512,39 +507,15 @@ function appendSelectedSection(
   for (const candidate of candidates) {
     lines.push(`- ${candidate.id} | ${candidate.title} | ${candidate.filePath}`);
   }
-  lines.push("");
-}
-
-function appendExcludedSection(
-  lines: string[],
-  exclusions: ReadyTaskExclusion[],
-): void {
-  lines.push("Excluded");
-  if (exclusions.length === 0) {
-    lines.push("- None");
-    return;
-  }
-
-  for (const exclusion of exclusions) {
-    const label = exclusion.id ?? exclusion.filePath;
-    lines.push(
-      `- ${label} | ${exclusion.title ?? "Untitled"} | ${exclusion.filePath}`,
-    );
-    for (const reason of exclusion.reasons) {
-      lines.push(`  - ${formatReadyReason(reason)}`);
-    }
-  }
 }
 
 export function formatReadyText(selection: ReadyTaskSelection): string {
   const lines: string[] = [];
   lines.push("Ready task candidates");
   lines.push(`Candidates: ${selection.candidates.length}`);
-  lines.push(`Exclusions: ${selection.exclusions.length}`);
   lines.push("");
 
   appendSelectedSection(lines, selection.candidates);
-  appendExcludedSection(lines, selection.exclusions);
 
   return lines.join("\n");
 }

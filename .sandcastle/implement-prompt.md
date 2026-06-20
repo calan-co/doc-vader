@@ -61,6 +61,24 @@ CI=true scripts/sandcastle/run-with-heartbeat.sh typecheck pnpm run typecheck
 CI=true scripts/sandcastle/run-with-heartbeat.sh test pnpm run test
 ```
 
+# TEMPORARY WORK-ITEM COMPLETION PROTOCOL
+
+Until Doc-Vader has runtime-backed claim completion, you must maintain work-item checkboxes explicitly and conservatively.
+
+After implementation and validation:
+
+1. Re-open the claimed work item Markdown file from `dv task show <TASK_ID> --json` / `filePath`.
+2. Review every unchecked `- [ ]` item under `## Tasks`, `## Deliverables`, `## Acceptance Criteria`, `## Acceptance criteria`, or similarly named checklist sections.
+3. Change `- [ ]` to `- [x]` only when the repository now contains concrete evidence that the item is satisfied:
+   - code/docs/config changes are present in the branch,
+   - relevant tests or validation commands passed, and
+   - the implementation directly addresses the checklist text.
+4. Leave a checkbox unchecked if the evidence is partial, inferred, blocked, or outside this task's scope.
+5. Do not mark the work item `completed`, `closed`, or otherwise lifecycle-complete in the implementation phase.
+6. If any required checkbox remains unchecked, do not output `<promise>COMPLETE</promise>`; instead report the unchecked items and blockers.
+
+When you record evidence, include a concise checklist summary in the payload observation naming the validation commands that passed and any checkboxes intentionally left unchecked.
+
 # EVIDENCE AND CLAIM HANDOFF
 
 After implementation and validation, record evidence using the saved `claimId`.
@@ -72,7 +90,7 @@ cat > /tmp/doc-vader-evidence.json <<'JSON'
 {
   "type": "test-result",
   "summary": "Sandcastle task validation passed",
-  "observation": "Implementation completed and required validation commands passed.",
+  "observation": "Implementation completed, required validation commands passed, and supported work-item checkboxes were checked with evidence.",
   "outcome": "pass"
 }
 JSON

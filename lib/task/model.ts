@@ -273,7 +273,7 @@ function toDependency(
     ...(dependency
       ? { filePath: toPosixPath(path.relative(rootDir, dependency.filePath)) }
       : {}),
-    satisfied: status === "closed" || lifecycle === "inactive",
+    satisfied: status === "completed" || status === "closed" || lifecycle === "inactive",
   };
 }
 

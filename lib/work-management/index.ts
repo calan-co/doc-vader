@@ -622,9 +622,8 @@ async function resolveWorkItemFile(
   config: ResolvedConsumerConfig,
   id: string,
 ): Promise<string> {
-  const dirs = [config.roots.active, config.roots.archive].map((value) =>
-    path.resolve(rootDir, value),
-  );
+  const dirs = unique([config.roots.active, config.roots.backlog, config.roots.archive])
+    .map((value) => path.resolve(rootDir, value));
   for (const dirPath of dirs) {
     const files = await findMarkdownFiles(dirPath);
     for (const filePath of files) {

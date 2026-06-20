@@ -593,18 +593,6 @@ tags:
         ]),
       );
       expect(claim).toMatchObject({ taskId: "wi-105", state: "active" });
-      const claimFor = JSON.parse(
-        runCli(root, ["task", "claim-for", "105", "--json"]),
-      );
-      expect(claimFor).toMatchObject({
-        claimId: claim.claimId,
-        taskId: "wi-105",
-        state: "active",
-      });
-      const released = JSON.parse(
-        runCli(root, ["task", "release", "--claim", claim.claimId, "--json"]),
-      );
-      expect(released.state).toBe("released");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -787,11 +775,18 @@ tags:
       expect(text).toContain("Ready task candidates");
       expect(text).toContain("Candidates: 1");
       expect(text).toContain("- wi-200 | Ready | backlog/200-ready.md");
-      expect(text).toContain("hitl: HITL tasks are not AFK-ready candidates.");
+      expect(text).not.toContain("Excluded");
+      expect(text).not.toContain("HITL tasks are not AFK-ready candidates.");
       const json = JSON.parse(runCli(root, ["task", "ready", "--json"]));
       expect(json.schemaVersion).toBe("task-ready/v1");
       expect(json.candidates).toHaveLength(1);
       expect(json.exclusions).toHaveLength(10);
+      const candidatesOnly = JSON.parse(
+        runCli(root, ["task", "ready", "--json", "--candidates-only"]),
+      );
+      expect(candidatesOnly.schemaVersion).toBe("task-ready/v1");
+      expect(candidatesOnly.candidates).toHaveLength(1);
+      expect(candidatesOnly.exclusions).toBeUndefined();
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -1056,7 +1051,10 @@ tags:
         ]),
       );
       expect(fileResult.evidenceLink).toBe("[[record-wi-206-file]]");
-      await runCli(root, ["task", "release", "--claim", claim.claimId, "--json"]);
+      await releaseClaim(claim.claimId, {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
       const secondClaim = JSON.parse(
         runCli(root, ["task", "claim", "206", "--holder", "agent-b", "--json"]),
       );
@@ -1193,6 +1191,28 @@ tags:
     }
   });
 
+  it("keeps task CLI focused on selection, context, claims, and records", async () => {
+    const root = await mkTmpRoot();
+    try {
+      const help = runCli(root, ["task", "--help"]);
+      expect(help).toContain("ready");
+      expect(help).toContain("show");
+      expect(help).toContain("prompt");
+      expect(help).toContain("claim");
+      expect(help).toContain("record");
+      expect(help).not.toMatch(/^\s+claim-for\b/m);
+      expect(help).not.toMatch(/^\s+claims\b/m);
+      expect(help).not.toMatch(/^\s+release\b/m);
+      expect(help).not.toMatch(/^\s+transition\b/m);
+      expect(help).not.toMatch(/^\s+close\b/m);
+      expect(help).not.toMatch(/^\s+link\b/m);
+      expect(help).not.toMatch(/^\s+record-commit\b/m);
+      expect(help).not.toMatch(/^\s+finalize\b/m);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails task completion without claim evidence", async () => {
     const root = await mkTmpRoot();
     try {
@@ -1234,7 +1254,7 @@ tags:
     }
   });
 
-  it("supports task close after evidence and rejects stale payload from_status", async () => {
+  it("supports claim-bound completion after evidence and rejects stale from status", async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
@@ -1280,37 +1300,25 @@ tags:
           to_status_reason: "completed",
         }),
       ).not.toThrow();
-      expect(() =>
-        runCli(
-          root,
-          [
-            "task",
-            "transition",
-            "--claim",
-            claim.claimId,
-            "--payload",
-            "-",
-            "--json",
-          ],
-          JSON.stringify({
-            from_status: "running",
-            to_status: "completed",
-            to_status_reason: "completed",
-          }),
-        ),
-      ).toThrow(/TASK_TRANSITION_FROM_STATUS_MISMATCH/);
+      await expect(
+        transitionTask({
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          claimId: claim.claimId,
+          expectedFromStatus: "running",
+          status: "completed",
+          statusReason: "completed",
+        }),
+      ).rejects.toMatchObject({ code: "TASK_TRANSITION_FROM_STATUS_MISMATCH" });
 
-      const closed = JSON.parse(
-        runCli(root, [
-          "task",
-          "close",
-          "--claim",
-          claim.claimId,
-          "--actual",
-          "1.5",
-          "--json",
-        ]),
-      );
+      const closed = await transitionTask({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        claimId: claim.claimId,
+        status: "completed",
+        statusReason: "completed",
+        actual: 1.5,
+      });
       expect(closed).toMatchObject({
         taskId: "wi-210",
         fromStatus: "ready",
@@ -1401,9 +1409,10 @@ tags:
         evidenceLink: "[[record-wi-208-dogfood]]",
       });
 
-      const released = JSON.parse(
-        runCli(root, ["task", "release", "--claim", claim.claimId, "--json"]),
-      );
+      const released = await releaseClaim(claim.claimId, {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
       expect(released.state).toBe("released");
 
       const workItem = await fs.readFile(

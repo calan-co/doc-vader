@@ -13,7 +13,7 @@ tags:
 
 # Sandcastle Dogfood Task Flow
 
-Use this local MVP flow when Sandcastle dogfoods Doc-Vader work items.
+Use this local MVP flow when Sandcastle dogfoods Doc-Vader work items through the entity-governance runtime.
 
 ## Flow
 
@@ -29,34 +29,44 @@ Use this local MVP flow when Sandcastle dogfoods Doc-Vader work items.
    dv task claim <task-id> --holder <agent-id> --branch <branch> --sandbox <path> --json
    ```
 
-3. Inspect the authoritative model:
+3. Lock files before editing:
+
+   ```bash
+   dv lock create --claim <claim-token> <path...> --json
+   ```
+
+4. Inspect the authoritative model:
 
    ```bash
    dv task show <task-id> --json
    ```
 
-4. Render the implementation prompt from the same model:
+5. Render the implementation prompt from the same model:
 
    ```bash
    dv task prompt <task-id>
    ```
 
-5. Implement and validate with repository-native commands.
+6. Implement and validate with repository-native commands.
 
-6. Record evidence through the active claim:
+7. Record evidence through the active claim:
 
    ```bash
    dv task record --claim <claim-id> --payload payload.json --json
    ```
 
-7. Release the local claim on success, stop, or failure:
+8. Complete or halt the runtime claim:
 
    ```bash
-   dv task release --claim <claim-id> --json
+   dv claim complete <claim-token> --json
+   ```
+
+   ```bash
+   dv claim halt <claim-token> --reason blocked --json
    ```
 
 ## Safety Boundary
 
-The dogfood MVP stops before automatic close or finalize. A human or follow-on agent must review validation output, linked evidence, and existing closure gates before any work item close/finalize action.
+Runtime claim completion does not directly close or finalize the Work Item. A human or follow-on agent must review validation output, linked evidence, and existing closure gates before any Work Item lifecycle close/finalize action.
 
-This milestone intentionally defers scope graphs, artifact reservations, hosted authority, revocation, and automatic close/finalize.
+This milestone intentionally defers full Work Graph or Decision Graph engines, scope graphs, nested artifact reservations, hosted authority, and automatic Work Item close/finalize.

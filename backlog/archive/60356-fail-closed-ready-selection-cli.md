@@ -5,10 +5,12 @@ summary: Implement `dv task ready` so Sandcastle can select only AFK-ready, depe
 type: work-item
 subtype: story
 lifecycle: active
-status: paused
-status_reason: blocked
+status: completed
+status_reason: completed
 priority: critical
 estimated: 6
+actual: 6
+completed_date: '2026-06-18'
 links:
   depends_on:
     - '[[60354-canonical-task-model-show-and-prompt]]'

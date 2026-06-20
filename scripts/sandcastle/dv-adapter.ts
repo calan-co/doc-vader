@@ -82,7 +82,7 @@ function repoRoot(): string {
 
 function dvArgs(args: string[]): [string, string[]] {
   const distCli = path.resolve(repoRoot(), "dist/cli/doc-vader.js");
-  if (existsSync(distCli)) {
+  if (process.env.DOC_VADER_ADAPTER_USE_DIST === "true" && existsSync(distCli)) {
     return ["node", [distCli, ...args]];
   }
   return ["node", ["--import", "tsx", "cli/doc-vader.ts", ...args]];
@@ -95,7 +95,10 @@ function runDv(args: string[], input?: string): string {
     encoding: "utf8",
     env: { ...process.env, CI: "true", TMPDIR: process.env.TMPDIR ?? "/tmp" },
     input,
-    stdio: input === undefined ? ["ignore", "pipe", "inherit"] : ["pipe", "pipe", "inherit"],
+    stdio:
+      input === undefined
+        ? ["ignore", "pipe", "inherit"]
+        : ["pipe", "pipe", "inherit"],
   });
 }
 
@@ -108,17 +111,24 @@ function taskNumber(taskId: string): string {
 }
 
 function taskBody(task: JsonRecord): string {
-  const sections = task.bodySections;
+  const body = recordValue(task.body);
+  const sections = Array.isArray(task.bodySections)
+    ? task.bodySections
+    : body?.sections;
   if (!Array.isArray(sections)) {
     return "";
   }
   return sections
+    .map((section) => {
+      const record = recordValue(section);
+      const heading = stringValue(record?.heading) ?? stringValue(record?.title);
+      const bodyText = stringValue(record?.body) ?? stringValue(record?.content);
+      return heading && bodyText ? { heading, body: bodyText } : undefined;
+    })
     .filter((section): section is { heading: string; body: string } => {
       return (
         typeof section === "object" &&
-        section !== null &&
-        typeof (section as JsonRecord).heading === "string" &&
-        typeof (section as JsonRecord).body === "string"
+        section !== null
       );
     })
     .map((section) => `## ${section.heading}\n\n${section.body}`.trim())
@@ -126,7 +136,24 @@ function taskBody(task: JsonRecord): string {
 }
 
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map(String) : [];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    if (typeof item === "string") {
+      return [item];
+    }
+    const record = recordValue(item);
+    const target = stringValue(record?.target);
+    if (target) {
+      return [target];
+    }
+    const id = stringValue(record?.id);
+    if (id) {
+      return [id];
+    }
+    return [];
+  });
 }
 
 function recordValue(value: unknown): JsonRecord | undefined {
@@ -146,18 +173,22 @@ function numberValue(value: unknown): number | undefined {
 }
 
 function bodySectionExcerpts(task: JsonRecord): PlannerTask["bodySections"] {
-  const sections = task.bodySections;
+  const body = recordValue(task.body);
+  const sections = Array.isArray(task.bodySections)
+    ? task.bodySections
+    : body?.sections;
   if (!Array.isArray(sections)) {
     return [];
   }
   return sections
+    .map((section) => {
+      const record = recordValue(section);
+      const heading = stringValue(record?.heading) ?? stringValue(record?.title);
+      const bodyText = stringValue(record?.body) ?? stringValue(record?.content);
+      return heading && bodyText ? { heading, body: bodyText } : undefined;
+    })
     .filter((section): section is { heading: string; body: string } => {
-      return (
-        typeof section === "object" &&
-        section !== null &&
-        typeof (section as JsonRecord).heading === "string" &&
-        typeof (section as JsonRecord).body === "string"
-      );
+      return typeof section === "object" && section !== null;
     })
     .map((section) => {
       const normalized = section.body.replace(/\s+/g, " ").trim();
@@ -239,7 +270,9 @@ function optionValue(args: string[], name: string): string | undefined {
     return undefined;
   }
   const token = args[index]!;
-  return token.startsWith(`${name}=`) ? token.slice(name.length + 1) : args[index + 1];
+  return token.startsWith(`${name}=`)
+    ? token.slice(name.length + 1)
+    : args[index + 1];
 }
 
 function claimHolder(args: string[]): string {
@@ -267,7 +300,9 @@ function recoveryMetadata(report: ClaimRecoveryReport): RecoveryMetadata {
     ...(numberValue(git?.uniqueCommitCount) !== undefined
       ? { uniqueCommitCount: numberValue(git?.uniqueCommitCount) }
       : {}),
-    ...(stringValue(git?.headSha) ? { headSha: stringValue(git?.headSha) } : {}),
+    ...(stringValue(git?.headSha)
+      ? { headSha: stringValue(git?.headSha) }
+      : {}),
     ...(typeof git?.branchExists === "boolean"
       ? { branchExists: git.branchExists }
       : {}),
@@ -294,7 +329,20 @@ function recoverClaim(
 }
 
 function listClaims(): ClaimStatus[] {
-  return json<{ claims: ClaimStatus[] }>(["task", "claims", "--json"]).claims;
+  if (runDv(["task", "claim", "--help"]).includes("<task-id>")) {
+    console.error(
+      "Doc-Vader claim listing is unavailable; continuing with fresh ready tasks only.",
+    );
+    return [];
+  }
+  try {
+    return json<{ claims: ClaimStatus[] }>(["task", "claim", "--json"]).claims;
+  } catch {
+    console.error(
+      "Doc-Vader claim listing is unavailable; continuing with fresh ready tasks only.",
+    );
+    return [];
+  }
 }
 
 function recoverReadyClaims(holder: string): PlannerTask[] {
@@ -331,7 +379,9 @@ function recoverReadyClaims(holder: string): PlannerTask[] {
     const report = recoverClaim(status.claimId, "inspect", holder);
     if (report.classification === "release_safe") {
       recoverClaim(status.claimId, "release", holder);
-      console.error(`Released stale claim ${status.claimId} for ${status.taskId}.`);
+      console.error(
+        `Released stale claim ${status.claimId} for ${status.taskId}.`,
+      );
       continue;
     }
     if (report.classification !== "adopt_recommended") {
@@ -355,7 +405,9 @@ function recoverReadyClaims(holder: string): PlannerTask[] {
         recovery: recoveryMetadata(report),
       }),
     );
-    console.error(`Adopted stale claim ${status.claimId} for ${status.taskId}.`);
+    console.error(
+      `Adopted stale claim ${status.claimId} for ${status.taskId}.`,
+    );
   }
   return recovered;
 }
@@ -408,16 +460,13 @@ function idempotentClaim(taskId: string, args: string[]): void {
     }
   }
 
-  process.stdout.write(runDv(["task", "claim", taskId, "--json", ...args.slice(1)]));
+  process.stdout.write(
+    runDv(["task", "claim", taskId, "--json", ...args.slice(1)]),
+  );
 }
 
 function closeTask(taskId: string, args: string[]): void {
-  const claim = json<ClaimResult>([
-    "task",
-    "claim-for",
-    taskId,
-    "--json",
-  ]);
+  const claim = json<ClaimResult>(["task", "claim-for", taskId, "--json"]);
   const closeArgs = hasOption(args, "--reason")
     ? args
     : ["--reason", "completed", ...args];
@@ -451,12 +500,7 @@ function closeTask(taskId: string, args: string[]): void {
 }
 
 function releaseTask(taskId: string): void {
-  const claim = json<ClaimResult>([
-    "task",
-    "claim-for",
-    taskId,
-    "--json",
-  ]);
+  const claim = json<ClaimResult>(["task", "claim-for", taskId, "--json"]);
   const released = json<JsonRecord>([
     "task",
     "release",
@@ -487,6 +531,7 @@ async function main(): Promise<void> {
         "task",
         "ready",
         "--json",
+        "--candidates-only",
       ]);
       const recoveredIds = new Set(recovered.map((task) => task.id));
       const tasks = [
@@ -524,7 +569,9 @@ async function main(): Promise<void> {
       return;
     }
     case "claim": {
-      const taskId = args[0] ?? fail("Usage: dv-adapter.ts claim <task-id> [dv claim flags]");
+      const taskId =
+        args[0] ??
+        fail("Usage: dv-adapter.ts claim <task-id> [dv claim flags]");
       idempotentClaim(taskId, args);
       return;
     }
@@ -534,7 +581,9 @@ async function main(): Promise<void> {
       const payloadArgs = hasPayload ? args : [...args, "--payload", "-"];
       const input =
         !hasPayload || payloadValue === "-" ? readStdin() : undefined;
-      process.stdout.write(runDv(["task", "record", "--json", ...payloadArgs], input));
+      process.stdout.write(
+        runDv(["task", "record", "--json", ...payloadArgs], input),
+      );
       return;
     }
     case "transition": {
@@ -546,12 +595,15 @@ async function main(): Promise<void> {
       return;
     }
     case "close-task": {
-      const taskId = args[0] ?? fail("Usage: dv-adapter.ts close-task <task-id> [dv close flags]");
+      const taskId =
+        args[0] ??
+        fail("Usage: dv-adapter.ts close-task <task-id> [dv close flags]");
       closeTask(taskId, args.slice(1));
       return;
     }
     case "release-task": {
-      const taskId = args[0] ?? fail("Usage: dv-adapter.ts release-task <task-id>");
+      const taskId =
+        args[0] ?? fail("Usage: dv-adapter.ts release-task <task-id>");
       releaseTask(taskId);
       return;
     }

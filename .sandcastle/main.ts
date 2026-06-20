@@ -127,9 +127,13 @@ fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"), 0o600);
 const SANDCASTLE_RUN_ID =
   process.env.SANDCASTLE_RUN_ID ?? `sandcastle-${Date.now()}`;
 const SANDCASTLE_CLAIM_HOLDER = `sandcastle:${SANDCASTLE_RUN_ID}`;
+const SANITIZED_RUN_ID = SANDCASTLE_RUN_ID.replace(/[^A-Za-z0-9._-]/g, "-");
 
 const codexAgent = () =>
   sandcastle.codex(CODEX_MODEL);
+
+const sandcastleInternalBranch = (phase: string, iteration: number) =>
+  `sandcastle/${phase}-${SANITIZED_RUN_ID}-${iteration}`;
 
 const releaseTaskClaim = (taskId: string) => {
   try {
@@ -178,6 +182,14 @@ const branchHasCommits = (branch: string) => {
 // Hooks run inside the sandbox before the agent starts each iteration.
 // pnpm install ensures the sandbox always has fresh dependencies.
 const hooks = {
+  host: {
+    onWorktreeReady: [
+      {
+        command:
+          'case "$PWD" in */.sandcastle/worktrees/*) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside .sandcastle/worktrees: $PWD" >&2; exit 1 ;; esac',
+      },
+    ],
+  },
   sandbox: {
     onSandboxReady: [
       {
@@ -220,9 +232,25 @@ const sandboxProvider = podman({
   },
 });
 
-// Do not copy host node_modules into Linux sandboxes; native packages may be
-// platform-specific. The hook above installs dependencies inside the sandbox.
-const copyToWorktree: string[] = [];
+// Keep Linux sandboxes isolated from host node_modules, but overlay current
+// uncommitted repo inputs so Sandcastle can dogfood backlog/prompt changes
+// before they are committed.
+const copyToWorktree: string[] = [
+  ".sandcastle/CODING_STANDARDS.md",
+  ".sandcastle/implement-prompt.md",
+  ".sandcastle/merge-prompt.md",
+  ".sandcastle/plan-prompt.md",
+  ".sandcastle/review-prompt.md",
+  "README.md",
+  "backlog",
+  "cli",
+  "docs",
+  "lib",
+  "schemas",
+  "scripts",
+  "templates",
+  "tests",
+];
 
 // ---------------------------------------------------------------------------
 // Main loop
@@ -243,6 +271,11 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   const plan = await sandcastle.run({
     hooks,
     sandbox: sandboxProvider,
+    branchStrategy: {
+      type: "branch",
+      branch: sandcastleInternalBranch("planner", iteration),
+    },
+    copyToWorktree,
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
@@ -396,6 +429,11 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   await sandcastle.run({
     hooks,
     sandbox: sandboxProvider,
+    branchStrategy: {
+      type: "branch",
+      branch: sandcastleInternalBranch("merge", iteration),
+    },
+    copyToWorktree,
     name: "merger",
     maxIterations: 1,
     idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
