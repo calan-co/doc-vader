@@ -9,7 +9,7 @@
     "preservation": "Store this content JSON sidecar next to the rendered Markdown PRD and treat the JSON as canonical for automation."
   },
   "contextGrounding": {
-    "codebaseContext": "Doc-Vader currently has backlog validation, work-item mutation, record creation, PRD validation/rendering, and a library-level AFK eligibility helper. It does not yet expose the Sandcastle-facing `dv task` command surface needed for deterministic dogfooding. The architecture now treats Doc-Vader as an entity-governance runtime: Work Item is canonical, Task is the Sandcastle command projection, and the local MVP runtime authority is Git-managed durable files plus SQLite-backed claims, locks, and execution logs.",
+    "codebaseContext": "Doc-Vader currently has backlog validation, work-item mutation, record creation, PRD validation/rendering, and a library-level AFK eligibility helper. It does not yet expose the Sandcastle-facing `dv task` command surface needed for deterministic dogfooding. The architecture now treats Doc-Vader as an entity-governance runtime: Work Item is canonical, Task is the Sandcastle command projection, and the local MVP runtime authority coordinates claims, locks, and execution logs.",
     "domainVocabulary": [
       "Sandcastle",
       "dogfood loop",
@@ -17,11 +17,11 @@
       "dv task show",
       "dv task prompt",
       "dv task claim",
-      "dv claim complete",
+      "dv claim release",
       "dv task record --claim",
       "authoritative task JSON",
       "templjs render",
-      "SQLite runtime authority",
+      "local runtime authority",
       "claim-owned file locks",
       "AFK-ready",
       "HITL",
@@ -41,7 +41,7 @@
     ]
   },
   "problemStatement": "The maintainer wants to use Sandcastle to improve Doc-Vader itself, but the current command surface is not yet deterministic enough for safe agent selection and workflow. Without a minimal `dv task` surface, Sandcastle would need inline scripts or manual file edits for selection, claiming, task context, and evidence linking, which would bypass repository guardrails and make dogfooding unsafe.",
-  "solution": "Deliver a Sandcastle dogfood MVP over the entity-governance runtime: deterministic AFK-ready selection, SQLite-backed claim creation, claim-owned file locks, task show/prompt rendering from canonical task JSON, claim-aware record creation through schema-validated payloads, and claim completion that preserves validation and evidence gates. This enables local Sandcastle agents to select, claim, inspect, implement, validate, record evidence, and complete runtime execution without needing hosted authority, a full Work Graph engine, or immutable scope graphs.",
+  "solution": "Deliver a Sandcastle dogfood MVP over the entity-governance runtime: deterministic AFK-ready selection, runtime claim creation, claim-owned locks, task show/prompt rendering from canonical task JSON, claim-aware record creation through schema-validated payloads, and claim release that preserves validation and evidence gates. This enables local Sandcastle agents to select, claim, inspect, implement, validate, record evidence, and release runtime execution without needing hosted authority, a full Work Graph engine, or immutable scope graphs.",
   "coverageModel": {
     "actors": [
       "repository maintainer",
@@ -65,7 +65,7 @@
       "parallelizable implementation",
       "minimal scope"
     ],
-    "notes": "The coverage model targets safe local dogfooding on the Git plus SQLite runtime adapter, not hosted production coordination."
+    "notes": "The coverage model targets safe local dogfooding on the local runtime adapter, not hosted production coordination."
   },
   "userStories": [
     {
@@ -159,7 +159,7 @@
       "category": "api-contract"
     },
     {
-      "statement": "Use SQLite-backed claims and claim-owned file locks for the dogfood MVP instead of waiting for immutable scope graphs.",
+      "statement": "Use local runtime claims and claim-owned locks for the dogfood MVP instead of waiting for immutable scope graphs.",
       "rationale": "The local runtime authority prevents duplicate local selection and conflicting file mutations while preserving a storage-adapter boundary for future hosted authority.",
       "category": "architecture"
     },
@@ -194,7 +194,7 @@
     "modulesUnderTest": [
       "task command CLI group",
       "AFK ready selection query",
-      "SQLite runtime store",
+      "local runtime store",
       "file lock command surface",
       "task JSON loader",
       "templjs task prompt renderer",

@@ -5,10 +5,12 @@ summary: Implement the claim-scoped runtime command surface for claim creation, 
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 5
+actual: 5
+completed_date: '2026-06-21'
 links:
   depends_on:
     - '[[60362-runtime-sqlite-store-and-migrations]]'
@@ -18,8 +20,7 @@ links:
     - '[[60367-claim-prune-and-rm]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
-  evidence:
-    - '[[record-20260620-022741-60373]]'
+    - '[[60376-runtime-extension-authoring-process]]'
 tags:
   - afk
   - runtime
@@ -39,17 +40,17 @@ Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-s
 
 ## Tasks
 
-- [ ] Add `dv claim` as bulk status for all live claims.
-- [ ] Add `dv claim status <claim-token>` and `dv claim status --filter <time-filter>`.
-- [ ] Add `dv claim create --target task:<task-id>`.
-- [ ] Add `dv task claim <task-id>` as an alias for `dv claim create --target task:<task-id>`.
-- [ ] Add `dv claim complete <claim-token>` with implied execution state `completed/success`.
-- [ ] Add `dv claim fail <claim-token>` with implied execution state `failed/error`.
-- [ ] Ensure `dv claim halt` delegates to the halt implementation and supports only token mode plus `--filter <time-filter> --reason expired` bulk mode.
-- [ ] Ensure `dv claim prune` and `dv claim rm` delegate to cleanup implementation and never write execution-log entries.
-- [ ] Ensure claim terminal commands do not directly transition work-item Markdown status.
-- [ ] Enforce selector rules: bare mutating commands fail with help, and bulk mutating transitions are limited to expired-claim halt.
-- [ ] Implement MVP time filters: `until=now`, `until=24h`, `until=60m`, and `until=60s`.
+- [x] Add `dv claim` as bulk status for all live claims.
+- [x] Add `dv claim status <claim-token>` and `dv claim status --filter <time-filter>`.
+- [x] Add `dv claim create --target task:<task-id>`.
+- [x] Add `dv task claim <task-id>` as an alias for `dv claim create --target task:<task-id>`.
+- [x] Add `dv claim complete <claim-token>` with implied execution state `completed/success`.
+- [x] Add `dv claim fail <claim-token>` with implied execution state `failed/error`.
+- [x] Ensure `dv claim halt` delegates to the halt implementation and supports only token mode plus `--filter <time-filter> --reason expired` bulk mode.
+- [x] Ensure `dv claim prune` and `dv claim rm` delegate to cleanup implementation and never write execution-log entries.
+- [x] Ensure claim terminal commands do not directly transition work-item Markdown status.
+- [x] Enforce selector rules: bare mutating commands fail with help, and bulk mutating transitions are limited to expired-claim halt.
+- [x] Implement MVP time filters: `until=now`, `until=24h`, `until=60m`, and `until=60s`.
 
 ## Deliverables
 
@@ -59,13 +60,13 @@ Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-s
 
 ## Acceptance criteria
 
-- [ ] Claim creation returns a `claim_token` and writes `running/started`.
-- [ ] Claim completion writes `completed/success` and removes claim-owned runtime rows.
-- [ ] Claim failure writes `failed/error` and removes claim-owned runtime rows.
-- [ ] Claim terminal commands leave task progression to the work-item lifecycle path.
-- [ ] Claim cleanup refuses active running claims.
-- [ ] Bare mutating claim commands return an error and help text.
-- [ ] Filtered bulk mutation is accepted only for `halt --reason expired`.
+- [x] Claim creation returns a `claim_token` and writes `running/started`.
+- [x] Claim completion writes `completed/success` and removes claim-owned runtime rows.
+- [x] Claim failure writes `failed/error` and removes claim-owned runtime rows.
+- [x] Claim terminal commands leave task progression to the work-item lifecycle path.
+- [x] Claim cleanup refuses active running claims.
+- [x] Bare mutating claim commands return an error and help text.
+- [x] Filtered bulk mutation is accepted only for `halt --reason expired`.
 
 ## Blocked by
 

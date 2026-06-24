@@ -5,10 +5,12 @@ summary: Implement transactional execution creation, claim acquisition, initial 
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 6
+actual: 6
+completed_date: '2026-06-20'
 links:
   depends_on:
     - '[[60362-runtime-sqlite-store-and-migrations]]'
@@ -17,7 +19,8 @@ links:
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
-    - '[[record-20260620-022741-60364]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - runtime
@@ -36,15 +39,15 @@ Every execution attempt is represented by a `claim_token`. A claim is the live o
 
 ## Tasks
 
-- [ ] Generate a `claim_token` from the canonical static claim record before claim acquisition.
-- [ ] Insert claim, optional initial locks, and the first `running/started` execution log entry in one SQLite transaction.
-- [ ] Allow claim creation with zero initial locks.
-- [ ] Normalize file paths to repo-relative artifact paths and stable SHA-256 lock keys.
-- [ ] Detect initial lock conflicts using the live `locks` table.
-- [ ] On initial lock conflict, insert a `halted/conflict` execution log entry with the attempted `claim_token`, but no live claim or locks.
-- [ ] Support mid-execution lazy lock acquisition for newly discovered files.
-- [ ] On lazy lock conflict, return structured diagnostics without automatically halting the claim.
-- [ ] Avoid waiting or retrying when a write lock is already registered.
+- [x] Generate a `claim_token` from the canonical static claim record before claim acquisition.
+- [x] Insert claim, optional initial locks, and the first `running/started` execution log entry in one SQLite transaction.
+- [x] Allow claim creation with zero initial locks.
+- [x] Normalize file paths to repo-relative artifact paths and stable SHA-256 lock keys.
+- [x] Detect initial lock conflicts using the live `locks` table.
+- [x] On initial lock conflict, insert a `halted/conflict` execution log entry with the attempted `claim_token`, but no live claim or locks.
+- [x] Support mid-execution lazy lock acquisition for newly discovered files.
+- [x] On lazy lock conflict, return structured diagnostics without automatically halting the claim.
+- [x] Avoid waiting or retrying when a write lock is already registered.
 
 ## Deliverables
 
@@ -55,11 +58,11 @@ Every execution attempt is represented by a `claim_token`. A claim is the live o
 
 ## Acceptance criteria
 
-- [ ] Successful acquisition creates one claim, all requested locks, and one `running` execution entry atomically.
-- [ ] Failed initial acquisition leaves no live claim or lock rows.
-- [ ] Failed initial acquisition still records task-level execution history.
-- [ ] Mid-execution lock conflicts do not mutate runtime state beyond structured diagnostics.
-- [ ] Lock conflict details include the locked path, owning claim token, owning target, and derived expiry state where available.
+- [x] Successful acquisition creates one claim, all requested locks, and one `running` execution entry atomically.
+- [x] Failed initial acquisition leaves no live claim or lock rows.
+- [x] Failed initial acquisition still records task-level execution history.
+- [x] Mid-execution lock conflicts do not mutate runtime state beyond structured diagnostics.
+- [x] Lock conflict details include the locked path, owning claim token, owning target, and derived expiry state where available.
 
 ## Blocked by
 

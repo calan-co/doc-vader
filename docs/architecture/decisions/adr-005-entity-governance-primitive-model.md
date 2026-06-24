@@ -16,6 +16,7 @@ links:
     - '[[../../project-brief.md]]'
     - '[[../registry-model.md]]'
     - '[[adr-009-storage-and-format-seams.md]]'
+    - '[[adr-010-composable-evaluation-primitives.md]]'
 ---
 
 ## Context and Problem Statement
@@ -45,7 +46,15 @@ Core primitives:
 - `Node`, `Edge`, and `Resolution`: registry graph primitives.
 - `Subject`: governed target of an event, decision, evidence item, or policy.
 - `Policy`: composed constraints evaluated over entities and artifacts.
-- `Gate`: fail-closed decision point with machine-readable diagnostics.
+- `Check`: reusable evaluation question over a governed subject.
+- `Finding`: recorded outcome of a check, including disposition, reasons,
+  evidence, and follow-up obligations.
+- `Review`: scoped orchestration that applies one or more checks through a
+  review profile.
+- `Report`: structured aggregation produced by a review, including findings and
+  deterministic summaries.
+- `Synthesis`: optional reasoned interpretation of findings or reports.
+- `Gate`: fail-closed decision point that depends on one or more findings.
 - `Manifest`: immutable decision/input bundle.
 - `Claim`, `Lock`, and `Execution Log`: runtime coordination entities.
 - `Scope`: bounded authority surface for execution and mutation.
@@ -57,6 +66,19 @@ Core primitives:
   runtime entities.
 - `Format Adapter`: format-specific parsing, serialization, and
   canonicalization.
+
+ADR-010 defines how `Check`, `Finding`, `Review Profile`, `Review`, `Report`,
+`Summary`, `Synthesis`, and reserved `Run` compose across native and
+package-defined use cases.
+
+`Run` is reserved as the concrete execution of a check against a subject, but it
+is not part of the MVP API or CLI surface unless check execution itself needs
+durable in-flight state, resumability, retry tracking, or independent audit.
+
+AFK and HITL tags remain the current operational classification mechanism for
+task selection. A future reasoning-level model may separate work complexity from
+execution policy, but that model requires an accepted rubric and compatibility
+mapping before it can replace current tags.
 
 ## Decision Drivers
 
@@ -70,6 +92,8 @@ Core primitives:
   across default and custom entities.
 - Current PRDs and backlog items already depend on primitives that are broader
   than documentation linting.
+- Humans and agents need a non-mutating way to evaluate subjects, aggregate
+  findings, and separate deterministic summaries from reasoned synthesis.
 
 ## Consequences
 
@@ -81,6 +105,8 @@ Positive:
   model.
 - Future package authors can target entity governance seams instead of copying
   work-item-specific behavior.
+- Review workflows can be tailored to stores such as backlog without making
+  backlog review a one-off primitive.
 
 Negative/Risks:
 
@@ -88,6 +114,8 @@ Negative/Risks:
   `task` surfaces.
 - Some older backlog items must be reconciled because they encode narrower
   scope-graph or single-agent assumptions.
+- Until reasoning-level policy is accepted, AFK/HITL tags remain authoritative
+  even when they feel too coarse for future model-aware execution.
 
 ## Validation
 
@@ -96,3 +124,5 @@ Negative/Risks:
   work-item-only abstractions.
 - Backlog prioritization treats runtime entity foundation as the current
   implementation spine.
+- Checks produce findings; reviews produce reports; reports contain
+  deterministic summaries; syntheses are explicitly reasoned.

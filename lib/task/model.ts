@@ -2,6 +2,14 @@ import matter from "gray-matter";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { TaskCommandError } from "./errors.js";
+import {
+  loadTaskRuntimeReadiness,
+  type TaskRuntimeReadiness,
+} from "./runtime.js";
+import {
+  evaluateWorkItemGovernance,
+  type WorkItemGovernanceDependency,
+} from "../work-management/kernel.js";
 
 type Frontmatter = Record<string, unknown>;
 
@@ -50,6 +58,7 @@ export interface TaskModel {
     isHitl: boolean;
     dependenciesSatisfied: boolean;
   };
+  runtime?: TaskRuntimeReadiness;
 }
 
 interface TaskDocument {
@@ -277,6 +286,34 @@ function toDependency(
   };
 }
 
+function toGovernanceDependency(
+  ref: string,
+  documents: TaskDocument[],
+  rootDir: string,
+): WorkItemGovernanceDependency {
+  const id = normalizeDependencyId(ref);
+  const dependency = documents.find(
+    (document) =>
+      asString(document.frontmatter.id) === id ||
+      asString(document.frontmatter.id)?.replace(/^wi-/, "") ===
+        id.replace(/^wi-/, "") ||
+      path.basename(document.filePath, ".md") === stripWikiLink(ref),
+  );
+  const status = asString(dependency?.frontmatter.status);
+  const lifecycle = asString(dependency?.frontmatter.lifecycle);
+  return {
+    id,
+    ref,
+    ...(status ? { status } : {}),
+    ...(lifecycle ? { lifecycle } : {}),
+    ...(dependency
+      ? { filePath: toPosixPath(path.relative(rootDir, dependency.filePath)) }
+      : {}),
+    satisfied: status === "completed" || status === "closed" || lifecycle === "inactive",
+    stateKnown: Boolean(dependency && status),
+  };
+}
+
 export async function loadTaskModel(
   taskId: string,
   options: LoadTaskOptions = {},
@@ -305,41 +342,62 @@ export async function loadTaskModel(
     );
   }
 
-  const document = matches[0] as TaskDocument;
+  return buildTaskModel(matches[0] as TaskDocument, documents, rootDir);
+}
+
+async function buildTaskModel(
+  document: TaskDocument,
+  documents: TaskDocument[],
+  rootDir: string,
+): Promise<TaskModel> {
   assertValidTaskDocument(document);
 
   const frontmatter = document.frontmatter;
-  const id = asString(frontmatter.id) as string;
+  const id = asString(frontmatter.id) ?? "";
   const links = getLinks(frontmatter);
-  const sections = parseSections(document.body);
-  const dependencies = collectStringLinks(links.depends_on).map((ref) =>
-    toDependency(ref, documents, rootDir),
-  );
-  const tags = normalizeTags(frontmatter.tags);
+  const dependencyRefs = collectStringLinks(links.depends_on);
+  const title = asString(frontmatter.title);
+  const summary = asString(frontmatter.summary);
   const status = asString(frontmatter.status) ?? "";
   const lifecycle = asString(frontmatter.lifecycle) ?? "";
+  const statusReason = asString(frontmatter.status_reason);
+  const completedDate = asString(frontmatter.completed_date);
+  const tags = normalizeTags(frontmatter.tags);
+  const type = asString(frontmatter.type) ?? "";
+  const subtype = asString(frontmatter.subtype);
+  const priority = asString(frontmatter.priority);
+  const numericId = id.match(/^wi-(\d+)/)?.[1];
+  const sections = parseSections(document.body);
+  const governance = evaluateWorkItemGovernance({
+    id,
+    ...(title ? { title } : {}),
+    ...(status ? { status } : {}),
+    ...(lifecycle ? { lifecycle } : {}),
+    tags,
+    archived: document.archived || lifecycle === "archived",
+    ...(statusReason ? { statusReason } : {}),
+    ...(completedDate ? { completedDate } : {}),
+    links,
+    dependencies: dependencyRefs.map((ref) => toGovernanceDependency(ref, documents, rootDir)),
+  });
+  const dependencies = dependencyRefs.map((ref) => toDependency(ref, documents, rootDir));
+  const runtime = await loadTaskRuntimeReadiness({
+    rootDir,
+    taskId: id,
+    markdownReady: governance.readiness.ready,
+  });
   return {
     id,
-    ...(id.match(/^wi-(\d+)/)?.[1]
-      ? { numericId: id.match(/^wi-(\d+)/)?.[1] }
-      : {}),
-    title: asString(frontmatter.title) ?? id,
-    ...(asString(frontmatter.summary)
-      ? { summary: asString(frontmatter.summary) }
-      : {}),
+    ...(numericId ? { numericId } : {}),
+    title: title ?? id,
+    ...(summary ? { summary } : {}),
     filePath: toPosixPath(path.relative(rootDir, document.filePath)),
     status,
-    ...(asString(frontmatter.status_reason)
-      ? { statusReason: asString(frontmatter.status_reason) }
-      : {}),
+    ...(statusReason ? { statusReason } : {}),
     lifecycle,
-    type: asString(frontmatter.type) ?? "",
-    ...(asString(frontmatter.subtype)
-      ? { subtype: asString(frontmatter.subtype) }
-      : {}),
-    ...(asString(frontmatter.priority)
-      ? { priority: asString(frontmatter.priority) }
-      : {}),
+    type,
+    ...(subtype ? { subtype } : {}),
+    ...(priority ? { priority } : {}),
     ...(asNumber(frontmatter.estimated) !== undefined
       ? { estimated: asNumber(frontmatter.estimated) }
       : {}),
@@ -352,13 +410,32 @@ export async function loadTaskModel(
     bodySections: sections,
     acceptanceCriteria: parseAcceptanceCriteria(sections),
     validation: {
-      isActive: lifecycle === "active",
+      isActive: governance.lifecycle.isActive,
       isReady: status === "ready",
-      isAfk: tags.includes("afk"),
-      isHitl: tags.includes("hitl"),
-      dependenciesSatisfied: dependencies.every(
-        (dependency) => dependency.satisfied,
-      ),
+      isAfk: governance.classification.isAfk,
+      isHitl: governance.classification.isHitl,
+      dependenciesSatisfied: governance.dependencies.satisfied,
     },
+    runtime,
   };
+}
+
+export async function listTaskModels(
+  options: LoadTaskOptions = {},
+): Promise<TaskModel[]> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const backlogDir = options.backlogDir ?? "backlog";
+  const documents = await readTaskDocuments(rootDir, backlogDir);
+  return Promise.all(
+    documents
+      .filter((document) => {
+        return (
+          !document.archived &&
+          asString(document.frontmatter.lifecycle) !== "archived" &&
+          asString(document.frontmatter.status) !== "closed" &&
+          asString(document.frontmatter.status) !== "completed"
+        );
+      })
+      .map((document) => buildTaskModel(document, documents, rootDir)),
+  );
 }

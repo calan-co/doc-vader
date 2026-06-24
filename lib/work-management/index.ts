@@ -1,5 +1,6 @@
 import matter from "gray-matter";
 import yaml from "js-yaml";
+import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import type { SubjectResolverName } from "../backlog/scan-types.js";
@@ -11,6 +12,11 @@ import {
 } from "../backlog/configurable-rules.js";
 import { getProviderForForge } from "../backlog/provider-registry.js";
 import type { BacklogAutomationProvider } from "../backlog/provider.js";
+import {
+  openRuntimeSqliteStore,
+  type RuntimeChangedFileAuditResult,
+} from "../runtime/index.js";
+import { TaskCommandError } from "../task/errors.js";
 
 export type LinkKind = "pr" | "evidence" | "reference";
 export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "subversion";
@@ -304,6 +310,101 @@ function normalizeLifecycle(value: unknown): string {
     return "";
   }
   return value.trim().toLowerCase();
+}
+
+function defaultAuditMergeTargetRef(rootDir: string): string {
+  const candidates = ["main", "master", "HEAD"];
+  for (const candidate of candidates) {
+    try {
+      const result = execFileSync(
+        "git",
+        ["rev-parse", "--verify", "--quiet", candidate],
+        {
+          cwd: rootDir,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "ignore"],
+        },
+      );
+      if (typeof result === "string" && result.trim().length > 0) {
+        return candidate;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return "HEAD";
+}
+
+export function runRuntimeClaimCoverageAudit(options: {
+  rootDir: string;
+  taskId: string;
+  requiredPaths: string[];
+  mergeTargetRef?: string;
+}): RuntimeChangedFileAuditResult {
+  const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
+  try {
+    const claim = store.getClaimByTarget("task", options.taskId);
+    if (!claim) {
+      throw new TaskCommandError(
+        "TASK_RUNTIME_CLAIM_MISSING",
+        `Task '${options.taskId}' has no active runtime claim.`,
+        { taskId: options.taskId },
+      );
+    }
+
+    const mergeTargetRef = options.mergeTargetRef ?? defaultAuditMergeTargetRef(options.rootDir);
+    const currentAudit = store.auditChangedFiles(claim.claim_token, {
+      mergeTargetRef,
+    });
+    const requiredAudit = store.auditClaimedPaths(
+      claim.claim_token,
+      options.requiredPaths,
+      { mergeTargetRef },
+    );
+    const diagnostics = [...currentAudit.diagnostics];
+    const seen = new Set(
+      diagnostics.map((diagnostic) => `${diagnostic.path}:${diagnostic.actualLockState}`),
+    );
+    for (const diagnostic of requiredAudit.diagnostics) {
+      const key = `${diagnostic.path}:${diagnostic.actualLockState}`;
+      if (!seen.has(key)) {
+        diagnostics.push(diagnostic);
+      }
+    }
+    const changedFiles = [
+      ...currentAudit.changedFiles,
+      ...requiredAudit.changedFiles,
+    ];
+    const changedPaths = Array.from(
+      new Set([
+        ...currentAudit.changedPaths,
+        ...requiredAudit.changedPaths,
+      ]),
+    );
+    const renameDiagnostics = [
+      ...currentAudit.renameDiagnostics,
+      ...requiredAudit.renameDiagnostics,
+    ];
+
+    return {
+      ...currentAudit,
+      mergeTargetRef,
+      claim,
+      changedFiles,
+      changedPaths,
+      renameDiagnostics,
+      diagnostics,
+      fresh: currentAudit.fresh && requiredAudit.fresh,
+      mergeable: currentAudit.mergeable && requiredAudit.mergeable,
+      passed:
+        currentAudit.passed &&
+        requiredAudit.passed &&
+        diagnostics.length === 0 &&
+        renameDiagnostics.length === 0,
+    };
+  } finally {
+    store.close();
+  }
 }
 
 /**
@@ -1023,6 +1124,12 @@ export async function finalizeWorkItem(
     throw new Error(`Cannot finalize '${options.id}' without linked evidence.`);
   }
 
+  const archivePath = path.resolve(
+    rootDir,
+    config.roots.archive,
+    path.basename(filePath),
+  );
+
   const provider = requireAuthenticatedProvider(options.provider, options.id);
 
   const validationErrors = await validateLinkedPullRequestsMerged({
@@ -1032,6 +1139,19 @@ export async function finalizeWorkItem(
   });
   if (validationErrors.length > 0) {
     throw new Error(validationErrors.join("\n"));
+  }
+
+  const runtimeAudit = runRuntimeClaimCoverageAudit({
+    rootDir,
+    taskId: options.id,
+    requiredPaths: [filePath, archivePath],
+  });
+  if (!runtimeAudit.passed) {
+    throw new TaskCommandError(
+      "WORK_ITEM_CHANGED_FILE_LOCK_AUDIT_FAILED",
+      `Cannot finalize '${options.id}' until changed-file lock coverage passes.`,
+      { id: options.id, audit: runtimeAudit },
+    );
   }
 
   document.frontmatter.status = "completed";
@@ -1047,12 +1167,6 @@ export async function finalizeWorkItem(
       `Cannot finalize '${options.id}' without actual effort recorded.`,
     );
   }
-
-  const archivePath = path.resolve(
-    rootDir,
-    config.roots.archive,
-    path.basename(filePath),
-  );
   if (!options.dryRun) {
     await writeMarkdown(archivePath, document.frontmatter, document.body);
     if (path.resolve(filePath) !== archivePath) {

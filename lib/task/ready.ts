@@ -1,7 +1,31 @@
 import matter from "gray-matter";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { getClaimStatusForTask, type ClaimStatus } from "./claims.js";
+import {
+  evaluateWorkItemGovernance,
+  type WorkItemGovernanceDependency,
+  type WorkItemGovernanceReason,
+} from "../work-management/kernel.js";
+import {
+  composeTaskRuntimeReadiness,
+  loadTaskExecutionLogSummaries,
+  type TaskRuntimeExecutionLog,
+  type TaskRuntimeReadiness,
+} from "./runtime.js";
+import {
+  collectTaskRecoveryGitState,
+  isRecoverableReadyRuntimeState,
+} from "./recovery-state.js";
+import {
+  evaluateTaskClaimability,
+  type TaskClaimabilityFailure,
+} from "./claimability.js";
+import {
+  currentGitBranch,
+  listGitWorktrees,
+  resolveTaskAuthorityFromGitContext,
+  type TaskAuthorityGitContext,
+} from "./authority.js";
 
 type Frontmatter = Record<string, unknown>;
 
@@ -9,6 +33,7 @@ export type ReadyExclusionCode =
   | "archived"
   | "blocked"
   | "closed"
+  | "execution_not_ready"
   | "dependency_blocked"
   | "dependency_state_unknown"
   | "hitl"
@@ -43,12 +68,14 @@ export interface ReadyTaskCandidate {
   priority?: string;
   tags: string[];
   dependencies: ReadyTaskDependency[];
+  runtime?: TaskRuntimeReadiness;
 }
 
 export interface ReadyTaskExclusion {
   id?: string;
   filePath: string;
   title?: string;
+  runtime?: TaskRuntimeReadiness;
   reasons: Array<{
     code: ReadyExclusionCode;
     message: string;
@@ -68,6 +95,12 @@ interface ReadyDocument {
   archived: boolean;
   frontmatter?: Frontmatter;
   parseError?: string;
+}
+
+interface ReadyAuthorityContext {
+  git: TaskAuthorityGitContext;
+  documentsByRoot: Map<string, Promise<ReadyDocument[]>>;
+  runtimeByRootAndTask: Map<string, Promise<Map<string, TaskRuntimeExecutionLog>>>;
 }
 
 export interface SelectReadyTasksOptions {
@@ -247,6 +280,29 @@ function toDependency(
   };
 }
 
+function toGovernanceDependency(
+  ref: string,
+  documents: ReadyDocument[],
+): WorkItemGovernanceDependency {
+  const dependency = findDependencyDocument(ref, documents);
+  const id = normalizeDependencyId(ref);
+  const status = dependency?.frontmatter
+    ? asString(dependency.frontmatter.status)
+    : undefined;
+  const lifecycle = dependency?.frontmatter
+    ? asString(dependency.frontmatter.lifecycle)
+    : undefined;
+  return {
+    id,
+    ref,
+    ...(status ? { status } : {}),
+    ...(lifecycle ? { lifecycle } : {}),
+    ...(dependency ? { filePath: dependency.relativePath } : {}),
+    satisfied: status === "completed" || status === "closed" || lifecycle === "inactive",
+    stateKnown: Boolean(dependency && !dependency.parseError && status),
+  };
+}
+
 function reason(
   code: ReadyExclusionCode,
   message: string,
@@ -255,64 +311,120 @@ function reason(
   return { code, message, ...(details ? { details } : {}) };
 }
 
+function toReadyReason(
+  entry: WorkItemGovernanceReason,
+): ReadyTaskExclusion["reasons"][number] {
+  switch (entry.code) {
+    case "archived":
+    case "blocked":
+    case "closed":
+    case "dependency_blocked":
+    case "dependency_state_unknown":
+    case "hitl":
+    case "invalid":
+    case "missing_classification":
+    case "not_active":
+    case "not_ready":
+      return reason(entry.code, entry.message, entry.details);
+    default:
+      throw new Error(`Unsupported governance reason: ${entry.code}`);
+  }
+}
+
+function hasReason(
+  reasons: ReadyTaskExclusion["reasons"],
+  codes: ReadyExclusionCode[],
+): boolean {
+  return reasons.some((entry) => codes.includes(entry.code));
+}
+
+function claimabilityFailureReason(
+  failure: TaskClaimabilityFailure,
+): ReadyTaskExclusion["reasons"][number] | undefined {
+  switch (failure) {
+    case "not-active":
+      return reason("not_active", "Task lifecycle is not active.");
+    case "not-ready":
+      return reason("not_ready", "Task status is not ready.");
+    case "not-afk":
+      return reason("missing_classification", "Task is missing AFK classification.");
+    case "hitl":
+      return reason("hitl", "HITL tasks are not AFK-ready candidates.");
+    case "dependencies-not-satisfied":
+      return reason("dependency_blocked", "Task has unsatisfied dependencies.");
+    case "execution-not-ready":
+      return undefined;
+  }
+}
+
+function appendClaimabilityGovernanceReasons(
+  reasons: ReadyTaskExclusion["reasons"],
+  failures: TaskClaimabilityFailure[],
+): void {
+  for (const failure of failures) {
+    if (
+      failure === "not-active" &&
+      hasReason(reasons, ["not_active", "closed", "archived"])
+    ) {
+      continue;
+    }
+    if (failure === "not-ready" && hasReason(reasons, ["not_ready"])) {
+      continue;
+    }
+    if (
+      failure === "not-afk" &&
+      hasReason(reasons, ["missing_classification", "hitl"])
+    ) {
+      continue;
+    }
+    if (failure === "hitl" && hasReason(reasons, ["hitl"])) {
+      continue;
+    }
+    if (
+      failure === "dependencies-not-satisfied" &&
+      hasReason(reasons, ["dependency_blocked", "dependency_state_unknown"])
+    ) {
+      continue;
+    }
+
+    const readyReason = claimabilityFailureReason(failure);
+    if (readyReason) {
+      reasons.push(readyReason);
+    }
+  }
+}
+
 function toCandidate(
   document: ReadyDocument,
   dependencies: ReadyTaskDependency[],
 ): ReadyTaskCandidate {
   const frontmatter = document.frontmatter as Frontmatter;
-  const id = asString(frontmatter.id) as string;
+  const id = asString(frontmatter.id) ?? "";
+  const summary = asString(frontmatter.summary);
+  const subtype = asString(frontmatter.subtype);
+  const priority = asString(frontmatter.priority);
+  const numericId = id.match(/^wi-(\d+)/)?.[1];
   return {
     id,
-    ...(id.match(/^wi-(\d+)/)?.[1]
-      ? { numericId: id.match(/^wi-(\d+)/)?.[1] }
-      : {}),
+    ...(numericId ? { numericId } : {}),
     title: asString(frontmatter.title) ?? id,
-    ...(asString(frontmatter.summary)
-      ? { summary: asString(frontmatter.summary) }
-      : {}),
+    ...(summary ? { summary } : {}),
     filePath: document.relativePath,
     status: asString(frontmatter.status) ?? "",
     lifecycle: asString(frontmatter.lifecycle) ?? "",
     type: asString(frontmatter.type) ?? "",
-    ...(asString(frontmatter.subtype)
-      ? { subtype: asString(frontmatter.subtype) }
-      : {}),
-    ...(asString(frontmatter.priority)
-      ? { priority: asString(frontmatter.priority) }
-      : {}),
+    ...(subtype ? { subtype } : {}),
+    ...(priority ? { priority } : {}),
     tags: normalizeTags(frontmatter.tags),
     dependencies,
   };
 }
 
-function claimReason(status: ClaimStatus): ReadyTaskExclusion["reasons"][number] | undefined {
-  if (status.state === "active") {
-    return reason("task_claim_active", "Task has an active local claim.", {
-      claimId: status.claimId,
-      holder: status.claim?.holder,
-      expiresAt: status.claim?.expiresAt,
-    });
-  }
-  if (status.state === "expired") {
-    return reason(
-      "task_claim_expired",
-      "Task has an expired local claim that must be released explicitly.",
-      {
-        claimId: status.claimId,
-        holder: status.claim?.holder,
-        expiresAt: status.claim?.expiresAt,
-      },
-    );
-  }
-  return undefined;
-}
-
 async function evaluateDocument(
+  rootDir: string,
   document: ReadyDocument,
   documents: ReadyDocument[],
-  rootDir: string,
-  claimStorePath: string | undefined,
-  now: Date,
+  latestExecutionLog?: TaskRuntimeExecutionLog,
 ): Promise<{ candidate?: ReadyTaskCandidate; exclusion?: ReadyTaskExclusion }> {
   if (document.parseError) {
     return {
@@ -338,97 +450,162 @@ async function evaluateDocument(
   const status = asString(frontmatter.status);
   const lifecycle = asString(frontmatter.lifecycle);
   const tags = normalizeTags(frontmatter.tags);
-  const dependencies = collectStringLinks(getLinks(frontmatter).depends_on).map((ref) =>
-    toDependency(ref, documents),
+  const links = getLinks(frontmatter);
+  const dependencyRefs = collectStringLinks(links.depends_on);
+  const dependencies = dependencyRefs.map((ref) => toDependency(ref, documents));
+  const governance = evaluateWorkItemGovernance({
+    id: id ?? "",
+    ...(title ? { title } : {}),
+    status: status ?? "",
+    lifecycle: lifecycle ?? "",
+    tags,
+    archived: document.archived || lifecycle === "archived",
+    links,
+    dependencies: dependencyRefs.map((ref) => toGovernanceDependency(ref, documents)),
+  });
+  const reasons: ReadyTaskExclusion["reasons"] = governance.readiness.reasons.map(
+    toReadyReason,
   );
-  const reasons: ReadyTaskExclusion["reasons"] = [];
+  const readiness = composeTaskRuntimeReadiness(
+    governance.readiness.ready,
+    latestExecutionLog,
+  );
+  const claimability = evaluateTaskClaimability({
+    id: id ?? "",
+    validation: {
+      isActive: governance.lifecycle.isActive,
+      isReady: status === "ready",
+      isAfk: governance.classification.isAfk,
+      isHitl: governance.classification.isHitl,
+      dependenciesSatisfied: governance.dependencies.satisfied,
+    },
+    runtime: readiness,
+  });
 
-  if (!id || !title || !status || !lifecycle) {
+  appendClaimabilityGovernanceReasons(reasons, claimability.failures);
+
+  if (claimability.failures.includes("execution-not-ready")) {
+    const gitState = collectTaskRecoveryGitState({
+      rootDir,
+      taskFilePath: document.relativePath,
+      expectedBranch: readiness.latestExecutionLog?.branch,
+    });
+    const recoverable = isRecoverableReadyRuntimeState({
+      status: status ?? "",
+      runtime: readiness,
+      gitState,
+    });
+    const recoverableWithForce = isRecoverableReadyRuntimeState({
+      status: status ?? "",
+      runtime: readiness,
+      gitState,
+      allowUncertainLineage: true,
+    });
+    reasons.push(
+      reason(
+        "execution_not_ready",
+        "Task's latest execution log entry is not ready-permitting.",
+        {
+          latestExecutionLog: readiness.latestExecutionLog,
+          recovery: {
+            recoverable,
+            recoverableWithForce,
+            forceRequired: !recoverable && recoverableWithForce,
+            forceReasons:
+              !recoverable && recoverableWithForce
+                ? [...gitState.resumeWarnings]
+                : [],
+            gitState,
+          },
+        },
+      ),
+    );
+  }
+
+  if (!title) {
     reasons.push(
       reason("invalid", "Task is missing required ready-selection metadata.", {
         missing: [
-          ...(!id ? ["id"] : []),
           ...(!title ? ["title"] : []),
-          ...(!status ? ["status"] : []),
-          ...(!lifecycle ? ["lifecycle"] : []),
         ],
       }),
     );
   }
-  if (document.archived || lifecycle === "archived") {
-    reasons.push(reason("archived", "Archived tasks are not ready candidates."));
-  }
-  if (status === "closed" || lifecycle === "inactive") {
-    reasons.push(reason("closed", "Closed tasks are not ready candidates."));
-  }
-  if (status === "blocked") {
-    reasons.push(reason("blocked", "Blocked tasks are not ready candidates."));
-  }
-  if (status === "dependency-blocked") {
-    reasons.push(
-      reason("dependency_blocked", "Dependency-blocked tasks are not ready candidates."),
-    );
-  }
-  if (status !== "ready") {
-    reasons.push(reason("not_ready", "Task status is not ready.", { status }));
-  }
-  if (lifecycle !== "active") {
-    reasons.push(reason("not_active", "Task lifecycle is not active.", { lifecycle }));
-  }
-  if (tags.includes("hitl")) {
-    reasons.push(reason("hitl", "HITL tasks are not AFK-ready candidates."));
-  } else if (!tags.includes("afk")) {
-    reasons.push(
-      reason("missing_classification", "Task is missing AFK classification.", {
-        tags,
-      }),
-    );
-  }
-  const unknownDependencies = dependencies.filter((dependency) => !dependency.stateKnown);
-  if (unknownDependencies.length > 0) {
-    reasons.push(
-      reason(
-        "dependency_state_unknown",
-        "Dependency state could not be determined.",
-        { dependencies: unknownDependencies },
-      ),
-    );
-  }
-  const blockedDependencies = dependencies.filter(
-    (dependency) => dependency.stateKnown && !dependency.satisfied,
-  );
-  if (blockedDependencies.length > 0) {
-    reasons.push(
-      reason("dependency_blocked", "Task has unsatisfied dependencies.", {
-        dependencies: blockedDependencies,
-      }),
-    );
-  }
 
-  if (id) {
-    const claimStatus = await getClaimStatusForTask(id, {
-      rootDir,
-      claimStorePath,
-      now,
-    });
-    const exclusion = claimStatus ? claimReason(claimStatus) : undefined;
-    if (exclusion) {
-      reasons.push(exclusion);
-    }
-  }
-
-  if (reasons.length > 0) {
+  if (reasons.length > 0 || !claimability.claimable) {
     return {
       exclusion: {
         ...(id ? { id } : {}),
         filePath: document.relativePath,
         ...(title ? { title } : {}),
+        runtime: readiness,
         reasons,
       },
     };
   }
 
-  return { candidate: toCandidate(document, dependencies) };
+  return {
+    candidate: {
+      ...toCandidate(document, dependencies),
+      runtime: readiness,
+    },
+  };
+}
+
+async function evaluateDocumentWithAuthority(
+  rootDir: string,
+  backlogDir: string,
+  document: ReadyDocument,
+  documents: ReadyDocument[],
+  latestExecutionLog?: TaskRuntimeExecutionLog,
+  authorityContext?: ReadyAuthorityContext,
+): Promise<{ candidate?: ReadyTaskCandidate; exclusion?: ReadyTaskExclusion }> {
+  const taskId = asString(document.frontmatter?.id);
+  if (!taskId) {
+    return evaluateDocument(rootDir, document, documents, latestExecutionLog);
+  }
+
+  const authority = authorityContext
+    ? resolveTaskAuthorityFromGitContext(
+        {
+          rootDir,
+          taskId,
+          runtimeBranch: latestExecutionLog?.branch,
+        },
+        authorityContext.git,
+      )
+    : {
+        rootDir,
+      };
+  if (authority.rootDir === rootDir) {
+    return evaluateDocument(rootDir, document, documents, latestExecutionLog);
+  }
+
+  const documentsPromise = authorityContext?.documentsByRoot.get(authority.rootDir)
+    ?? readReadyDocuments(authority.rootDir, backlogDir);
+  authorityContext?.documentsByRoot.set(authority.rootDir, documentsPromise);
+  const authorityDocuments = await documentsPromise;
+  const authorityDocument = authorityDocuments.find(
+    (candidate) => asString(candidate.frontmatter?.id) === taskId,
+  );
+  if (!authorityDocument) {
+    return evaluateDocument(rootDir, document, documents, latestExecutionLog);
+  }
+
+  const runtimeKey = `${authority.rootDir}\0${taskId}`;
+  const runtimePromise = authorityContext?.runtimeByRootAndTask.get(runtimeKey)
+    ?? loadTaskExecutionLogSummaries({
+      rootDir: authority.rootDir,
+      taskIds: [taskId],
+    });
+  authorityContext?.runtimeByRootAndTask.set(runtimeKey, runtimePromise);
+  const authorityRuntime = await runtimePromise;
+  return evaluateDocument(
+    authority.rootDir,
+    authorityDocument,
+    authorityDocuments,
+    authorityRuntime.get(taskId),
+  );
 }
 
 function sortByFilePath<T extends { filePath: string }>(items: T[]): T[] {
@@ -461,12 +638,34 @@ export async function selectReadyTasks(
 ): Promise<ReadyTaskSelection> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const backlogDir = options.backlogDir ?? "backlog";
-  const now = options.now ?? new Date();
   const documents = await readReadyDocuments(rootDir, backlogDir);
+  const taskIds = documents
+    .map((document) => asString(document.frontmatter?.id))
+    .filter((id): id is string => Boolean(id));
+  const runtimeSummaries = await loadTaskExecutionLogSummaries({
+    rootDir,
+    taskIds,
+  });
+  const authorityContext: ReadyAuthorityContext = {
+    git: {
+      currentBranch: currentGitBranch(rootDir),
+      worktrees: listGitWorktrees(rootDir),
+    },
+    documentsByRoot: new Map([[rootDir, Promise.resolve(documents)]]),
+    runtimeByRootAndTask: new Map(),
+  };
   const results = await Promise.all(
-    documents.map((document) =>
-      evaluateDocument(document, documents, rootDir, options.claimStorePath, now),
-    ),
+    documents.map((document) => {
+      const taskId = asString(document.frontmatter?.id);
+      return evaluateDocumentWithAuthority(
+        rootDir,
+        backlogDir,
+        document,
+        documents,
+        taskId ? runtimeSummaries.get(taskId) : undefined,
+        authorityContext,
+      );
+    }),
   );
   return {
     schemaVersion: "task-ready/v1",
@@ -513,6 +712,38 @@ export function formatReadyText(selection: ReadyTaskSelection): string {
   const lines: string[] = [];
   lines.push("Ready task candidates");
   lines.push(`Candidates: ${selection.candidates.length}`);
+  const recoverable = selection.exclusions.filter((exclusion) =>
+    exclusion.reasons.some((entry) => {
+      const recovery = entry.details?.recovery as
+        | { recoverable?: boolean }
+        | undefined;
+      return entry.code === "execution_not_ready" && recovery?.recoverable === true;
+    }),
+  );
+  const forceRecoverable = selection.exclusions.filter((exclusion) =>
+    exclusion.reasons.some((entry) => {
+      const recovery = entry.details?.recovery as
+        | { forceRequired?: boolean }
+        | undefined;
+      return entry.code === "execution_not_ready" && recovery?.forceRequired === true;
+    }),
+  );
+  if (recoverable.length > 0) {
+    lines.push(
+      `Recoverable: ${recoverable.length} (${recoverable
+        .map((entry) => entry.id)
+        .join(", ")})`,
+    );
+    lines.push("Run `dv task recover <task-id>` to make a recoverable task claimable again.");
+  }
+  if (forceRecoverable.length > 0) {
+    lines.push(
+      `Recoverable with --force: ${forceRecoverable.length} (${forceRecoverable
+        .map((entry) => entry.id)
+        .join(", ")})`,
+    );
+    lines.push("Branch lineage or task-local dirty state is uncertain; inspect before forcing recovery.");
+  }
   lines.push("");
 
   appendSelectedSection(lines, selection.candidates);

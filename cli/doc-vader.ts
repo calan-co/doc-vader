@@ -1,6 +1,25 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { Command, Option } from "commander";
+import path from "node:path";
+import {
+  openRuntimeSqliteStore,
+  getRuntimeClaimDefaultTtlMilliseconds,
+  type RuntimeChangedFileAuditResult,
+  type RuntimeClaimCleanupConflictDetail,
+  type RuntimeClaimCleanupResult,
+  type RuntimeClaimRecord,
+  type RuntimeExecutionHaltDetail,
+  type RuntimeExecutionHaltedReason,
+  type RuntimeExecutionTerminalResult,
+  type RuntimeLockConflictDetail,
+  type RuntimeLockRemovalResult,
+  type RuntimeLockRecord,
+  type RuntimeLockStatusResult,
+  type RuntimeSqliteStore,
+} from "../lib/runtime/index.js";
 
 //import { program } from "@commander-js/extra-typings";
 
@@ -24,6 +43,9 @@ import {
   formatArchiveValidationReport,
   scanBacklog,
   formatScanReport,
+  runBacklogReview,
+  formatBacklogReviewReportJson,
+  formatBacklogReviewReportText,
 } from "../lib/controllers/backlogController.js";
 import {
   listAvailable as governanceList,
@@ -49,15 +71,26 @@ import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
 import {
   claimTask,
+  completeTaskClaim,
+  assertTaskClaimable,
   formatReadyPorcelain,
   formatReadyText,
   loadCanonicalTask,
   loadTaskModel,
-  readTaskRecordPayload,
+  listTaskModels,
+  readRecordPayload,
+  recoverTaskClaim,
   recordTaskEvidence,
   renderHumanTask,
   renderSandcastlePrompt,
   selectReadyTasks,
+  resolveGitRoot,
+  resolveTaskAuthority,
+  collectTaskRecoveryGitState,
+  isRecoverableReadyRuntimeState,
+  type TaskRecoveryForceMode,
+  type TaskModel,
+  type TaskRecoveryGitState,
   TaskCommandError,
   toTaskErrorPayload,
 } from "../lib/task/index.js";
@@ -86,6 +119,10 @@ function printTaskJson(value: unknown): void {
   console.log(JSON.stringify(value, null, 2));
 }
 
+function printTaskPorcelain(lines: string[]): void {
+  console.log(lines.join("\t"));
+}
+
 function failTaskCommand(error: unknown, json = false): never {
   if (json) {
     console.error(JSON.stringify(toTaskErrorPayload(error), null, 2));
@@ -97,22 +134,49 @@ function failTaskCommand(error: unknown, json = false): never {
   process.exit(1);
 }
 
-function assertTaskClaimable(task: Awaited<ReturnType<typeof loadTaskModel>>): void {
-  const failures: string[] = [];
-  if (!task.validation.isActive) failures.push("not-active");
-  if (!task.validation.isReady) failures.push("not-ready");
-  if (!task.validation.isAfk) failures.push("not-afk");
-  if (task.validation.isHitl) failures.push("hitl");
-  if (!task.validation.dependenciesSatisfied) {
-    failures.push("dependencies-not-satisfied");
+function parseOptionalFiniteMinutes(
+  value: string | undefined,
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
   }
-  if (failures.length > 0) {
+  const parsedMinutes = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsedMinutes)) {
     throw new TaskCommandError(
-      "TASK_NOT_CLAIMABLE",
-      `Task '${task.id}' is not eligible for a local claim.`,
-      { taskId: task.id, failures },
+      "CLAIM_INVALID_TTL",
+      "Claim TTL must be a finite number of minutes.",
+      { ttlMinutes: value },
     );
   }
+  return parsedMinutes;
+}
+
+function parseRecoveryForceMode(
+  value: string | undefined,
+): TaskRecoveryForceMode | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  switch (value) {
+    case "reset":
+      return "reset";
+    case "reconcile":
+      return "reconcile";
+    default:
+      throw new TaskCommandError(
+        "TASK_RECOVERY_INVALID_FORCE_MODE",
+        "Force mode must be reset or reconcile.",
+        { force: value },
+      );
+  }
+}
+
+function recoveryForceHelp(): string {
+  return [
+    "Resolve dirty paths during recovery.",
+    "reset discards recoverable dirty paths.",
+    "reconcile saves a checkpoint before discarding recoverable dirty paths.",
+  ].join(" ");
 }
 
 function parseTaskNumber(value: string | undefined, optionName: string): number | undefined {
@@ -128,6 +192,1184 @@ function parseTaskNumber(value: string | undefined, optionName: string): number 
     );
   }
   return parsed;
+}
+
+function runtimeRootDir(): string {
+  return resolveGitRoot(process.cwd());
+}
+
+function runtimeStorePath(rootDir: string): string {
+  return path.resolve(rootDir, ".doc-vader", "runtime", "runtime.sqlite");
+}
+
+function claimExecutionStore(rootDir: string): RuntimeSqliteStore {
+  return openRuntimeSqliteStore({
+    rootDir,
+    databasePath: runtimeStorePath(rootDir),
+  });
+}
+
+const HALTING_REASONS = [
+  "conflict",
+  "blocked",
+  "invalid",
+  "expired",
+  "revoked",
+  "cancelled",
+] as const satisfies readonly RuntimeExecutionHaltedReason[];
+
+const HALTING_REASON_SET = new Set<string>(HALTING_REASONS);
+
+function isHaltingReason(value: string): value is RuntimeExecutionHaltedReason {
+  return HALTING_REASON_SET.has(value);
+}
+
+const CLAIM_RELEASE_OUTCOMES = [
+  "success",
+  "failed",
+  ...HALTING_REASONS,
+] as const;
+
+type ClaimReleaseOutcome = (typeof CLAIM_RELEASE_OUTCOMES)[number];
+
+const CLAIM_RELEASE_OUTCOME_SET = new Set<string>(CLAIM_RELEASE_OUTCOMES);
+
+function parseClaimReleaseOutcome(value: string): ClaimReleaseOutcome {
+  if (CLAIM_RELEASE_OUTCOME_SET.has(value)) {
+    return value as ClaimReleaseOutcome;
+  }
+  throw new TaskCommandError(
+    "CLAIM_INVALID_OUTCOME",
+    `Claim release outcome must be one of ${CLAIM_RELEASE_OUTCOMES.join(", ")}.`,
+    { outcome: value },
+  );
+}
+
+function parseTimeFilter(filter: string): Date {
+  const normalized = filter.trim().toLowerCase();
+  if (!normalized.startsWith("until=")) {
+    throw new TaskCommandError(
+      "CLAIM_INVALID_FILTER",
+      "Time filter must be one of until=now, until=24h, until=60m, or until=60s.",
+      { filter },
+    );
+  }
+  const unit = normalized.slice("until=".length);
+  const now = new Date();
+  switch (unit) {
+    case "now":
+      return now;
+    case "24h":
+      return new Date(now.getTime() + 24 * 60 * 60_000);
+    case "60m":
+      return new Date(now.getTime() + 60 * 60_000);
+    case "60s":
+      return new Date(now.getTime() + 60_000);
+    default:
+      throw new TaskCommandError(
+        "CLAIM_INVALID_FILTER",
+        "Time filter must be one of until=now, until=24h, until=60m, or until=60s.",
+        { filter },
+      );
+  }
+}
+
+function parseClaimTarget(target: string): { targetType: string; targetId: string } {
+  const normalized = target.trim();
+  const [targetType, ...rest] = normalized.split(":");
+  const targetId = rest.join(":").trim();
+  if (!targetType || !targetId) {
+    throw new TaskCommandError(
+      "CLAIM_INVALID_TARGET",
+      "Target must use the form <type>:<id>.",
+      { target },
+    );
+  }
+  if (targetType !== "task") {
+    throw new TaskCommandError(
+      "CLAIM_INVALID_TARGET",
+      "Only task targets are supported in the MVP.",
+      { target },
+    );
+  }
+  return { targetType, targetId };
+}
+
+function formatRuntimeClaimLine(
+  claim: RuntimeClaimRecord,
+): string {
+  return `${claim.claim_token} ${claim.state} ${claim.target_type}:${claim.target_id} ${claim.holder}`;
+}
+
+function formatRuntimeClaimStatusText(
+  claim: RuntimeClaimRecord | undefined,
+  claimToken?: string,
+): string {
+  if (!claim) {
+    return claimToken ? `missing ${claimToken}` : "missing";
+  }
+  return formatRuntimeClaimLine(claim);
+}
+
+function formatRuntimeClaimListText(
+  claims: RuntimeClaimRecord[],
+): string {
+  return claims.map((claim) => formatRuntimeClaimLine(claim)).join("\n");
+}
+
+type TaskListEntry = Awaited<ReturnType<typeof listTaskModels>>[number];
+
+interface TaskStatusReport {
+  schemaVersion: "task-status/v1";
+  id: string;
+  title: string;
+  filePath: string;
+  status: string;
+  statusReason?: string;
+  lifecycle: string;
+  validation: TaskModel["validation"];
+  runtime?: TaskModel["runtime"];
+  recovery: {
+    state:
+      | "ready"
+      | "not-needed"
+      | "recoverable"
+      | "force-required"
+      | "blocked"
+      | "not-recoverable";
+    forceRequired: boolean;
+    forceReasons: string[];
+    blockedReasons: string[];
+    warnings: string[];
+    gitState: TaskRecoveryGitState;
+    forceModes?: {
+      reset: string;
+      reconcile: string;
+    };
+    recommendation?: string;
+  };
+}
+
+function formatTaskListText(tasks: TaskListEntry[]): string {
+  if (tasks.length === 0) {
+    return "No open tasks.";
+  }
+  return tasks
+    .map((task) => `${task.id} | ${task.status} | ${task.title}`)
+    .join("\n");
+}
+
+function formatTaskListPorcelain(tasks: TaskListEntry[]): string {
+  return tasks
+    .map((task) =>
+      [task.id, task.status, task.title.replace(/\s+/g, " ").trim()].join("\t"),
+    )
+    .join("\n");
+}
+
+function taskNumberFromId(taskId: string): string {
+  return taskId.replace(/^wi-/, "");
+}
+
+function gitWorktreePathForBranch(
+  rootDir: string,
+  branchName: string,
+): string | undefined {
+  let output: string;
+  try {
+    output = execFileSync("git", ["worktree", "list", "--porcelain"], {
+      cwd: rootDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return undefined;
+  }
+
+  const matches: string[] = [];
+  let currentPath: string | undefined;
+  for (const line of output.split(/\r?\n/)) {
+    if (line.startsWith("worktree ")) {
+      currentPath = line.slice("worktree ".length);
+      continue;
+    }
+    if (
+      currentPath &&
+      line === `branch refs/heads/${branchName}`
+    ) {
+      matches.push(currentPath);
+    }
+  }
+
+  return matches.length === 1 ? path.resolve(matches[0]!) : undefined;
+}
+
+function resolveTaskStatusWorktree(
+  task: TaskModel,
+  rootDir: string,
+): string | undefined {
+  const branchCandidates = [
+    task.runtime?.latestExecutionLog?.branch,
+    `sandcastle/issue-${taskNumberFromId(task.id)}`,
+  ].filter((value): value is string => Boolean(value));
+  const uniqueBranches = [...new Set(branchCandidates)];
+
+  const worktrees = uniqueBranches
+    .map((branch) => gitWorktreePathForBranch(rootDir, branch))
+    .filter((value): value is string => Boolean(value));
+  const uniqueWorktrees = [...new Set(worktrees)];
+  return uniqueWorktrees.length === 1 ? uniqueWorktrees[0] : undefined;
+}
+
+function buildTaskStatusReport(
+  task: TaskModel,
+  options: {
+    rootDir?: string;
+    worktree?: string;
+  } = {},
+): TaskStatusReport {
+  const rootDir = path.resolve(options.rootDir ?? options.worktree ?? process.cwd());
+  const gitState = collectTaskRecoveryGitState({
+    rootDir,
+    taskFilePath: task.filePath,
+    expectedBranch: task.runtime?.latestExecutionLog?.branch,
+    expectedWorktree: options.worktree ?? task.runtime?.latestExecutionLog?.worktree,
+  });
+  const recoverable = isRecoverableReadyRuntimeState({
+    status: task.status,
+    runtime: task.runtime,
+    gitState,
+  });
+  const recoverableWithForce = isRecoverableReadyRuntimeState({
+    status: task.status,
+    runtime: task.runtime,
+    gitState,
+    allowUncertainLineage: true,
+  });
+  const blockedReasons = [
+    ...gitState.resumeBlockedReasons,
+    ...(task.runtime?.latestExecutionLog?.claimState === "active"
+      ? ["claim-active"]
+      : []),
+    ...((task.runtime?.latestExecutionLog?.lockCount ?? 0) > 0
+      ? ["locks-active"]
+      : []),
+  ];
+  const forceReasons =
+    !recoverable && recoverableWithForce
+      ? [...gitState.resumeWarnings]
+      : [];
+  const state: TaskStatusReport["recovery"]["state"] = task.runtime?.ready
+    ? "ready"
+    : !task.runtime?.latestExecutionLog
+      ? "not-needed"
+      : recoverable
+        ? "recoverable"
+        : recoverableWithForce
+          ? "force-required"
+          : blockedReasons.length > 0
+            ? "blocked"
+            : "not-recoverable";
+
+  return {
+    schemaVersion: "task-status/v1",
+    id: task.id,
+    title: task.title,
+    filePath: task.filePath,
+    status: task.status,
+    ...(task.statusReason ? { statusReason: task.statusReason } : {}),
+    lifecycle: task.lifecycle,
+    validation: task.validation,
+    ...(task.runtime ? { runtime: task.runtime } : {}),
+    recovery: {
+      state,
+      forceRequired: state === "force-required",
+      forceReasons,
+      blockedReasons,
+      warnings: gitState.resumeWarnings,
+      gitState,
+      ...(state === "force-required"
+        ? {
+            forceModes: {
+              reset: "Discard recoverable dirty paths before marking the task ready again.",
+              reconcile:
+                "Save a recovery checkpoint before discarding recoverable dirty paths.",
+            },
+            recommendation:
+              "Inspect the current branch and dirty paths first. Pass --worktree when you can identify the intended recovery checkout. Use --force reset only when this checkout is the intended task branch and task-local dirty paths can be discarded; use --force reconcile when you want a checkpoint first.",
+          }
+        : {}),
+    },
+  };
+}
+
+function isRecoveryActionable(state: TaskStatusReport["recovery"]["state"]): boolean {
+  return state === "recoverable" || state === "force-required";
+}
+
+async function resolveTaskRecoveryRootDir(
+  taskId: string,
+  options: {
+    worktree?: string;
+    backlogDir?: string;
+  } = {},
+): Promise<string | undefined> {
+  if (options.worktree) {
+    return path.resolve(options.worktree);
+  }
+
+  const commandRootDir = process.cwd();
+  const currentModel = await loadTaskModel(taskId, {
+    rootDir: commandRootDir,
+    backlogDir: options.backlogDir,
+  });
+  const currentReport = buildTaskStatusReport(currentModel, {
+    rootDir: commandRootDir,
+  });
+  if (isRecoveryActionable(currentReport.recovery.state)) {
+    return undefined;
+  }
+
+  const resolvedWorktree = resolveTaskStatusWorktree(
+    currentModel,
+    commandRootDir,
+  );
+  if (!resolvedWorktree || path.resolve(resolvedWorktree) === commandRootDir) {
+    return undefined;
+  }
+
+  const worktreeModel = await loadTaskModel(taskId, {
+    rootDir: resolvedWorktree,
+    backlogDir: options.backlogDir,
+  });
+  const worktreeReport = buildTaskStatusReport(worktreeModel, {
+    rootDir: resolvedWorktree,
+    worktree: resolvedWorktree,
+  });
+
+  return isRecoveryActionable(worktreeReport.recovery.state)
+    ? resolvedWorktree
+    : undefined;
+}
+
+async function recoverTaskIfSafelyRecoverable(
+  task: TaskModel,
+  options: {
+    holder?: string;
+    branch?: string;
+    worktree?: string;
+    ttlMinutes?: number;
+    backlogDir?: string;
+  } = {},
+): Promise<TaskModel> {
+  if (task.runtime?.ready !== false) {
+    return task;
+  }
+
+  const latestExecutionLog = task.runtime.latestExecutionLog;
+  if (
+    latestExecutionLog?.state !== "running" ||
+    latestExecutionLog.reason !== "started" ||
+    latestExecutionLog.claimState === "active" ||
+    (latestExecutionLog.lockCount ?? 0) !== 0
+  ) {
+    return task;
+  }
+
+  const rootDir = path.resolve(options.worktree ?? process.cwd());
+  const recoveryOptions = {
+    rootDir,
+    taskId: task.id,
+    backlogDir: options.backlogDir,
+    holder: options.holder,
+    branch: options.branch,
+    worktree: options.worktree ?? rootDir,
+    ttlMinutes: options.ttlMinutes,
+  };
+  try {
+    await recoverTaskClaim({
+      ...recoveryOptions,
+      dryRun: true,
+    });
+  } catch {
+    return task;
+  }
+
+  await recoverTaskClaim(recoveryOptions);
+
+  return loadTaskModel(task.id, {
+    rootDir,
+    backlogDir: options.backlogDir,
+  });
+}
+
+function yesNo(value: boolean): string {
+  return value ? "yes" : "no";
+}
+
+function formatTaskStatusText(report: TaskStatusReport): string {
+  const latest = report.runtime?.latestExecutionLog;
+  const lines = [
+    `${report.id} | ${report.status} | ${report.title}`,
+    `Path: ${report.filePath}`,
+    "",
+    "Readiness",
+    `- markdown: ${report.runtime?.markdownReady ? "ready" : "not ready"}`,
+    `- execution: ${report.runtime?.executionReady ? "ready" : "not ready"}`,
+    `- effective: ${report.runtime?.ready ? "ready" : "not ready"}`,
+    `- source disagreement: ${yesNo(report.runtime?.sourceDisagreement ?? false)}`,
+  ];
+  if (latest) {
+    lines.push(
+      `- latest execution: ${latest.state}/${latest.reason} claim=${latest.claimState ?? "unknown"} locks=${latest.lockCount ?? "unknown"}`,
+    );
+  }
+  lines.push(
+    "",
+    "Recovery",
+    `- state: ${report.recovery.state}`,
+    `- force required: ${yesNo(report.recovery.forceRequired)}`,
+  );
+  if (report.recovery.forceReasons.length > 0) {
+    lines.push(`- force reasons: ${report.recovery.forceReasons.join(", ")}`);
+  }
+  if (report.recovery.blockedReasons.length > 0) {
+    lines.push(`- blocked reasons: ${report.recovery.blockedReasons.join(", ")}`);
+  }
+  if (report.recovery.recommendation) {
+    lines.push(`- recommendation: ${report.recovery.recommendation}`);
+  }
+  lines.push(
+    "",
+    "Git",
+    `- current branch: ${report.recovery.gitState.currentBranch ?? "unknown"}`,
+    `- expected branch: ${report.recovery.gitState.expectedBranch ?? "unknown"}`,
+    `- current worktree: ${report.recovery.gitState.currentWorktree}`,
+    `- expected worktree: ${report.recovery.gitState.expectedWorktree ?? "unknown"}`,
+    `- lineage known: ${yesNo(report.recovery.gitState.lineageKnown)}`,
+    `- branch lineage known: ${yesNo(report.recovery.gitState.branchLineageKnown)}`,
+    `- worktree lineage known: ${yesNo(report.recovery.gitState.worktreeLineageKnown)}`,
+    `- merge/rebase in progress: ${yesNo(report.recovery.gitState.mergeInProgress || report.recovery.gitState.rebaseInProgress)}`,
+    `- dirty paths: ${report.recovery.gitState.dirtyPaths.length}`,
+    `- task path dirty: ${yesNo(report.recovery.gitState.taskPathDirty)}`,
+  );
+  return lines.join("\n");
+}
+
+function formatRuntimeExecutionTerminalText(
+  result: RuntimeExecutionTerminalResult,
+): string {
+  return `${result.claimToken} ${result.executionLogEntry.state} ${result.executionLogEntry.reason}`;
+}
+
+function formatRuntimeRecoveryText(result: {
+  claimToken?: string;
+  taskId: string;
+  dryRun?: boolean;
+  warnings?: string[];
+  checkpoint?: { filePath: string; mode: string };
+  plannedInitialLockPaths?: string[];
+  plannedCheckpoint?: { mode: string; directory: string };
+}): string {
+  if (result.dryRun) {
+    const lockText =
+      result.plannedInitialLockPaths && result.plannedInitialLockPaths.length > 0
+        ? ` locks=${result.plannedInitialLockPaths.join(",")}`
+        : "";
+    const checkpointText = result.plannedCheckpoint
+      ? ` checkpoint=${result.plannedCheckpoint.mode}:${result.plannedCheckpoint.directory}`
+      : "";
+    const warningText =
+      result.warnings && result.warnings.length > 0
+        ? ` warnings=${result.warnings.join(",")}`
+        : "";
+    return `dry-run recovered ${result.taskId}${lockText}${checkpointText}${warningText}`;
+  }
+  const checkpointText = result.checkpoint
+    ? ` checkpoint=${result.checkpoint.mode}:${result.checkpoint.filePath}`
+    : "";
+  const warningText =
+    result.warnings && result.warnings.length > 0
+      ? ` warnings=${result.warnings.join(",")}`
+      : "";
+  return `${result.claimToken ?? "unknown"} recovered ${result.taskId}${checkpointText}${warningText}`;
+}
+
+function formatRecordCreationText(result: {
+  id: string;
+  filePath: string;
+  dryRun: boolean;
+}): string {
+  return `${result.id} ${result.dryRun ? "preview" : "created"} ${result.filePath}`;
+}
+
+function formatRecordPorcelain(result: {
+  id: string;
+  filePath: string;
+  dryRun: boolean;
+}): string {
+  return [result.id, result.filePath, result.dryRun ? "dry-run" : "written"].join(
+    "\t",
+  );
+}
+
+function formatTaskRecordPorcelain(result: {
+  claimId: string;
+  taskId: string;
+  record: { id: string; filePath: string; dryRun: boolean };
+  evidenceLink: string;
+}): string {
+  return [
+    result.claimId,
+    result.taskId,
+    result.record.id,
+    result.record.filePath,
+    result.evidenceLink,
+    result.record.dryRun ? "dry-run" : "written",
+  ].join("\t");
+}
+
+function formatClaimCompletionText(result: {
+  claimId: string;
+  taskId: string;
+  dryRun: boolean;
+}): string {
+  return `${result.claimId} ${result.taskId} ${
+    result.dryRun ? "preview" : "completed"
+  }`;
+}
+
+function formatClaimCompletionPorcelain(result: {
+  claimId: string;
+  taskId: string;
+  dryRun: boolean;
+}): string {
+  return [result.claimId, result.taskId, result.dryRun ? "dry-run" : "completed"].join(
+    "\t",
+  );
+}
+
+async function runClaimSuccessRelease(
+  claimToken: string,
+  opts: {
+    json?: boolean;
+    porcelain?: boolean;
+    dryRun?: boolean;
+    backlogDir?: string;
+    consumerConfig?: string;
+  },
+): Promise<void> {
+  if (opts.json && opts.porcelain) {
+    throw new Error("Use either --json or --porcelain, not both.");
+  }
+  const result = await completeTaskClaim({
+    claimId: claimToken,
+    rootDir: runtimeRootDir(),
+    backlogDir: opts.backlogDir,
+    consumerConfig: opts.consumerConfig,
+    dryRun: opts.dryRun,
+  });
+  if (opts.json) {
+    printTaskJson(result);
+    return;
+  }
+  if (opts.porcelain) {
+    printTaskPorcelain([
+      result.claimId,
+      result.taskId,
+      result.dryRun ? "dry-run" : "released",
+    ]);
+    return;
+  }
+  console.log(formatClaimCompletionText(result));
+}
+
+function runClaimFailedRelease(
+  claimToken: string,
+  opts: { json?: boolean },
+): void {
+  const store = claimExecutionStore(runtimeRootDir());
+  try {
+    const result = store.failRuntimeExecution(claimToken);
+    if (opts.json) {
+      printTaskJson(result);
+      return;
+    }
+    console.log(formatRuntimeExecutionTerminalText(result));
+  } finally {
+    store.close();
+  }
+}
+
+async function runClaimHaltedRelease(
+  claimToken: string,
+  opts: {
+    reason: RuntimeExecutionHaltedReason;
+    code: string;
+    message?: string;
+    json?: boolean;
+  },
+): Promise<void> {
+  const rootDir = runtimeRootDir();
+  const store = claimExecutionStore(rootDir);
+  try {
+    const audit = store.auditChangedFiles(claimToken, {});
+    const halted = haltClaimExecution(store, claimToken, {
+      reason: opts.reason,
+      code: opts.code,
+      message: opts.message,
+      dirtyPaths: audit.changedPaths,
+      unlockedPaths: audit.diagnostics
+        .filter((diagnostic) => diagnostic.actualLockState !== "owned")
+        .map((diagnostic) => diagnostic.path),
+      audit,
+    });
+
+    if (
+      opts.reason === "conflict" &&
+      opts.code === "lock" &&
+      halted.claim.target_type === "task"
+    ) {
+      try {
+        await transitionWorkItem({
+          id: halted.claim.target_id,
+          status: "paused",
+          statusReason: "system",
+        });
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    if (opts.json) {
+      printTaskJson(halted);
+      return;
+    }
+    console.log(
+      `${halted.claimToken} released ${halted.executionLogEntry.reason}`,
+    );
+  } finally {
+    store.close();
+  }
+}
+
+async function runTaskRecoveryCommand(
+  taskId: string,
+  opts: {
+    holder?: string;
+    branch?: string;
+    worktree?: string;
+    ttlMinutes?: string;
+    force?: string;
+    dryRun?: boolean;
+    json?: boolean;
+    backlogDir?: string;
+  },
+): Promise<void> {
+  const ttlMinutes = parseOptionalFiniteMinutes(opts.ttlMinutes);
+  const force = parseRecoveryForceMode(opts.force);
+  const rootDir = await resolveTaskRecoveryRootDir(taskId, {
+    worktree: opts.worktree,
+    backlogDir: opts.backlogDir,
+  });
+  const result = await recoverTaskClaim({
+    rootDir,
+    taskId,
+    backlogDir: opts.backlogDir,
+    holder: opts.holder,
+    branch: opts.branch,
+    worktree: opts.worktree ?? rootDir,
+    ttlMinutes,
+    force,
+    dryRun: opts.dryRun,
+  });
+  if (opts.json) {
+    printTaskJson(result);
+    return;
+  }
+  console.log(formatRuntimeRecoveryText(result));
+}
+
+function formatRuntimeClaimCreationText(
+  result: ReturnType<RuntimeSqliteStore["acquireRuntimeClaim"]>,
+): string {
+  return `${result.claimToken} ${result.executionLogEntry.state} ${result.executionLogEntry.reason}`;
+}
+
+function createRuntimeClaim(
+  target: { targetType: string; targetId: string },
+  opts: {
+    rootDir?: string;
+    holder?: string;
+    branch?: string;
+    worktree?: string;
+    ttlMinutes?: number;
+  },
+): ReturnType<RuntimeSqliteStore["acquireRuntimeClaim"]> {
+  const store = claimExecutionStore(resolveGitRoot(opts.rootDir));
+  try {
+    const now = new Date();
+    const ttlMilliseconds =
+      opts.ttlMinutes === undefined
+        ? getRuntimeClaimDefaultTtlMilliseconds()
+        : opts.ttlMinutes * 60_000;
+    return store.acquireRuntimeClaim({
+      schema_version: "runtime-entity/v1",
+      target_type: target.targetType,
+      target_id: target.targetId,
+      holder: opts.holder?.trim() || "local-agent",
+      created_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + ttlMilliseconds).toISOString(),
+      ...(opts.branch || opts.worktree
+        ? {
+            metadata: {
+              ...(opts.branch ? { branch: opts.branch } : {}),
+              ...(opts.worktree ? { worktree: opts.worktree } : {}),
+            },
+          }
+        : {}),
+      entropy: randomUUID(),
+    });
+  } finally {
+    store.close();
+  }
+}
+
+function collectChangedPaths(rootDir: string): string[] {
+  try {
+    const output = execFileSync(
+      "git",
+      ["status", "--porcelain=v1", "-uall"],
+      {
+        cwd: rootDir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
+    if (!output) {
+      return [];
+    }
+    const paths = new Set<string>();
+    for (const line of output.split("\n")) {
+      const entry = line.trimEnd();
+      if (!entry) {
+        continue;
+      }
+      const rawPath = entry.slice(3).trim();
+      const pathValue = rawPath.includes(" -> ")
+        ? rawPath.split(" -> ").pop() ?? ""
+        : rawPath;
+      if (!pathValue) {
+        continue;
+      }
+      paths.add(pathValue);
+    }
+    return [...paths].sort();
+  } catch {
+    return [];
+  }
+}
+
+function buildHaltDetail(
+  options: {
+    code: string;
+    message?: string;
+    dirtyPaths?: string[];
+    unlockedPaths?: string[];
+    audit?: RuntimeChangedFileAuditResult;
+  },
+): RuntimeExecutionHaltDetail {
+  return {
+    code: options.code,
+    ...(options.message ? { message: options.message } : {}),
+    ...(options.dirtyPaths && options.dirtyPaths.length > 0
+      ? { "x-dirty-paths": options.dirtyPaths }
+      : {}),
+    ...(options.unlockedPaths && options.unlockedPaths.length > 0
+      ? { "x-unlocked-paths": options.unlockedPaths }
+      : {}),
+    ...(options.audit
+      ? {
+          "x-changed-file-audit": {
+            claimToken: options.audit.claimToken,
+            mergeTargetRef: options.audit.mergeTargetRef,
+            fresh: options.audit.fresh,
+            mergeable: options.audit.mergeable,
+            passed: options.audit.passed,
+            changedPaths: options.audit.changedPaths,
+            diagnostics: options.audit.diagnostics,
+            renameDiagnostics: options.audit.renameDiagnostics,
+          },
+        }
+      : {}),
+  };
+}
+
+function selectUnlockedPaths(
+  claimToken: string,
+  changedPaths: string[],
+  locks: readonly RuntimeLockRecord[],
+): string[] {
+  return changedPaths.filter(
+    (changedPath) =>
+      !locks.some(
+        (lock) => lock.claim_token === claimToken && lock.path === changedPath,
+      ),
+  );
+}
+
+function haltClaimExecution(
+  store: RuntimeSqliteStore,
+  claimToken: string,
+  options: {
+    reason: RuntimeExecutionHaltedReason;
+    code: string;
+    message?: string;
+    dirtyPaths?: string[];
+    unlockedPaths?: string[];
+    audit?: RuntimeChangedFileAuditResult;
+  },
+): ReturnType<RuntimeSqliteStore["haltRuntimeExecution"]> {
+  return store.haltRuntimeExecution(claimToken, {
+    reason: options.reason,
+    detail: buildHaltDetail(options),
+  });
+}
+
+// --- DOMAIN: claim ---
+const claim = program
+  .command("claim")
+  .description("Runtime claim command surface")
+  .showHelpAfterError(true);
+
+claim.action(async () => {
+  try {
+    const store = claimExecutionStore(runtimeRootDir());
+    try {
+      const claims = store
+        .listClaims()
+        .filter((entry) => entry.state === "active");
+      const text = formatRuntimeClaimListText(claims);
+      if (text.length > 0) {
+        console.log(text);
+      }
+    } finally {
+      store.close();
+    }
+  } catch (error) {
+    failTaskCommand(error);
+  }
+});
+
+claim
+  .command("status")
+  .description("Show claim status for one claim or a filtered claim set")
+  .argument("[claim-token]", "Claim token to inspect")
+  .option("--filter <time-filter>", "Filter claim status by expiry time")
+  .option("--json", "Emit machine-readable JSON")
+  .action(
+    async (
+      claimToken: string | undefined,
+      opts: { filter?: string; json?: boolean },
+    ) => {
+      try {
+        if (!claimToken && !opts.filter) {
+          throw new TaskCommandError(
+            "CLAIM_INVALID_SELECTOR",
+            "Provide a claim token or --filter to inspect claims.",
+          );
+        }
+        if (claimToken && opts.filter) {
+          throw new TaskCommandError(
+            "CLAIM_INVALID_SELECTOR",
+            "Use either a claim token or --filter, not both.",
+          );
+        }
+
+        const store = claimExecutionStore(runtimeRootDir());
+        try {
+          if (opts.filter) {
+            const cutoff = parseTimeFilter(opts.filter);
+            const claims = store
+              .listClaims()
+              .filter((entry) => Date.parse(entry.expires_at) <= cutoff.getTime())
+              .sort((left, right) => {
+                return Date.parse(left.expires_at) - Date.parse(right.expires_at);
+              });
+            if (opts.json) {
+              printTaskJson({ claims });
+            } else {
+              const text = formatRuntimeClaimListText(claims);
+              if (text.length > 0) {
+                console.log(text);
+              }
+            }
+            return;
+          }
+
+          const existingClaim = store.getClaimByToken(claimToken!);
+          const claim = existingClaim
+            ? store.touchClaimContext(claimToken!)
+            : undefined;
+          if (opts.json) {
+            printTaskJson({
+              claimToken,
+              state: claim?.state ?? "missing",
+              claim: claim ?? null,
+            });
+          } else {
+            console.log(formatRuntimeClaimStatusText(claim, claimToken));
+          }
+        } finally {
+          store.close();
+        }
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+claim
+  .command("create")
+  .description("Create a runtime claim for a task target")
+  .requiredOption("--target <target>", "Claim target in the form task:<task-id>")
+  .option("--holder <holder>", "Claim holder identity")
+  .option("--branch <branch>", "Branch or ref context")
+  .option("--worktree <path>", "Worktree path")
+  .option("--ttl-minutes <minutes>", "Claim time-to-live in minutes")
+  .option("--json", "Emit machine-readable JSON")
+  .action(
+    async (
+      opts: {
+        target: string;
+        holder?: string;
+        branch?: string;
+        worktree?: string;
+        ttlMinutes?: string;
+        json?: boolean;
+      },
+    ) => {
+      try {
+        const target = parseClaimTarget(opts.target);
+        const model = await loadTaskModel(target.targetId, {});
+        assertTaskClaimable(model);
+        const ttlMinutes = parseOptionalFiniteMinutes(opts.ttlMinutes);
+        const result = createRuntimeClaim(target, {
+          holder: opts.holder,
+          branch: opts.branch,
+          worktree: opts.worktree,
+          ttlMinutes,
+        });
+
+        if (opts.json) {
+          printTaskJson(result);
+          if (result.outcome === "conflict") {
+            process.exit(1);
+          }
+          return;
+        }
+        if (result.outcome === "conflict") {
+          console.error(formatRuntimeClaimCreationText(result));
+          process.exit(1);
+          return;
+        }
+        console.log(formatRuntimeClaimCreationText(result));
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+claim
+  .command("release")
+  .description("Release a claim with an explicit outcome")
+  .argument("<claim-token>", "Claim token to release")
+  .requiredOption(
+    "--outcome <outcome>",
+    `Release outcome: ${CLAIM_RELEASE_OUTCOMES.join("|")}`,
+  )
+  .option(
+    "--code <code>",
+    "Structured detail code for non-success outcomes",
+    "x-runtime-claim-released",
+  )
+  .option("--message <message>", "Human-readable release detail")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--porcelain", "Emit stable script-friendly output for success")
+  .option("--dry-run", "Validate and render success mutation without writing files")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .option(
+    "--consumer-config <path>",
+    "Path to consumer config JSON",
+    ".doc-vader/backlog-consumer.json",
+  )
+  .action(async (
+    claimToken: string,
+    opts: {
+      outcome: string;
+      code: string;
+      message?: string;
+      json?: boolean;
+      porcelain?: boolean;
+      dryRun?: boolean;
+      backlogDir?: string;
+      consumerConfig?: string;
+    },
+  ) => {
+    try {
+      const outcome = parseClaimReleaseOutcome(opts.outcome);
+      if (outcome === "success") {
+        await runClaimSuccessRelease(claimToken, opts);
+        return;
+      }
+      if (opts.porcelain || opts.dryRun) {
+        throw new TaskCommandError(
+          "CLAIM_RELEASE_OPTION_CONFLICT",
+          "--porcelain and --dry-run only apply to --outcome success.",
+          { outcome },
+        );
+      }
+      if (outcome === "failed") {
+        runClaimFailedRelease(claimToken, opts);
+        return;
+      }
+      await runClaimHaltedRelease(claimToken, {
+        reason: outcome,
+        code: opts.code,
+        message: opts.message,
+        json: opts.json,
+      });
+    } catch (error) {
+      failTaskCommand(error, opts.json);
+    }
+  });
+
+claim
+  .command("cleanup")
+  .description("Clean up released or expired claims")
+  .argument("[claim-token]", "Released or expired claim token to clean up")
+  .option(
+    "--expired <time-filter>",
+    "Clean up expired terminal claims matching a time filter",
+  )
+  .option("--json", "Emit machine-readable JSON")
+  .action(
+    async (
+      claimToken: string | undefined,
+      opts: { expired?: string; json?: boolean },
+    ) => {
+      try {
+        if (claimToken && opts.expired) {
+          throw new TaskCommandError(
+            "CLAIM_CLEANUP_INVALID_SELECTOR",
+            "Use either a claim token or --expired, not both.",
+          );
+        }
+        if (!claimToken && !opts.expired) {
+          throw new TaskCommandError(
+            "CLAIM_CLEANUP_INVALID_SELECTOR",
+            "Provide a claim token or --expired time filter.",
+          );
+        }
+
+        const result = opts.expired
+          ? withClaimExecutionStore((store) =>
+              store.pruneRuntimeClaims(parseTimeFilter(opts.expired!)),
+            )
+          : withClaimExecutionStore((store) =>
+              store.removeRuntimeClaim(claimToken!),
+            );
+        emitRuntimeClaimCleanupResult(result, opts.json);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+function runtimeStore(): RuntimeSqliteStore {
+  return openRuntimeSqliteStore({ rootDir: process.cwd() });
+}
+
+function withClaimExecutionStore<T>(
+  callback: (store: RuntimeSqliteStore) => T,
+): T {
+  const store = claimExecutionStore(runtimeRootDir());
+  try {
+    return callback(store);
+  } finally {
+    store.close();
+  }
+}
+
+function formatRuntimeLockStatusText(result: RuntimeLockStatusResult): string {
+  if (result.state === "missing") {
+    return `missing ${result.claimToken}`;
+  }
+  if (result.locks.length === 0) {
+    return `${result.claimToken} ${result.state} (no locks)`;
+  }
+  return result.locks
+    .map((lock) => `${lock.state} ${lock.path} ${lock.key}`)
+    .join("\n");
+}
+
+function formatRuntimeLockAcquisitionConflictText(
+  conflicts: RuntimeLockConflictDetail[],
+): string {
+  return conflicts
+    .map((conflict) => `${conflict.path}: ${conflict.owner.claim_token} (${conflict.owner.target_id})`)
+    .join("\n");
+}
+
+function formatRuntimeLockRemovalText(result: RuntimeLockRemovalResult): string {
+  if (result.outcome === "removed") {
+    return result.removed.length > 0
+      ? result.removed.map((lock) => `removed ${lock.path}`).join("\n")
+      : `removed ${result.claimToken} (no locks)`;
+  }
+  return result.conflicts
+    .map((conflict) => `${conflict.reason} ${conflict.path} ${conflict.message}`)
+    .join("\n");
+}
+
+function formatRuntimeClaimCleanupConflictText(
+  conflicts: RuntimeClaimCleanupConflictDetail[],
+): string {
+  return conflicts
+    .map(
+      (conflict) =>
+        `${conflict.reason} ${conflict.claim_token} ${conflict.message}`,
+    )
+    .join("\n");
+}
+
+function formatRuntimeClaimCleanupText(result: RuntimeClaimCleanupResult): string {
+  if (result.outcome === "conflict") {
+    return formatRuntimeClaimCleanupConflictText(result.conflicts);
+  }
+  return result.removed.length
+    ? `removed ${result.removed.length} claim(s).`
+    : "removed 0 claim(s).";
+}
+
+function emitRuntimeClaimCleanupResult(
+  result: RuntimeClaimCleanupResult,
+  json?: boolean,
+): void {
+  if (json) {
+    printTaskJson(result);
+    if (result.outcome === "conflict") {
+      process.exit(1);
+    }
+    return;
+  }
+
+  const text = formatRuntimeClaimCleanupText(result);
+  if (result.outcome === "conflict") {
+    console.error(text);
+    process.exit(1);
+  }
+  console.log(text);
 }
 
 // --- DOMAIN: work-management ---
@@ -181,6 +1423,54 @@ workManagement
 const task = program
   .command("task")
   .description("Sandcastle dogfood task commands");
+
+task
+  .command("list")
+  .description("List open backlog tasks")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--porcelain", "Emit stable script-friendly task lines")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(
+    async (opts: {
+      json?: boolean;
+      porcelain?: boolean;
+      backlogDir?: string;
+    }) => {
+      try {
+        if (opts.json && opts.porcelain) {
+          throw new TaskCommandError(
+            "TASK_LIST_FORMAT_CONFLICT",
+            "Use either --json or --porcelain, not both.",
+          );
+        }
+        const tasks = (await listTaskModels({ backlogDir: opts.backlogDir }))
+          .sort((left, right) => left.id.localeCompare(right.id));
+        if (opts.json) {
+          printTaskJson({
+            schemaVersion: "task-list/v1",
+            tasks: tasks.map((task) => ({
+              id: task.id,
+              status: task.status,
+              title: task.title,
+              filePath: task.filePath,
+              lifecycle: task.lifecycle,
+              ...(task.statusReason ? { statusReason: task.statusReason } : {}),
+              runtime: task.runtime,
+            })),
+          });
+          return;
+        }
+        const output = opts.porcelain
+          ? formatTaskListPorcelain(tasks)
+          : formatTaskListText(tasks);
+        if (output.length > 0) {
+          console.log(output);
+        }
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
 
 task
   .command("ready")
@@ -256,6 +1546,54 @@ task
   });
 
 task
+  .command("status")
+  .description("Show operational task status and recovery diagnostics")
+  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .option("--json", "Emit operational task status JSON")
+  .option("--worktree <path>", "Inspect status from a specific worktree")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(
+    async (
+      taskId: string,
+      opts: {
+        json?: boolean;
+        worktree?: string;
+        backlogDir?: string;
+      },
+    ) => {
+      try {
+        const commandRootDir = process.cwd();
+        const initialRootDir = opts.worktree
+          ? path.resolve(opts.worktree)
+          : commandRootDir;
+        const initialModel = await loadTaskModel(taskId, {
+          rootDir: initialRootDir,
+          backlogDir: opts.backlogDir,
+        });
+        const resolvedWorktree = opts.worktree
+          ? path.resolve(opts.worktree)
+          : resolveTaskStatusWorktree(initialModel, commandRootDir);
+        const rootDir = resolvedWorktree ?? initialRootDir;
+        const model = await loadTaskModel(taskId, {
+          rootDir,
+          backlogDir: opts.backlogDir,
+        });
+        const report = buildTaskStatusReport(model, {
+          rootDir,
+          worktree: resolvedWorktree,
+        });
+        if (opts.json) {
+          printTaskJson(report);
+          return;
+        }
+        console.log(formatTaskStatusText(report));
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
   .command("prompt")
   .description("Render a Sandcastle-oriented prompt from canonical task JSON")
   .argument("<task-id>", "Task id, numeric id, or task file basename")
@@ -279,7 +1617,7 @@ task
   .option("--json", "Emit machine-readable JSON")
   .option("--holder <holder>", "Claim holder identity")
   .option("--branch <branch>", "Branch or ref context")
-  .option("--sandbox <path>", "Sandbox or workspace path")
+  .option("--worktree <path>", "Worktree path")
   .option("--ttl-minutes <minutes>", "Claim time-to-live in minutes")
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
   .action(
@@ -289,16 +1627,12 @@ task
         json?: boolean;
         holder?: string;
         branch?: string;
-        sandbox?: string;
+        worktree?: string;
         ttlMinutes?: string;
         backlogDir?: string;
       },
     ) => {
       try {
-        const model = await loadTaskModel(taskId, {
-          backlogDir: opts.backlogDir,
-        });
-        assertTaskClaimable(model);
         const ttlMinutes =
           typeof opts.ttlMinutes === "string"
             ? Number.parseInt(opts.ttlMinutes, 10)
@@ -309,17 +1643,90 @@ task
             "Claim TTL must be a finite number of minutes.",
           );
         }
-        const result = await claimTask(model.id, {
-          holder: opts.holder,
-          branch: opts.branch,
-          sandbox: opts.sandbox,
-          ttlMinutes,
+        const initialRootDir = resolveGitRoot(opts.worktree);
+        const initialModel = await loadTaskModel(taskId, {
+          rootDir: initialRootDir,
+          backlogDir: opts.backlogDir,
         });
+        const authority = resolveTaskAuthority({
+          rootDir: initialRootDir,
+          taskId: initialModel.id,
+          runtimeBranch: initialModel.runtime?.latestExecutionLog?.branch,
+          worktree: opts.worktree,
+        });
+        const branch = opts.branch ?? authority.branch;
+        let model = await loadTaskModel(taskId, {
+          rootDir: authority.rootDir,
+          backlogDir: opts.backlogDir,
+        });
+        model = await recoverTaskIfSafelyRecoverable(model, {
+          holder: opts.holder,
+          branch,
+          worktree: authority.rootDir,
+          ttlMinutes,
+          backlogDir: opts.backlogDir,
+        });
+        assertTaskClaimable(model);
+        const result = createRuntimeClaim(
+          { targetType: "task", targetId: model.id },
+          {
+            rootDir: authority.rootDir,
+            holder: opts.holder,
+            branch,
+            worktree: opts.worktree,
+            ttlMinutes,
+          },
+        );
         if (opts.json) {
           printTaskJson(result);
+          if (result.outcome === "conflict") {
+            process.exit(1);
+          }
           return;
         }
-        console.log(`${result.claimId} ${result.state} ${result.taskId}`);
+        if (result.outcome === "conflict") {
+          console.error(formatRuntimeClaimCreationText(result));
+          process.exit(1);
+          return;
+        }
+        console.log(formatRuntimeClaimCreationText(result));
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+task
+  .command("recover")
+  .description("Recover a halted task and make it claimable again")
+  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .option("--holder <holder>", "Claim holder identity")
+  .option("--branch <branch>", "Branch or ref context")
+  .option("--worktree <path>", "Run recovery in a specific worktree")
+  .option("--ttl-minutes <minutes>", "Claim time-to-live in minutes")
+  .option(
+    "--force <mode>",
+    recoveryForceHelp(),
+  )
+  .option("--dry-run", "Validate recovery without acquiring claims or writing files")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+  .action(
+    async (
+      taskId: string,
+      opts: {
+        holder?: string;
+        branch?: string;
+        worktree?: string;
+        ttlMinutes?: string;
+        force?: string;
+        dryRun?: boolean;
+        json?: boolean;
+        backlogDir?: string;
+      },
+    ) => {
+      try {
+        await runTaskRecoveryCommand(taskId, opts);
       } catch (error) {
         failTaskCommand(error, opts.json);
       }
@@ -330,8 +1737,10 @@ task
   .command("record")
   .description("Create and link claim-scoped task evidence")
   .requiredOption("--claim <claim-id>", "Active claim id")
+  .requiredOption("--type <record-type>", "Record subtype, e.g. test-result")
   .requiredOption("--payload <json-file|->", "Record payload JSON file or stdin")
   .option("--json", "Emit machine-readable JSON")
+  .option("--porcelain", "Emit stable script-friendly output")
   .option(
     "--consumer-config <path>",
     "Path to consumer config JSON",
@@ -341,15 +1750,21 @@ task
   .action(
     async (opts: {
       claim: string;
+      type: string;
       payload: string;
       json?: boolean;
+      porcelain?: boolean;
       consumerConfig?: string;
       dryRun?: boolean;
     }) => {
       try {
-        const payload = await readTaskRecordPayload(opts.payload, process.stdin);
+        if (opts.json && opts.porcelain) {
+          throw new Error("Use either --json or --porcelain, not both.");
+        }
+        const payload = await readRecordPayload(opts.payload, process.stdin);
         const result = await recordTaskEvidence({
           claimId: opts.claim,
+          type: opts.type,
           payload,
           consumerConfig: opts.consumerConfig,
           dryRun: opts.dryRun,
@@ -358,9 +1773,126 @@ task
           printTaskJson(result);
           return;
         }
+        if (opts.porcelain) {
+          printTaskPorcelain([
+            result.claimId,
+            result.taskId,
+            result.record.id,
+            result.evidenceLink,
+            result.record.filePath,
+          ]);
+          return;
+        }
         console.log(`${result.taskId} ${result.evidenceLink}`);
       } catch (error) {
         failTaskCommand(error, opts.json);
+      }
+    },
+  );
+
+// --- DOMAIN: lock ---
+const lock = program
+  .command("lock")
+  .description("Runtime file lock commands");
+
+lock
+  .command("create")
+  .description("Acquire claim-owned file locks")
+  .requiredOption("--claim <claim-token>", "Active runtime claim token")
+  .argument("<paths...>", "Paths to lock")
+  .option("--json", "Emit machine-readable JSON")
+  .action(
+    async (
+      paths: string[],
+      opts: {
+        claim: string;
+        json?: boolean;
+      },
+    ) => {
+      const store = runtimeStore();
+      try {
+        const result = store.acquireRuntimeLocks(opts.claim, paths);
+        if (opts.json) {
+          printTaskJson(result);
+          if (result.outcome === "conflict") {
+            process.exit(1);
+          }
+        } else if (result.outcome === "acquired") {
+          console.log(
+            result.locks.map((lockRecord) => `locked ${lockRecord.path}`).join("\n"),
+          );
+        } else {
+          console.error(formatRuntimeLockAcquisitionConflictText(result.conflicts));
+          process.exit(1);
+        }
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      } finally {
+        store.close();
+      }
+    },
+  );
+
+lock
+  .command("rm")
+  .description("Release claim-owned file locks")
+  .requiredOption("--claim <claim-token>", "Active runtime claim token")
+  .argument("<paths...>", "Paths to unlock")
+  .option("--json", "Emit machine-readable JSON")
+  .action(
+    async (
+      paths: string[],
+      opts: {
+        claim: string;
+        json?: boolean;
+      },
+    ) => {
+      const store = runtimeStore();
+      try {
+        const result = store.removeRuntimeLocks(opts.claim, paths);
+        if (opts.json) {
+          printTaskJson(result);
+          if (result.outcome === "conflict") {
+            process.exit(1);
+          }
+        } else if (result.outcome === "removed") {
+          console.log(
+            result.removed.map((lockRecord) => `released ${lockRecord.path}`).join("\n"),
+          );
+        } else {
+          console.error(formatRuntimeLockRemovalText(result));
+          process.exit(1);
+        }
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      } finally {
+        store.close();
+      }
+    },
+  );
+
+lock
+  .command("status")
+  .description("Show the current locks for a claim")
+  .requiredOption("--claim <claim-token>", "Active runtime claim token")
+  .option("--json", "Emit machine-readable JSON")
+  .action(
+    async (opts: {
+      claim: string;
+      json?: boolean;
+    }) => {
+      const store = runtimeStore();
+      try {
+        const result = store.getLockStatus(opts.claim);
+        if (opts.json) {
+          printTaskJson(result);
+        } else {
+          console.log(formatRuntimeLockStatusText(result));
+        }
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      } finally {
+        store.close();
       }
     },
   );
@@ -543,6 +2075,24 @@ backlog
 
     if (report.exit_code !== 0) {
       process.exit(report.exit_code);
+    }
+  });
+
+backlog
+  .command("review")
+  .description("Run the deterministic backlog review profile")
+  .option("-d, --dir <path>", "Path to the backlog directory", "backlog")
+  .option("--json", "Emit machine-readable JSON")
+  .action(async (opts: { dir: string; json?: boolean }) => {
+    try {
+      const report = await runBacklogReview({ backlogDir: opts.dir });
+      if (opts.json) {
+        console.log(formatBacklogReviewReportJson(report));
+      } else {
+        console.log(formatBacklogReviewReportText(report));
+      }
+    } catch (error) {
+      failTaskCommand(error, opts.json);
     }
   });
 
@@ -803,48 +2353,53 @@ const record = program
 
 record
   .command("create")
-  .description("Create an append-only record artifact such as a test-result")
-  .requiredOption("--summary <summary>", "Record summary")
-  .requiredOption("--observation <observation>", "Primary record observation")
-  .requiredOption(
-    "--subject <subject>",
-    "Subject wikilink or reference",
-    collectOption,
-  )
-  .option("--id <id>", "Canonical record id")
-  .option("--type <subtype>", "Record subtype, e.g. test-result")
-  .option("--status <status>", "Lifecycle status")
-  .option("--reason <reason>", "Status reason token/value")
-  .option("--outcome <outcome>", "Outcome token, e.g. pass|fail|mixed|noted")
-  .option("--recorded-at <timestamp>", "Record timestamp in ISO 8601 form")
-  .option("--artifact-ref <ref>", "Artifact reference", collectOption, [])
-  .option("--supporting-ref <ref>", "Supporting reference", collectOption, [])
-  .option("--finding <finding>", "Finding line", collectOption, [])
-  .option("--note <note>", "Additional note line", collectOption, [])
+  .description("Create an append-only record artifact from a validated payload")
+  .requiredOption("--type <record-type>", "Record subtype, e.g. test-result")
+  .requiredOption("--payload <json-file|->", "Record payload JSON file or stdin")
+  .option("--json", "Emit machine-readable JSON")
+  .option("--porcelain", "Emit stable script-friendly output")
   .option("--consumer-config <path>", "Path to consumer config JSON")
   .option("--dry-run", "Show the mutation without writing files")
-  .action(async (opts) => {
-    const subjects = Array.isArray(opts.subject)
-      ? opts.subject
-      : [opts.subject];
-    const result = await createWorkRecord({
-      id: opts.id,
-      summary: opts.summary,
-      observation: opts.observation,
-      subjects,
-      subtype: opts.type,
-      status: opts.status,
-      statusReason: opts.reason,
-      outcome: opts.outcome,
-      recordedAt: opts.recordedAt,
-      artifactRefs: opts.artifactRef,
-      supportingRefs: opts.supportingRef,
-      findings: opts.finding,
-      notes: opts.note,
-      consumerConfig: opts.consumerConfig,
-      dryRun: opts.dryRun,
-    });
-    console.log(JSON.stringify(result, null, 2));
+  .action(async (opts: {
+    type: string;
+    payload: string;
+    json?: boolean;
+    porcelain?: boolean;
+    consumerConfig?: string;
+    dryRun?: boolean;
+  }) => {
+    try {
+      if (opts.json && opts.porcelain) {
+        throw new Error("Use either --json or --porcelain, not both.");
+      }
+      const payload = await readRecordPayload(opts.payload, process.stdin);
+      const result = await createWorkRecord({
+        id: payload.id,
+        summary: payload.summary,
+        observation: payload.observation,
+        subjects: payload.subjects ?? (payload.subject ? [payload.subject] : []),
+        subtype: opts.type,
+        outcome: payload.outcome,
+        recordedAt: payload.recordedAt,
+        artifactRefs: payload.artifactRefs,
+        supportingRefs: payload.supportingRefs,
+        findings: payload.findings,
+        notes: payload.notes,
+        consumerConfig: opts.consumerConfig,
+        dryRun: opts.dryRun,
+      });
+      if (opts.json) {
+        printTaskJson(result);
+        return;
+      }
+      if (opts.porcelain) {
+        printTaskPorcelain([result.id, result.filePath, result.dryRun ? "dry-run" : "written"]);
+        return;
+      }
+      console.log(formatRecordCreationText(result));
+    } catch (error) {
+      failTaskCommand(error, opts.json);
+    }
   });
 
 const prd = program

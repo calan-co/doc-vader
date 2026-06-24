@@ -193,7 +193,7 @@ This is an architecture-alignment PRD, not a feature implementation PRD.
 
 The architecture is valid when one kernel can produce shared Work Item
 governance verdicts and the runtime spine can coordinate claims, locks, and
-execution logs through SQLite-backed tests.
+execution logs through runtime authority tests.
 
 ### Modules Under Test
 
@@ -201,7 +201,7 @@ execution logs through SQLite-backed tests.
 - storage adapters
 - format adapters
 - runtime entity schemas
-- SQLite runtime store
+- runtime authority adapter
 - task command adapter
 - backlog scan adapter
 - remark validation adapter
@@ -212,7 +212,7 @@ execution logs through SQLite-backed tests.
   behavior should share the same governance answer.
 - Runtime authority seam (`integration`): Claims, locks, and execution logs must
   be proven transactionally.
-- Storage/format adapter seam (`integration`): Markdown/YAML, JSON, and SQLite
+- Storage/format adapter seam (`integration`): Markdown/YAML, JSON, and runtime
   adapters must produce canonical records that governance modules can consume
   without storage-specific knowledge.
 
@@ -247,6 +247,6 @@ widening commands.
 ## Out of Scope
 
 - Implementing the Work Item Governance Kernel.
-- Implementing SQLite runtime storage.
+- Implementing runtime authority storage.
 - Designing hosted SaaS authority.
 - Designing section-level artifact claims.

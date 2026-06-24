@@ -3,6 +3,11 @@ import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import * as fsSync from "node:fs";
 import path from "node:path";
+import { runRuntimeClaimCoverageAudit } from "../work-management/index.js";
+import {
+  openRuntimeSqliteStore,
+  type RuntimeClaimRecord,
+} from "../runtime/index.js";
 import { TaskCommandError } from "./errors.js";
 
 export type ClaimState =
@@ -32,7 +37,6 @@ export interface TaskClaim {
   holder: string;
   schemaVersion?: "task-claim/v2";
   branch?: string;
-  sandbox?: string;
   git?: TaskClaimGitContext;
   recovery?: TaskClaimRecoveryContext;
   createdAt: string;
@@ -58,7 +62,6 @@ export interface ClaimTaskOptions {
   claimStorePath?: string;
   holder?: string;
   branch?: string;
-  sandbox?: string;
   baseRef?: string;
   headRef?: string;
   headSha?: string;
@@ -103,7 +106,7 @@ export interface RecoverClaimOptions {
 }
 
 const DEFAULT_TTL_MINUTES = 240;
-const CLAIM_STORE_PATH = ".doc-vader/task-claims.json";
+const CLAIM_STORE_PATH = ".doc-vader/runtime/task-claims";
 const CLAIM_STORE_ENV = "DOC_VADER_TASK_CLAIM_STORE";
 const CONSUMER_CONFIG_PATH = ".doc-vader/backlog-consumer.json";
 const CLAIM_LOCK_TIMEOUT_MS = 10_000;
@@ -291,9 +294,7 @@ function claimGitContext(options: ClaimTaskOptions): TaskClaimGitContext | undef
     ...(options.baseRef ? { baseRef: options.baseRef } : {}),
     ...(options.headRef ? { headRef: options.headRef } : {}),
     ...(options.headSha ? { headSha: options.headSha } : {}),
-    ...(options.worktreePath ?? options.sandbox
-      ? { worktreePath: options.worktreePath ?? options.sandbox }
-      : {}),
+    ...(options.worktreePath ? { worktreePath: options.worktreePath } : {}),
   };
   return Object.keys(git).length > 0 ? git : undefined;
 }
@@ -337,12 +338,64 @@ function uniqueCommitCount(
 function normalizeClaim(claim: TaskClaim): TaskClaim {
   const git = claim.git ?? claimGitContext({
     branch: claim.branch,
-    sandbox: claim.sandbox,
   });
   return {
     ...claim,
     schemaVersion: claim.schemaVersion ?? "task-claim/v2",
     ...(git ? { git } : {}),
+  };
+}
+
+function runtimeClaimMetadataToTaskClaimContext(
+  metadata: RuntimeClaimRecord["metadata"],
+): {
+  branch?: string;
+  git?: TaskClaimGitContext;
+} {
+  if (!metadata) {
+    return {};
+  }
+
+  const context: {
+    branch?: string;
+    git?: TaskClaimGitContext;
+  } = {};
+  if (typeof metadata.branch === "string") {
+    context.branch = metadata.branch;
+  }
+  if (typeof metadata.worktree === "string") {
+    context.git = {
+      ...(context.git ?? {}),
+      worktreePath: metadata.worktree,
+    };
+  }
+  if (typeof metadata.git === "object" && metadata.git !== null) {
+    context.git = metadata.git as TaskClaimGitContext;
+  }
+  return context;
+}
+
+function runtimeClaimStatusToTaskClaim(
+  claim: Awaited<ReturnType<ReturnType<typeof openRuntimeSqliteStore>["getClaimByToken"]>>,
+): ClaimStatus | undefined {
+  if (!claim || claim.target_type !== "task") {
+    return undefined;
+  }
+  const taskClaim: TaskClaim = {
+    id: claim.claim_token,
+    taskId: claim.target_id,
+    holder: claim.holder,
+    schemaVersion: "task-claim/v2",
+    ...runtimeClaimMetadataToTaskClaimContext(claim.metadata),
+    createdAt: claim.created_at,
+    updatedAt: claim.last_seen_at ?? claim.created_at,
+    expiresAt: claim.expires_at,
+  };
+  return {
+    claimId: claim.claim_token,
+    taskId: claim.target_id,
+    state: claim.state,
+    claim: taskClaim,
   };
 }
 
@@ -366,7 +419,7 @@ export async function claimTask(
             id: conflictingClaim.id,
             holder: conflictingClaim.holder,
             branch: conflictingClaim.branch,
-            sandbox: conflictingClaim.sandbox,
+            worktreePath: conflictingClaim.git?.worktreePath,
             expiresAt: conflictingClaim.expiresAt,
           },
         },
@@ -395,7 +448,6 @@ export async function claimTask(
       holder: normalizeHolder(options.holder),
       schemaVersion: "task-claim/v2",
       ...(options.branch ? { branch: options.branch } : {}),
-      ...(options.sandbox ? { sandbox: options.sandbox } : {}),
       ...(claimGitContext(options) ? { git: claimGitContext(options) } : {}),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -420,7 +472,17 @@ export async function getClaimStatus(
   const store = await readStore(rootDir, options.claimStorePath);
   const claim = store.claims.find((entry) => entry.id === claimId);
   if (!claim) {
-    return { claimId, state: "missing" };
+    const runtimeStore = openRuntimeSqliteStore({ rootDir });
+    try {
+      return (
+        runtimeClaimStatusToTaskClaim(runtimeStore.getClaimByToken(claimId)) ?? {
+          claimId,
+          state: "missing",
+        }
+      );
+    } finally {
+      runtimeStore.close();
+    }
   }
   return {
     claimId,
@@ -441,9 +503,21 @@ export async function releaseClaim(
     if (!claim) {
       return { claimId, state: "missing" };
     }
-    if (!isReleased(claim)) {
-      claim.releasedAt = now.toISOString();
-      claim.updatedAt = now.toISOString();
+    const runtimeStore = openRuntimeSqliteStore({ rootDir });
+    try {
+      if (!isReleased(claim)) {
+        claim.releasedAt = now.toISOString();
+        claim.updatedAt = now.toISOString();
+      }
+      const runtimeClaim = claim.taskId
+        ? runtimeStore.getClaimByTarget("task", claim.taskId)
+        : undefined;
+      if (runtimeClaim) {
+        runtimeStore.deleteLocksByClaimToken(runtimeClaim.claim_token);
+        runtimeStore.deleteClaim(runtimeClaim.claim_token);
+      }
+    } finally {
+      runtimeStore.close();
     }
     return {
       claimId,
@@ -650,6 +724,36 @@ export async function recoverClaim(
           "TASK_RECOVERY_UNSAFE_ADOPT",
           "Refusing to adopt a claim that is not classified as adopt_recommended.",
           { claimId, classification: report.classification, reasons: report.reasons },
+        );
+      }
+      const runtimeAudit =
+        claim.taskId &&
+        (() => {
+          try {
+            return runRuntimeClaimCoverageAudit({
+              rootDir,
+              taskId: claim.taskId,
+              requiredPaths: [],
+            });
+          } catch (error) {
+            if (
+              error instanceof TaskCommandError &&
+              error.code === "TASK_RUNTIME_CLAIM_MISSING"
+            ) {
+              return undefined;
+            }
+            throw error;
+          }
+        })();
+      if (runtimeAudit && !runtimeAudit.passed) {
+        throw new TaskCommandError(
+          "TASK_RECOVERY_CHANGED_FILE_LOCK_AUDIT_FAILED",
+          `Claim '${claimId}' cannot be adopted until changed-file lock coverage passes.`,
+          {
+            claimId,
+            taskId: claim.taskId,
+            audit: runtimeAudit,
+          },
         );
       }
       const ttlMinutes = options.ttlMinutes ?? DEFAULT_TTL_MINUTES;

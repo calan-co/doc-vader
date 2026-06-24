@@ -5,17 +5,20 @@ summary: Define reusable schemas and validators for claim, lock, and execution l
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 4
+actual: 4
+completed_date: '2026-06-20'
 links:
   depends_on:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
-    - '[[record-20260620-022741-60363]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - runtime
@@ -38,16 +41,16 @@ Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-s
 
 ## Tasks
 
-- [ ] Define a `claim` schema for live execution lease/context records.
-- [ ] Define a `lock` schema for live artifact mutex records.
-- [ ] Define an `execution_log_entry` schema for append-only execution summary entries.
-- [ ] Require `schema_version` inside every runtime payload.
-- [ ] Define execution states: `running`, `completed`, `halted`, and `failed`.
-- [ ] Define the state/reason compatibility matrix: `running/started`, `completed/success`, `failed/error`, and `halted` with `conflict`, `blocked`, `invalid`, `expired`, `revoked`, or `cancelled`.
-- [ ] Define source-style `detail.code` values with `x-*` extension support where intended.
-- [ ] Model claim targets generically with `target_type` and `target_id` while supporting `task` MVP values.
-- [ ] Model lock identity as normalized repo-relative file path plus stable SHA-256 key.
-- [ ] Add TypeScript validators and representative fixtures.
+- [x] Define a `claim` schema for live execution lease/context records.
+- [x] Define a `lock` schema for live artifact mutex records.
+- [x] Define an `execution_log_entry` schema for append-only execution summary entries.
+- [x] Require `schema_version` inside every runtime payload.
+- [x] Define execution states: `running`, `completed`, `halted`, and `failed`.
+- [x] Define the state/reason compatibility matrix: `running/started`, `completed/success`, `failed/error`, and `halted` with `conflict`, `blocked`, `invalid`, `expired`, `revoked`, or `cancelled`.
+- [x] Define source-style `detail.code` values with `x-*` extension support where intended.
+- [x] Model claim targets generically with `target_type` and `target_id` while supporting `task` MVP values.
+- [x] Model lock identity as normalized repo-relative file path plus stable SHA-256 key.
+- [x] Add TypeScript validators and representative fixtures.
 
 ## Deliverables
 
@@ -57,11 +60,11 @@ Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-s
 
 ## Acceptance criteria
 
-- [ ] Runtime entity schemas are generic enough for non-task artifacts later.
-- [ ] Known states, reasons, reason compatibility, and detail codes are bounded for deterministic automation.
-- [ ] `x-*` extensions are allowed only where explicitly intended.
-- [ ] Validators are used by the SQLite store before durable writes.
-- [ ] Tests cover valid snapshots, invalid enum values, missing schema versions, and extension codes.
+- [x] Runtime entity schemas are generic enough for non-task artifacts later.
+- [x] Known states, reasons, reason compatibility, and detail codes are bounded for deterministic automation.
+- [x] `x-*` extensions are allowed only where explicitly intended.
+- [x] Validators are used by the SQLite store before durable writes.
+- [x] Tests cover valid snapshots, invalid enum values, missing schema versions, and extension codes.
 
 ## Blocked by
 

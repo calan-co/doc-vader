@@ -5,10 +5,12 @@ summary: Add a Git changed-file audit that terminal success and lifecycle comman
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 5
+actual: 5
+completed_date: '2026-06-21'
 links:
   depends_on:
     - '[[60364-atomic-claim-and-lock-acquisition]]'
@@ -17,7 +19,8 @@ links:
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
-    - '[[record-20260620-022741-60366]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - runtime
@@ -36,16 +39,16 @@ Git hooks can be bypassed with `--no-verify`, and neither hooks nor `AGENTS.md` 
 
 ## Tasks
 
-- [ ] Implement a changed-file audit for the current Git worktree or sandbox.
-- [ ] Normalize changed paths to file artifact keys.
-- [ ] Compute changed paths from the current branch/worktree diff against the configured merge target.
-- [ ] Verify every changed path is covered by an active lock owned by the current `claim_token`.
-- [ ] Wire the audit into `record`, `complete`, `close`, and successful recovery paths.
-- [ ] Add freshness and mergeability checks against the configured merge target before terminal success and close/finalization.
-- [ ] Reject Git-detected renames, including case-only renames, with structured diagnostics.
-- [ ] Keep hooks advisory by allowing them to call the same audit without becoming the authority.
-- [ ] Return structured diagnostics for unlocked, expired, missing, or foreign locks.
-- [ ] Ensure `halt` can record audit failures without requiring the audit to pass.
+- [x] Implement a changed-file audit for the current Git worktree or sandbox.
+- [x] Normalize changed paths to file artifact keys.
+- [x] Compute changed paths from the current branch/worktree diff against the configured merge target.
+- [x] Verify every changed path is covered by an active lock owned by the current `claim_token`.
+- [x] Wire the audit into `record`, `complete`, `close`, and successful recovery paths.
+- [x] Add freshness and mergeability checks against the configured merge target before terminal success and close/finalization.
+- [x] Reject Git-detected renames, including case-only renames, with structured diagnostics.
+- [x] Keep hooks advisory by allowing them to call the same audit without becoming the authority.
+- [x] Return structured diagnostics for unlocked, expired, missing, or foreign locks.
+- [x] Ensure `halt` can record audit failures without requiring the audit to pass.
 
 ## Deliverables
 
@@ -56,13 +59,13 @@ Git hooks can be bypassed with `--no-verify`, and neither hooks nor `AGENTS.md` 
 
 ## Acceptance criteria
 
-- [ ] `record`, `complete`, and `close` fail closed when changed paths are not covered by the current claim locks.
-- [ ] Terminal success fails closed when the branch is stale or not mergeable with the configured merge target.
-- [ ] Terminal success fails closed on detected renames.
-- [ ] `--no-verify` cannot bypass lifecycle command checks.
-- [ ] `halt` can proceed when the audit fails and records the failing paths.
-- [ ] Audit output identifies path, expected claim token, actual lock state, and recommended next command.
-- [ ] Advisory hook integration, if added, delegates to the same audit implementation.
+- [x] `record`, `complete`, and `close` fail closed when changed paths are not covered by the current claim locks.
+- [x] Terminal success fails closed when the branch is stale or not mergeable with the configured merge target.
+- [x] Terminal success fails closed on detected renames.
+- [x] `--no-verify` cannot bypass lifecycle command checks.
+- [x] `halt` can proceed when the audit fails and records the failing paths.
+- [x] Audit output identifies path, expected claim token, actual lock state, and recommended next command.
+- [x] Advisory hook integration, if added, delegates to the same audit implementation.
 
 ## Blocked by
 

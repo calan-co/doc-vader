@@ -10,6 +10,10 @@ import {
   finalizeWorkItem,
   transitionWorkItem,
 } from "../lib/work-management/index.js";
+import {
+  openRuntimeSqliteStore,
+  RUNTIME_SCHEMA_VERSION,
+} from "../lib/runtime/sqlite-store.js";
 import { GitHubBacklogAutomationProvider } from "../lib/backlog/providers/github.js";
 
 const tempDirs: string[] = [];
@@ -27,6 +31,35 @@ async function createTempRepo(): Promise<string> {
 async function writeMarkdown(filePath: string, content: string): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf8");
+}
+
+function acquireRuntimeClaim(
+  rootDir: string,
+  taskId: string,
+  lockPaths: string[],
+): void {
+  const store = openRuntimeSqliteStore({ rootDir });
+  try {
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
+    const acquisition = store.acquireRuntimeClaim(
+      {
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: taskId,
+        holder: "agent-a",
+        created_at: createdAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        entropy: randomUUID(),
+      },
+      { initialLockPaths: lockPaths },
+    );
+    if (acquisition.outcome !== "acquired") {
+      throw new Error(`Expected runtime claim acquisition for ${taskId}.`);
+    }
+  } finally {
+    store.close();
+  }
 }
 
 afterEach(async () => {
@@ -62,7 +95,7 @@ priority: medium
 estimated: 1
 links:
   pull_requests:
-    - https://example.com/pr/1
+    - https://github.com/calan-co/doc-vader/pull/1
 ---
 
 ## Goal
@@ -518,7 +551,7 @@ estimated: 2
 actual: 2
 links:
   pull_requests:
-    - https://example.com/pr/1
+    - https://github.com/calan-co/doc-vader/pull/1
 ---
 
 ## Goal
@@ -568,6 +601,76 @@ links:
     );
     expect(recordFile).toContain("summary: CI result for work-item:sample");
     expect(recordFile).toContain("pass");
+  });
+
+  it("reports workflow_run completion without completing or closing the work item", async () => {
+    const rootDir = await createTempRepo();
+    const workItemPath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-ready.md",
+    );
+    await writeMarkdown(
+      workItemPath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:ready
+title: Ready Item
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+priority: medium
+estimated: 2
+links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/1
+---
+
+## Goal
+
+- Keep the work item open.
+`,
+    );
+
+    const payloadPath = path.join(rootDir, "workflow-run-ready.json");
+    await writeFile(
+      payloadPath,
+      JSON.stringify(
+        {
+          workflow_run: {
+            id: 43,
+            name: "CI",
+            conclusion: "success",
+            updated_at: "2026-04-14T12:00:00Z",
+            html_url: "https://example.com/runs/43",
+            display_title: "CI for work-item:ready",
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await ingestEvent({
+      rootDir,
+      provider: "github",
+      event: "workflow_run.completed",
+      payloadPath,
+    });
+
+    expect(
+      result.actions.some((action) => action.type === "create-record"),
+    ).toBe(true);
+
+    const updatedWorkItem = await readFile(workItemPath, "utf8");
+    expect(updatedWorkItem).toContain("status: ready");
+    expect(updatedWorkItem).toContain("lifecycle: active");
+    expect(updatedWorkItem).not.toContain("status: completed");
   });
 
   it("links pull requests for deterministic wi-* token matches in pull_request events", async () => {
@@ -733,7 +836,7 @@ estimated: 2
 actual: 2
 links:
   pull_requests:
-    - https://example.com/pr/1
+    - https://github.com/calan-co/doc-vader/pull/1
 ---
 
 ## Goal
@@ -766,7 +869,7 @@ estimated: 2
 actual: 2
 links:
   pull_requests:
-    - https://example.com/pr/1
+    - https://github.com/calan-co/doc-vader/pull/1
   evidence:
     - '[[record-sample]]'
 ---
@@ -916,5 +1019,73 @@ links:
     await expect(
       finalizeWorkItem({ rootDir, id: "work-item:sample" }),
     ).rejects.toThrow(/Expected completed/i);
+  });
+
+  it("finalizes a ready work item when runtime locks cover the write paths", async () => {
+    const rootDir = await createTempRepo();
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        number: 1,
+        title: "Merged PR",
+        state: "closed",
+        merged: true,
+        html_url: "https://github.com/calan-co/doc-vader/pull/1",
+      }),
+    }) as typeof fetch;
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:sample
+title: Sample
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: awaiting-review
+priority: medium
+estimated: 2
+actual: 2
+links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/1
+  evidence:
+    - '[[record-sample]]'
+---
+
+## Goal
+
+- Validate the change.
+`,
+    );
+    acquireRuntimeClaim(rootDir, "work-item:sample", [
+      path.join(rootDir, "backlog", "active", "work-item-sample.md"),
+      path.join(rootDir, "backlog", "archive", "work-item-sample.md"),
+    ]);
+
+    try {
+      await expect(
+        finalizeWorkItem({
+          rootDir,
+          id: "work-item:sample",
+          provider: new GitHubBacklogAutomationProvider("test-token"),
+        }),
+      ).resolves.toMatchObject({
+        id: "work-item:sample",
+      });
+      await expect(
+        readFile(
+          path.join(rootDir, "backlog", "archive", "work-item-sample.md"),
+          "utf8",
+        ),
+      ).resolves.toContain("status: completed");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

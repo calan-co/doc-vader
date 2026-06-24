@@ -5,8 +5,8 @@ summary: Decide the report and audit boundary for archive pruning outcomes, skip
 type: work-item
 subtype: task
 lifecycle: active
-status: paused
-status_reason: blocked
+status: ready
+status_reason: auto
 priority: medium
 estimated: 2
 links:
@@ -37,6 +37,6 @@ Decide whether archive prune failures should create audit records or remain stru
 - [ ] Human review guidance is explicit for policy-blocked or ambiguous prune outcomes.
 - [ ] Follow-on implementation work can add the report format without reopening the audit boundary decision.
 
-## Blocked by
+## Dependencies
 
 - [[60349-atomic-archive-pruning-command]]

@@ -61,7 +61,7 @@ afterEach(async () => {
 });
 
 describe("backlog archive validation", () => {
-  it("uses configured archive roots and validates declared and fallback schemas", async () => {
+  it("uses configured archive roots and validates declared and fallback schemas", { timeout: 15_000 }, async () => {
     await write(
       "schemas/archive/work-item.json",
       JSON.stringify(

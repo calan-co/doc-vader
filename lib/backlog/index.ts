@@ -32,8 +32,10 @@ export class BacklogClassifier implements Classifier<object, object> {
 export * from "./audit.js";
 export * from "./archive-validation.js";
 export * from "./backlog.js";
+export * from "./synthesis.js";
 export * from "./scan-types.js";
 export * from "./scan-conditions.js";
 export * from "./scan-resolver.js";
 export * from "./scan-executor.js";
 export * from "./scan-reporter.js";
+export * from "./review.js";

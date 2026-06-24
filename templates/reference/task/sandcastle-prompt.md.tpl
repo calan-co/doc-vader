@@ -2,6 +2,8 @@
 
 Implement `{{ title }}` from `{{ filePath }}`.
 
+Initialization and registry mapping live in `docs/how-to/sandcastle-dogfood-task-flow.md`. Use that guide for environment setup, `dv task ready`, claims, locks, evidence, and terminal claim handling.
+
 ## Current State
 
 - Status: `{{ status }}`
@@ -23,6 +25,16 @@ Implement `{{ title }}` from `{{ filePath }}`.
 {% for criterion in acceptanceCriteria %}
 - {{ criterion.text }}
 {% endfor %}
+
+## Sandcastle Flow
+
+1. Claim this task before execution with `dv task claim <task-id> --holder <holder> --json`, then use the returned claim token for every subsequent runtime command.
+2. Acquire file ownership lazily with `dv lock create --claim <claim-token> <path...>` before mutating any non-Doc-Vader file.
+3. Clean up only unmodified resources with `dv lock rm --claim <claim-token> <path...>` after confirming the files were not changed by your branch.
+4. Let lifecycle commands enforce changed-file lock audits before record or completion; do not treat Git hooks or prompt instructions as deterministic enforcement.
+5. Route unrecoverable lock conflicts to `dv claim release <claim-token> --outcome conflict`.
+6. If the task is blocked after a non-success release, recover it with `dv task recover <task-id>`.
+7. Keep successful claim release behind the existing validation and evidence gates.
 
 ## Source Context
 

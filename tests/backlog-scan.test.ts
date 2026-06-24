@@ -2,6 +2,7 @@ import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import * as fsSync from "node:fs";
 import * as path from "node:path";
 import os from "node:os";
+import { openRuntimeSqliteStore, RUNTIME_SCHEMA_VERSION } from "../lib/runtime/sqlite-store.js";
 import { scanBacklog } from "../lib/backlog/scan-executor.js";
 import {
   formatScanReportText,
@@ -18,6 +19,31 @@ function mkFile(name: string, content: string) {
 
 function mkConsumerConfig(automation: Record<string, unknown> = {}) {
   writeBacklogConsumerConfig(testDir, automation);
+}
+
+function acquireArchiveClaim(taskId: string, lockPaths: string[]): void {
+  const store = openRuntimeSqliteStore({ rootDir: testDir });
+  try {
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
+    const acquisition = store.acquireRuntimeClaim(
+      {
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: taskId,
+        holder: "archive-test",
+        created_at: createdAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        entropy: `entropy-${taskId}`,
+      },
+      { initialLockPaths: lockPaths },
+    );
+    if (acquisition.outcome !== "acquired") {
+      throw new Error(`Expected runtime claim acquisition for ${taskId}.`);
+    }
+  } finally {
+    store.close();
+  }
 }
 
 type MockGithubPullRequest = {
@@ -545,6 +571,10 @@ links:
 - 2026-01-01: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
           );
+          acquireArchiveClaim("work-item:012", [
+            "backlog/12.archive-ready.md",
+            "backlog/archive/12.archive-ready.md",
+          ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
@@ -749,6 +779,10 @@ links:
 # Work item
 `,
           );
+          acquireArchiveClaim("work-item:015", [
+            "backlog/15.referenced-ready.md",
+            "backlog/archive/15.referenced-ready.md",
+          ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
@@ -860,6 +894,10 @@ links:
 - 2026-01-03: Closed as completed with evidence in PR #21.
 `,
           );
+          acquireArchiveClaim("work-item:021", [
+            "backlog/21.ready-missing-evidence.md",
+            "backlog/archive/21.ready-missing-evidence.md",
+          ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
@@ -928,6 +966,10 @@ links:
 - 2026-01-04: Closed as completed with evidence in PR #22.
 `,
           );
+          acquireArchiveClaim("wi-22", [
+            "backlog/22.wi-ready-missing-evidence.md",
+            "backlog/archive/22.wi-ready-missing-evidence.md",
+          ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
@@ -997,6 +1039,10 @@ links:
 - 2026-01-03: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
           );
+          acquireArchiveClaim("work-item:017", [
+            "backlog/17.nested-ref-candidate.md",
+            "backlog/archive/17.nested-ref-candidate.md",
+          ]);
 
           // A file in a subdirectory references the candidate by basename in frontmatter links.
           fsSync.mkdirSync(path.join(testDir, "backlog", "sprint-10"), {

@@ -2,6 +2,10 @@ import matter from "gray-matter";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { renderTempljsTemplate } from "../template/render.js";
+import {
+  loadTaskRuntimeReadiness,
+  type TaskRuntimeReadiness,
+} from "./runtime.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -93,6 +97,7 @@ export interface CanonicalTaskModel {
     links: JsonObject;
     archived: boolean;
   };
+  runtime?: TaskRuntimeReadiness;
 }
 
 export interface LoadCanonicalTaskOptions {
@@ -332,6 +337,7 @@ function buildTaskModel(
   candidate: Candidate,
   rootDir: string,
   taskId: string,
+  runtime?: TaskRuntimeReadiness,
 ): CanonicalTaskModel {
   const frontmatter = candidate.frontmatter;
   const id = ensureString(frontmatter, "id", candidate, taskId);
@@ -382,6 +388,7 @@ function buildTaskModel(
       links: normalizeLinks(frontmatter.links),
       archived: candidate.archived,
     },
+    ...(runtime ? { runtime } : {}),
   };
 }
 
@@ -420,7 +427,15 @@ export async function loadCanonicalTask(
     );
   }
 
-  return buildTaskModel(activeMatches[0] as Candidate, rootDir, options.taskId);
+  const task = buildTaskModel(activeMatches[0] as Candidate, rootDir, options.taskId);
+  return {
+    ...task,
+    runtime: await loadTaskRuntimeReadiness({
+      rootDir,
+      taskId: task.id,
+      markdownReady: task.status === "ready" && task.lifecycle === "active",
+    }),
+  };
 }
 
 async function renderCanonicalTaskTemplate(

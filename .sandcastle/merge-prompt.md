@@ -35,9 +35,11 @@ Before running `close-task` for a task:
 5. Confirm the work item has linked evidence from `dv task record`.
 6. Confirm the final validation commands above passed after all merges and checklist edits.
 
-The command below reuses the existing active implementation claim for the task, closes the task, then releases that claim. Replace `<TASK_ID>` with the issue id from the list below and `<EFFORT>` with the actual effort hours as a number:
+The command below marks the work item completed with the current work-item transition command and releases any active claim for that task from the shared Sandcastle claim store. Replace `<TASK_ID>` with the issue id from the list below and `<EFFORT>` with the actual effort hours as a number:
 
 `CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts close-task <TASK_ID> --actual <EFFORT>`
+
+If a task cannot be closed, do not delete its branch or worktree. The host-side orchestrator will only release remaining claims and safe-delete merged issue branches after this merge commit has been integrated back into host `HEAD`.
 
 Here are all the issues:
 

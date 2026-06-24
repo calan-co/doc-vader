@@ -170,13 +170,13 @@
     }
   ],
   "testingDecisions": {
-    "behaviorContract": "The architecture is valid when one kernel can produce shared Work Item governance verdicts and the runtime spine can coordinate claims, locks, and execution logs through SQLite-backed tests.",
+    "behaviorContract": "The architecture is valid when one kernel can produce shared Work Item governance verdicts and the runtime spine can coordinate claims, locks, and execution logs through runtime authority tests.",
     "modulesUnderTest": [
       "Work Item Governance Kernel",
       "storage adapters",
       "format adapters",
       "runtime entity schemas",
-      "SQLite runtime store",
+      "runtime authority adapter",
       "task command adapter",
       "backlog scan adapter",
       "remark validation adapter"
@@ -195,7 +195,7 @@
       {
         "name": "Storage/format adapter seam",
         "level": "integration",
-        "rationale": "Markdown/YAML, JSON, and SQLite adapters must produce canonical records that governance modules can consume without storage-specific knowledge."
+        "rationale": "Markdown/YAML, JSON, and runtime adapters must produce canonical records that governance modules can consume without storage-specific knowledge."
       }
     ],
     "priorArt": [
@@ -222,7 +222,7 @@
   ],
   "outOfScope": [
     "Implementing the Work Item Governance Kernel.",
-    "Implementing SQLite runtime storage.",
+    "Implementing runtime authority storage.",
     "Designing hosted SaaS authority.",
     "Designing section-level artifact claims."
   ]
