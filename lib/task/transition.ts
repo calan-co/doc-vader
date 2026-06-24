@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   transitionWorkItem,
+  runRuntimeClaimCoverageAudit,
   type TransitionWorkItemResult,
 } from "../work-management/index.js";
 import { evaluateTransition } from "../work-management/frontmatter-lint.js";
@@ -265,6 +266,18 @@ async function applyTaskTransition(options: {
 
   if (toStatus === "completed") {
     await assertCompletedHasEvidence(options.rootDir, options.task.filePath);
+    const audit = runRuntimeClaimCoverageAudit({
+      rootDir: options.rootDir,
+      taskId: options.task.id,
+      requiredPaths: [options.task.filePath],
+    });
+    if (!audit.passed) {
+      throw new TaskCommandError(
+        "TASK_TRANSITION_CHANGED_FILE_LOCK_AUDIT_FAILED",
+        `Task '${options.task.id}' cannot transition to completed until changed-file lock coverage passes.`,
+        { taskId: options.task.id, audit },
+      );
+    }
   }
 
   const workItem = await transitionWorkItem({

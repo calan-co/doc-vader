@@ -5,10 +5,12 @@ summary: Add `dv claim recover --target task:<task-id>` to verify a halted task 
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 6
+actual: 6
+completed_date: '2026-06-21'
 links:
   depends_on:
     - '[[60365-task-halt-command]]'
@@ -16,8 +18,6 @@ links:
     - '[[60368-fail-closed-ready-list-show]]'
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
-  evidence:
-    - '[[record-20260620-022741-60369]]'
 tags:
   - afk
   - runtime
@@ -35,17 +35,17 @@ Recovery is a normal execution operation, not a privileged bypass. It creates a 
 
 ## Tasks
 
-- [ ] Add `dv claim recover --target task:<task-id> [--json]`.
-- [ ] Create a new claim through normal claim creation.
-- [ ] Require normal lock ownership for recovery mutations.
-- [ ] Verify any latest `halted` execution state is recoverable by current safety checks.
-- [ ] Verify required locks are clear or acquired by the recovery claim.
-- [ ] Verify readiness gates still pass: AFK, not HITL, dependencies satisfied, validation clean, and runtime hydration clear.
-- [ ] Fail by default on dirty worktree state.
-- [ ] Implement `--force clean` for owned dirty paths after full authority precheck.
-- [ ] Implement `--force resync` using Doc-Vader checkpoints for owned dirty paths, Git-backed resync, restore, and validation.
-- [ ] Reject force modes when unrelated dirty paths are present.
-- [ ] Append `completed/success` when recovery succeeds and transition the work item to `ready/recoverable`.
+- [x] Add `dv claim recover --target task:<task-id> [--json]`.
+- [x] Create a new claim through normal claim creation.
+- [x] Require normal lock ownership for recovery mutations.
+- [x] Verify any latest `halted` execution state is recoverable by current safety checks.
+- [x] Verify required locks are clear or acquired by the recovery claim.
+- [x] Verify readiness gates still pass: AFK, not HITL, dependencies satisfied, validation clean, and runtime hydration clear.
+- [x] Fail by default on dirty worktree state.
+- [x] Implement `--force clean` for owned dirty paths after full authority precheck.
+- [x] Implement `--force resync` using Doc-Vader checkpoints for owned dirty paths, Git-backed resync, restore, and validation.
+- [x] Reject force modes when unrelated dirty paths are present.
+- [x] Append `completed/success` when recovery succeeds and transition the work item to `ready/recoverable`.
 
 ## Deliverables
 
@@ -56,12 +56,12 @@ Recovery is a normal execution operation, not a privileged bypass. It creates a 
 
 ## Acceptance criteria
 
-- [ ] Recovery cannot run without normal claim and lock ownership.
-- [ ] Recovery creates a new claim rather than mutating the old halted attempt.
-- [ ] Successful recovery returns the work item to `ready/recoverable`.
-- [ ] Default recovery refuses dirty worktrees.
-- [ ] `--force clean` and `--force resync` operate only on owned dirty paths.
-- [ ] Unrelated dirty paths make recovery fail without changes.
+- [x] Recovery cannot run without normal claim and lock ownership.
+- [x] Recovery creates a new claim rather than mutating the old halted attempt.
+- [x] Successful recovery returns the work item to `ready/recoverable`.
+- [x] Default recovery refuses dirty worktrees.
+- [x] `--force clean` and `--force resync` operate only on owned dirty paths.
+- [x] Unrelated dirty paths make recovery fail without changes.
 
 ## Blocked by
 

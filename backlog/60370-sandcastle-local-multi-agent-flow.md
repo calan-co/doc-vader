@@ -5,10 +5,12 @@ summary: Update the Sandcastle dogfood flow to use SQLite-backed claims, file lo
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 5
+actual: 5
+completed_date: '2026-06-22'
 links:
   depends_on:
     - '[[60364-atomic-claim-and-lock-acquisition]]'
@@ -20,8 +22,7 @@ links:
   reference:
     - '[[60358-sandcastle-dogfood-adapter-flow]]'
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
-  evidence:
-    - '[[record-20260620-022741-60370]]'
+    - '[[60375-lock-path-normalization-and-rename-gate]]'
 tags:
   - afk
   - sandcastle
@@ -39,28 +40,28 @@ Multiple local agents may work concurrently through one shared runtime authority
 
 ## Tasks
 
-- [ ] Update Sandcastle-facing guidance to claim before execution.
-- [ ] Add guidance for lazy file lock acquisition with `dv lock create --claim <claim-token>`.
-- [ ] Add guidance for good-citizen lock cleanup with `dv lock rm --claim <claim-token>` only for unmodified resources.
-- [ ] Ensure non-Doc-Vader writes are checked by lifecycle audits before record or completion.
-- [ ] Route unrecoverable lock conflicts to `dv claim halt <claim-token> --reason conflict`.
-- [ ] Route blocked halted tasks back through the recovery command.
-- [ ] Keep terminal claim completion behind existing validation and evidence gates.
-- [ ] Remove or supersede guidance that treats hooks or prompt instructions as deterministic enforcement.
+- [x] Update Sandcastle-facing guidance to claim before execution.
+- [x] Add guidance for lazy file lock acquisition with `dv lock create --claim <claim-token>`.
+- [x] Add guidance for good-citizen lock cleanup with `dv lock rm --claim <claim-token>` only for unmodified resources.
+- [x] Ensure non-Doc-Vader writes are checked by lifecycle audits before record or completion.
+- [x] Route unrecoverable lock conflicts to `dv claim halt <claim-token> --reason conflict`.
+- [x] Route blocked halted tasks back through the recovery command.
+- [x] Keep terminal claim completion behind existing validation and evidence gates.
+- [x] Remove or supersede guidance that treats hooks or prompt instructions as deterministic enforcement.
 
 ## Deliverables
 
-- Updated Sandcastle adapter or guidance.
-- Multi-agent dogfood command flow.
-- Integration fixture for two local agents.
+- [x] Updated Sandcastle adapter or guidance.
+- [x] Multi-agent dogfood command flow.
+- [x] Integration fixture for two local agents.
 
 ## Acceptance criteria
 
-- [ ] Two local Sandcastle agents can claim different eligible tasks concurrently.
-- [ ] Same-file conflict produces structured diagnostics and can be halted without relying on HITL.
-- [ ] Ready selection excludes halted tasks through latest execution log.
-- [ ] Recovery returns a halted task to ready only after safety checks pass.
-- [ ] Sandcastle flow does not rely on Git hooks as the authoritative enforcement boundary.
+- [x] Two local Sandcastle agents can claim different eligible tasks concurrently.
+- [x] Same-file conflict produces structured diagnostics and can be halted without relying on HITL.
+- [x] Ready selection excludes halted tasks through latest execution log.
+- [x] Recovery returns a halted task to ready only after safety checks pass.
+- [x] Sandcastle flow does not rely on Git hooks as the authoritative enforcement boundary.
 
 ## Blocked by
 
@@ -70,3 +71,4 @@ Multiple local agents may work concurrently through one shared runtime authority
 - [[60369-task-recover-command]]
 - [[60373-claim-command-surface]]
 - [[60374-lock-command-surface]]
+- [[60375-lock-path-normalization-and-rename-gate]]

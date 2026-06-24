@@ -17,6 +17,8 @@ links:
     - '[[60355-simple-local-claim-lock]]'
   reference:
     - '[[60341-task-ready-afk-eligibility-query]]'
+    - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+    - '[[60368-fail-closed-ready-list-show]]'
   evidence:
     - '[[record-20260616-043441-60356]]'
 tags:
@@ -34,6 +36,8 @@ tags:
 ## What to build
 
 Add `dv task ready` as the Sandcastle selection command. It should use the canonical task model and local claim store to return only tasks that are safe to start in the dogfood MVP: active, ready, AFK, not HITL, dependency-satisfied, validation-clean, and not actively claimed.
+
+The successor ready composition now lives in [[60368-fail-closed-ready-list-show]] on top of the runtime contract in [[60361-git-sqlite-local-multi-agent-runtime-contract]].
 
 ## Acceptance criteria
 

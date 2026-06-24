@@ -5,8 +5,8 @@ summary: Add compatibility gates proving active work items use canonical statuse
 type: work-item
 subtype: story
 lifecycle: active
-status: paused
-status_reason: blocked
+status: ready
+status_reason: auto
 priority: medium
 estimated: 5
 links:
@@ -39,7 +39,7 @@ Add tests and validation gates that prove active backlog/work-item lifecycle sta
 - [ ] The gate identifies legacy compatibility code that is safe to remove, or records why removal must be deferred.
 - [ ] Tests cover active, archived, and pruned historical records together.
 
-## Blocked by
+## Dependencies
 
 - [[60347-configured-archive-validation-cli-slice]]
 - [[60351-pruned-index-link-resolution-support]]

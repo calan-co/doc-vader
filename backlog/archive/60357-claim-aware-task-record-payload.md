@@ -17,6 +17,7 @@ links:
     - '[[60355-simple-local-claim-lock]]'
   reference:
     - '[[60345-claim-aware-record-and-close-commands]]'
+    - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
     - '[[record-20260616-043441-60357]]'
 tags:
@@ -34,6 +35,8 @@ tags:
 ## What to build
 
 Add claim-aware evidence recording for the Sandcastle dogfood loop. `dv task record --claim <claim-id> --payload <json-file|-> --json` should validate a structured record payload, derive the task from the active claim, create the record artifact, link it back to the work item, and fail before writes when input or claim state is invalid.
+
+The successor claim-aware record path is defined by [[60345-claim-aware-record-and-close-commands]] on top of [[60361-git-sqlite-local-multi-agent-runtime-contract]].
 
 ## Acceptance criteria
 

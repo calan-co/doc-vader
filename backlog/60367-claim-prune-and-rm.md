@@ -5,10 +5,12 @@ summary: Implement claim-scoped cleanup for terminal expired claims and their lo
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+actual: 4
+completed_date: '2026-06-21'
 links:
   depends_on:
     - '[[60364-atomic-claim-and-lock-acquisition]]'
@@ -16,7 +18,8 @@ links:
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
-    - '[[record-20260620-022741-60367]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - runtime
@@ -34,14 +37,14 @@ An expired claim remains live and blocking until it reaches terminal execution s
 
 ## Tasks
 
-- [ ] Expose derived claim state from `expires_at` through the centralized runtime query surface.
-- [ ] Keep expired claims and locks live and blocking.
-- [ ] Add `dv claim prune --filter <time-filter>` for terminal expired claim cleanup.
-- [ ] Add `dv claim rm <claim-token>` for one terminal or expired claim.
-- [ ] Ensure cleanup deletes owned locks with the claim.
-- [ ] Ensure cleanup never mutates `execution_log`.
-- [ ] Ensure cleanup cannot delete running claims or foreign locks.
-- [ ] Add structured diagnostics for expired-claim cleanup requirements.
+- [x] Expose derived claim state from `expires_at` through the centralized runtime query surface.
+- [x] Keep expired claims and locks live and blocking.
+- [x] Add `dv claim prune --filter <time-filter>` for terminal expired claim cleanup.
+- [x] Add `dv claim rm <claim-token>` for one terminal or expired claim.
+- [x] Ensure cleanup deletes owned locks with the claim.
+- [x] Ensure cleanup never mutates `execution_log`.
+- [x] Ensure cleanup cannot delete running claims or foreign locks.
+- [x] Add structured diagnostics for expired-claim cleanup requirements.
 
 ## Deliverables
 
@@ -51,12 +54,12 @@ An expired claim remains live and blocking until it reaches terminal execution s
 
 ## Acceptance criteria
 
-- [ ] Past-due claims hydrate as `expired` before lock decisions.
-- [ ] Expired claims block lock acquisition until halted and cleaned up.
-- [ ] `ready` does not query, delete, or prune expired runtime rows.
-- [ ] Cleanup deletes only terminal expired claims and their owned locks.
-- [ ] `prune` and `rm` do not append or alter execution-log entries.
-- [ ] Cleanup is idempotent and fails closed on inconsistent lock ownership.
+- [x] Past-due claims hydrate as `expired` before lock decisions.
+- [x] Expired claims block lock acquisition until halted and cleaned up.
+- [x] `ready` does not query, delete, or prune expired runtime rows.
+- [x] Cleanup deletes only terminal expired claims and their owned locks.
+- [x] `prune` and `rm` do not append or alter execution-log entries.
+- [x] Cleanup is idempotent and fails closed on inconsistent lock ownership.
 
 ## Blocked by
 

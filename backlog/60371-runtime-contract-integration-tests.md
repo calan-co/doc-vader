@@ -5,10 +5,12 @@ summary: Add end-to-end tests proving the Git and SQLite local runtime contract 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+actual: 5
+completed_date: '2026-06-22'
 links:
   depends_on:
     - '[[60362-runtime-sqlite-store-and-migrations]]'
@@ -26,7 +28,7 @@ links:
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
-    - '[[record-20260620-022741-60371]]'
+    - '[[record-wi-60371-validation]]'
 tags:
   - afk
   - runtime
@@ -44,17 +46,17 @@ The runtime model depends on transactionality, fail-closed selection, and lifecy
 
 ## Tasks
 
-- [ ] Test concurrent initial lock conflict leaves no leaked claim or lock rows.
-- [ ] Test mid-execution lazy lock conflict returns structured diagnostics without partial lock state.
-- [ ] Test changed-file audit blocks record and completion with unlocked changed paths.
-- [ ] Test `halt` records dirty and unlocked paths while removing runtime ownership.
-- [ ] Test expired claims block lock acquisition until `halt --reason expired` and cleanup.
-- [ ] Test ready composition over Markdown and latest execution log only.
-- [ ] Test recovery returns halted tasks to `ready/recoverable`.
-- [ ] Test `--force clean` and `--force resync` reject unrelated dirty paths.
-- [ ] Test SQLite rollback prevents partial runtime state.
-- [ ] Test terminal success requires branch freshness, mergeability, and cumulative diff lock coverage.
-- [ ] Test Git-detected renames fail terminal success.
+- [x] Test concurrent initial lock conflict leaves no leaked claim or lock rows.
+- [x] Test mid-execution lazy lock conflict returns structured diagnostics without partial lock state.
+- [x] Test changed-file audit blocks record and completion with unlocked changed paths.
+- [x] Test `halt` records dirty and unlocked paths while removing runtime ownership.
+- [x] Test expired claims block lock acquisition until `halt --reason expired` and cleanup.
+- [x] Test ready composition over Markdown and latest execution log only.
+- [x] Test recovery returns halted tasks to `ready/recoverable`.
+- [x] Test `--force clean` and `--force resync` reject unrelated dirty paths.
+- [x] Test SQLite rollback prevents partial runtime state.
+- [x] Test terminal success requires branch freshness, mergeability, and cumulative diff lock coverage.
+- [x] Test Git-detected renames fail terminal success.
 
 ## Deliverables
 
@@ -64,11 +66,11 @@ The runtime model depends on transactionality, fail-closed selection, and lifecy
 
 ## Acceptance criteria
 
-- [ ] Tests fail if locks or claims leak after failed acquisition.
-- [ ] Tests fail if lifecycle commands can advance with unlocked changed files.
-- [ ] Tests fail if `ready` ignores halted or failed execution-log state.
-- [ ] Tests fail if recovery bypasses normal claim and lock ownership.
-- [ ] Tests cover both successful and conflicting multi-agent flows.
+- [x] Tests fail if locks or claims leak after failed acquisition.
+- [x] Tests fail if lifecycle commands can advance with unlocked changed files.
+- [x] Tests fail if `ready` ignores halted or failed execution-log state.
+- [x] Tests fail if recovery bypasses normal claim and lock ownership.
+- [x] Tests cover both successful and conflicting multi-agent flows.
 
 ## Blocked by
 

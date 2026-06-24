@@ -174,6 +174,12 @@ describe("canonical task model", () => {
             ]
           },
           "archived": false
+        },
+        "runtime": {
+          "markdownReady": true,
+          "executionReady": true,
+          "ready": true,
+          "sourceDisagreement": false
         }
       }
       "
@@ -196,6 +202,49 @@ describe("canonical task model", () => {
     expect(prompt).toContain("# Sandcastle Task: wi-100");
     expect(prompt).toContain("Implement `Canonical Task Model`");
     expect(prompt).toContain("Use the canonical task JSON as the source of truth.");
+    expect(prompt).toContain(
+      "docs/how-to/sandcastle-dogfood-task-flow.md",
+    );
+    expect(prompt).toContain("Initialization and registry mapping live in");
+    for (const fragment of [
+      "Claim this task before execution with `dv task claim <task-id> --holder <holder> --json`",
+      "`dv lock create --claim <claim-token> <path...>`",
+      "`dv lock rm --claim <claim-token> <path...>`",
+      "`dv claim release <claim-token> --outcome conflict`",
+      "`dv task recover <task-id>`",
+      "do not treat Git hooks or prompt instructions as deterministic enforcement.",
+    ]) {
+      expect(prompt).toContain(fragment);
+    }
+  });
+
+  it("documents the deferred claim-bound artifact reservation contract", async () => {
+    const canonicalTask = await loadCanonicalTask({
+      rootDir: repoRoot,
+      taskId: "60344",
+    });
+    const deferredContractFragments = [
+      "Artifact refs resolve through the deferred graph model instead of widening the current file/document atomicity rule",
+      "Future artifact reservation commands remain follow-on surface area",
+      "Multi-ref reservation adds are all-or-none",
+      "Structured rejection reasons should distinguish outside-graph, conflict, repeated, and dry-run failures",
+      "Future validation should cover inside-scope, outside-scope, conflicting, repeated, multi-ref atomic, remove, and dry-run cases",
+    ] as const;
+
+    const [human, prompt] = await Promise.all([
+      renderHumanTask({ rootDir: repoRoot, task: canonicalTask }),
+      renderSandcastlePrompt({ rootDir: repoRoot, task: canonicalTask }),
+    ]);
+
+    expect(canonicalTask.body.sections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: "Deferred Contract" }),
+      ]),
+    );
+    for (const fragment of deferredContractFragments) {
+      expect(human).toContain(fragment);
+      expect(prompt).toContain(fragment);
+    }
   });
 
   it("supports no-drift reuse by rendering an already loaded model", async () => {

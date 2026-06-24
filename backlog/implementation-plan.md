@@ -38,12 +38,12 @@ are no longer the active roadmap for the next implementation phase.
 7. [ ] [[60373-claim-command-surface]]
 8. [ ] [[60374-lock-command-surface]]
 9. [ ] [[60366-authoritative-changed-file-lock-audit]]
-10. [ ] [[60368-fail-closed-ready-list-show]]
+10. [x] [[60368-fail-closed-ready-list-show]]
 11. [ ] [[60365-task-halt-command]]
-12. [ ] [[60369-task-recover-command]]
+12. [x] [[60369-task-recover-command]]
 13. [ ] [[60367-claim-prune-and-rm]]
-14. [ ] [[60370-sandcastle-local-multi-agent-flow]]
-15. [ ] [[60371-runtime-contract-integration-tests]]
+14. [x] [[60370-sandcastle-local-multi-agent-flow]]
+15. [x] [[60371-runtime-contract-integration-tests]]
 16. [ ] [[60376-runtime-extension-authoring-process]]
 
 ## Reconciliation Notes

@@ -32,7 +32,7 @@ rules into another caller.
 ## Decision
 
 Create a Work Item Governance Kernel as the deep module that owns canonical
-Work Item interpretation and verdicts.
+Work Item interpretation and findings.
 
 The kernel owns:
 
@@ -42,7 +42,7 @@ The kernel owns:
 - AFK/HITL classification.
 - Completion and closure evidence readiness.
 - Archive eligibility inputs.
-- Machine-readable verdicts with reasons and remediation hints.
+- Machine-readable findings with reasons and remediation hints.
 
 CLI commands, task commands, remark plugins, backlog scan, archive validation,
 and Sandcastle adapters must call the kernel instead of reimplementing Work Item
@@ -61,7 +61,7 @@ rules.
 Positive:
 
 - Work Item rule changes have high locality.
-- Tests can target kernel verdicts and reuse them through CLI and plugin
+- Tests can target kernel findings and reuse them through CLI and plugin
   adapters.
 - Task command behavior can stay ergonomic without becoming authoritative.
 
@@ -74,7 +74,7 @@ Negative/Risks:
 ## Validation
 
 - Add kernel tests for lifecycle, dependency, evidence, AFK/HITL, and archive
-  verdicts.
-- Refactor one adapter at a time to consume kernel verdicts.
+  findings.
+- Refactor one adapter at a time to consume kernel findings.
 - Preserve existing CLI and scan observable behavior unless a PRD/ADR explicitly
   changes it.

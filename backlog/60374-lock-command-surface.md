@@ -5,10 +5,12 @@ summary: Implement explicit lock create, rm, and status commands for claim-scope
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 4
+actual: 4
+completed_date: '2026-06-20'
 links:
   depends_on:
     - '[[60364-atomic-claim-and-lock-acquisition]]'
@@ -16,7 +18,8 @@ links:
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
   evidence:
-    - '[[record-20260620-022741-60374]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - runtime
@@ -36,28 +39,28 @@ Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-s
 
 ## Tasks
 
-- [ ] Add `dv lock create --claim <claim-token> <path...>`.
-- [ ] Add `dv lock rm --claim <claim-token> <path...>`.
-- [ ] Add `dv lock status --claim <claim-token>`.
-- [ ] Make multi-path create atomic: acquire all requested locks or none.
-- [ ] Make multi-path rm atomic: remove all requested locks or none.
-- [ ] Fail `lock rm` when any requested path is modified, missing from the claim, foreign-owned, or otherwise invalid.
-- [ ] Return structured diagnostics for conflicts without automatically halting the claim.
-- [ ] Report normalized `path`, `key`, and modified/clean status in lock status output.
+- [x] Add `dv lock create --claim <claim-token> <path...>`.
+- [x] Add `dv lock rm --claim <claim-token> <path...>`.
+- [x] Add `dv lock status --claim <claim-token>`.
+- [x] Make multi-path create atomic: acquire all requested locks or none.
+- [x] Make multi-path rm atomic: remove all requested locks or none.
+- [x] Fail `lock rm` when any requested path is modified, missing from the claim, foreign-owned, or otherwise invalid.
+- [x] Return structured diagnostics for conflicts without automatically halting the claim.
+- [x] Report normalized `path`, `key`, and modified/clean status in lock status output.
 
 ## Deliverables
 
-- Lock CLI commands.
-- Runtime APIs for atomic lock create and rm.
-- Tests for atomicity, modified-path rejection, conflict diagnostics, and status output.
+- [x] Lock CLI commands.
+- [x] Runtime APIs for atomic lock create and rm.
+- [x] Tests for atomicity, modified-path rejection, conflict diagnostics, and status output.
 
 ## Acceptance criteria
 
-- [ ] Agents can explicitly acquire locks before non-Doc-Vader file edits.
-- [ ] Lock create never partially succeeds.
-- [ ] Lock rm never removes modified or foreign-owned locks.
-- [ ] Lock conflicts do not mutate execution state.
-- [ ] Lock status shows the claim's current locks with normalized identities.
+- [x] Agents can explicitly acquire locks before non-Doc-Vader file edits.
+- [x] Lock create never partially succeeds.
+- [x] Lock rm never removes modified or foreign-owned locks.
+- [x] Lock conflicts do not mutate execution state.
+- [x] Lock status shows the claim's current locks with normalized identities.
 
 ## Blocked by
 

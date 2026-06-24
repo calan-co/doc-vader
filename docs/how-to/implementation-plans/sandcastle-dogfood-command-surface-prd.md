@@ -23,7 +23,7 @@ tags:
 
 ## Context Grounding
 
-Doc-Vader currently has backlog validation, work-item mutation, record creation, PRD validation/rendering, and a library-level AFK eligibility helper. It does not yet expose the Sandcastle-facing `dv task` command surface needed for deterministic dogfooding. The architecture now treats Doc-Vader as an entity-governance runtime: Work Item is canonical, Task is the Sandcastle command projection, and the local MVP runtime authority is Git-managed durable files plus SQLite-backed claims, locks, and execution logs.
+Doc-Vader currently has backlog validation, work-item mutation, record creation, PRD validation/rendering, and a library-level AFK eligibility helper. It does not yet expose the Sandcastle-facing `dv task` command surface needed for deterministic dogfooding. The architecture now treats Doc-Vader as an entity-governance runtime: Work Item is canonical, Task is the Sandcastle command projection, and the local MVP runtime authority coordinates claims, locks, and execution logs.
 
 ### Domain Vocabulary
 
@@ -39,7 +39,7 @@ Doc-Vader currently has backlog validation, work-item mutation, record creation,
 
 - dv task claim
 
-- dv claim complete
+- dv claim release
 
 - dv task record --claim
 
@@ -47,7 +47,7 @@ Doc-Vader currently has backlog validation, work-item mutation, record creation,
 
 - templjs render
 
-- SQLite runtime authority
+- local runtime authority
 
 - claim-owned file locks
 
@@ -87,7 +87,7 @@ The maintainer wants to use Sandcastle to improve Doc-Vader itself, but the curr
 
 ## Solution
 
-Deliver a Sandcastle dogfood MVP over the entity-governance runtime: deterministic AFK-ready selection, SQLite-backed claim creation, claim-owned file locks, task show/prompt rendering from canonical task JSON, claim-aware record creation through schema-validated payloads, and claim completion that preserves validation and evidence gates. This enables local Sandcastle agents to select, claim, inspect, implement, validate, record evidence, and complete runtime execution without needing hosted authority, a full Work Graph engine, or immutable scope graphs.
+Deliver a Sandcastle dogfood MVP over the entity-governance runtime: deterministic AFK-ready selection, runtime claim creation, claim-owned locks, task show/prompt rendering from canonical task JSON, claim-aware record creation through schema-validated payloads, and claim release that preserves validation and evidence gates. This enables local Sandcastle agents to select, claim, inspect, implement, validate, record evidence, and release runtime execution without needing hosted authority, a full Work Graph engine, or immutable scope graphs.
 
 ## Coverage Model
 
@@ -131,7 +131,7 @@ Deliver a Sandcastle dogfood MVP over the entity-governance runtime: determinist
 
 ### Coverage Notes
 
-The coverage model targets safe local dogfooding on the Git plus SQLite runtime adapter, not hosted production coordination.
+The coverage model targets safe local dogfooding on the local runtime adapter, not hosted production coordination.
 
 ## User Stories
 
@@ -185,7 +185,7 @@ The PRD is intentionally small enough for immediate agent execution while preser
 
   Category: `api-contract`
 
-- Use SQLite-backed claims and claim-owned file locks for the dogfood MVP instead of waiting for immutable scope graphs.
+- Use local runtime claims and claim-owned locks for the dogfood MVP instead of waiting for immutable scope graphs.
   Rationale: The local runtime authority prevents duplicate local selection and conflicting file mutations while preserving a storage-adapter boundary for future hosted authority.
 
   Category: `architecture`
@@ -225,7 +225,7 @@ The MVP is valid when the CLI can list exactly eligible AFK tasks, create a runt
 
 - AFK ready selection query
 
-- SQLite runtime store
+- local runtime store
 
 - file lock command surface
 

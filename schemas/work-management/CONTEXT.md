@@ -6,22 +6,6 @@ automation.
 
 ## Language
 
-**Entity Governance**:
-Doc-Vader's top-level architecture identity for schema-backed entities,
-artifacts, runtime coordination, policies, gates, audit evidence, and extension
-packages.
-_Avoid_: Framing Doc-Vader as only a document linter or backlog automation tool
-
-**Artifact**:
-A schema-backed persisted unit such as a document, work item, record, PRD,
-manifest, projection, lineage artifact, report, or package-contributed file.
-_Avoid_: Assuming all governed artifacts are Markdown documents
-
-**Entity**:
-An artifact with durable identity and lifecycle or state semantics.
-_Avoid_: Treating runtime coordination rows as implementation details when they
-carry governed state
-
 **Work Item**:
 A tracked unit of planned engineering work with lifecycle state, completion
 criteria, and evidence links.
@@ -36,9 +20,16 @@ _Avoid_: Treating task as a separate canonical repository entity
 **Work Item Governance Kernel**:
 The deep module responsible for canonical Work Item interpretation, including
 lifecycle validity, readiness, dependency state, AFK/HITL classification,
-evidence readiness, archive eligibility, and machine-readable verdicts.
+evidence readiness, archive eligibility, and machine-readable findings.
 _Avoid_: Reimplementing Work Item rules independently in task, scan, lint, or
 plugin adapters
+
+**Backlog Review Profile**:
+A Work Item review tailoring that applies global Doc-Vader checks to backlog
+documents and records, producing findings, reports, summaries, and optional
+synthesis without making backlog review a separate primitive.
+_Avoid_: Hard-coded backlog review flows that cannot be reused by other document
+stores or package-defined entity families
 
 **Record**:
 A separate work-management artifact used to capture evidence, approvals,
@@ -69,36 +60,6 @@ _Avoid_: Treating comment records as closure-authority artifacts
 A durable architecture-level decision artifact for hard-to-reverse choices with
 meaningful trade-offs.
 _Avoid_: Using ADRs for routine work-item state decisions
-
-**Runtime Entity**:
-A coordination entity persisted in the runtime authority, such as a claim, lock,
-or execution log entry.
-_Avoid_: Encoding runtime coordination only in transient process memory
-
-**Runtime Authority**:
-The local or hosted persistence authority for runtime entities. The local MVP
-uses one Git repository plus one SQLite runtime authority.
-_Avoid_: Confusing runtime authority with Git's durable artifact history
-
-**Gate**:
-A fail-closed decision point that produces machine-readable diagnostics when
-required evidence, policy, state, or runtime authority is missing.
-_Avoid_: Silent skips or advisory warnings for required execution prerequisites
-
-**Package**:
-An extension bundle that contributes entity definitions, schemas, policies,
-commands, templates, validation behavior, and documentation.
-_Avoid_: Requiring package authors to copy built-in Work Item internals
-
-**Storage Adapter**:
-A module that loads, persists, queries, or transacts over one storage medium such
-as Git-managed files, SQLite runtime tables, or future hosted storage.
-_Avoid_: Letting governance rules depend directly on a concrete storage medium
-
-**Format Adapter**:
-A module that parses, serializes, and canonicalizes one artifact format such as
-Markdown with YAML frontmatter, JSON payloads, or JSON Schema.
-_Avoid_: Treating Markdown parsing or JSON parsing as entity governance logic
 
 **Proposed**:
 A pre-decision state for items not yet accepted into execution flow.
@@ -374,6 +335,11 @@ _Avoid_: Logging transition events for non-lifecycle field changes
   record classification.
   Resolution: In this repository, rationale-specific variants such as comment or
   decision are record subtypes, not top-level types.
+
+- Ambiguity: AFK/HITL could be treated as intrinsic work properties.
+  Resolution: AFK/HITL are current operational classifications. A future
+  reasoning-level model may separate work complexity from execution policy, but
+  tags remain authoritative until that rubric and mapping are adopted.
 
 - Ambiguity: A decision-like rationale artifact could overlap with ADRs.
   Resolution: Work-item lifecycle rationale uses justification records; ADRs are

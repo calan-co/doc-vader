@@ -5,10 +5,12 @@ summary: Wire Sandcastle-facing prompts and adapter guidance to the `dv task` co
 type: work-item
 subtype: story
 lifecycle: active
-status: paused
-status_reason: blocked
+status: completed
+status_reason: completed
 priority: medium
 estimated: 5
+actual: 5
+completed_date: '2026-06-23'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/61
@@ -37,29 +39,31 @@ Make Sandcastle consume Doc-Vader's task command surface instead of repository-s
 
 The authoritative Sandcastle registry treats an issue tracker as a command-backed integration surface. Doc-Vader should fit that shape while preserving its stronger AFK guardrails: ready selection, explicit claim, claim-owned file locks, evidence recording, dependency-aware planning metadata, and safe completion.
 
+Hosted SaaS and published GitHub App concerns stay referenced in [[60338-hosted-saas-github-app-architecture-adr]] and are out of scope for this slice.
+
 ## Tasks
 
-- [ ] Document the Sandcastle command mapping from registry operations to `dv task` and `dv record` commands.
-- [ ] Provide tool installation and required environment guidance for Sandcastle initialization.
-- [ ] Replace existing Sandcastle prompt snippets or local guidance that hand-edit backlog state with `dv` commands.
-- [ ] Ensure the default Sandcastle selection path uses `dv task ready` and never selects HITL work.
-- [ ] Ensure execution flow composes ready selection, claim creation, lock acquisition, record creation, and claim completion commands explicitly.
-- [ ] Add integration tests or fixtures that prove the command sequence works for a representative AFK task.
+- [x] Document the Sandcastle command mapping from registry operations to `dv task` and `dv record` commands.
+- [x] Provide tool installation and required environment guidance for Sandcastle initialization.
+- [x] Replace existing Sandcastle prompt snippets or local guidance that hand-edit backlog state with `dv` commands.
+- [x] Ensure the default Sandcastle selection path uses `dv task ready` and never selects HITL work.
+- [x] Ensure execution flow composes ready selection, claim creation, lock acquisition, record creation, and claim completion commands explicitly.
+- [x] Add integration tests or fixtures that prove the command sequence works for a representative AFK task.
 
 ## Deliverables
 
-- Sandcastle adapter or prompt wiring for Doc-Vader task commands.
-- Installation and environment guidance compatible with Sandcastle's issue tracker registry.
-- Integration coverage for the full AFK task lifecycle.
+- [x] Sandcastle adapter or prompt wiring for Doc-Vader task commands.
+- [x] Installation and environment guidance compatible with Sandcastle's issue tracker registry.
+- [x] Integration coverage for the full AFK task lifecycle.
 
 ## Acceptance Criteria
 
-- [ ] Sandcastle can discover AFK-ready Doc-Vader tasks through `dv task ready`.
-- [ ] Sandcastle can claim a task, acquire locks, record evidence, complete success, and halt/recover when needed through documented commands.
-- [ ] Sandcastle guidance does not include inline scripts that bypass Doc-Vader validation or claim policy.
-- [ ] HITL work remains excluded from the Sandcastle-ready path.
-- [ ] Hosted SaaS and published GitHub App concerns remain referenced to [[60338-hosted-saas-github-app-architecture-adr]] rather than implemented here.
+- [x] Sandcastle can discover AFK-ready Doc-Vader tasks through `dv task ready`.
+- [x] Sandcastle can claim a task, acquire locks, record evidence, complete success, and halt/recover when needed through documented commands.
+- [x] Sandcastle guidance does not include inline scripts that bypass Doc-Vader validation or claim policy.
+- [x] HITL work remains excluded from the Sandcastle-ready path.
+- [x] Hosted SaaS and published GitHub App concerns remain referenced to [[60338-hosted-saas-github-app-architecture-adr]] rather than implemented here.
 
-## Blocked By
+## Dependencies
 
 [[60341-task-ready-afk-eligibility-query]], [[60373-claim-command-surface]], [[60374-lock-command-surface]], [[60345-claim-aware-record-and-close-commands]]
