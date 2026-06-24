@@ -4,7 +4,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
   openRuntimeSqliteStore,
@@ -12,6 +12,7 @@ import {
 } from "../lib/runtime/sqlite-store.js";
 
 const tempDirs: string[] = [];
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const execFileAsync = promisify(execFile);
