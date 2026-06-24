@@ -23,6 +23,8 @@ links:
     - '[[60358-sandcastle-dogfood-adapter-flow]]'
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
     - '[[60375-lock-path-normalization-and-rename-gate]]'
+  evidence:
+    - '[[record-20260624-234349-60370]]'
 tags:
   - afk
   - sandcastle
