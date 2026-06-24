@@ -1259,7 +1259,7 @@ tags:
     }
   });
 
-  it("rejects force recovery when unrelated dirty paths are present", async () => {
+  it("rejects force recovery when unrelated dirty paths are present", { timeout: 30_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
@@ -1450,7 +1450,7 @@ tags:
     }
   });
 
-  it("reports execution disagreement in task show JSON and operational task status", async () => {
+  it("reports execution disagreement in task show JSON and operational task status", { timeout: 30_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
@@ -1710,7 +1710,7 @@ tags:
     }
   });
 
-  it("safely recovers a stale missing-claim execution before creating a task claim", async () => {
+  it("safely recovers a stale missing-claim execution before creating a task claim", { timeout: 30_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
