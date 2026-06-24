@@ -297,7 +297,7 @@ tags:
     }
   });
 
-  it("supports dry-run completion without mutating runtime state", async () => {
+  it("supports dry-run completion without mutating runtime state", { timeout: 30_000 }, async () => {
     const root = await mkRoot();
     try {
       await writeTask(

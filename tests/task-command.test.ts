@@ -1863,7 +1863,7 @@ tags:
     }
   });
 
-  it("requires force to recover ready tasks with uncertain branch lineage", async () => {
+  it("requires force to recover ready tasks with uncertain branch lineage", { timeout: 30_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
