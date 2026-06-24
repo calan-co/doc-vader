@@ -18,6 +18,8 @@ links:
     - '[[../CONTEXT.md]]'
     - '[[../docs/architecture/decisions/adr-005-entity-governance-primitive-model.md]]'
     - '[[../docs/architecture/decisions/adr-010-composable-evaluation-primitives.md]]'
+  evidence:
+    - '[[record-20260624-234349-60383]]'
 tags:
   - afk
   - architecture

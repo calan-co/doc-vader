@@ -14,6 +14,8 @@ links:
     - '[[60377-work-item-governance-kernel]]'
     - '[[../docs/architecture/decisions/adr-005-entity-governance-primitive-model.md]]'
     - '[[../docs/architecture/decisions/adr-008-work-item-governance-kernel.md]]'
+  evidence:
+    - '[[record-20260624-234349-60379]]'
 tags:
   - hitl
   - spike

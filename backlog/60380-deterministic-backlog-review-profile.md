@@ -20,6 +20,8 @@ links:
     - '[[../schemas/work-management/CONTEXT.md]]'
   supporting_reference:
     - '[[record-wi-60380-validation]]'
+  evidence:
+    - '[[record-20260624-234349-60380]]'
 tags:
   - afk
   - backlog

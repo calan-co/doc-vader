@@ -12,6 +12,8 @@ estimated: 2
 links:
   reference:
     - '[[175.1.1.link-policy-plugin-task]]'
+  evidence:
+    - '[[record-20260624-234349-60360]]'
 tags:
   - recovery
   - link-policy

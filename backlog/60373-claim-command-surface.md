@@ -21,6 +21,8 @@ links:
   reference:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
     - '[[60376-runtime-extension-authoring-process]]'
+  evidence:
+    - '[[record-20260624-234349-60373]]'
 tags:
   - afk
   - runtime
