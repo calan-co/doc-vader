@@ -5,8 +5,8 @@ summary: Implement archive pruning on the task command surface with configured a
 type: work-item
 subtype: story
 lifecycle: active
-status: paused
-status_reason: blocked
+status: ready
+status_reason: auto
 priority: medium
 estimated: 8
 links:
@@ -42,7 +42,7 @@ Implement archive pruning on the task command surface so completed archived Mark
 - [ ] A failed candidate leaves its source file intact and does not stop unrelated eligible candidates from being evaluated.
 - [ ] Tests cover successful pruning, skipped candidates, validation failures, dirty candidates, and per-file persistence-before-delete behavior.
 
-## Blocked by
+## Dependencies
 
 - [[60347-configured-archive-validation-cli-slice]]
 - [[60348-pruned-index-contract-and-historical-resolver-semantics]]

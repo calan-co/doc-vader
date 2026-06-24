@@ -5,8 +5,8 @@ summary: Wire pruned-index records into the Linkity-backed resolver path as hist
 type: work-item
 subtype: story
 lifecycle: active
-status: paused
-status_reason: blocked
+status: ready
+status_reason: auto
 priority: medium
 estimated: 5
 links:
@@ -39,7 +39,7 @@ Make pruned-index records discoverable through the Linkity-backed resolver and l
 - [ ] Collision cases between live, archived, and pruned records follow the approved contract.
 - [ ] Tests cover pruned historical resolution, missing pruned records, collision diagnostics, and exclusion from active work selection.
 
-## Blocked by
+## Dependencies
 
 - [[60349-atomic-archive-pruning-command]]
 - [[60350-linkity-wikilink-resolution-integration-contract]]

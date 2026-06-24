@@ -25,6 +25,10 @@ import {
   transitionTask,
   validateTaskTransitionPayload,
 } from "../lib/task/transition.js";
+import {
+  openRuntimeSqliteStore,
+  RUNTIME_SCHEMA_VERSION,
+} from "../lib/runtime/sqlite-store.js";
 
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 const require = createRequire(import.meta.url);
@@ -87,8 +91,84 @@ async function mkTmpRoot(): Promise<string> {
   return root;
 }
 
+function initGitRepo(root: string): void {
+  execFileSync("git", ["init", "--initial-branch", "main"], {
+    cwd: root,
+    stdio: "ignore",
+  });
+  execFileSync("git", ["config", "user.email", "agent@example.com"], {
+    cwd: root,
+    stdio: "ignore",
+  });
+  execFileSync("git", ["config", "user.name", "Agent"], {
+    cwd: root,
+    stdio: "ignore",
+  });
+}
+
 function claimStorePath(root: string): string {
-  return path.join(root, ".doc-vader", "task-claims.json");
+  return path.join(root, ".doc-vader", "runtime", "task-claims");
+}
+
+function acquireRuntimeTaskClaim(
+  root: string,
+  taskId: string,
+  lockPaths: string[],
+  holder = "agent-a",
+): string {
+  const store = openRuntimeSqliteStore({ rootDir: root });
+  try {
+    const existing = store.getClaimByTarget("task", taskId);
+    if (existing) {
+      return existing.claim_token;
+    }
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
+    const acquisition = store.acquireRuntimeClaim(
+      {
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: taskId,
+        holder,
+        created_at: createdAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        entropy: randomUUID(),
+      },
+      { initialLockPaths: lockPaths },
+    );
+    if (acquisition.outcome !== "acquired") {
+      throw new Error(`Expected runtime claim acquisition for ${taskId}.`);
+    }
+    return acquisition.claimToken;
+  } finally {
+    store.close();
+  }
+}
+
+function recordRuntimeExecutionLog(
+  root: string,
+  entry: {
+    claim_token: string;
+    target_type: string;
+    target_id: string;
+    state: "running" | "completed" | "failed" | "halted";
+    reason: "started" | "success" | "error" | "conflict" | "blocked" | "invalid" | "expired" | "revoked" | "cancelled";
+    created_at: string;
+    detail: {
+      code: string;
+      message?: string;
+    };
+  },
+): void {
+  const store = openRuntimeSqliteStore({ rootDir: root });
+  try {
+    store.insertExecutionLogEntry({
+      schema_version: RUNTIME_SCHEMA_VERSION,
+      ...entry,
+    });
+  } finally {
+    store.close();
+  }
 }
 
 async function withClaimStoreEnvCleared<T>(
@@ -214,7 +294,7 @@ tags:
     }
   });
 
-  it("shows and prompts from the canonical task JSON at the CLI boundary", async () => {
+  it("shows and prompts from the canonical task JSON at the CLI boundary", { timeout: 15_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
@@ -336,10 +416,233 @@ tags:
     }
   });
 
-  it("supports a shared claim store path for sandbox mutexes", async () => {
+  it("halts runtime claims through the CLI and preserves terminal log state", async () => {
+    const root = await mkTmpRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquisition = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: "wi-107",
+        holder: "agent-a",
+        created_at: "2026-06-15T12:00:00.000Z",
+        expires_at: "2026-06-15T13:00:00.000Z",
+        entropy: "entropy-halting",
+      });
+      if (acquisition.outcome !== "acquired") {
+        throw new Error("Expected the claim to be acquired.");
+      }
+
+      store.close();
+
+      const output = JSON.parse(
+        runCli(root, [
+          "claim",
+          "release",
+          acquisition.claimToken,
+          "--outcome",
+          "blocked",
+          "--code",
+          "x-runtime-claim-halted",
+          "--json",
+        ]),
+      );
+
+      expect(output).toMatchObject({
+        claimToken: acquisition.claimToken,
+        executionLogEntry: {
+          claim_token: acquisition.claimToken,
+          state: "halted",
+          reason: "blocked",
+        },
+      });
+      const reopened = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        expect(reopened.listClaims()).toHaveLength(0);
+        expect(reopened.listLocks()).toHaveLength(0);
+        expect(reopened.listExecutionLogEntries()).toHaveLength(2);
+        expect(reopened.listExecutionLogEntries()[1]).toMatchObject({
+          claim_token: acquisition.claimToken,
+          state: "halted",
+          reason: "blocked",
+        });
+      } finally {
+        reopened.close();
+      }
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("records changed-file audit details when halting a dirty execution", async () => {
+    const root = await mkTmpRoot();
+    execFileSync("git", ["init", "--initial-branch", "main"], {
+      cwd: root,
+      stdio: "ignore",
+    });
+    execFileSync("git", ["config", "user.email", "agent@example.com"], {
+      cwd: root,
+      stdio: "ignore",
+    });
+    execFileSync("git", ["config", "user.name", "Agent"], {
+      cwd: root,
+      stdio: "ignore",
+    });
+    await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+    execFileSync("git", ["add", "README.md"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["commit", "-m", "chore: base"], {
+      cwd: root,
+      stdio: "ignore",
+    });
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    let storeClosed = false;
+    try {
+      const acquisition = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: "wi-107-audit",
+        holder: "agent-a",
+        created_at: "2026-06-15T12:00:00.000Z",
+        expires_at: "2026-06-15T13:00:00.000Z",
+        entropy: "entropy-halting-audit",
+      });
+      if (acquisition.outcome !== "acquired") {
+        throw new Error("Expected the claim to be acquired.");
+      }
+
+      store.close();
+      storeClosed = true;
+      await fs.appendFile(path.join(root, "README.md"), "dirty\n");
+
+      const output = JSON.parse(
+        runCli(root, [
+          "claim",
+          "release",
+          acquisition.claimToken,
+          "--outcome",
+          "blocked",
+          "--code",
+          "x-runtime-claim-halted",
+          "--json",
+        ]),
+      ) as {
+        executionLogEntry: {
+          payload: string;
+        };
+      };
+      const payload = JSON.parse(output.executionLogEntry.payload) as {
+        detail: {
+          code: string;
+          "x-dirty-paths"?: string[];
+          "x-unlocked-paths"?: string[];
+          "x-changed-file-audit"?: {
+            claimToken: string;
+            passed: boolean;
+            diagnostics: Array<{
+              path: string;
+              actualLockState: string;
+            }>;
+          };
+        };
+      };
+
+      expect(payload.detail).toMatchObject({
+        code: "x-runtime-claim-halted",
+        "x-dirty-paths": expect.arrayContaining(["README.md"]),
+        "x-unlocked-paths": expect.arrayContaining(["README.md"]),
+      });
+      expect(payload.detail["x-changed-file-audit"]).toMatchObject({
+        claimToken: acquisition.claimToken,
+        passed: false,
+      });
+      expect(payload.detail["x-changed-file-audit"]?.diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: "README.md",
+            actualLockState: "missing",
+          }),
+        ]),
+      );
+    } finally {
+      if (!storeClosed) {
+        store.close();
+      }
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("halts lock-conflict claims through the CLI and transitions the work item", async () => {
+    const root = await mkTmpRoot();
+    await writeTask(
+      root,
+      "108-conflict-task.md",
+      `id: wi-108
+title: Conflict Task
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+    );
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquisition = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: "wi-108",
+        holder: "agent-a",
+        created_at: "2026-06-15T12:00:00.000Z",
+        expires_at: "2026-06-15T13:00:00.000Z",
+        entropy: "entropy-lock-conflict",
+      });
+      if (acquisition.outcome !== "acquired") {
+        throw new Error("Expected the claim to be acquired.");
+      }
+
+      store.close();
+
+      const output = JSON.parse(
+        runCli(root, [
+          "claim",
+          "release",
+          acquisition.claimToken,
+          "--outcome",
+          "conflict",
+          "--code",
+          "lock",
+          "--json",
+        ]),
+      );
+
+      expect(output).toMatchObject({
+        claimToken: acquisition.claimToken,
+        executionLogEntry: {
+          claim_token: acquisition.claimToken,
+          state: "halted",
+          reason: "conflict",
+        },
+      });
+
+      const reopened = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        expect(reopened.listClaims()).toHaveLength(0);
+        expect(reopened.listLocks()).toHaveLength(0);
+      } finally {
+        reopened.close();
+      }
+
+      const transitioned = await loadTaskModel("wi-108", { rootDir: root });
+      expect(transitioned.status).toBe("paused");
+      expect(transitioned.statusReason).toBe("system");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("supports a shared claim store path for worktree mutexes", async () => {
     const root = await mkTmpRoot();
     const otherRoot = await mkTmpRoot();
-    const sharedClaimStore = path.join(root, "shared", "task-claims.json");
+    const sharedClaimStore = path.join(root, "shared", "task-claims");
     try {
       const claim = await claimTask("wi-104", {
         rootDir: root,
@@ -372,7 +675,7 @@ tags:
     const sharedClaimStore = path.join(
       root,
       "shared",
-      `claims-${randomUUID()}.json`,
+      `claims-${randomUUID()}`,
     );
     try {
       delete process.env.DOC_VADER_TASK_CLAIM_STORE;
@@ -480,7 +783,7 @@ tags:
       });
       execFileSync("git", ["config", "user.name", "Agent"], { cwd: root });
       await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
-      execFileSync("git", ["add", "README.md"], { cwd: root });
+      execFileSync("git", ["add", "."], { cwd: root });
       execFileSync("git", ["commit", "-m", "chore: base"], {
         cwd: root,
         stdio: "ignore",
@@ -490,22 +793,28 @@ tags:
         stdio: "ignore",
       });
       await fs.writeFile(path.join(root, "README.md"), "base\nwork\n", "utf8");
-      execFileSync("git", ["add", "README.md"], { cwd: root });
+      await fs.writeFile(path.join(root, ".gitignore"), ".doc-vader/runtime/\n", "utf8");
+      execFileSync("git", ["add", "."], { cwd: root });
       execFileSync("git", ["commit", "-m", "feat: work"], {
         cwd: root,
         stdio: "ignore",
       });
-      execFileSync("git", ["switch", "main"], { cwd: root, stdio: "ignore" });
 
       const claim = await claimTask("wi-107", {
         rootDir: root,
         claimStorePath: claimStorePath(root),
         holder: "agent-a",
         branch: "sandcastle/issue-107",
-        baseRef: "HEAD",
+        baseRef: "main",
         ttlMinutes: 1,
         now: new Date("2026-06-15T12:00:00.000Z"),
       });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-107",
+        ["README.md", ".gitignore"],
+        "agent-a",
+      );
       const later = new Date("2026-06-15T12:02:00.000Z");
 
       await expect(
@@ -565,6 +874,554 @@ tags:
     }
   });
 
+  it("fails recovery adoption when changed-file lock coverage is missing", { timeout: 15_000 }, async () => {
+    const root = await mkTmpRoot();
+    try {
+      execFileSync("git", ["init", "--initial-branch", "main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["config", "user.email", "agent@example.com"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["config", "user.name", "Agent"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      await fs.writeFile(path.join(root, ".gitignore"), ".doc-vader/runtime/\n", "utf8");
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-211"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(path.join(root, "README.md"), "base\nwork\n", "utf8");
+      execFileSync("git", ["add", "README.md"], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "feat: work"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+
+      const claim = await claimTask("wi-211", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+        branch: "sandcastle/issue-211",
+        baseRef: "main",
+        ttlMinutes: 1,
+        now: new Date("2026-06-15T12:00:00.000Z"),
+      });
+      acquireRuntimeTaskClaim(root, "wi-211", [".gitignore"], "agent-a");
+      const later = new Date("2026-06-15T12:02:00.000Z");
+
+      await expect(
+        recoverClaim(claim.claimId, {
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          action: "adopt",
+          holder: "agent-b",
+          now: later,
+        }),
+      ).rejects.toMatchObject({
+        code: "TASK_RECOVERY_CHANGED_FILE_LOCK_AUDIT_FAILED",
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers halted tasks to ready/recoverable on a clean worktree", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-300"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await writeTask(
+        root,
+        "300-recoverable-task.md",
+        `id: wi-300
+title: Recoverable Task
+type: work-item
+lifecycle: active
+status: paused
+status_reason: blocked
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "backlog/300-recoverable-task.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-300",
+        target_type: "task",
+        target_id: "wi-300",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Paused for recovery.",
+        },
+      });
+
+      const output = JSON.parse(
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-300",
+          "--json",
+        ]),
+      ) as {
+        claimToken: string;
+        executionLogEntry: {
+          state: string;
+          reason: string;
+        };
+        transition: {
+          dryRun: boolean;
+          frontmatter: {
+            status: string;
+            status_reason: string;
+          };
+        };
+      };
+
+      expect(output).toMatchObject({
+        executionLogEntry: {
+          state: "completed",
+          reason: "success",
+        },
+        transition: {
+          dryRun: false,
+          frontmatter: {
+            status: "ready",
+            status_reason: "recoverable",
+          },
+        },
+      });
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        expect(store.listClaims()).toHaveLength(0);
+        expect(store.listLocks()).toHaveLength(0);
+        expect(store.listExecutionLogEntries()).toHaveLength(3);
+        expect(store.listExecutionLogEntries()[2]).toMatchObject({
+          claim_token: output.claimToken,
+          state: "completed",
+          reason: "success",
+        });
+      } finally {
+        store.close();
+      }
+      const task = await loadTaskModel("wi-300", { rootDir: root });
+      expect(task.status).toBe("ready");
+      expect(task.statusReason).toBe("recoverable");
+      expect(task.runtime).toMatchObject({
+        executionReady: true,
+        ready: true,
+        latestExecutionLog: {
+          state: "completed",
+          reason: "success",
+        },
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses dirty recovery without force", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      await writeTask(
+        root,
+        "301-dirty-recovery-task.md",
+        `id: wi-301
+title: Dirty Recovery Task
+type: work-item
+lifecycle: active
+status: paused
+status_reason: blocked
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-301",
+        target_type: "task",
+        target_id: "wi-301",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Paused for recovery.",
+        },
+      });
+      await fs.writeFile(path.join(root, "notes.txt"), "dirty\n", "utf8");
+
+      expect(() =>
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-301",
+          "--json",
+        ]),
+      ).toThrow(/TASK_RECOVERY_DIRTY_WORKTREE/);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("supports force reset and reconcile recovery modes", { timeout: 15_000 }, async () => {
+    const rootClean = await mkTmpRoot();
+    const rootReconcile = await mkTmpRoot();
+    try {
+      initGitRepo(rootClean);
+      await fs.writeFile(path.join(rootClean, "README.md"), "base\n", "utf8");
+      await fs.writeFile(
+        path.join(rootClean, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: rootClean, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: rootClean,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-302"], {
+        cwd: rootClean,
+        stdio: "ignore",
+      });
+      await writeTask(
+        rootClean,
+        "302-force-recovery-task.md",
+        `id: wi-302
+title: Force Recovery Task
+type: work-item
+lifecycle: active
+status: paused
+status_reason: blocked
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "backlog/302-force-recovery-task.md"], {
+        cwd: rootClean,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: rootClean,
+        stdio: "ignore",
+      });
+      recordRuntimeExecutionLog(rootClean, {
+        claim_token: "claim-wi-302",
+        target_type: "task",
+        target_id: "wi-302",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Paused for recovery.",
+        },
+      });
+      await fs.writeFile(path.join(rootClean, "notes.txt"), "dirty\n", "utf8");
+
+      const cleanOutput = JSON.parse(
+        runCli(rootClean, [
+          "task",
+          "recover",
+          "wi-302",
+          "--force",
+          "reset",
+          "--json",
+        ]),
+      ) as { checkpoint?: unknown; transition: { frontmatter: { status_reason: string } } };
+      expect(cleanOutput.transition.frontmatter.status_reason).toBe("recoverable");
+      expect(cleanOutput.checkpoint).toBeUndefined();
+
+      const store = openRuntimeSqliteStore({ rootDir: rootClean });
+      try {
+        expect(store.listClaims()).toHaveLength(0);
+        expect(store.listLocks()).toHaveLength(0);
+      } finally {
+        store.close();
+      }
+
+      initGitRepo(rootReconcile);
+      await fs.writeFile(path.join(rootReconcile, "README.md"), "base\n", "utf8");
+      await fs.writeFile(
+        path.join(rootReconcile, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: rootReconcile, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: rootReconcile,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-303"], {
+        cwd: rootReconcile,
+        stdio: "ignore",
+      });
+      await writeTask(
+        rootReconcile,
+        "303-reconcile-recovery-task.md",
+        `id: wi-303
+title: Reconcile Recovery Task
+type: work-item
+lifecycle: active
+status: paused
+status_reason: blocked
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "backlog/303-reconcile-recovery-task.md"], {
+        cwd: rootReconcile,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: rootReconcile,
+        stdio: "ignore",
+      });
+      recordRuntimeExecutionLog(rootReconcile, {
+        claim_token: "claim-wi-303-reconcile",
+        target_type: "task",
+        target_id: "wi-303",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T13:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Paused for recovery again.",
+        },
+      });
+      await fs.writeFile(path.join(rootReconcile, "notes-2.txt"), "dirty\n", "utf8");
+
+      const reconcileOutput = JSON.parse(
+        runCli(rootReconcile, [
+          "task",
+          "recover",
+          "wi-303",
+          "--force",
+          "reconcile",
+          "--json",
+        ]),
+      ) as {
+        checkpoint?: {
+          filePath: string;
+          mode: string;
+        };
+      };
+      expect(reconcileOutput.checkpoint).toMatchObject({
+        mode: "reconcile",
+      });
+      expect(reconcileOutput.checkpoint?.filePath).toContain(
+        "recovery-checkpoints",
+      );
+      expect(
+        await fs.readFile(reconcileOutput.checkpoint!.filePath, "utf8"),
+      ).toContain('"mode": "reconcile"');
+    } finally {
+      await fs.rm(rootClean, { recursive: true, force: true });
+      await fs.rm(rootReconcile, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects force recovery when unrelated dirty paths are present", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-305"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await writeTask(
+        root,
+        "305-unrelated-dirty-recovery-task.md",
+        `id: wi-305
+title: Unrelated Dirty Recovery Task
+type: work-item
+lifecycle: active
+status: paused
+status_reason: blocked
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "backlog/305-unrelated-dirty-recovery-task.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "feat: task"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-305",
+        target_type: "task",
+        target_id: "wi-305",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Paused for recovery.",
+          "x-dirty-paths": ["notes.txt"],
+          "x-unlocked-paths": ["notes.txt"],
+        },
+      });
+      await fs.writeFile(path.join(root, "notes.txt"), "owned dirty\n", "utf8");
+      await fs.writeFile(path.join(root, "extra.txt"), "unrelated dirty\n", "utf8");
+
+      for (const forceMode of ["reset", "reconcile"] as const) {
+        expect(() =>
+          runCli(root, [
+            "task",
+            "recover",
+            "wi-305",
+            "--force",
+            forceMode,
+            "--json",
+          ]),
+        ).toThrow(/TASK_RECOVERY_UNRELATED_DIRTY_PATHS/);
+      }
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects force recovery when dirty paths are owned by another claim", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-304"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await writeTask(
+        root,
+        "304-force-conflict-task.md",
+        `id: wi-304
+title: Force Conflict Task
+type: work-item
+lifecycle: active
+status: paused
+status_reason: blocked
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "backlog/304-force-conflict-task.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "feat: task"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-304",
+        target_type: "task",
+        target_id: "wi-304",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Paused for recovery.",
+        },
+      });
+      await fs.writeFile(path.join(root, "notes.txt"), "dirty\n", "utf8");
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        const foreignClaim = store.acquireRuntimeClaim(
+          {
+            schema_version: RUNTIME_SCHEMA_VERSION,
+            target_type: "task",
+            target_id: "wi-foreign",
+            holder: "agent-b",
+            created_at: "2026-06-15T12:10:00.000Z",
+            expires_at: "2026-06-15T13:10:00.000Z",
+            entropy: "entropy-foreign-force-conflict",
+          },
+          {
+            initialLockPaths: ["notes.txt"],
+          },
+        );
+        if (foreignClaim.outcome !== "acquired") {
+          throw new Error("Expected the foreign claim to be acquired.");
+        }
+      } finally {
+        store.close();
+      }
+
+      expect(() =>
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-304",
+          "--force",
+          "reset",
+          "--json",
+        ]),
+      ).toThrow(/TASK_RECOVERY_LOCK_CONFLICT/);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("exposes show and claim through the CLI", async () => {
     const root = await mkTmpRoot();
     try {
@@ -582,23 +1439,764 @@ tags:
 
       const show = JSON.parse(runCli(root, ["task", "show", "105", "--json"]));
       expect(show.id).toBe("wi-105");
-      const claim = JSON.parse(
-        runCli(root, [
-          "task",
-          "claim",
-          "105",
-          "--holder",
-          "agent-a",
-          "--json",
-        ]),
-      );
+      const claim = await claimTask("wi-105", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
       expect(claim).toMatchObject({ taskId: "wi-105", state: "active" });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
   });
 
-  it("selects ready tasks and reports structured deterministic exclusions", async () => {
+  it("reports execution disagreement in task show JSON and operational task status", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "106-runtime-disagreement.md",
+        `id: wi-106
+title: Runtime Disagreement
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-106",
+        target_type: "task",
+        target_id: "wi-106",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Blocked by runtime execution.",
+        },
+      });
+
+      const show = JSON.parse(runCli(root, ["task", "show", "106", "--json"]));
+      const status = JSON.parse(runCli(root, ["task", "status", "106", "--json"]));
+      expect(show.runtime).toMatchObject({
+        markdownReady: true,
+        executionReady: false,
+        ready: false,
+        sourceDisagreement: true,
+        latestExecutionLog: {
+          claimToken: "claim-wi-106",
+          targetId: "wi-106",
+          state: "halted",
+          reason: "blocked",
+          readyPermitting: false,
+        },
+      });
+      expect(status).toMatchObject({
+        schemaVersion: "task-status/v1",
+        id: "wi-106",
+        title: "Runtime Disagreement",
+        status: "ready",
+        runtime: show.runtime,
+        recovery: {
+          state: "force-required",
+          forceRequired: true,
+          forceReasons: ["lineage-unknown"],
+          blockedReasons: [],
+        },
+      });
+      const statusWithWorktree = JSON.parse(
+        runCli(root, ["task", "status", "106", "--worktree", root, "--json"]),
+      );
+      expect(statusWithWorktree).toMatchObject({
+        recovery: {
+          state: "recoverable",
+          forceRequired: false,
+          forceReasons: [],
+          gitState: {
+            worktreeLineageKnown: true,
+            lineageKnown: true,
+          },
+        },
+      });
+      expect(status.body).toBeUndefined();
+      expect(status.bodySections).toBeUndefined();
+      expect(status.acceptanceCriteria).toBeUndefined();
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves task status from an unambiguous sandcastle branch worktree", async () => {
+    const root = await mkTmpRoot();
+    const worktreeRoot = `${root}-issue-106-worktree`;
+    try {
+      initGitRepo(root);
+      await writeTask(
+        root,
+        "106-worktree-status.md",
+        `id: wi-106-worktree
+title: Worktree Status
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync(
+        "git",
+        [
+          "worktree",
+          "add",
+          "-b",
+          "sandcastle/issue-106-worktree",
+          worktreeRoot,
+          "HEAD",
+        ],
+        { cwd: root, stdio: "ignore" },
+      );
+
+      const status = JSON.parse(
+        runCli(root, ["task", "status", "106-worktree", "--json"]),
+      );
+      const normalizedWorktreeRoot = await fs.realpath(worktreeRoot);
+
+      expect(status).toMatchObject({
+        id: "wi-106-worktree",
+        recovery: {
+          gitState: {
+            currentBranch: "sandcastle/issue-106-worktree",
+            currentWorktree: normalizedWorktreeRoot,
+            expectedWorktree: normalizedWorktreeRoot,
+            lineageKnown: true,
+            worktreeLineageKnown: true,
+          },
+        },
+      });
+    } finally {
+      try {
+        execFileSync("git", ["worktree", "remove", "--force", worktreeRoot], {
+          cwd: root,
+          stdio: "ignore",
+        });
+      } catch {
+        // The test may fail before the worktree is created.
+      }
+      await fs.rm(worktreeRoot, { recursive: true, force: true });
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers a ready runtime disagreement from an unambiguous sandcastle worktree", async () => {
+    const root = await mkTmpRoot();
+    const worktreeRoot = `${root}-issue-106-recover-worktree`;
+    try {
+      initGitRepo(root);
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      await writeTask(
+        root,
+        "106-recover-worktree.md",
+        `id: wi-106-recover-worktree
+title: Recover Worktree
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync(
+        "git",
+        [
+          "worktree",
+          "add",
+          "-b",
+          "sandcastle/issue-106-recover-worktree",
+          worktreeRoot,
+          "HEAD",
+        ],
+        { cwd: root, stdio: "ignore" },
+      );
+      await fs.writeFile(
+        path.join(worktreeRoot, "backlog/106-recover-worktree.md"),
+        `---
+id: wi-106-recover-worktree
+title: Recover Worktree
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk
+---
+
+## Acceptance criteria
+
+- [x] Do the thing
+`,
+        "utf8",
+      );
+      recordRuntimeExecutionLog(worktreeRoot, {
+        claim_token: "claim-wi-106-recover-worktree",
+        target_type: "task",
+        target_id: "wi-106-recover-worktree",
+        state: "running",
+        reason: "started",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-started",
+          message: "Interrupted after checklist update.",
+        },
+      });
+
+      const recovered = JSON.parse(
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-106-recover-worktree",
+          "--json",
+        ]),
+      ) as {
+        claim: {
+          metadata?: {
+            worktree?: string;
+          };
+        };
+        executionLogEntry: {
+          state: string;
+          reason: string;
+        };
+        transition: {
+          filePath: string;
+        };
+      };
+
+      expect(recovered).toMatchObject({
+        executionLogEntry: {
+          state: "completed",
+          reason: "success",
+        },
+        transition: {
+          filePath: path.join(
+            await fs.realpath(worktreeRoot),
+            "backlog/106-recover-worktree.md",
+          ),
+        },
+      });
+      expect(recovered.claim.metadata?.worktree).toBeUndefined();
+    } finally {
+      try {
+        execFileSync("git", ["worktree", "remove", "--force", worktreeRoot], {
+          cwd: root,
+          stdio: "ignore",
+        });
+      } catch {
+        // The test may fail before the worktree is created.
+      }
+      await fs.rm(worktreeRoot, { recursive: true, force: true });
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("safely recovers a stale missing-claim execution before creating a task claim", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      await writeTask(
+        root,
+        "106-claim-recoverable.md",
+        `id: wi-106-claim-recoverable
+title: Claim Recoverable
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-106-claim-recoverable"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(
+        path.join(root, "backlog/106-claim-recoverable.md"),
+        `---
+id: wi-106-claim-recoverable
+title: Claim Recoverable
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk
+---
+
+## Acceptance criteria
+
+- [x] Do the thing
+`,
+        "utf8",
+      );
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-106-claim-recoverable",
+        target_type: "task",
+        target_id: "wi-106-claim-recoverable",
+        state: "running",
+        reason: "started",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-started",
+          message: "Interrupted after checklist update.",
+        },
+      });
+
+      const claimed = JSON.parse(
+        runCli(root, [
+          "task",
+          "claim",
+          "wi-106-claim-recoverable",
+          "--holder",
+          "agent-a",
+          "--branch",
+          "sandcastle/issue-106-claim-recoverable",
+          "--json",
+        ]),
+      ) as {
+        outcome: string;
+        executionLogEntry: {
+          state: string;
+          reason: string;
+        };
+      };
+
+      expect(claimed).toMatchObject({
+        outcome: "acquired",
+        executionLogEntry: {
+          state: "running",
+          reason: "started",
+        },
+      });
+
+      const status = JSON.parse(
+        runCli(root, ["task", "status", "wi-106-claim-recoverable", "--json"]),
+      );
+      expect(status.runtime.latestExecutionLog).toMatchObject({
+        state: "running",
+        reason: "started",
+        claimState: "active",
+      });
+      expect(status.recovery.state).toBe("blocked");
+      expect(status.recovery.blockedReasons).toContain("claim-active");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects task claim creation when the latest execution log is not ready-permitting", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "106-runtime-blocked-claim.md",
+        `id: wi-106-claim
+title: Runtime Blocked Claim
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-106-claim",
+        target_type: "task",
+        target_id: "wi-106-claim",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Blocked by runtime execution.",
+        },
+      });
+
+      let output = "";
+      try {
+        runCli(root, [
+          "task",
+          "claim",
+          "106-claim",
+          "--holder",
+          "agent-a",
+          "--json",
+        ]);
+      } catch (error) {
+        const captured = error as { stdout?: unknown; stderr?: unknown };
+        output = [String(captured.stdout ?? ""), String(captured.stderr ?? "")].join(
+          "\n",
+        );
+      }
+
+      expect(output).toContain("TASK_NOT_CLAIMABLE");
+      expect(output).toContain("execution-not-ready");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("requires force to recover ready tasks with uncertain branch lineage", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-106-recover"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await writeTask(
+        root,
+        "106-runtime-recover-claim.md",
+        `id: wi-106-recover
+title: Runtime Recover Claim
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "backlog/106-runtime-recover-claim.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "feat: task"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-106-recover",
+        target_type: "task",
+        target_id: "wi-106-recover",
+        state: "failed",
+        reason: "error",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-claim-failed",
+          message: "Execution failed but left no live claim or locks.",
+        },
+      });
+
+      const task = await loadTaskModel("wi-106-recover", { rootDir: root });
+      expect(task.runtime).toMatchObject({
+        markdownReady: true,
+        executionReady: false,
+        ready: false,
+        sourceDisagreement: true,
+        latestExecutionLog: {
+          claimToken: "claim-wi-106-recover",
+          state: "failed",
+          reason: "error",
+          readyPermitting: false,
+        },
+      });
+      expect(() =>
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-106-recover",
+          "--json",
+        ]),
+      ).toThrow(/TASK_RECOVERY_FORCE_REQUIRED/);
+
+      const dryRun = JSON.parse(
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-106-recover",
+          "--branch",
+          "sandcastle/issue-106-recover",
+          "--dry-run",
+          "--json",
+        ]),
+      ) as {
+        dryRun: boolean;
+        plannedInitialLockPaths: string[];
+        transition: {
+          dryRun: boolean;
+          frontmatter: {
+            status: string;
+            status_reason: string;
+          };
+        };
+      };
+      expect(dryRun).toMatchObject({
+        dryRun: true,
+        plannedInitialLockPaths: ["backlog/106-runtime-recover-claim.md"],
+        transition: {
+          dryRun: true,
+          frontmatter: {
+            status: "ready",
+            status_reason: "recoverable",
+          },
+        },
+      });
+      const stillBlocked = JSON.parse(runCli(root, ["task", "ready", "--json"])) as {
+        candidates: Array<{ id: string }>;
+      };
+      expect(stillBlocked.candidates.map((candidate) => candidate.id)).not.toContain(
+        "wi-106-recover",
+      );
+
+      const recovered = JSON.parse(
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-106-recover",
+          "--branch",
+          "sandcastle/issue-106-recover",
+          "--json",
+        ]),
+      ) as {
+        warnings?: string[];
+        executionLogEntry: {
+          state: string;
+          reason: string;
+        };
+        transition: {
+          frontmatter: {
+            status: string;
+            status_reason: string;
+          };
+        };
+      };
+      expect(recovered).toMatchObject({
+        executionLogEntry: {
+          state: "completed",
+          reason: "success",
+        },
+        transition: {
+          frontmatter: {
+            status: "ready",
+            status_reason: "recoverable",
+          },
+        },
+      });
+      expect(recovered.warnings).toBeUndefined();
+
+      const ready = JSON.parse(runCli(root, ["task", "ready", "--json"])) as {
+        candidates: Array<{ id: string }>;
+      };
+      expect(ready.candidates.map((candidate) => candidate.id)).toContain(
+        "wi-106-recover",
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not recover ready runtime disagreement while live claim state remains", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "106-runtime-cancelled-active.md",
+        `id: wi-106-cancelled-active
+title: Runtime Cancelled Active
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      const claimToken = "claim-wi-106-cancelled-active";
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        store.insertClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          claim_token: claimToken,
+          target_type: "task",
+          target_id: "wi-106-cancelled-active",
+          holder: "agent-a",
+          created_at: "2099-06-15T12:00:00.000Z",
+          expires_at: "2099-06-15T13:00:00.000Z",
+        });
+        store.insertLock({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          key: "7e3f9a0b1c2d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789ab",
+          path: "backlog/106-runtime-cancelled-active.md",
+          claim_token: claimToken,
+          target_type: "task",
+          target_id: "wi-106-cancelled-active",
+          created_at: "2099-06-15T12:01:00.000Z",
+        });
+      } finally {
+        store.close();
+      }
+      recordRuntimeExecutionLog(root, {
+        claim_token: claimToken,
+        target_type: "task",
+        target_id: "wi-106-cancelled-active",
+        state: "halted",
+        reason: "cancelled",
+        created_at: "2099-06-15T12:02:00.000Z",
+        detail: {
+          code: "x-runtime-claim-halted",
+          message: "Cancelled while claim state remained live.",
+        },
+      });
+
+      const task = await loadTaskModel("wi-106-cancelled-active", { rootDir: root });
+      expect(task.runtime?.latestExecutionLog).toMatchObject({
+        claimToken,
+        claimState: "active",
+        lockCount: 1,
+        state: "halted",
+        reason: "cancelled",
+        readyPermitting: false,
+      });
+      expect(() =>
+        runCli(root, [
+          "task",
+          "recover",
+          "wi-106-cancelled-active",
+          "--json",
+        ]),
+      ).toThrow(/TASK_RECOVERY_INVALID_STATUS/);
+
+      const readyText = runCli(root, ["task", "ready"]);
+      expect(readyText).not.toContain("wi-106-cancelled-active");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses the latest execution log when composing task readiness", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "107-runtime-latest-log.md",
+        `id: wi-107
+title: Runtime Latest Log
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-107-older",
+        target_type: "task",
+        target_id: "wi-107",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Older halted attempt.",
+        },
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-107-newer",
+        target_type: "task",
+        target_id: "wi-107",
+        state: "completed",
+        reason: "success",
+        created_at: "2026-06-15T12:05:00.000Z",
+        detail: {
+          code: "x-runtime-task-completed",
+          message: "Latest execution finished successfully.",
+        },
+      });
+
+      const task = await loadTaskModel("wi-107", { rootDir: root });
+      expect(task.runtime).toMatchObject({
+        markdownReady: true,
+        executionReady: true,
+        ready: true,
+        sourceDisagreement: false,
+        latestExecutionLog: {
+          claimToken: "claim-wi-107-newer",
+          state: "completed",
+          reason: "success",
+          readyPermitting: true,
+        },
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("fails claim creation when the latest execution log is not ready-permitting", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "107-runtime-blocked.md",
+        `id: wi-107
+title: Runtime Blocked
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-107",
+        target_type: "task",
+        target_id: "wi-107",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Blocked by runtime execution.",
+        },
+      });
+
+      expect(() =>
+        runCli(root, [
+          "task",
+          "claim",
+          "107",
+          "--holder",
+          "agent-a",
+          "--json",
+        ]),
+      ).toThrow();
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("selects ready tasks and reports structured deterministic exclusions", { timeout: 15_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
@@ -729,10 +2327,56 @@ status: dependency-blocked
 tags:
   - afk`,
       );
+      await writeTask(
+        root,
+        "211-runtime-blocked.md",
+        `id: wi-211
+title: Runtime Blocked
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "212-runtime-cancelled.md",
+        `id: wi-212
+title: Runtime Cancelled
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
       await claimTask("wi-203", {
         rootDir: root,
         claimStorePath: claimStorePath(root),
         holder: "agent-a",
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-211",
+        target_type: "task",
+        target_id: "wi-211",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Blocked by runtime execution.",
+        },
+      });
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-212",
+        target_type: "task",
+        target_id: "wi-212",
+        state: "halted",
+        reason: "cancelled",
+        created_at: "2026-06-15T12:05:00.000Z",
+        detail: {
+          code: "x-runtime-claim-halted",
+          message: "Cancelled during troubleshooting.",
+        },
       });
 
       const report = await selectReadyTasks({
@@ -740,7 +2384,10 @@ tags:
         claimStorePath: claimStorePath(root),
       });
 
-      expect(report.candidates.map((task) => task.id)).toEqual(["wi-200"]);
+      expect(report.candidates.map((task) => task.id)).toEqual([
+        "wi-200",
+        "wi-203",
+      ]);
       expect(report.candidates[0]).toMatchObject({
         id: "wi-200",
         filePath: "backlog/200-ready.md",
@@ -760,34 +2407,260 @@ tags:
       ).toEqual([
         { id: "wi-201", codes: ["hitl"] },
         { id: "wi-202", codes: ["dependency_blocked"] },
-        { id: "wi-203", codes: ["task_claim_active"] },
         { id: "wi-204", codes: ["missing_classification"] },
         { id: "wi-205", codes: ["invalid"] },
         { id: "wi-206", codes: ["closed", "not_ready", "not_active"] },
         { id: "wi-207", codes: ["blocked", "not_ready"] },
         { id: "wi-209", codes: ["closed", "not_ready", "not_active"] },
         { id: "wi-210", codes: ["dependency_blocked", "not_ready"] },
+        { id: "wi-211", codes: ["execution_not_ready"] },
+        { id: "wi-212", codes: ["execution_not_ready"] },
         { id: "wi-208", codes: ["archived"] },
       ]);
       const porcelain = runCli(root, ["task", "ready", "--porcelain"]);
-      expect(porcelain.trim()).toBe("wi-200\tbacklog/200-ready.md\tReady");
+      expect(porcelain.trim()).toBe(
+        [
+          "wi-200\tbacklog/200-ready.md\tReady",
+          "wi-203\tbacklog/203-dependency.md\tDependency",
+        ].join("\n"),
+      );
       const text = runCli(root, ["task", "ready"]);
       expect(text).toContain("Ready task candidates");
-      expect(text).toContain("Candidates: 1");
+      expect(text).toContain("Candidates: 2");
+      expect(text).toContain("Recoverable with --force: 2 (wi-211, wi-212)");
+      expect(text).toContain("Branch lineage or task-local dirty state is uncertain");
       expect(text).toContain("- wi-200 | Ready | backlog/200-ready.md");
+      expect(text).toContain("- wi-203 | Dependency | backlog/203-dependency.md");
       expect(text).not.toContain("Excluded");
       expect(text).not.toContain("HITL tasks are not AFK-ready candidates.");
       const json = JSON.parse(runCli(root, ["task", "ready", "--json"]));
       expect(json.schemaVersion).toBe("task-ready/v1");
-      expect(json.candidates).toHaveLength(1);
-      expect(json.exclusions).toHaveLength(10);
+      expect(json.candidates).toHaveLength(2);
+      expect(json.exclusions).toHaveLength(11);
+      expect(json.candidates[0]).toMatchObject({
+        id: "wi-200",
+        runtime: {
+          markdownReady: true,
+          executionReady: true,
+          ready: true,
+          sourceDisagreement: false,
+        },
+      });
+      expect(json.exclusions.find((entry: { id?: string }) => entry.id === "wi-211")).toMatchObject(
+        {
+          id: "wi-211",
+          runtime: {
+            markdownReady: true,
+            executionReady: false,
+            ready: false,
+            sourceDisagreement: true,
+            latestExecutionLog: {
+              state: "halted",
+              reason: "blocked",
+              readyPermitting: false,
+            },
+          },
+        },
+      );
+      const listText = runCli(root, ["task", "list"]);
+      expect(listText).toContain("wi-200 | ready | Ready");
+      expect(listText).toContain("wi-211 | ready | Runtime Blocked");
+      expect(listText).toContain("wi-212 | ready | Runtime Cancelled");
+      expect(listText).not.toContain("wi-206");
       const candidatesOnly = JSON.parse(
         runCli(root, ["task", "ready", "--json", "--candidates-only"]),
       );
       expect(candidatesOnly.schemaVersion).toBe("task-ready/v1");
-      expect(candidatesOnly.candidates).toHaveLength(1);
+      expect(candidatesOnly.candidates).toHaveLength(2);
       expect(candidatesOnly.exclusions).toBeUndefined();
+      expect(candidatesOnly.candidates[0]).toMatchObject({
+        id: "wi-200",
+        runtime: {
+          markdownReady: true,
+          executionReady: true,
+          ready: true,
+          sourceDisagreement: false,
+        },
+      });
     } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("only returns ready candidates that can be claimed in the same context", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "200-claimable-ready.md",
+        `id: wi-200
+title: Claimable Ready
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "201-runtime-blocked.md",
+        `id: wi-201
+title: Runtime Blocked
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-wi-201",
+        target_type: "task",
+        target_id: "wi-201",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:00:00.000Z",
+        detail: {
+          code: "x-runtime-task-blocked",
+          message: "Blocked by runtime execution.",
+        },
+      });
+
+      const ready = JSON.parse(
+        runCli(root, ["task", "ready", "--json", "--candidates-only"]),
+      ) as {
+        candidates: Array<{ id: string }>;
+      };
+
+      expect(ready.candidates.map((candidate) => candidate.id)).toEqual([
+        "wi-200",
+      ]);
+
+      const claimed = JSON.parse(
+        runCli(root, [
+          "task",
+          "claim",
+          ready.candidates[0]!.id,
+          "--holder",
+          "agent-a",
+          "--json",
+        ]),
+      ) as {
+        outcome: string;
+        executionLogEntry: {
+          state: string;
+          reason: string;
+        };
+      };
+
+      expect(claimed).toMatchObject({
+        outcome: "acquired",
+        executionLogEntry: {
+          state: "running",
+          reason: "started",
+        },
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses the issue worktree as task authority for ready and claim", async () => {
+    const root = await mkTmpRoot();
+    const worktreeRoot = `${root}-issue-202-worktree`;
+    try {
+      initGitRepo(root);
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      await writeTask(
+        root,
+        "202-worktree-authority.md",
+        `id: wi-202
+title: Worktree Authority
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync(
+        "git",
+        [
+          "worktree",
+          "add",
+          "-b",
+          "sandcastle/issue-202",
+          worktreeRoot,
+          "HEAD",
+        ],
+        { cwd: root, stdio: "ignore" },
+      );
+
+      const store = openRuntimeSqliteStore({ rootDir: worktreeRoot });
+      try {
+        const now = new Date("2099-06-15T12:00:00.000Z");
+        const claim = store.acquireRuntimeClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          target_type: "task",
+          target_id: "wi-202",
+          holder: "sandcastle:test",
+          created_at: now.toISOString(),
+          expires_at: new Date(now.getTime() + 60 * 60_000).toISOString(),
+          metadata: {
+            branch: "sandcastle/issue-202",
+          },
+          entropy: randomUUID(),
+        });
+        expect(claim.outcome).toBe("acquired");
+      } finally {
+        store.close();
+      }
+
+      const ready = JSON.parse(
+        runCli(root, ["task", "ready", "--json", "--candidates-only"]),
+      ) as {
+        candidates: Array<{ id: string }>;
+      };
+      expect(ready.candidates.map((candidate) => candidate.id)).not.toContain(
+        "wi-202",
+      );
+
+      let claimError: unknown;
+      try {
+        runCli(root, ["task", "claim", "wi-202", "--json"]);
+      } catch (error) {
+        claimError = error;
+      }
+      expect(claimError).toBeDefined();
+      const processError = claimError as {
+        message?: string;
+        stderr?: Buffer | string;
+        stdout?: Buffer | string;
+      };
+      expect(
+        [
+          processError.stdout,
+          processError.stderr,
+          processError.message,
+        ].map((value) => value?.toString() ?? "").join("\n"),
+      ).toContain("TASK_NOT_CLAIMABLE");
+    } finally {
+      try {
+        execFileSync("git", ["worktree", "remove", "--force", worktreeRoot], {
+          cwd: root,
+          stdio: "ignore",
+        });
+      } catch {
+        // The test may fail before the worktree is created.
+      }
+      await fs.rm(worktreeRoot, { recursive: true, force: true });
       await fs.rm(root, { recursive: true, force: true });
     }
   });
@@ -898,7 +2771,7 @@ tags:
     }
   });
 
-  it("fails closed for unknown dependency state and expired claims", async () => {
+  it("keeps expired claims out of ready selection inputs", async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
@@ -926,26 +2799,19 @@ links:
   depends_on:
     - '[[999-missing]]'`,
       );
-      await claimTask("wi-204", {
-        rootDir: root,
-        claimStorePath: claimStorePath(root),
-        holder: "agent-a",
-        ttlMinutes: -1,
-      });
 
       const report = await selectReadyTasks({
         rootDir: root,
         claimStorePath: claimStorePath(root),
       });
 
-      expect(report.candidates).toHaveLength(0);
+      expect(report.candidates.map((entry) => entry.id)).toEqual(["wi-204"]);
       expect(
         report.exclusions.map((entry) => ({
           id: entry.id,
           codes: entry.reasons.map((reason) => reason.code),
         })),
       ).toEqual([
-        { id: "wi-204", codes: ["task_claim_expired"] },
         { id: "wi-205", codes: ["dependency_state_unknown"] },
       ]);
     } finally {
@@ -972,15 +2838,22 @@ tags:
         claimStorePath: claimStorePath(root),
         holder: "agent-a",
       });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-205",
+        [
+          path.join(root, "backlog", "205-record.md"),
+          path.join(root, "backlog", "records", "record-wi-205-evidence.md"),
+        ],
+      );
 
       const result = await recordTaskEvidence({
         rootDir: root,
         claimStorePath: claimStorePath(root),
         claimId: claim.claimId,
+        type: "test-result",
         payload: validateTaskRecordPayload({
           id: "record:wi-205-evidence",
-          type: "test-result",
-          subtype: "test-result",
           summary: "Task validation passed",
           observation: "Focused tests passed",
           outcome: "pass",
@@ -1025,15 +2898,24 @@ status: ready
 tags:
   - afk`,
       );
-      const claim = JSON.parse(
-        runCli(root, ["task", "claim", "206", "--holder", "agent-a", "--json"]),
+      const claim = await claimTask("wi-206", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-206",
+        [
+          path.join(root, "backlog", "206-record-cli.md"),
+          path.join(root, "backlog", "records", "record-wi-206-file.md"),
+        ],
       );
       const payloadPath = path.join(root, "payload.json");
       await fs.writeFile(
         payloadPath,
         JSON.stringify({
           id: "record:wi-206-file",
-          type: "test-result",
           summary: "File payload",
           observation: "File payload recorded",
           outcome: "pass",
@@ -1045,6 +2927,8 @@ tags:
           "record",
           "--claim",
           claim.claimId,
+          "--type",
+          "test-result",
           "--payload",
           payloadPath,
           "--json",
@@ -1055,8 +2939,19 @@ tags:
         rootDir: root,
         claimStorePath: claimStorePath(root),
       });
-      const secondClaim = JSON.parse(
-        runCli(root, ["task", "claim", "206", "--holder", "agent-b", "--json"]),
+      const secondClaim = await claimTask("wi-206", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-b",
+      });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-206",
+        [
+          path.join(root, "backlog", "206-record-cli.md"),
+          path.join(root, "backlog", "records", "record-wi-206-stdin.md"),
+        ],
+        "agent-b",
       );
       const stdinResult = JSON.parse(
         runCli(
@@ -1066,13 +2961,14 @@ tags:
             "record",
             "--claim",
             secondClaim.claimId,
+            "--type",
+            "test-result",
             "--payload",
             "-",
             "--json",
           ],
           JSON.stringify({
             id: "record:wi-206-stdin",
-            type: "test-result",
             summary: "Stdin payload",
             observation: "Stdin payload recorded",
             outcome: "pass",
@@ -1084,6 +2980,123 @@ tags:
       await fs.rm(root, { recursive: true, force: true });
     }
   }, 15_000);
+
+  it("creates generic records from payload files without claim context", async () => {
+    const root = await mkTmpRoot();
+    try {
+      const payloadPath = path.join(root, "record-payload.json");
+      await fs.writeFile(
+        payloadPath,
+        JSON.stringify({
+          id: "record:wi-207-generic",
+          summary: "Generic record",
+          observation: "Generic record created through the record command.",
+          outcome: "noted",
+          subjects: ["[[wi-207]]"],
+        }),
+      );
+
+      const result = JSON.parse(
+        runCli(root, [
+          "record",
+          "create",
+          "--type",
+          "audit-note",
+          "--payload",
+          payloadPath,
+          "--json",
+        ]),
+      ) as { id: string; filePath: string; dryRun: boolean };
+
+      expect(result).toMatchObject({
+        id: "record:wi-207-generic",
+        dryRun: false,
+      });
+      const record = await fs.readFile(result.filePath, "utf8");
+      expect(record).toContain(
+        "Generic record created through the record command.",
+      );
+      expect(record).toContain("[[wi-207]]");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts runtime claim tokens when recording evidence through the task command", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "206-runtime-record.md",
+        `id: wi-206-runtime-record
+title: Runtime Record
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+
+      const created = JSON.parse(
+        runCli(root, [
+          "claim",
+          "create",
+          "--target",
+          "task:wi-206-runtime-record",
+          "--holder",
+          "cli-claim-test",
+          "--json",
+        ]),
+      ) as { outcome: string; claimToken: string };
+      expect(created.outcome).toBe("acquired");
+
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        store.acquireRuntimeLocks(created.claimToken, [
+          path.join(root, "backlog", "206-runtime-record.md"),
+          path.join(
+            root,
+            "backlog",
+            "records",
+            "record-wi-206-runtime-record-evidence.md",
+          ),
+        ]);
+      } finally {
+        store.close();
+      }
+
+      const result = JSON.parse(
+        runCli(
+          root,
+          [
+            "task",
+            "record",
+            "--claim",
+            created.claimToken,
+            "--type",
+            "test-result",
+            "--payload",
+            "-",
+            "--json",
+          ],
+          JSON.stringify({
+            id: "record:wi-206-runtime-record-evidence",
+            summary: "Runtime claim evidence",
+            observation:
+              "Runtime claim token accepted by the task record command.",
+            outcome: "pass",
+          }),
+        ),
+      ) as { taskId: string; evidenceLink: string };
+
+      expect(result).toMatchObject({
+        taskId: "wi-206-runtime-record",
+        evidenceLink: "[[record-wi-206-runtime-record-evidence]]",
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 
   it("fails record payloads and inactive claims before writing", async () => {
     const root = await mkTmpRoot();
@@ -1101,7 +3114,6 @@ tags:
       );
       expect(() =>
         validateTaskRecordPayload({
-          type: "test-result",
           observation: "missing summary",
         }),
       )
@@ -1111,8 +3123,8 @@ tags:
           rootDir: root,
           claimStorePath: claimStorePath(root),
           claimId: "claim-missing",
+          type: "test-result",
           payload: validateTaskRecordPayload({
-            type: "test-result",
             summary: "Should not write",
             observation: "Missing claim",
           }),
@@ -1128,9 +3140,9 @@ tags:
           rootDir: root,
           claimStorePath: claimStorePath(root),
           claimId: orphanClaim.claimId,
+          type: "test-result",
           payload: validateTaskRecordPayload({
             id: "record:should-not-write",
-            type: "test-result",
             summary: "Should not write",
             observation: "Link preflight must fail first",
           }),
@@ -1234,6 +3246,11 @@ tags:
         claimStorePath: claimStorePath(root),
         holder: "agent-a",
       });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-209",
+        [path.join(root, "backlog", "209-close-no-evidence.md")],
+      );
 
       await expect(
         transitionTask({
@@ -1270,8 +3287,18 @@ tags:
   - afk`,
         "## Acceptance Criteria\n\n- [x] Do the thing\n",
       );
-      const claim = JSON.parse(
-        runCli(root, ["task", "claim", "210", "--holder", "agent-a", "--json"]),
+      const claim = await claimTask("wi-210", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-210",
+        [
+          path.join(root, "backlog", "210-close.md"),
+          path.join(root, "backlog", "records", "record-wi-210-close.md"),
+        ],
       );
       await runCli(
         root,
@@ -1280,13 +3307,14 @@ tags:
           "record",
           "--claim",
           claim.claimId,
+          "--type",
+          "test-result",
           "--payload",
           "-",
           "--json",
         ],
         JSON.stringify({
           id: "record:wi-210-close",
-          type: "test-result",
           summary: "Close validation",
           observation: "Evidence exists before close.",
           outcome: "pass",
@@ -1338,6 +3366,69 @@ tags:
     }
   });
 
+  it("blocks completion when changed-file audit sees unlocked paths", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await writeTask(
+        root,
+        "214-completion-audit.md",
+        `id: wi-214
+title: Completion Audit
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk
+links:
+  evidence:
+    - '[[record-wi-214-completion]]'`,
+      );
+      const claim = await claimTask("wi-214", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-214",
+        [path.join(root, "backlog", "214-completion-audit.md")],
+      );
+      await fs.writeFile(path.join(root, "notes.txt"), "dirty\n", "utf8");
+
+      await expect(
+        transitionTask({
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          claimId: claim.claimId,
+          status: "completed",
+          statusReason: "completed",
+        }),
+      ).rejects.toMatchObject({
+        code: "TASK_TRANSITION_CHANGED_FILE_LOCK_AUDIT_FAILED",
+      });
+      const workItem = await fs.readFile(
+        path.join(root, "backlog/214-completion-audit.md"),
+        "utf8",
+      );
+      expect(workItem).toContain("status: ready");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("supports the full dogfood flow without hand-editing backlog evidence", async () => {
     const root = await mkTmpRoot();
     try {
@@ -1360,19 +3451,21 @@ tags:
         "wi-208",
       ]);
 
-      const claim = JSON.parse(
-        runCli(root, [
-          "task",
-          "claim",
-          "wi-208",
-          "--holder",
-          "sandcastle",
-          "--branch",
-          "feature/wi-208",
-          "--sandbox",
-          root,
-          "--json",
-        ]),
+      const claim = await claimTask("wi-208", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "sandcastle",
+        branch: "feature/wi-208",
+        worktreePath: root,
+      });
+      acquireRuntimeTaskClaim(
+        root,
+        "wi-208",
+        [
+          path.join(root, "backlog", "208-dogfood.md"),
+          path.join(root, "backlog", "records", "record-wi-208-dogfood.md"),
+        ],
+        "sandcastle",
       );
       expect(claim.state).toBe("active");
 
@@ -1386,18 +3479,19 @@ tags:
       const evidence = JSON.parse(
         runCli(
           root,
-          [
-            "task",
-            "record",
-            "--claim",
-            claim.claimId,
-            "--payload",
-            "-",
-            "--json",
-          ],
+        [
+          "task",
+          "record",
+          "--claim",
+          claim.claimId,
+          "--type",
+          "test-result",
+          "--payload",
+          "-",
+          "--json",
+        ],
           JSON.stringify({
             id: "record:wi-208-dogfood",
-            type: "test-result",
             summary: "Dogfood validation",
             observation: "Ready, claim, show, prompt, record, and release passed.",
             outcome: "pass",
@@ -1423,6 +3517,118 @@ tags:
       expect(workItem).toContain("status: ready");
       expect(workItem).not.toContain("status: closed");
     } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, 15_000);
+
+  it("documents Sandcastle initialization and command mapping for the dogfood flow", async () => {
+    const guide = await fs.readFile(
+      path.resolve(__dirname, "../docs/how-to/sandcastle-dogfood-task-flow.md"),
+      "utf8",
+    );
+
+    for (const fragment of [
+      "## Initialization",
+      "`pnpm install`",
+      "`export CI=true`",
+      "`export TMPDIR=/tmp`",
+      "`export SANDCASTLE_CLAIM_HOLDER=\"sandcastle:<agent-id>\"`",
+      "## Registry Mapping",
+      "`dv task ready --json`",
+      "`dv task claim <task-id> --holder <agent-id> --branch <branch> --json`",
+      "`dv task record --claim <claim-id> --payload <json-or-file> --json`",
+      "`dv claim release <claim-token> --outcome success --json`",
+      "`dv claim release <claim-token> --outcome blocked --json`",
+      "`dv task recover <task-id>`",
+      "[[60338-hosted-saas-github-app-architecture-adr]]",
+    ] as const) {
+      expect(guide).toContain(fragment);
+    }
+  });
+
+  it("keeps lifecycle audits authoritative even when hook bypass env is set", async () => {
+    const root = await mkTmpRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      await writeTask(
+        root,
+        "213-hook-bypass.md",
+        `id: wi-213
+title: Hook Bypass
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      execFileSync("git", ["init", "--initial-branch", "main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["config", "user.email", "agent@example.com"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["config", "user.name", "Agent"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(path.join(root, ".gitignore"), ".doc-vader/runtime/\n", "utf8");
+      execFileSync("git", ["add", "README.md", "backlog/213-hook-bypass.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.appendFile(path.join(root, "README.md"), "dirty\n");
+
+      const acquisition = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: "wi-213",
+        holder: "agent-a",
+        created_at: "2026-06-15T12:00:00.000Z",
+        expires_at: "2026-06-15T13:00:00.000Z",
+        entropy: "entropy-hook-bypass",
+      });
+      if (acquisition.outcome !== "acquired") {
+        throw new Error("Expected the claim to be acquired.");
+      }
+      const claim = await claimTask("wi-213", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+
+      expect(() =>
+        runCli(
+          root,
+          [
+            "task",
+            "record",
+            "--claim",
+            claim.claimId,
+            "--type",
+            "test-result",
+            "--payload",
+            "-",
+            "--json",
+          ],
+          JSON.stringify({
+            id: "record:wi-213-hook-bypass",
+            summary: "Hook bypass audit",
+            observation: "Direct lifecycle checks still run with HUSKY disabled.",
+            outcome: "pass",
+          }),
+          { HUSKY: "0" },
+        ),
+      ).toThrow(/TASK_RECORD_CHANGED_FILE_LOCK_AUDIT_FAILED/);
+    } finally {
+      store.close();
       await fs.rm(root, { recursive: true, force: true });
     }
   }, 15_000);

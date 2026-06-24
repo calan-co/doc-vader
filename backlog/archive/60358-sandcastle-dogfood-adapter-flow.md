@@ -17,6 +17,8 @@ links:
     - '[[60357-claim-aware-task-record-payload]]'
   reference:
     - '[[60346-sandcastle-doc-vader-task-adapter]]'
+    - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+    - '[[60370-sandcastle-local-multi-agent-flow]]'
   evidence:
     - '[[record-20260616-043441-60358]]'
 tags:
@@ -34,6 +36,8 @@ tags:
 ## What to build
 
 Lock in the minimal Sandcastle dogfood flow over Doc-Vader commands: ready selection, claim, show/prompt context, implementation, validation, evidence recording, and release. The flow should explicitly stop before automatic close/finalize until the broader close gate is implemented.
+
+The successor multi-agent dogfood flow is tracked in [[60370-sandcastle-local-multi-agent-flow]] on top of [[60361-git-sqlite-local-multi-agent-runtime-contract]].
 
 ## Acceptance criteria
 

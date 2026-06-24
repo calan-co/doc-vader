@@ -5,10 +5,12 @@ summary: Extract shared Work Item lifecycle, readiness, dependency, evidence, an
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+actual: 5
+completed_date: '2026-06-20'
 links:
   depends_on:
     - '[[60363-runtime-entity-schemas]]'
@@ -18,7 +20,8 @@ links:
     - '[[../docs/architecture/decisions/adr-009-storage-and-format-seams]]'
     - '[[../docs/how-to/implementation-plans/doc-vader-entity-governance-architecture-prd]]'
   evidence:
-    - '[[record-20260620-022741-60377]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - architecture
@@ -45,19 +48,36 @@ format adapters. MVP adapters may be limited to Git-managed Markdown with YAML
 frontmatter and JSON payloads, but the kernel must not require callers to pass
 raw Markdown or raw filesystem paths as its semantic input.
 
+## Implementation Notes
+
+- Current rule sites now split into shared kernel verdicts plus adapter glue:
+  - `lib/work-management/kernel.ts` owns lifecycle, readiness, dependency,
+    AFK/HITL, evidence, and archive verdicts.
+  - `lib/task/model.ts` and `lib/task/ready.ts` consume those verdicts without
+    changing task command output.
+  - `lib/backlog/scan-conditions.ts`, `lib/backlog/archive-validation.ts`,
+    `lib/plugins/work-item-validation.ts`, and
+    `lib/work-management/frontmatter-lint.ts` still carry command-specific
+    backlog, lint, and archive checks for the next migration slices.
+- Remaining adapter migration order:
+  1. `dv task show|prompt|claim|ready`
+  2. backlog scan executor and scan conditions
+  3. remark and frontmatter archive/evidence lint plugins
+  4. work-management mutation and archive-finalization helpers
+
 ## Tasks
 
-- [ ] Inventory Work Item rules currently implemented in work-management, task,
+- [x] Inventory Work Item rules currently implemented in work-management, task,
       scan, lint, plugin, and archive modules.
-- [ ] Define the kernel verdict vocabulary for lifecycle validity, readiness,
+- [x] Define the kernel verdict vocabulary for lifecycle validity, readiness,
       dependencies, AFK/HITL classification, evidence, and archive eligibility.
-- [ ] Define the canonical Work Item record shape consumed by the kernel, leaving
+- [x] Define the canonical Work Item record shape consumed by the kernel, leaving
       Markdown/YAML parsing and file loading behind adapters.
-- [ ] Add focused tests for kernel verdicts using representative active,
+- [x] Add focused tests for kernel verdicts using representative active,
       blocked, closed, archived, and dependency-linked Work Items.
-- [ ] Refactor one low-risk adapter to consume kernel verdicts without changing
+- [x] Refactor one low-risk adapter to consume kernel verdicts without changing
       observable command output.
-- [ ] Document the adapter migration order for remaining CLI, scan, lint, and
+- [x] Document the adapter migration order for remaining CLI, scan, lint, and
       task surfaces.
 
 ## Deliverables
@@ -70,13 +90,13 @@ raw Markdown or raw filesystem paths as its semantic input.
 
 ## Acceptance Criteria
 
-- [ ] Work Item readiness and dependency answers are available through one
+- [x] Work Item readiness and dependency answers are available through one
       shared kernel verdict surface.
-- [ ] Task command behavior can consume Work Item verdicts without defining a
+- [x] Task command behavior can consume Work Item verdicts without defining a
       separate lifecycle model.
-- [ ] Existing observable behavior remains stable unless a linked ADR or PRD
+- [x] Existing observable behavior remains stable unless a linked ADR or PRD
       explicitly changes it.
-- [ ] Tests prove the kernel handles active, blocked, archived, and
+- [x] Tests prove the kernel handles active, blocked, archived, and
       dependency-linked Work Items.
 
 ## Relationships

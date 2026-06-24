@@ -5,10 +5,12 @@ summary: Compose work-item state and latest execution-log state in task ready/li
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 5
+actual: 5
+completed_date: '2026-06-21'
 links:
   depends_on:
     - '[[60363-runtime-entity-schemas]]'
@@ -17,8 +19,6 @@ links:
   reference:
     - '[[60356-fail-closed-ready-selection-cli]]'
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
-  evidence:
-    - '[[record-20260620-022741-60368]]'
 tags:
   - afk
   - runtime
@@ -38,14 +38,14 @@ Architectural context: `docs/architecture/decisions/adr-006-task-command-surface
 
 ## Tasks
 
-- [ ] Load latest execution log state for each task candidate.
-- [ ] Keep live claim and lock hydration out of normal ready selection; use those rows in claim, lock, audit, recovery, and lifecycle paths.
-- [ ] Exclude tasks whose Markdown state is not ready.
-- [ ] Exclude tasks whose latest execution entry is not `completed/success`.
-- [ ] Treat tasks with no execution log entry as execution-ready when Markdown is AFK-ready.
-- [ ] Report source disagreements in `list`, `show`, and status JSON.
-- [ ] Ensure an execution `completed` state does not complete or close the work item.
-- [ ] Preserve deterministic exclusion reasons for Sandcastle consumers.
+- [x] Load latest execution log state for each task candidate.
+- [x] Keep live claim and lock hydration out of normal ready selection; use those rows in claim, lock, audit, recovery, and lifecycle paths.
+- [x] Exclude tasks whose Markdown state is not ready.
+- [x] Exclude tasks whose latest execution entry is not `completed/success`.
+- [x] Treat tasks with no execution log entry as execution-ready when Markdown is AFK-ready.
+- [x] Report source disagreements in `list`, `show`, and status JSON.
+- [x] Ensure an execution `completed` state does not complete or close the work item.
+- [x] Preserve deterministic exclusion reasons for Sandcastle consumers.
 
 ## Deliverables
 
@@ -55,12 +55,12 @@ Architectural context: `docs/architecture/decisions/adr-006-task-command-surface
 
 ## Acceptance criteria
 
-- [ ] A task is ready only when Markdown state is AFK-ready and latest execution log is ready-permitting.
-- [ ] Active live claims or locks do not become implicit ready-selection inputs; conflicts are enforced when a claim or lock is created.
-- [ ] Markdown blockers exclude tasks even when execution state is clear.
-- [ ] Execution blockers exclude tasks even when Markdown says ready.
-- [ ] Source disagreement is visible in machine-readable output.
-- [ ] Execution completion is reported but never treated as work-item completion.
+- [x] A task is ready only when Markdown state is AFK-ready and latest execution log is ready-permitting.
+- [x] Active live claims or locks do not become implicit ready-selection inputs; conflicts are enforced when a claim or lock is created.
+- [x] Markdown blockers exclude tasks even when execution state is clear.
+- [x] Execution blockers exclude tasks even when Markdown says ready.
+- [x] Source disagreement is visible in machine-readable output.
+- [x] Execution completion is reported but never treated as work-item completion.
 
 ## Blocked by
 

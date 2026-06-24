@@ -3,17 +3,19 @@ import path from "node:path";
 import {
   createRecord,
   linkWorkItem,
+  runRuntimeClaimCoverageAudit,
+  type CreateRecordOptions,
   type CreateRecordResult,
 } from "../work-management/index.js";
 import { getClaimStatus } from "./claims.js";
 import { TaskCommandError } from "./errors.js";
 
-export interface TaskRecordPayload {
+export interface RecordPayload {
   id?: string;
-  type: string;
-  subtype?: string;
   summary: string;
   observation: string;
+  subject?: string;
+  subjects?: string[];
   outcome?: string;
   recordedAt?: string;
   artifactRefs?: string[];
@@ -22,30 +24,13 @@ export interface TaskRecordPayload {
   notes?: string[];
 }
 
+export type TaskRecordPayload = RecordPayload;
+
 export interface TaskRecordResult {
   claimId: string;
   taskId: string;
   record: CreateRecordResult;
   evidenceLink: string;
-}
-
-function asStringArray(value: unknown, field: string): string[] | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (
-    !Array.isArray(value) ||
-    !value.every(
-      (entry) => typeof entry === "string" && entry.trim().length > 0,
-    )
-  ) {
-    throw new TaskCommandError(
-      "TASK_RECORD_INVALID_PAYLOAD",
-      `Payload field '${field}' must be an array of non-empty strings.`,
-      { field },
-    );
-  }
-  return value.map((entry) => entry.trim());
 }
 
 function requireString(
@@ -81,20 +66,62 @@ function optionalString(
   return value.trim();
 }
 
-export function validateTaskRecordPayload(value: unknown): TaskRecordPayload {
+function optionalStringArray(
+  payload: Record<string, unknown>,
+  field: string,
+): string[] | undefined {
+  const value = payload[field];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new TaskCommandError(
+      "TASK_RECORD_INVALID_PAYLOAD",
+      `Payload field '${field}' must be an array of non-empty strings.`,
+      { field },
+    );
+  }
+  const normalized = value.map((entry) => {
+    if (typeof entry !== "string" || entry.trim().length === 0) {
+      throw new TaskCommandError(
+        "TASK_RECORD_INVALID_PAYLOAD",
+        `Payload field '${field}' must be an array of non-empty strings.`,
+        { field },
+      );
+    }
+    return entry.trim();
+  });
+  return normalized;
+}
+
+function normalizeSubjects(
+  payload: Record<string, unknown>,
+): string[] | undefined {
+  const subjects = new Set<string>();
+  const subject = optionalString(payload, "subject");
+  if (subject) {
+    subjects.add(subject);
+  }
+  for (const entry of optionalStringArray(payload, "subjects") ?? []) {
+    subjects.add(entry);
+  }
+  return subjects.size > 0 ? [...subjects] : undefined;
+}
+
+export function validateRecordPayload(value: unknown): RecordPayload {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new TaskCommandError(
       "TASK_RECORD_INVALID_PAYLOAD",
-      "Task record payload must be a JSON object.",
+      "Record payload must be a JSON object.",
     );
   }
   const payload = value as Record<string, unknown>;
   const allowedFields = new Set([
     "id",
-    "type",
-    "subtype",
     "summary",
     "observation",
+    "subject",
+    "subjects",
     "outcome",
     "recordedAt",
     "artifactRefs",
@@ -113,27 +140,27 @@ export function validateTaskRecordPayload(value: unknown): TaskRecordPayload {
     );
   }
 
-  const type = requireString(payload, "type");
-  const subtype = optionalString(payload, "subtype") ?? type;
   return {
     id: optionalString(payload, "id"),
-    type,
-    subtype,
     summary: requireString(payload, "summary"),
     observation: requireString(payload, "observation"),
+    subject: optionalString(payload, "subject"),
+    subjects: normalizeSubjects(payload),
     outcome: optionalString(payload, "outcome"),
     recordedAt: optionalString(payload, "recordedAt"),
-    artifactRefs: asStringArray(payload.artifactRefs, "artifactRefs"),
-    supportingRefs: asStringArray(payload.supportingRefs, "supportingRefs"),
-    findings: asStringArray(payload.findings, "findings"),
-    notes: asStringArray(payload.notes, "notes"),
+    artifactRefs: optionalStringArray(payload, "artifactRefs"),
+    supportingRefs: optionalStringArray(payload, "supportingRefs"),
+    findings: optionalStringArray(payload, "findings"),
+    notes: optionalStringArray(payload, "notes"),
   };
 }
 
-export async function readTaskRecordPayload(
+export const validateTaskRecordPayload = validateRecordPayload;
+
+export async function readRecordPayload(
   payloadPath: string,
   stdin?: NodeJS.ReadStream,
-): Promise<TaskRecordPayload> {
+): Promise<RecordPayload> {
   const raw =
     payloadPath === "-"
       ? await new Promise<string>((resolve, reject) => {
@@ -148,7 +175,7 @@ export async function readTaskRecordPayload(
         })
       : await fs.readFile(path.resolve(payloadPath), "utf8");
   try {
-    return validateTaskRecordPayload(JSON.parse(raw));
+    return validateRecordPayload(JSON.parse(raw));
   } catch (error) {
     if (error instanceof TaskCommandError) {
       throw error;
@@ -160,8 +187,51 @@ export async function readTaskRecordPayload(
   }
 }
 
+export const readTaskRecordPayload = readRecordPayload;
+
+function resolveSubjects(
+  payload: RecordPayload,
+  additionalSubjects: string[] = [],
+): string[] {
+  const subjects = new Set<string>(additionalSubjects.filter(Boolean));
+  if (payload.subject?.trim()) {
+    subjects.add(payload.subject.trim());
+  }
+  for (const subject of payload.subjects ?? []) {
+    if (subject.trim().length > 0) {
+      subjects.add(subject.trim());
+    }
+  }
+  return [...subjects];
+}
+
+function buildCreateRecordOptions(options: {
+  payload: TaskRecordPayload;
+  type?: string;
+  consumerConfig?: string;
+  dryRun?: boolean;
+  subjects: string[];
+}): CreateRecordOptions {
+  return {
+    id: options.payload.id,
+    summary: options.payload.summary,
+    observation: options.payload.observation,
+    subjects: options.subjects,
+    subtype: options.type ?? "test-result",
+    outcome: options.payload.outcome,
+    recordedAt: options.payload.recordedAt,
+    artifactRefs: options.payload.artifactRefs,
+    supportingRefs: options.payload.supportingRefs,
+    findings: options.payload.findings,
+    notes: options.payload.notes,
+    consumerConfig: options.consumerConfig,
+    dryRun: options.dryRun,
+  };
+}
+
 export async function recordTaskEvidence(options: {
   claimId: string;
+  type?: string;
   payload: TaskRecordPayload;
   rootDir?: string;
   claimStorePath?: string;
@@ -182,7 +252,7 @@ export async function recordTaskEvidence(options: {
     );
   }
 
-  await linkWorkItem({
+  const workItemPreflight = await linkWorkItem({
     rootDir,
     consumerConfig,
     id: claim.taskId,
@@ -191,20 +261,38 @@ export async function recordTaskEvidence(options: {
     dryRun: true,
   });
 
+  const recordOptions = buildCreateRecordOptions({
+    payload: options.payload,
+    type: options.type,
+    consumerConfig,
+    subjects: resolveSubjects(options.payload, [claim.taskId]),
+  });
+
+  const recordPreflight = await createRecord({
+    rootDir,
+    ...recordOptions,
+    dryRun: true,
+  });
+
+  const runtimeAudit = runRuntimeClaimCoverageAudit({
+    rootDir,
+    taskId: claim.taskId,
+    requiredPaths: [
+      path.relative(rootDir, recordPreflight.filePath).split(path.sep).join("/"),
+      workItemPreflight.filePath,
+    ],
+  });
+  if (!runtimeAudit.passed) {
+    throw new TaskCommandError(
+      "TASK_RECORD_CHANGED_FILE_LOCK_AUDIT_FAILED",
+      `Task '${claim.taskId}' record coverage failed changed-file lock audit.`,
+      { claimId: options.claimId, audit: runtimeAudit },
+    );
+  }
+
   const record = await createRecord({
     rootDir,
-    consumerConfig,
-    id: options.payload.id,
-    summary: options.payload.summary,
-    observation: options.payload.observation,
-    subjects: [claim.taskId],
-    subtype: options.payload.subtype,
-    outcome: options.payload.outcome,
-    recordedAt: options.payload.recordedAt,
-    artifactRefs: options.payload.artifactRefs,
-    supportingRefs: options.payload.supportingRefs,
-    findings: options.payload.findings,
-    notes: options.payload.notes,
+    ...recordOptions,
     dryRun: options.dryRun,
   });
   const evidenceLink = `[[${path.basename(record.filePath, ".md")}]]`;

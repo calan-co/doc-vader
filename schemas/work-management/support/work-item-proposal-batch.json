@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/support/work-item-proposal-batch",
+  "title": "work-management/support/work-item-proposal-batch",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "kind",
+    "source",
+    "materializationMode",
+    "proposals"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "work-item-proposal-batch/v1"
+    },
+    "kind": {
+      "const": "work-item-proposal-batch"
+    },
+    "generatedAt": {
+      "$ref": "/work-management/support/common#/$defs/dateTimeString"
+    },
+    "materializationMode": {
+      "const": "propose-only"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "reportId",
+        "synthesisId",
+        "profileId"
+      ],
+      "properties": {
+        "reportId": {
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+        },
+        "synthesisId": {
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+        },
+        "profileId": {
+          "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/proposal"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "approval": {
+      "type": "object",
+      "required": [
+        "scope",
+        "authority"
+      ],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "rubric",
+            "architecture",
+            "repository",
+            "execution-policy",
+            "backlog",
+            "implementation",
+            "release",
+            "external-integration",
+            "security"
+          ]
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "interpretation",
+            "governance",
+            "administration",
+            "execution"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "proposal": {
+      "type": "object",
+      "required": [
+        "frontmatter",
+        "content",
+        "provenance",
+        "requiredApprovals",
+        "dedupeKey"
+      ],
+      "properties": {
+        "frontmatter": {
+          "$ref": "/work-management/frontmatter/work-item"
+        },
+        "content": {
+          "$ref": "/work-management/content/work-item"
+        },
+        "provenance": {
+          "type": "object",
+          "required": [
+            "reportId",
+            "synthesisId",
+            "profileId",
+            "synthesisItemId",
+            "subjectRefs",
+            "sourceFindingRefs",
+            "decisionBranchRefs"
+          ],
+          "properties": {
+            "reportId": {
+              "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+            },
+            "synthesisId": {
+              "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+            },
+            "profileId": {
+              "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+            },
+            "synthesisItemId": {
+              "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+            },
+            "subjectRefs": {
+              "$ref": "/work-management/support/common#/$defs/entityRefList"
+            },
+            "sourceFindingRefs": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+              }
+            },
+            "decisionBranchRefs": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "/work-management/support/common#/$defs/nonEmptyString"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "requiredApprovals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/approval"
+          }
+        },
+        "dedupeKey": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

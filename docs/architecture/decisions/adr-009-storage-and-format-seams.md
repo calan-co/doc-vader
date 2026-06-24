@@ -43,7 +43,7 @@ The MVP defines two explicit seams:
   formats.
 
 Entity governance modules consume canonical entity records, runtime records, and
-verdict inputs. They do not directly depend on Markdown, JSON, SQLite, or file
+finding inputs. They do not directly depend on Markdown, JSON, SQLite, or file
 path layout except through adapters.
 
 MVP adapter coverage is intentionally minimal:
@@ -87,7 +87,7 @@ Negative/Risks:
 
 ## Validation
 
-- Work Item and runtime governance code accepts canonical records or verdict
+- Work Item and runtime governance code accepts canonical records or finding
   inputs rather than raw storage-specific structures.
 - Markdown/YAML, JSON, and SQLite behavior is covered by adapter tests.
 - New package-authoring guidance names storage and format adapters separately.

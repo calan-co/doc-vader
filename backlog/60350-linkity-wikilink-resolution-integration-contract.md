@@ -5,8 +5,8 @@ summary: Define how Doc-Vader delegates custom wikilink and pruned-index resolut
 type: work-item
 subtype: task
 lifecycle: active
-status: paused
-status_reason: blocked
+status: ready
+status_reason: auto
 priority: medium
 estimated: 3
 links:
@@ -37,6 +37,6 @@ Define the integration contract for Linkity-backed wikilink resolution before Do
 - [ ] The contract explains how pruned records remain discoverable without becoming active work items.
 - [ ] The contract is sufficient for an AFK implementation slice to wire Doc-Vader to the Linkity-backed path.
 
-## Blocked by
+## Dependencies
 
 - [[60348-pruned-index-contract-and-historical-resolver-semantics]]

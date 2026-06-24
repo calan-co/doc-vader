@@ -5,10 +5,12 @@ summary: Replace the local JSON claim store with a SQLite runtime backend for cl
 type: work-item
 subtype: story
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
 priority: critical
 estimated: 5
+actual: 5
+completed_date: '2026-06-20'
 links:
   depends_on:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
@@ -16,7 +18,8 @@ links:
   reference:
     - '[[60343-task-claim-store-and-lifecycle]]'
   evidence:
-    - '[[record-20260620-022741-60362]]'
+    - '[[task-record-preflight]]'
+    - '[[record-sandcastle-task-validation-passed]]'
 tags:
   - afk
   - runtime
@@ -37,17 +40,17 @@ Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-s
 
 ## Tasks
 
-- [ ] Add runtime store initialization under the configured `.doc-vader/runtime` path.
-- [ ] Add migrations for `claims`, `locks`, and `execution_log`.
-- [ ] Add `claims` columns for `claim_token`, target identity, holder, `expires_at`, timestamps, and metadata.
-- [ ] Enforce live-claim uniqueness on `claims(target_type, target_id)`.
-- [ ] Expose derived claim state `active|expired` from `expires_at` through a SQLite view or equivalent centralized query surface.
-- [ ] Add `locks` columns for `key`, `path`, `claim_token`, target identity, timestamps, and metadata.
-- [ ] Enforce table-level uniqueness for `locks.key` and `locks.path`.
-- [ ] Add `execution_log` columns for indexed `claim_token`, target identity, state, reason, created timestamp, and `payload`.
-- [ ] Store `execution_log.payload` as canonical JSON text and validate it in TypeScript before insert.
-- [ ] Add transaction helpers for multi-table runtime changes.
-- [ ] Keep the backend interface separable from the command layer for future hosted authority replacement.
+- [x] Add runtime store initialization under the configured `.doc-vader/runtime` path.
+- [x] Add migrations for `claims`, `locks`, and `execution_log`.
+- [x] Add `claims` columns for `claim_token`, target identity, holder, `expires_at`, timestamps, and metadata.
+- [x] Enforce live-claim uniqueness on `claims(target_type, target_id)`.
+- [x] Expose derived claim state `active|expired` from `expires_at` through a SQLite view or equivalent centralized query surface.
+- [x] Add `locks` columns for `key`, `path`, `claim_token`, target identity, timestamps, and metadata.
+- [x] Enforce table-level uniqueness for `locks.key` and `locks.path`.
+- [x] Add `execution_log` columns for indexed `claim_token`, target identity, state, reason, created timestamp, and `payload`.
+- [x] Store `execution_log.payload` as canonical JSON text and validate it in TypeScript before insert.
+- [x] Add transaction helpers for multi-table runtime changes.
+- [x] Keep the backend interface separable from the command layer for future hosted authority replacement.
 
 ## Deliverables
 
@@ -58,12 +61,12 @@ Architectural context: `docs/architecture/decisions/adr-009-storage-and-format-s
 
 ## Acceptance criteria
 
-- [ ] Runtime initialization creates all three tables deterministically.
-- [ ] `claims` has no public `execution_id` and no manually mutable persisted `state`.
-- [ ] Lock uniqueness is enforced by SQLite for both `key` and `path`.
-- [ ] Multi-table mutations can run in one transaction and roll back cleanly.
-- [ ] `execution_log.payload` rejects non-JSON or schema-invalid payloads before commit.
-- [ ] Existing task command tests can be migrated from JSON claim store assumptions without losing behavior.
+- [x] Runtime initialization creates all three tables deterministically.
+- [x] `claims` has no public `execution_id` and no manually mutable persisted `state`.
+- [x] Lock uniqueness is enforced by SQLite for both `key` and `path`.
+- [x] Multi-table mutations can run in one transaction and roll back cleanly.
+- [x] `execution_log.payload` rejects non-JSON or schema-invalid payloads before commit.
+- [x] Existing task command tests can be migrated from JSON claim store assumptions without losing behavior.
 
 ## Blocked by
 

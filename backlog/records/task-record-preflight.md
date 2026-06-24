@@ -1,10 +1,10 @@
 ---
 $schema: schemas/work-management/frontmatter/record.json
-id: record:20260620-022741-60363
-title: Backlog scan evidence for wi-60363
-summary: Backlog scan evidence for wi-60363
+id: record:task-record-preflight
+title: Task record preflight
+summary: Sentinel evidence link used to preflight task record creation.
 type: record
-subtype: evidence
+subtype: audit-note
 lifecycle: active
 status: ready
 status_reason: recorded
@@ -15,7 +15,7 @@ links:
 
 ## Recorded At
 
-2026-06-20T02:27:41.292Z
+2026-06-20T00:00:00Z
 
 ## Outcome
 
@@ -23,11 +23,11 @@ noted
 
 ## Observation
 
-Backlog scan completed without errors for backlog/60363-runtime-entity-schemas.md.
+This sentinel record exists so `recordTaskEvidence` can perform the dry-run preflight link check before creating a task evidence record.
 
 ## Subject References
 
-- [[work-item-60363]]
+- [[wi-60363]]
 
 ## Supporting References
 

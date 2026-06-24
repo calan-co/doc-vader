@@ -58,9 +58,7 @@ const loadDotEnv = (envPath = path.join(sandcastleConfigDir, ".env")) => {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
 
-    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(
-      trimmed,
-    );
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(trimmed);
     if (!match) continue;
 
     const [, key, rawValue] = match;
@@ -86,9 +84,14 @@ loadDotEnv();
 
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
-const MAX_ITERATIONS = 10;
+const MAX_ITERATIONS = 20;
 const AGENT_IDLE_TIMEOUT_SECONDS = 300;
-const HOST_SANDCASTLE_CACHE = path.join(os.homedir(), ".cache", "doc-vader", "sandcastle");
+const HOST_SANDCASTLE_CACHE = path.join(
+  os.homedir(),
+  ".cache",
+  "doc-vader",
+  "sandcastle",
+);
 const HOST_PNPM_STORE = path.join(HOST_SANDCASTLE_CACHE, "pnpm-store-linux");
 const HOST_CLAIM_STORE_DIR = path.join(HOST_SANDCASTLE_CACHE, "claims");
 const HOST_CLAIM_STORE = path.join(HOST_CLAIM_STORE_DIR, "task-claims.json");
@@ -113,75 +116,55 @@ if (!fs.existsSync(HOST_CODEX_CONFIG)) {
   );
 }
 
-const HOST_REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-  cwd: process.cwd(),
-  encoding: "utf8",
-}).trim();
-
 fs.mkdirSync(HOST_PNPM_STORE, { recursive: true });
 fs.mkdirSync(HOST_CLAIM_STORE_DIR, { recursive: true });
 fs.mkdirSync(HOST_SANDBOX_CODEX_HOME, { recursive: true });
 if (!fs.existsSync(HOST_CLAIM_STORE)) {
   fs.writeFileSync(HOST_CLAIM_STORE, '{"claims":[]}\n', "utf8");
 }
-fs.copyFileSync(HOST_CODEX_AUTH, path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"));
-fs.copyFileSync(HOST_CODEX_CONFIG, path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"));
+fs.copyFileSync(
+  HOST_CODEX_AUTH,
+  path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"),
+);
+fs.copyFileSync(
+  HOST_CODEX_CONFIG,
+  path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"),
+);
 fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"), 0o600);
 fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"), 0o600);
 
 const SANDCASTLE_RUN_ID =
   process.env.SANDCASTLE_RUN_ID ?? `sandcastle-${Date.now()}`;
 const SANDCASTLE_CLAIM_HOLDER = `sandcastle:${SANDCASTLE_RUN_ID}`;
-const SANITIZED_RUN_ID = SANDCASTLE_RUN_ID.replace(/[^A-Za-z0-9._-]/g, "-");
 
-const codexAgent = () =>
-  sandcastle.codex(CODEX_MODEL);
+const codexAgent = () => sandcastle.codex(CODEX_MODEL);
 
-const sandcastleInternalBranch = (phase: string, iteration: number) =>
-  `sandcastle/${phase}-${SANITIZED_RUN_ID}-${iteration}`;
-
-const shellQuote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
-
-const overlayPaths: string[] = [
-  ".containerignore",
-  ".dockerignore",
-  ".sandcastle/CODING_STANDARDS.md",
-  ".sandcastle/implement-prompt.md",
-  ".sandcastle/merge-prompt.md",
-  ".sandcastle/plan-prompt.md",
-  ".sandcastle/review-prompt.md",
-  "README.md",
-  "backlog",
-  "cli",
-  "docs",
-  "lib",
-  "schemas",
-  "scripts",
-  "templates",
-  "tests",
-];
-
-const overlayCommand = (relativePath: string) => {
-  const sourcePath = path.join(HOST_REPO_ROOT, relativePath);
-  const source = fs.existsSync(sourcePath) ? fs.statSync(sourcePath) : undefined;
-  if (source?.isDirectory()) {
-    return [
-      `mkdir -p ${shellQuote(relativePath)}`,
-      "rsync -a --delete --exclude node_modules --exclude .pnpm-store --exclude dist --exclude .nx",
-      shellQuote(`${sourcePath}/`),
-      shellQuote(`${relativePath}/`),
-    ].join(" ");
+const git = (args: string[], options: { ignoreFailure?: boolean } = {}) => {
+  try {
+    return execFileSync("git", args, {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", options.ignoreFailure ? "ignore" : "inherit"],
+    });
+  } catch (error) {
+    if (options.ignoreFailure) {
+      return undefined;
+    }
+    throw error;
   }
+};
 
-  const parent = path.dirname(relativePath);
-  const mkdirParent = parent === "." ? "true" : `mkdir -p ${shellQuote(parent)}`;
-  return [
-    mkdirParent,
-    "&&",
-    "rsync -a",
-    shellQuote(sourcePath),
-    shellQuote(relativePath),
-  ].join(" ");
+const assertCleanHostWorktree = () => {
+  const status = git(["status", "--porcelain"])?.trim();
+  if (status) {
+    throw new Error(
+      [
+        "Sandcastle requires a clean host worktree before it starts.",
+        "Commit or stash host changes first so branch worktrees can be reused without host overlays clobbering in-progress work.",
+        status,
+      ].join("\n"),
+    );
+  }
 };
 
 const releaseTaskClaim = (taskId: string) => {
@@ -217,14 +200,68 @@ const releaseTaskClaim = (taskId: string) => {
 
 const branchHasCommits = (branch: string) => {
   try {
-    const count = execFileSync("git", ["rev-list", "--count", `HEAD..${branch}`], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    const count = git(["rev-list", "--count", `HEAD..${branch}`], {
+      ignoreFailure: true,
+    })?.trim();
     return Number(count) > 0;
   } catch {
     return false;
+  }
+};
+
+const taskStatus = (taskId: string) => {
+  try {
+    const output = execFileSync(
+      "node",
+      ["--import", "tsx", "cli/doc-vader.ts", "task", "show", taskId, "--json"],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: { ...process.env, CI: "true", TMPDIR: "/tmp" },
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
+    return JSON.parse(output).status as string | undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const releaseCompletedTaskClaims = (issues: Array<{ id: string }>) => {
+  for (const issue of issues) {
+    const status = taskStatus(issue.id);
+    if (status !== "completed" && status !== "closed") {
+      console.warn(
+        `Leaving claim active for ${issue.id}; host work item status is ${status ?? "unknown"}.`,
+      );
+      continue;
+    }
+    releaseTaskClaim(issue.id);
+  }
+};
+
+const branchIsAncestorOfHead = (branch: string) => {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", branch, "HEAD"], {
+      cwd: process.cwd(),
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const deleteBranchIfSafelyMerged = (branch: string) => {
+  if (!branchIsAncestorOfHead(branch)) {
+    console.warn(`Preserving ${branch}; it is not contained in host HEAD.`);
+    return;
+  }
+  const deleted = git(["branch", "-d", branch], { ignoreFailure: true });
+  if (deleted !== undefined) {
+    console.log(`Deleted merged branch ${branch}.`);
+  } else {
+    console.warn(`Preserving ${branch}; git refused safe branch deletion.`);
   }
 };
 
@@ -237,9 +274,6 @@ const hooks = {
         command:
           'case "$PWD" in */.sandcastle/worktrees/*) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside .sandcastle/worktrees: $PWD" >&2; exit 1 ;; esac',
       },
-      ...overlayPaths.map((relativePath) => ({
-        command: overlayCommand(relativePath),
-      })),
     ],
   },
   sandbox: {
@@ -284,14 +318,15 @@ const sandboxProvider = podman({
   },
 });
 
-// Directory overlays are handled by host.onWorktreeReady with rsync content
-// copies. Sandcastle's built-in directory copy nests existing directories
-// (for example `schemas/schemas`), which breaks Nx project discovery.
+// The host worktree must be committed before a run. Preserved issue worktrees
+// are reused as-is so incomplete branch changes are not overwritten.
 const copyToWorktree: string[] = [];
 
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
+
+assertCleanHostWorktree();
 
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
@@ -309,8 +344,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     hooks,
     sandbox: sandboxProvider,
     branchStrategy: {
-      type: "branch",
-      branch: sandcastleInternalBranch("planner", iteration),
+      type: "merge-to-head",
     },
     copyToWorktree,
     name: "planner",
@@ -467,8 +501,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     hooks,
     sandbox: sandboxProvider,
     branchStrategy: {
-      type: "branch",
-      branch: sandcastleInternalBranch("merge", iteration),
+      type: "merge-to-head",
     },
     copyToWorktree,
     name: "merger",
@@ -484,7 +517,12 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     },
   });
 
-  console.log("\nBranches merged.");
+  releaseCompletedTaskClaims(completedIssues);
+  for (const branch of completedBranches) {
+    deleteBranchIfSafelyMerged(branch);
+  }
+
+  console.log("\nBranches merged into host HEAD.");
 }
 
 console.log("\nAll done.");
