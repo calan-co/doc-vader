@@ -38,6 +38,10 @@ The initial edge shape is `Record --records--> WorkItem|Claim|Scope`, with edge
 attributes specifying the record kind such as evidence, note, audit note, or
 test result.
 
+This edge follows the authored edge direction rule from the PRD: the Record is
+the assertion owner, and the recorded entity is the subject of that audit or
+evidence fact.
+
 ## What to build
 
 Extend graph projection so records project to Record nodes and `records` edges
@@ -47,6 +51,8 @@ projected lineage for scope-gated command records and Work Item evidence.
 ## Tasks
 
 - [ ] Define the `records` edge type and record-kind attributes.
+- [ ] Ensure `records` follows the canonical authored direction:
+      `Record --records--> WorkItem|Claim|Scope`.
 - [ ] Project Record nodes from existing backlog/runtime records.
 - [ ] Project `Record --records--> WorkItem` edges for Work Item evidence where
       references are available.
@@ -66,6 +72,7 @@ projected lineage for scope-gated command records and Work Item evidence.
 
 - [ ] Records project as graph nodes with stable identifiers.
 - [ ] Record relationships project as `Record --records--> target` edges.
+- [ ] `records` edges follow the assertion-owner-to-target direction.
 - [ ] Record edges include record-kind attributes.
 - [ ] Audit output can show claim, scope, and Work Item lineage for projected
       records.

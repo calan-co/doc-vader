@@ -29,6 +29,10 @@
       "write scope",
       "execute scope",
       "Scope node",
+      "authored edge direction",
+      "depends_on edge",
+      "belongs_to edge",
+      "implements edge",
       "locks edge",
       "records edge",
       "Runtime Authority",
@@ -49,13 +53,14 @@
       "Conversation decision: commands are graph-informed, but mutate authoritative storage through entity-specific command modules.",
       "Conversation decision: claim identity is immutable; renewal is permitted only when associated scopes remain available.",
       "Conversation decision: scope targets must use canonical ScopeRef identity, not storage adapter identity.",
+      "Conversation decision: canonical authored edge direction follows assertion ownership; reverse traversal is a query/view concern, not a second authored truth.",
       "Code review evidence: backlog/60343 records renewal only on explicit claim-context mutation commands and read-only touch updates last_seen_at without extending expires_at.",
       "Code review evidence: lib/runtime/sqlite-store.ts renews active claims when runtime lock acquisition mutates claim context.",
       "Architecture report top recommendation: deepen the Work Item corpus before widening package extensibility."
     ]
   },
   "problemStatement": "Doc-Vader has enough runtime and governance primitives to coordinate local multi-agent Work Item execution, but the current model still treats claim scope, graph projection, storage location, command mutation, and command naming as partially coupled concerns. The existing dv task surface operates on the whole Work family even though Task is only one Work Item subtype. Without a narrow Work + Claim + Scope MVP, implementers will either overbuild generic extensibility or keep duplicating policy across the legacy Task command projection, runtime, scan, and validation paths.",
-  "solution": "Define a narrow MVP that treats Work as the family/domain term, keeps Work Item as the schema-backed member artifact, reserves Task for one Work Item subtype, projects Work Items, Claims, Claim leases, Claim scopes, Records, and changed artifacts into a canonical artifact graph, uses URI-formatted ScopeRef targets for read/write/execute scopes, enforces scope availability through atomic lock policies before command mutation, renews claims only when associated scopes remain available, and verifies mutations by reprojecting graph state after authoritative storage changes. Rename the family-wide command surface to dv work, provide dv wi as the terse shorthand, keep dv work-item only as an explicit compatibility/discovery alias if needed, and deprecate dv task as a legacy alias. Use a context-graph-aligned projection port that can adopt context-graph directly when the dependency path is low-friction, mirror Semantify's adapter/profile/projection shape for the first slice, and define explicit pivot signals before adopting Semantify directly.",
+  "solution": "Define a narrow MVP that treats Work as the family/domain term, keeps Work Item as the schema-backed member artifact, reserves Task for one Work Item subtype, projects Work Items, Claims, Claim leases, Claim scopes, Records, changed artifacts, and authored relationship edges into a canonical artifact graph, uses URI-formatted ScopeRef targets for read/write/execute scopes, enforces scope availability through atomic lock policies before command mutation, renews claims only when associated scopes remain available, and verifies mutations by reprojecting graph state after authoritative storage changes. Canonical authored edges follow assertion ownership: a Work Item depends_on prerequisite Work Items, belongs_to its planning/governance parent when declared, implements the PRD/ADR/requirement/decision it realizes, a Claim locks a Scope, and a Record records its subject. Rename the family-wide command surface to dv work, provide dv wi as the terse shorthand, keep dv work-item only as an explicit compatibility/discovery alias if needed, and deprecate dv task as a legacy alias. Use a context-graph-aligned projection port that can adopt context-graph directly when the dependency path is low-friction, mirror Semantify's adapter/profile/projection shape for the first slice, and define explicit pivot signals before adopting Semantify directly.",
   "coverageModel": {
     "actors": [
       "repository maintainer",
@@ -135,7 +140,7 @@
       }
     },
     {
-      "story": "As a human contributor, I want command output to explain which canonical scope blocks my claim or mutation, so that I can resolve conflicts without learning runtime table details.",
+      "story": "As a human contributor, I want command output to explain which canonical scope prevents my claim or mutation, so that I can resolve conflicts without learning runtime table details.",
       "covers": {
         "actor": "human contributor",
         "journeyStage": "command mutation",
@@ -271,7 +276,7 @@
     },
     {
       "statement": "Add a first-class flat claim scope persistence model keyed by claim identity, ScopeRef, and lock mode; keep existing file locks as storage-adapter/resource locks behind that scope model.",
-      "rationale": "ScopeRef abstracts beyond path locks while preserving the current local runtime safety behavior. Deferring nested scopes and umbrella claims is acceptable if the storage shape can later add parent or contains relationships without rewriting flat scope rows.",
+      "rationale": "ScopeRef abstracts beyond path locks while preserving the current local runtime safety behavior. Deferring nested scopes and umbrella claims is acceptable if the storage shape can later add parent or belongs_to relationships without rewriting flat scope rows.",
       "category": "schema"
     },
     {
@@ -302,6 +307,16 @@
     {
       "statement": "Model the MVP graph with WorkItem, Claim, Record, and Scope nodes; Code is a reserved future scope target, and Scope is a target abstraction rather than a superclass that replaces concrete entity nodes.",
       "rationale": "Treating Scope as a role avoids collapsing entity identity into authorization identity. WorkItem, Claim, and Record remain concrete nodes; Scope nodes carry ScopeRef identity and target-kind metadata so any concrete entity can be locked later.",
+      "category": "architecture"
+    },
+    {
+      "statement": "Canonical authored edge direction follows assertion ownership: the entity making the assertion points to the target it depends on, belongs to, implements, locks, or records.",
+      "rationale": "One authored direction prevents dual sources of truth. Reverse traversal can be derived for queries and reports without making inverse edges separately persisted or user-authored facts.",
+      "category": "architecture"
+    },
+    {
+      "statement": "Include WorkItem --depends_on--> WorkItem, WorkItem --belongs_to--> WorkItem|Milestone|Project, WorkItem --implements--> PRD|ADR|Requirement|Decision, Claim --locks--> Scope, and Record --records--> WorkItem|Claim|Scope in the MVP graph contract.",
+      "rationale": "These are the governing relationship edges needed for selection, grouping, traceability, authority, and audit lineage. Transient blocker state remains a derived operational finding, not a canonical relationship edge.",
       "category": "architecture"
     },
     {
@@ -362,7 +377,7 @@
       {
         "name": "Graph contract",
         "level": "integration",
-        "rationale": "WorkItem, Claim, Record, and Scope nodes plus locks and records edges must project deterministically with ScopeRef and relationship attributes.",
+        "rationale": "WorkItem, Claim, Record, and Scope nodes plus depends_on, belongs_to, implements, locks, and records edges must project deterministically with ScopeRef and relationship attributes.",
         "existingPriorArt": [
           "context-graph deterministic snapshot and provenance tests",
           "work-item governance kernel tests"
@@ -408,8 +423,8 @@
     "Read, write, and execute lock compatibility follows the MVP matrix: reads coexist, execute coexists with read, and all other combinations conflict.",
     "Runtime persistence records flat claim scopes by claim identity, ScopeRef, and lock mode while retaining file/resource locks behind storage adapters.",
     "Family-wide CLI behavior is exposed through dv work with dv wi shorthand while dv task remains only a deprecated compatibility alias.",
-    "Work Item and Claim projection adapters emit deterministic nodes and relationships with provenance.",
-    "The graph projection emits WorkItem, Claim, Record, and Scope nodes plus locks and records edges with required attributes.",
+    "Work Item and Claim projection adapters emit deterministic nodes and authored relationship edges with provenance.",
+    "The graph projection emits WorkItem, Claim, Record, and Scope nodes plus depends_on, belongs_to, implements, locks, and records edges with required attributes.",
     "Claim creation records read, write, and execute scopes and rejects unavailable mutex scopes.",
     "Claim renewal extends the lease only after all associated scopes are still available.",
     "Commands verify post-mutation graph projection before recording success.",
@@ -460,7 +475,7 @@
     "Adapt capability: context-graph can provide the projection graph substrate immediately.",
     "Adapt capability: Semantify's profile and projection runtime shape should guide the Work Item normalization layer, with direct dependency triggered by documented pivot signals.",
     "Build capability: canonical ScopeRef model, read/write/execute scope schema, scope availability policy, and graph projection for Claim scopes.",
-    "Build capability: command lifecycle verification that reprojects graph state after mutation and blocks success when expected graph facts do not appear.",
+    "Build capability: command lifecycle verification that reprojects graph state after mutation and prevents success when expected graph facts do not appear.",
     "Defer capability: broad Package registry, full GraphQL facade, hosted authority, section-level scope, and code symbol traceability."
   ]
 }
