@@ -287,7 +287,7 @@ tags:
       const prompt = await renderTaskPrompt(task, { rootDir: root });
 
       expect(prompt).toContain("Implement wi-101: Prompt Task");
-      expect(prompt).toContain("Use `dv task show wi-101 --json`");
+      expect(prompt).toContain("Use `dv work show wi-101 --json`");
       expect(prompt).toContain("Templjs rendering is presentation only");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
@@ -316,6 +316,36 @@ tags:
       expect(JSON.parse(showOutput)).toEqual(canonicalTask);
       expect(promptOutput.trimEnd()).toBe(
         (await renderSandcastlePrompt({ task: canonicalTask })).trimEnd(),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes work and wi aliases with the same canonical show output", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "101-prompt-task.md",
+        `id: wi-101
+title: Prompt Task
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+
+      const canonicalTask = await loadCanonicalTask({ rootDir: root, taskId: "101" });
+      expect(JSON.parse(runCli(root, ["work", "show", "101", "--json"]))).toEqual(
+        canonicalTask,
+      );
+      expect(JSON.parse(runCli(root, ["wi", "show", "101", "--json"]))).toEqual(
+        canonicalTask,
+      );
+      expect(JSON.parse(runCli(root, ["task", "show", "101", "--json"]))).toEqual(
+        canonicalTask,
       );
     } finally {
       await fs.rm(root, { recursive: true, force: true });
@@ -2425,7 +2455,7 @@ tags:
         ].join("\n"),
       );
       const text = runCli(root, ["task", "ready"]);
-      expect(text).toContain("Ready task candidates");
+      expect(text).toContain("Ready work candidates");
       expect(text).toContain("Candidates: 2");
       expect(text).toContain("Recoverable with --force: 2 (wi-211, wi-212)");
       expect(text).toContain("Branch lineage or task-local dirty state is uncertain");
