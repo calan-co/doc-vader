@@ -18,8 +18,9 @@ For each branch:
 3. Run `git merge <branch> --no-edit`.
 4. If there are merge conflicts, resolve them intelligently by reading both
    sides and choosing the correct resolution.
-5. After resolving conflicts, run `pnpm run typecheck` and `pnpm run test` to
-   verify everything works.
+5. After resolving conflicts, run the relevant gates from
+   `.sandcastle/VALIDATION.md`; at minimum run `pnpm run typecheck` and
+   `pnpm run test` to verify everything works.
 6. If tests fail, fix the issues before proceeding to the next branch.
 
 Here are all the issues:

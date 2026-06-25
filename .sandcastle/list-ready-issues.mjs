@@ -239,6 +239,10 @@ const isDependencySatisfied = (dependency) => {
   );
 };
 
+const isSatisfiedItem = (item) =>
+  (SATISFIED_STATUSES.has(item.status) && item.checklistsComplete) ||
+  (CLOSED_LIFECYCLES.has(item.lifecycle) && item.status !== "ready");
+
 const isActiveBacklogItem = (item) =>
   path.dirname(item.file) === BACKLOG_DIR &&
   (item.lifecycle === undefined || item.lifecycle === "active") &&
@@ -248,7 +252,9 @@ const isActiveBacklogItem = (item) =>
 const candidates = items
   .filter(isActiveBacklogItem)
   .filter(
-    (item) => READY_STATUSES.has(item.status) || dirtyWorktrees.has(item.id),
+    (item) =>
+      READY_STATUSES.has(item.status) ||
+      (dirtyWorktrees.has(item.id) && !isSatisfiedItem(item)),
   )
   .filter((item) => item.lifecycle === undefined || item.lifecycle === "active")
   .filter((item) => item.dependencies.every(isDependencySatisfied))

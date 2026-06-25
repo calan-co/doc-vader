@@ -58,25 +58,87 @@ const SANDBOX_COREPACK_CACHE = "/home/agent/.cache/node/corepack";
 const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
 const SANDBOX_ROOT_NODE_MODULES = "/home/agent/workspace/node_modules";
 const SANDBOX_CODEX_HOME = "/home/agent/.codex";
-const PNPM_INSTALL_COMMAND = `CI=true COREPACK_HOME=${SANDBOX_COREPACK_CACHE} corepack pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
+const SANDBOX_PATH =
+  "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+const PNPM_INSTALL_COMMAND = `CI=true NX_DAEMON=false COREPACK_HOME=${SANDBOX_COREPACK_CACHE} pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
+const SANDBOX_PREFLIGHT_COMMAND = [
+  "command -v node >/dev/null",
+  "command -v git >/dev/null",
+  "command -v corepack >/dev/null",
+  "command -v pnpm >/dev/null",
+  "command -v rg >/dev/null",
+  `test -w ${SANDBOX_COREPACK_CACHE}`,
+  `test -w ${SANDBOX_PNPM_STORE}`,
+  'printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(node --version)" "$(pnpm --version)"',
+].join(" && ");
+const WORKTREE_NODE_MODULES_CLEANUP_COMMAND =
+  'case "$PWD" in /home/agent/workspace) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside sandbox workspace: $PWD" >&2; exit 1 ;; esac';
 
-if (!fs.existsSync(HOST_CODEX_AUTH)) {
-  throw new Error(
-    `Codex auth file not found at ${HOST_CODEX_AUTH}. Run \`codex login\` on the host before running Sandcastle.`,
-  );
-}
+const ensureHostCommand = (command: string, args = ["--version"]) => {
+  try {
+    execFileSync(command, args, {
+      encoding: "utf8",
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch (error) {
+    throw new Error(
+      `Sandcastle preflight failed: required host command \`${command}\` is not available or not executable.`,
+      { cause: error },
+    );
+  }
+};
 
-if (!fs.existsSync(HOST_CODEX_CONFIG)) {
-  throw new Error(
-    `Codex config file not found at ${HOST_CODEX_CONFIG}. Run \`codex doctor\` or \`codex login\` on the host before running Sandcastle.`,
-  );
-}
+const ensureWritableDirectory = (dir: string) => {
+  fs.mkdirSync(dir, { recursive: true });
+  const probe = path.join(dir, `.sandcastle-write-test-${process.pid}`);
+  try {
+    fs.writeFileSync(probe, "ok", "utf8");
+    fs.unlinkSync(probe);
+  } catch (error) {
+    throw new Error(
+      `Sandcastle preflight failed: cache directory is not writable: ${dir}`,
+      { cause: error },
+    );
+  }
+};
+
+const runHostPreflight = () => {
+  for (const command of ["git", "node", "corepack", "podman", "rg"]) {
+    ensureHostCommand(command);
+  }
+
+  if (!fs.existsSync(HOST_CODEX_AUTH)) {
+    throw new Error(
+      `Codex auth file not found at ${HOST_CODEX_AUTH}. Run \`codex login\` on the host before running Sandcastle.`,
+    );
+  }
+
+  if (!fs.existsSync(HOST_CODEX_CONFIG)) {
+    throw new Error(
+      `Codex config file not found at ${HOST_CODEX_CONFIG}. Run \`codex doctor\` or \`codex login\` on the host before running Sandcastle.`,
+    );
+  }
+
+  for (const dir of [
+    HOST_COREPACK_CACHE,
+    HOST_PNPM_STORE,
+    HOST_ROOT_NODE_MODULES,
+    HOST_SANDBOX_CODEX_HOME,
+  ]) {
+    ensureWritableDirectory(dir);
+  }
+};
+
+runHostPreflight();
 
 fs.mkdirSync(HOST_COREPACK_CACHE, { recursive: true });
 fs.mkdirSync(HOST_PNPM_STORE, { recursive: true });
 fs.mkdirSync(HOST_ROOT_NODE_MODULES, { recursive: true });
 fs.mkdirSync(HOST_SANDBOX_CODEX_HOME, { recursive: true });
-fs.copyFileSync(HOST_CODEX_AUTH, path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"));
+fs.copyFileSync(
+  HOST_CODEX_AUTH,
+  path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"),
+);
 fs.copyFileSync(
   HOST_CODEX_CONFIG,
   path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"),
@@ -88,6 +150,9 @@ const sandboxEnv = {
   CI: "true",
   TMPDIR: "/tmp",
   CODEX_HOME: SANDBOX_CODEX_HOME,
+  COREPACK_HOME: SANDBOX_COREPACK_CACHE,
+  NX_DAEMON: "false",
+  PATH: SANDBOX_PATH,
 };
 
 const rootSandbox = () =>
@@ -136,26 +201,22 @@ const worktreeSandbox = () =>
 // host repo's macOS node_modules, so pnpm never mutates the host install.
 const rootHooks = {
   sandbox: {
-    onSandboxReady: [{ command: PNPM_INSTALL_COMMAND }],
+    onSandboxReady: [
+      { command: SANDBOX_PREFLIGHT_COMMAND },
+      { command: PNPM_INSTALL_COMMAND },
+    ],
   },
 };
 
 // Branch worktrees are separate directories under .sandcastle/worktrees. Remove
-// stale copied node_modules there, then let Linux pnpm recreate dependencies.
+// stale copied node_modules from inside the sandbox workspace, then let Linux
+// pnpm recreate dependencies.
 const worktreeHooks = {
-  host: {
-    onWorktreeReady: [
-      {
-        command:
-          'case "$PWD" in */.sandcastle/worktrees/*) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside .sandcastle/worktrees: $PWD" >&2; exit 1 ;; esac',
-      },
-    ],
-  },
   sandbox: {
     onSandboxReady: [
-      {
-        command: PNPM_INSTALL_COMMAND,
-      },
+      { command: WORKTREE_NODE_MODULES_CLEANUP_COMMAND },
+      { command: SANDBOX_PREFLIGHT_COMMAND },
+      { command: PNPM_INSTALL_COMMAND },
     ],
   },
 };
@@ -263,6 +324,62 @@ const assertIssueCompleteInBranch = (issue: { id: string; branch: string }) => {
   }
 };
 
+const branchExists = (branch: string) => {
+  try {
+    execFileSync("git", ["rev-parse", "--verify", branch], {
+      encoding: "utf8",
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const changedFilesForBranch = (branch: string) => {
+  if (!branchExists(branch)) {
+    return new Set<string>();
+  }
+
+  const files = execFileSync(
+    "git",
+    ["diff", "--name-only", `HEAD...${branch}`],
+    { encoding: "utf8" },
+  )
+    .split("\n")
+    .map((file) => file.trim())
+    .filter(Boolean);
+
+  return new Set(files);
+};
+
+const selectNonOverlappingIssues = <T extends { id: string; branch: string }>(
+  issues: T[],
+) => {
+  const selected: T[] = [];
+  const selectedFiles = new Set<string>();
+
+  for (const issue of issues) {
+    const changedFiles = changedFilesForBranch(issue.branch);
+    const overlap = [...changedFiles].filter((file) => selectedFiles.has(file));
+    if (overlap.length > 0) {
+      console.log(
+        `Deferring ${issue.id} because ${issue.branch} overlaps already selected files: ${overlap.join(
+          ", ",
+        )}`,
+      );
+      continue;
+    }
+
+    selected.push(issue);
+    for (const file of changedFiles) {
+      selectedFiles.add(file);
+    }
+  }
+
+  return selected;
+};
+
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
@@ -287,7 +404,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
-    agent: sandcastle.codex("gpt-5.4-mini"),
+    agent: sandcastle.codex("gpt-5.4"),
     promptFile: "./.sandcastle/plan-prompt.md",
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or
@@ -295,7 +412,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     output: sandcastle.Output.object({ tag: "plan", schema: planSchema }),
   });
 
-  const issues = plan.output.issues;
+  const issues = selectNonOverlappingIssues(plan.output.issues);
 
   if (issues.length === 0) {
     // No unblocked work — either everything is done or everything is blocked.
@@ -352,7 +469,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         const implement = await sandbox.run({
           name: "implementer",
           maxIterations: 100,
-          agent: sandcastle.codex("gpt-5.4-mini"),
+          agent: sandcastle.codex("gpt-5.4"),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
@@ -366,7 +483,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            agent: sandcastle.codex("gpt-5.4-mini"),
+            agent: sandcastle.codex("gpt-5.4"),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -444,7 +561,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     sandbox: rootSandbox(),
     name: "merger",
     maxIterations: 1,
-    agent: sandcastle.codex("gpt-5.4-mini"),
+    agent: sandcastle.codex("gpt-5.4"),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.

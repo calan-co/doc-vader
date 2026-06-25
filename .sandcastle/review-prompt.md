@@ -39,8 +39,9 @@ Review the code changes on branch `{{BRANCH}}` and improve code clarity, consist
    - Make the code harder to debug or extend
 
 5. **Apply project standards**: Follow the coding standards defined in @.sandcastle/CODING_STANDARDS.md
+6. **Use the validation matrix**: Follow @.sandcastle/VALIDATION.md for test commands and environment-only fallback handling.
 
-6. **Preserve functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
+7. **Preserve functionality**: Never change what the code does - only how it does it. All original features, outputs, and behaviors must remain intact.
 
 # EXECUTION
 
