@@ -20,7 +20,6 @@ tags:
   - work-management
   - command-surface
   - scopes
-completed_date: "2026-06-25"
 ---
 
 ## Goal
