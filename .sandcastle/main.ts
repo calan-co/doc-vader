@@ -89,7 +89,9 @@ const SANDBOX_PREFLIGHT_COMMAND = withSandboxShell(
 );
 const WORKSPACE_TOOL_PREFLIGHT_COMMAND = withSandboxShell(
   [
-    'for command in nx; do command_path="$(command -v "$command" || true)"; if [ -z "$command_path" ]; then printf "missing workspace command after install: %s\\n" "$command" >&2; exit 127; fi; printf "workspace command %s=%s\\n" "$command" "$command_path"; done',
+    'printf "workspace pwd=%s\\n" "$PWD"',
+    'printf "workspace node_modules bin listing:\\n"',
+    'ls -la node_modules/.bin 2>/dev/null || true',
     'printf "workspace nx ok: %s\\n" "$(pnpm exec nx --version)"',
   ].join("\n"),
 );
