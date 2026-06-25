@@ -5,10 +5,11 @@ summary: Add the canonical Work command surface and normalize Work Item scope id
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-06-25'
 links:
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
@@ -51,16 +52,16 @@ Work Items using the registered short-form specifier.
 
 ## Tasks
 
-- [ ] Add `dv work` as the primary Work Item family command surface.
-- [ ] Add `dv wi` as the shorthand command surface for the same behavior.
-- [ ] Keep `dv task` available as a deprecated compatibility alias for the
+- [x] Add `dv work` as the primary Work Item family command surface.
+- [x] Add `dv wi` as the shorthand command surface for the same behavior.
+- [x] Keep `dv task` available as a deprecated compatibility alias for the
       current command set and JSON output shape.
-- [ ] Introduce or move family-level implementation code under `lib/work/**`.
-- [ ] Keep `lib/task/**` wrappers only where needed for the compatibility
+- [x] Introduce or move family-level implementation code under `lib/work/**`.
+- [x] Keep `lib/task/**` wrappers only where needed for the compatibility
       window.
-- [ ] Register the Work Item short-form entity specifier as `wi`.
-- [ ] Normalize Work Item ScopeRefs so `wi-60343` resolves to `wi:60343`.
-- [ ] Add tests covering command aliases, compatibility output, and ScopeRef
+- [x] Register the Work Item short-form entity specifier as `wi`.
+- [x] Normalize Work Item ScopeRefs so `wi-60343` resolves to `wi:60343`.
+- [x] Add tests covering command aliases, compatibility output, and ScopeRef
       canonicalization.
 
 ## Deliverables
@@ -72,17 +73,17 @@ Work Items using the registered short-form specifier.
 
 ## Acceptance Criteria
 
-- [ ] `dv work` and `dv wi` expose the current family-level Work Item behavior.
-- [ ] `dv task` still works for existing users and preserves legacy JSON output
+- [x] `dv work` and `dv wi` expose the current family-level Work Item behavior.
+- [x] `dv task` still works for existing users and preserves legacy JSON output
       for this migration window.
-- [ ] Family-level implementation modules use Work terminology rather than Task
+- [x] Family-level implementation modules use Work terminology rather than Task
       terminology, except for explicit compatibility wrappers.
-- [ ] Work Item ScopeRefs use the canonical `wi:<stable-id>` shape.
-- [ ] ScopeRefs do not include file paths, storage adapter names, or database
+- [x] Work Item ScopeRefs use the canonical `wi:<stable-id>` shape.
+- [x] ScopeRefs do not include file paths, storage adapter names, or database
       record identifiers.
-- [ ] Tests prove alias behavior and ScopeRef canonicalization.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Tests prove alias behavior and ScopeRef canonicalization.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
