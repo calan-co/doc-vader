@@ -60,16 +60,28 @@ const SANDBOX_ROOT_NODE_MODULES = "/home/agent/workspace/node_modules";
 const SANDBOX_CODEX_HOME = "/home/agent/.codex";
 const SANDBOX_PATH =
   "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-const PNPM_INSTALL_COMMAND = `CI=true NX_DAEMON=false COREPACK_HOME=${SANDBOX_COREPACK_CACHE} pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
+const SANDBOX_NODE = "/usr/local/bin/node";
+const SANDBOX_GIT = "/usr/bin/git";
+const SANDBOX_COREPACK = "/usr/local/bin/corepack";
+const SANDBOX_PNPM = "/usr/local/bin/pnpm";
+const SANDBOX_RG = "/usr/bin/rg";
+const PNPM_INSTALL_COMMAND = `CI=true NX_DAEMON=false COREPACK_HOME=${SANDBOX_COREPACK_CACHE} ${SANDBOX_PNPM} install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
 const SANDBOX_PREFLIGHT_COMMAND = [
-  "command -v node >/dev/null",
-  "command -v git >/dev/null",
-  "command -v corepack >/dev/null",
-  "command -v pnpm >/dev/null",
-  "command -v rg >/dev/null",
+  `test -x ${SANDBOX_NODE}`,
+  `test -x ${SANDBOX_GIT}`,
+  `test -x ${SANDBOX_COREPACK}`,
+  `test -x ${SANDBOX_PNPM}`,
+  `test -x ${SANDBOX_RG}`,
   `test -w ${SANDBOX_COREPACK_CACHE}`,
   `test -w ${SANDBOX_PNPM_STORE}`,
-  'printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(node --version)" "$(pnpm --version)"',
+  `printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(${SANDBOX_NODE} --version)" "$(${SANDBOX_PNPM} --version)"`,
+].join(" && ");
+const WORKSPACE_TOOL_SHIM_COMMAND = [
+  "mkdir -p .tmp-bin node_modules/.bin",
+  `printf '%s\\n' '#!/usr/bin/env sh' 'exec ${SANDBOX_PNPM} "$@"' > .tmp-bin/pnpm`,
+  "chmod +x .tmp-bin/pnpm",
+  "ln -sf ../../.tmp-bin/pnpm node_modules/.bin/pnpm",
+  'printf "workspace pnpm shim ok: %s\\n" "$(.tmp-bin/pnpm --version)"',
 ].join(" && ");
 const WORKTREE_NODE_MODULES_CLEANUP_COMMAND =
   'case "$PWD" in /home/agent/workspace) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside sandbox workspace: $PWD" >&2; exit 1 ;; esac';
@@ -204,6 +216,7 @@ const rootHooks = {
     onSandboxReady: [
       { command: SANDBOX_PREFLIGHT_COMMAND },
       { command: PNPM_INSTALL_COMMAND },
+      { command: WORKSPACE_TOOL_SHIM_COMMAND },
     ],
   },
 };
@@ -217,6 +230,7 @@ const worktreeHooks = {
       { command: WORKTREE_NODE_MODULES_CLEANUP_COMMAND },
       { command: SANDBOX_PREFLIGHT_COMMAND },
       { command: PNPM_INSTALL_COMMAND },
+      { command: WORKSPACE_TOOL_SHIM_COMMAND },
     ],
   },
 };
