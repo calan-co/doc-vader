@@ -710,7 +710,7 @@ function appendSelectedSection(
 
 export function formatReadyText(selection: ReadyTaskSelection): string {
   const lines: string[] = [];
-  lines.push("Ready task candidates");
+  lines.push("Ready work candidates");
   lines.push(`Candidates: ${selection.candidates.length}`);
   const recoverable = selection.exclusions.filter((exclusion) =>
     exclusion.reasons.some((entry) => {
@@ -734,7 +734,7 @@ export function formatReadyText(selection: ReadyTaskSelection): string {
         .map((entry) => entry.id)
         .join(", ")})`,
     );
-    lines.push("Run `dv task recover <task-id>` to make a recoverable task claimable again.");
+    lines.push("Run `dv work recover <task-id>` to make a recoverable work item claimable again.");
   }
   if (forceRecoverable.length > 0) {
     lines.push(

@@ -70,30 +70,30 @@ import {
 import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
 import {
-  claimTask,
-  completeTaskClaim,
-  assertTaskClaimable,
+  claimWork as claimTask,
+  completeWorkClaim as completeTaskClaim,
+  assertWorkClaimable as assertTaskClaimable,
+  loadCanonicalWork as loadCanonicalTask,
+  loadWorkModel as loadTaskModel,
+  listWorkModels as listTaskModels,
+  readWorkRecordPayload as readRecordPayload,
+  recoverWorkClaim as recoverTaskClaim,
+  recordWorkEvidence as recordTaskEvidence,
+  renderHumanWork as renderHumanTask,
+  renderSandcastleWorkPrompt as renderSandcastlePrompt,
   formatReadyPorcelain,
   formatReadyText,
-  loadCanonicalTask,
-  loadTaskModel,
-  listTaskModels,
-  readRecordPayload,
-  recoverTaskClaim,
-  recordTaskEvidence,
-  renderHumanTask,
-  renderSandcastlePrompt,
-  selectReadyTasks,
-  resolveGitRoot,
-  resolveTaskAuthority,
-  collectTaskRecoveryGitState,
+  selectReadyWorkItems as selectReadyTasks,
+  resolveWorkRoot as resolveGitRoot,
+  resolveWorkAuthority as resolveTaskAuthority,
+  collectWorkRecoveryGitState as collectTaskRecoveryGitState,
   isRecoverableReadyRuntimeState,
-  type TaskRecoveryForceMode,
-  type TaskModel,
-  type TaskRecoveryGitState,
-  TaskCommandError,
-  toTaskErrorPayload,
-} from "../lib/task/index.js";
+  type WorkRecoveryForceMode as TaskRecoveryForceMode,
+  type WorkModel as TaskModel,
+  type WorkRecoveryGitState as TaskRecoveryGitState,
+  WorkCommandError as TaskCommandError,
+  toWorkErrorPayload as toTaskErrorPayload,
+} from "../lib/work/index.js";
 
 const program = new Command()
   .name("doc-vader")
@@ -1419,14 +1419,11 @@ workManagement
     }
   });
 
-// --- DOMAIN: task ---
-const task = program
-  .command("task")
-  .description("Sandcastle dogfood task commands");
-
-task
+// --- DOMAIN: work items ---
+function registerWorkCommandSurface(work: Command): void {
+work
   .command("list")
-  .description("List open backlog tasks")
+  .description("List open backlog work items")
   .option("--json", "Emit machine-readable JSON")
   .option("--porcelain", "Emit stable script-friendly task lines")
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
@@ -1472,9 +1469,9 @@ task
     },
   );
 
-task
+work
   .command("ready")
-  .description("List fail-closed AFK-ready task candidates")
+  .description("List fail-closed AFK-ready work item candidates")
   .option("--json", "Emit deterministic candidate and exclusion JSON")
   .option("--candidates-only", "Omit exclusions from JSON output")
   .option("--porcelain", "Emit stable script-friendly candidate lines")
@@ -1523,10 +1520,10 @@ task
     },
   );
 
-task
+work
   .command("show")
-  .description("Show canonical task context")
-  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .description("Show canonical work item context")
+  .argument("<task-id>", "Work item id, numeric id, or work item file basename")
   .option("--json", "Emit canonical task JSON")
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
   .action(async (taskId: string, opts: { json?: boolean; backlogDir?: string }) => {
@@ -1545,10 +1542,10 @@ task
     }
   });
 
-task
+work
   .command("status")
-  .description("Show operational task status and recovery diagnostics")
-  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .description("Show operational work item status and recovery diagnostics")
+  .argument("<task-id>", "Work item id, numeric id, or work item file basename")
   .option("--json", "Emit operational task status JSON")
   .option("--worktree <path>", "Inspect status from a specific worktree")
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
@@ -1593,10 +1590,10 @@ task
     },
   );
 
-task
+work
   .command("prompt")
-  .description("Render a Sandcastle-oriented prompt from canonical task JSON")
-  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .description("Render a Sandcastle-oriented prompt from canonical work item JSON")
+  .argument("<task-id>", "Work item id, numeric id, or work item file basename")
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
   .action(async (taskId: string, opts: { backlogDir?: string }) => {
     try {
@@ -1610,10 +1607,10 @@ task
     }
   });
 
-task
+work
   .command("claim")
-  .description("Create a conservative local task claim")
-  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .description("Create a conservative local work item claim")
+  .argument("<task-id>", "Work item id, numeric id, or work item file basename")
   .option("--json", "Emit machine-readable JSON")
   .option("--holder <holder>", "Claim holder identity")
   .option("--branch <branch>", "Branch or ref context")
@@ -1696,10 +1693,10 @@ task
     },
   );
 
-task
+work
   .command("recover")
-  .description("Recover a halted task and make it claimable again")
-  .argument("<task-id>", "Task id, numeric id, or task file basename")
+  .description("Recover a halted work item and make it claimable again")
+  .argument("<task-id>", "Work item id, numeric id, or work item file basename")
   .option("--holder <holder>", "Claim holder identity")
   .option("--branch <branch>", "Branch or ref context")
   .option("--worktree <path>", "Run recovery in a specific worktree")
@@ -1733,9 +1730,9 @@ task
     },
   );
 
-task
+work
   .command("record")
-  .description("Create and link claim-scoped task evidence")
+  .description("Create and link claim-scoped work item evidence")
   .requiredOption("--claim <claim-id>", "Active claim id")
   .requiredOption("--type <record-type>", "Record subtype, e.g. test-result")
   .requiredOption("--payload <json-file|->", "Record payload JSON file or stdin")
@@ -1789,6 +1786,23 @@ task
       }
     },
   );
+
+}
+
+const work = program
+  .command("work")
+  .description("Work Item command surface");
+registerWorkCommandSurface(work);
+
+const wi = program
+  .command("wi")
+  .description("Work Item shorthand command surface");
+registerWorkCommandSurface(wi);
+
+const task = program
+  .command("task")
+  .description("Deprecated compatibility alias for work item commands");
+registerWorkCommandSurface(task);
 
 // --- DOMAIN: lock ---
 const lock = program

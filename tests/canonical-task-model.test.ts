@@ -199,19 +199,19 @@ describe("canonical task model", () => {
     expect(human).toContain("# Canonical Task Model");
     expect(human).toContain("- File: `backlog/100-canonical-task-model.md`");
     expect(human).toContain("- JSON includes stable task identity.");
-    expect(prompt).toContain("# Sandcastle Task: wi-100");
+    expect(prompt).toContain("# Sandcastle Work Item: wi-100");
     expect(prompt).toContain("Implement `Canonical Task Model`");
-    expect(prompt).toContain("Use the canonical task JSON as the source of truth.");
+    expect(prompt).toContain("Use the canonical work item JSON as the source of truth.");
     expect(prompt).toContain(
       "docs/how-to/sandcastle-dogfood-task-flow.md",
     );
     expect(prompt).toContain("Initialization and registry mapping live in");
     for (const fragment of [
-      "Claim this task before execution with `dv task claim <task-id> --holder <holder> --json`",
+      "Claim this work item before execution with `dv work claim <task-id> --holder <holder> --json`",
       "`dv lock create --claim <claim-token> <path...>`",
       "`dv lock rm --claim <claim-token> <path...>`",
       "`dv claim release <claim-token> --outcome conflict`",
-      "`dv task recover <task-id>`",
+      "`dv work recover <task-id>`",
       "do not treat Git hooks or prompt instructions as deterministic enforcement.",
     ]) {
       expect(prompt).toContain(fragment);
