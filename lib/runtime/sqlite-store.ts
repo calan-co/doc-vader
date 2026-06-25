@@ -16,15 +16,12 @@ import {
   type RuntimeRenameDiagnostic,
 } from "./entity-schemas.js";
 import {
-  ReadLockPolicy,
-  WriteLockPolicy,
-  ExecuteLockPolicy,
+  evaluateRuntimeScopeLockPolicy,
   canonicalizeClaimScopeRef,
   type RuntimeScopeLock,
   type RuntimeScopeLockConflict,
   type RuntimeScopeLockLifecycleState,
   type RuntimeScopeLockMode,
-  type RuntimeScopeLockPolicyDecision,
   type RuntimeScopeLockPolicyName,
 } from "./scope-locks.js";
 export {
@@ -1191,7 +1188,7 @@ function createClaimTargetScopeLockPayload(claim: RuntimeClaim): RuntimeScopeLoc
     claimToken: claim.claim_token,
     scopeRef: canonicalizeClaimScopeRef(claim.target_type, claim.target_id),
     lockMode: "execute",
-    policyName: "ExecuteLockPolicy",
+    policyName: runtimeScopeLockPolicyNameForMode("execute"),
     acquiredAt: claim.created_at,
   });
 }
@@ -1206,31 +1203,6 @@ function runtimeScopeLockPolicyNameForMode(
       return "WriteLockPolicy";
     case "execute":
       return "ExecuteLockPolicy";
-  }
-}
-
-function scopeLockPolicyDecision(
-  requestedMode: RuntimeScopeLockMode,
-  existingModes: readonly RuntimeScopeLockMode[],
-  scopeRef: string,
-): RuntimeScopeLockPolicyDecision {
-  switch (requestedMode) {
-    case "read":
-      return ReadLockPolicy(existingModes, scopeRef);
-    case "write":
-      return WriteLockPolicy(existingModes, scopeRef);
-    case "execute":
-      return ExecuteLockPolicy(existingModes, scopeRef);
-    default:
-      return {
-        allowed: false,
-        conflict: {
-          scope_ref: scopeRef,
-          requested_mode: requestedMode,
-          conflicting_modes: [...existingModes],
-          policy_name: "WriteLockPolicy",
-        },
-      };
   }
 }
 
@@ -2587,7 +2559,12 @@ export class RuntimeSqliteStore {
     const existingModes = activeLocks.map(
       (row) => row.lock_mode as RuntimeScopeLockMode,
     );
-    const decision = scopeLockPolicyDecision(requestedMode, existingModes, scopeRef);
+    const decision = evaluateRuntimeScopeLockPolicy(
+      requestedMode,
+      existingModes,
+      scopeRef,
+      policyName,
+    );
     if (decision.allowed) {
       return undefined;
     }

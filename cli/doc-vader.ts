@@ -1420,8 +1420,8 @@ workManagement
   });
 
 // --- DOMAIN: work items ---
-function registerWorkCommandSurface(work: Command): void {
-work
+function registerWorkCommandSurface(surface: Command): void {
+  surface
   .command("list")
   .description("List open backlog work items")
   .option("--json", "Emit machine-readable JSON")
@@ -1469,7 +1469,7 @@ work
     },
   );
 
-work
+  surface
   .command("ready")
   .description("List fail-closed AFK-ready work item candidates")
   .option("--json", "Emit deterministic candidate and exclusion JSON")
@@ -1520,7 +1520,7 @@ work
     },
   );
 
-work
+  surface
   .command("show")
   .description("Show canonical work item context")
   .argument("<task-id>", "Work item id, numeric id, or work item file basename")
@@ -1542,7 +1542,7 @@ work
     }
   });
 
-work
+  surface
   .command("status")
   .description("Show operational work item status and recovery diagnostics")
   .argument("<task-id>", "Work item id, numeric id, or work item file basename")
@@ -1590,7 +1590,7 @@ work
     },
   );
 
-work
+  surface
   .command("prompt")
   .description("Render a Sandcastle-oriented prompt from canonical work item JSON")
   .argument("<task-id>", "Work item id, numeric id, or work item file basename")
@@ -1607,7 +1607,7 @@ work
     }
   });
 
-work
+  surface
   .command("claim")
   .description("Create a conservative local work item claim")
   .argument("<task-id>", "Work item id, numeric id, or work item file basename")
@@ -1693,7 +1693,7 @@ work
     },
   );
 
-work
+  surface
   .command("recover")
   .description("Recover a halted work item and make it claimable again")
   .argument("<task-id>", "Work item id, numeric id, or work item file basename")
@@ -1730,7 +1730,7 @@ work
     },
   );
 
-work
+  surface
   .command("record")
   .description("Create and link claim-scoped work item evidence")
   .requiredOption("--claim <claim-id>", "Active claim id")
