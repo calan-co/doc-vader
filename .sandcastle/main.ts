@@ -59,38 +59,40 @@ const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
 const SANDBOX_ROOT_NODE_MODULES = "/home/agent/workspace/node_modules";
 const SANDBOX_CODEX_HOME = "/home/agent/.codex";
 const SANDBOX_WORKSPACE = "/home/agent/workspace";
+const SANDBOX_IMAGE_SENTINEL = "doc-vader-sandcastle-image-2026-06-25";
+const SANDBOX_IMAGE_SENTINEL_FILE = "/etc/doc-vader-sandcastle-image";
+const SANDBOX_NX_CACHE = "/tmp/doc-vader-nx-cache";
 const SANDBOX_PATH =
-  `${SANDBOX_WORKSPACE}/.tmp-bin:${SANDBOX_WORKSPACE}/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`;
+  `${SANDBOX_WORKSPACE}/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`;
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const withSandboxShell = (script: string) =>
-  `PATH=${SANDBOX_PATH}:$PATH COREPACK_HOME=${SANDBOX_COREPACK_CACHE} CI=true NX_DAEMON=false sh -lc ${shellQuote(
+  `PATH=${SANDBOX_PATH}:$PATH COREPACK_HOME=${SANDBOX_COREPACK_CACHE} CI=true NX_DAEMON=false NX_CACHE_DIRECTORY=${SANDBOX_NX_CACHE} sh -lc ${shellQuote(
     script,
   )}`;
 const PNPM_INSTALL_COMMAND = withSandboxShell(
-  `corepack pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`,
+  [
+    `mkdir -p ${SANDBOX_NX_CACHE}`,
+    `pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`,
+  ].join("\n"),
 );
 const SANDBOX_PREFLIGHT_COMMAND = withSandboxShell(
   [
     "set -eu",
     'printf "sandbox PATH=%s\\n" "$PATH"',
-    'for command in node git corepack; do command_path="$(command -v "$command" || true)"; if [ -z "$command_path" ]; then printf "missing required sandbox command: %s\\n" "$command" >&2; exit 127; fi; printf "sandbox command %s=%s\\n" "$command" "$command_path"; done',
-    'rg_path="$(command -v rg || true)"; if [ -n "$rg_path" ]; then printf "sandbox command rg=%s\\n" "$rg_path"; else printf "sandbox command rg=missing; workspace fallback shim will be installed\\n"; fi',
+    `test -r ${SANDBOX_IMAGE_SENTINEL_FILE} || { printf "missing sandbox image sentinel: ${SANDBOX_IMAGE_SENTINEL_FILE}; rebuild and ensure Sandcastle launches the rebuilt image\\n" >&2; exit 1; }`,
+    `test "$(cat ${SANDBOX_IMAGE_SENTINEL_FILE})" = "${SANDBOX_IMAGE_SENTINEL}" || { printf "unexpected sandbox image sentinel: %s\\n" "$(cat ${SANDBOX_IMAGE_SENTINEL_FILE})" >&2; exit 1; }`,
+    'for command in node git corepack pnpm rg; do command_path="$(command -v "$command" || true)"; if [ -z "$command_path" ]; then printf "missing required sandbox image command: %s\\n" "$command" >&2; exit 127; fi; printf "sandbox command %s=%s\\n" "$command" "$command_path"; done',
     `test -w ${SANDBOX_COREPACK_CACHE} || { printf "corepack cache is not writable: ${SANDBOX_COREPACK_CACHE}\\n" >&2; exit 1; }`,
     `test -w ${SANDBOX_PNPM_STORE} || { printf "pnpm store is not writable: ${SANDBOX_PNPM_STORE}\\n" >&2; exit 1; }`,
-    'printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(node --version)" "$(corepack pnpm --version)"',
+    'printf "sandbox preflight ok: node=%s pnpm=%s rg=%s image=%s\\n" "$(node --version)" "$(pnpm --version)" "$(rg --version | head -n 1)" "$(cat /etc/doc-vader-sandcastle-image)"',
   ].join("\n"),
 );
-const WORKSPACE_TOOL_SHIM_COMMAND = withSandboxShell([
-  "mkdir -p .tmp-bin node_modules/.bin",
-  `printf "%s\\n" "#!/usr/bin/env sh" "PATH=${SANDBOX_PATH}:\\$PATH" "COREPACK_HOME=${SANDBOX_COREPACK_CACHE}" "export PATH COREPACK_HOME" "exec corepack pnpm \\"\\$@\\"" > .tmp-bin/pnpm`,
-  'if ! command -v rg >/dev/null 2>&1; then printf "%s\\n" "#!/usr/bin/env sh" "if [ \\"\\$1\\" = \\"--files\\" ]; then" "  shift" "  git ls-files \\"\$@\\" 2>/dev/null || find . -type f" "  exit \\$?" "fi" "exec grep -R \\"\$@\\" ." > .tmp-bin/rg; fi',
-  "chmod +x .tmp-bin/pnpm",
-  'if [ -f .tmp-bin/rg ]; then chmod +x .tmp-bin/rg; fi',
-  "ln -sf ../../.tmp-bin/pnpm node_modules/.bin/pnpm",
-  'if [ -f .tmp-bin/rg ]; then ln -sf ../../.tmp-bin/rg node_modules/.bin/rg; fi',
-  'printf "workspace pnpm shim ok: %s\\n" "$(.tmp-bin/pnpm --version)"',
-  'printf "workspace rg command ok: %s\\n" "$(command -v rg)"',
-].join("\n"));
+const WORKSPACE_TOOL_PREFLIGHT_COMMAND = withSandboxShell(
+  [
+    'for command in nx; do command_path="$(command -v "$command" || true)"; if [ -z "$command_path" ]; then printf "missing workspace command after install: %s\\n" "$command" >&2; exit 127; fi; printf "workspace command %s=%s\\n" "$command" "$command_path"; done',
+    'printf "workspace nx ok: %s\\n" "$(pnpm exec nx --version)"',
+  ].join("\n"),
+);
 const WORKTREE_NODE_MODULES_CLEANUP_COMMAND =
   'case "$PWD" in /home/agent/workspace) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside sandbox workspace: $PWD" >&2; exit 1 ;; esac';
 
@@ -224,7 +226,7 @@ const rootHooks = {
     onSandboxReady: [
       { command: SANDBOX_PREFLIGHT_COMMAND },
       { command: PNPM_INSTALL_COMMAND },
-      { command: WORKSPACE_TOOL_SHIM_COMMAND },
+      { command: WORKSPACE_TOOL_PREFLIGHT_COMMAND },
     ],
   },
 };
@@ -238,7 +240,7 @@ const worktreeHooks = {
       { command: WORKTREE_NODE_MODULES_CLEANUP_COMMAND },
       { command: SANDBOX_PREFLIGHT_COMMAND },
       { command: PNPM_INSTALL_COMMAND },
-      { command: WORKSPACE_TOOL_SHIM_COMMAND },
+      { command: WORKSPACE_TOOL_PREFLIGHT_COMMAND },
     ],
   },
 };
