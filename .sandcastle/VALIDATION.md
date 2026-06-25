@@ -14,12 +14,12 @@ Use these gates for normal implementation and merge work:
    - `pnpm run backlog:validate:ci`
 
 If an Nx-backed command fails with a daemon or permission error, retry once with
-`NX_DAEMON=false`. If the same environment error remains, collect a direct
-signal instead:
+`NX_DAEMON=false`. If the same environment error remains, collect a stable
+repo-script signal where available:
 
 - tests: `pnpm exec vitest run`
 - docs: `node --import tsx scripts/validate-docs.ts --docs-dir docs`
-- backlog: `node --import tsx cli/doc-vader.ts backlog validate -d backlog --format text --fail-on error`
+- ready-list sanity: `node .sandcastle/list-ready-issues.mjs`
 
 Report environment-only failures separately from code failures. Do not mark a
 branch complete when the direct validation signal fails for the changed area.

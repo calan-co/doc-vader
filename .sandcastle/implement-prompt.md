@@ -2,7 +2,7 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Pull in the issue using `node --import tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`.
+Pull in the issue using `node .sandcastle/view-issue.mjs {{TASK_ID}}`.
 If it has a parent PRD, pull that in too.
 
 Only work on the issue specified.
