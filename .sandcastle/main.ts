@@ -63,22 +63,21 @@ const SANDBOX_PATH =
 const SANDBOX_NODE = "/usr/local/bin/node";
 const SANDBOX_GIT = "/usr/bin/git";
 const SANDBOX_COREPACK = "/usr/local/bin/corepack";
-const SANDBOX_PNPM = "/usr/local/bin/pnpm";
 const SANDBOX_RG = "/usr/bin/rg";
-const PNPM_INSTALL_COMMAND = `CI=true NX_DAEMON=false COREPACK_HOME=${SANDBOX_COREPACK_CACHE} ${SANDBOX_PNPM} install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
+const SANDBOX_PNPM_COMMAND = `${SANDBOX_COREPACK} pnpm`;
+const PNPM_INSTALL_COMMAND = `CI=true NX_DAEMON=false COREPACK_HOME=${SANDBOX_COREPACK_CACHE} ${SANDBOX_PNPM_COMMAND} install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
 const SANDBOX_PREFLIGHT_COMMAND = [
   `test -x ${SANDBOX_NODE}`,
   `test -x ${SANDBOX_GIT}`,
   `test -x ${SANDBOX_COREPACK}`,
-  `test -x ${SANDBOX_PNPM}`,
   `test -x ${SANDBOX_RG}`,
   `test -w ${SANDBOX_COREPACK_CACHE}`,
   `test -w ${SANDBOX_PNPM_STORE}`,
-  `printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(${SANDBOX_NODE} --version)" "$(${SANDBOX_PNPM} --version)"`,
+  `printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(${SANDBOX_NODE} --version)" "$(${SANDBOX_PNPM_COMMAND} --version)"`,
 ].join(" && ");
 const WORKSPACE_TOOL_SHIM_COMMAND = [
   "mkdir -p .tmp-bin node_modules/.bin",
-  `printf '%s\\n' '#!/usr/bin/env sh' 'exec ${SANDBOX_PNPM} "$@"' > .tmp-bin/pnpm`,
+  `printf '%s\\n' '#!/usr/bin/env sh' 'exec ${SANDBOX_PNPM_COMMAND} "$@"' > .tmp-bin/pnpm`,
   "chmod +x .tmp-bin/pnpm",
   "ln -sf ../../.tmp-bin/pnpm node_modules/.bin/pnpm",
   'printf "workspace pnpm shim ok: %s\\n" "$(.tmp-bin/pnpm --version)"',
