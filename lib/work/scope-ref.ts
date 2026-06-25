@@ -61,18 +61,19 @@ export function canonicalizeScopeRef(value: string): string {
 }
 
 export function canonicalizeWorkItemScopeRef(value: string): string {
-  let canonical: string;
   try {
-    canonical = canonicalizeScopeRef(value);
-  } catch (error) {
+    const canonicalScopeRef = canonicalizeScopeRef(value);
+    if (!canonicalScopeRef.startsWith("wi:")) {
+      throw new Error(
+        `Provide a canonical Work Item ScopeRef, not ${canonicalScopeRef}.`,
+      );
+    }
+    return canonicalScopeRef;
+  } catch {
+    // Collapse all invalid forms into the work-item-specific storage-adapter
+    // message so callers get one stable failure shape.
     throw new Error(
       `Provide a canonical Work Item ScopeRef, not a storage adapter reference: ${value}`,
     );
   }
-  if (!canonical.startsWith("wi:")) {
-    throw new Error(
-      `Provide a canonical Work Item ScopeRef, not ${canonical}.`,
-    );
-  }
-  return canonical;
 }

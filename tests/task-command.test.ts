@@ -337,15 +337,18 @@ tags:
   - afk`,
       );
 
-      const canonicalTask = await loadCanonicalTask({ rootDir: root, taskId: "101" });
+      const canonicalWorkItem = await loadCanonicalTask({
+        rootDir: root,
+        taskId: "101",
+      });
       expect(JSON.parse(runCli(root, ["work", "show", "101", "--json"]))).toEqual(
-        canonicalTask,
+        canonicalWorkItem,
       );
       expect(JSON.parse(runCli(root, ["wi", "show", "101", "--json"]))).toEqual(
-        canonicalTask,
+        canonicalWorkItem,
       );
       expect(JSON.parse(runCli(root, ["task", "show", "101", "--json"]))).toEqual(
-        canonicalTask,
+        canonicalWorkItem,
       );
     } finally {
       await fs.rm(root, { recursive: true, force: true });
