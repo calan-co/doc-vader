@@ -376,6 +376,257 @@ describe("runtime sqlite store", () => {
     }
   });
 
+  it("renews immutable claims only when every associated scope remains available", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquisition = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-renew-all-scopes",
+          entropy: "entropy-renew-all-scopes",
+          expires_at: "2099-06-20T01:20:36.020Z",
+          created_at: "2099-06-20T01:14:36.020Z",
+        }),
+      );
+      if (acquisition.outcome !== "acquired") {
+        throw new Error("Expected the claim to be acquired.");
+      }
+
+      expect(
+        store.acquireRuntimeScopeLocks(acquisition.claimToken, [
+          { scopeRef: "wi-renew-read-scope", lockMode: "read" },
+          { scopeRef: "wi-renew-write-scope", lockMode: "write" },
+          { scopeRef: "wi-renew-execute-scope", lockMode: "execute" },
+        ]),
+      ).toMatchObject({
+        outcome: "acquired",
+        claimToken: acquisition.claimToken,
+      });
+
+      store.database
+        .prepare(
+          "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
+        )
+        .run(
+          "2099-06-20T01:15:36.020Z",
+          "2099-06-20T01:20:36.020Z",
+          acquisition.claimToken,
+        );
+
+      const renewed = store.renewRuntimeClaim(acquisition.claimToken, {
+        now: new Date("2099-06-20T01:17:36.020Z"),
+        ttlMilliseconds: 30 * 60_000,
+      });
+
+      expect(renewed).toMatchObject({
+        outcome: "renewed",
+        claimToken: acquisition.claimToken,
+        claim: {
+          claim_token: acquisition.claimToken,
+          last_seen_at: "2099-06-20T01:17:36.020Z",
+          expires_at: "2099-06-20T01:47:36.020Z",
+        },
+      });
+      expect(renewed.outcome === "renewed" ? renewed.claim.claim_token : "").toBe(
+        acquisition.claimToken,
+      );
+      expect(
+        store.listScopeLocksByClaimToken(acquisition.claimToken).filter(
+          (lock) => lock.lifecycle_state === "active",
+        ),
+      ).toHaveLength(4);
+    } finally {
+      store.close();
+    }
+  });
+
+  it("blocks renewal when an execute scope becomes unavailable", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquisition = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-renew-blocked",
+          entropy: "entropy-renew-blocked",
+          expires_at: "2099-06-20T01:20:36.020Z",
+          created_at: "2099-06-20T01:14:36.020Z",
+        }),
+      );
+      if (acquisition.outcome !== "acquired") {
+        throw new Error("Expected the claim to be acquired.");
+      }
+
+      expect(
+        store.acquireRuntimeScopeLocks(acquisition.claimToken, [
+          { scopeRef: "wi-renew-execute-only", lockMode: "execute" },
+        ]),
+      ).toMatchObject({
+        outcome: "acquired",
+        claimToken: acquisition.claimToken,
+      });
+
+      const foreignClaim = store.insertClaim(
+        makeClaim({
+          claim_token: "claim-foreign-renew-execute",
+          target_id: "wi-foreign-renew-execute",
+          expires_at: "2099-06-21T01:20:36.020Z",
+          created_at: "2099-06-20T01:16:36.020Z",
+        }),
+      );
+      store.insertScopeLock({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        claim_token: foreignClaim.claim_token,
+        scope_ref: "wi:renew-execute-only",
+        lock_mode: "write",
+        policy_name: "WriteLockPolicy",
+        acquired_at: "2099-06-20T01:16:36.020Z",
+        updated_at: "2099-06-20T01:16:36.020Z",
+        lifecycle_state: "active",
+      });
+
+      const before = store.getClaimByToken(acquisition.claimToken);
+      const renewed = store.renewRuntimeClaim(acquisition.claimToken, {
+        now: new Date("2099-06-20T01:17:36.020Z"),
+        ttlMilliseconds: 30 * 60_000,
+      });
+
+      expect(renewed).toMatchObject({
+        outcome: "conflict",
+        claimToken: acquisition.claimToken,
+        conflicts: [
+          {
+            scope_ref: "wi:renew-execute-only",
+            requested_mode: "execute",
+            conflicting_modes: ["write"],
+            policy_name: "ExecuteLockPolicy",
+            owner: {
+              claim_token: foreignClaim.claim_token,
+              target_id: foreignClaim.target_id,
+            },
+          },
+        ],
+      });
+      expect(store.getClaimByToken(acquisition.claimToken)?.expires_at).toBe(
+        before?.expires_at,
+      );
+      expect(
+        store.getScopeLockByClaimTokenAndScopeRef(
+          acquisition.claimToken,
+          "wi:renew-execute-only",
+          "execute",
+        )?.lifecycle_state,
+      ).toBe("active");
+    } finally {
+      store.close();
+    }
+  });
+
+  it("reports only the conflicting associated scopes during mixed-scope renewal failure", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquisition = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-renew-mixed",
+          entropy: "entropy-renew-mixed",
+          expires_at: "2099-06-20T01:20:36.020Z",
+          created_at: "2099-06-20T01:14:36.020Z",
+        }),
+      );
+      if (acquisition.outcome !== "acquired") {
+        throw new Error("Expected the claim to be acquired.");
+      }
+
+      expect(
+        store.acquireRuntimeScopeLocks(acquisition.claimToken, [
+          { scopeRef: "wi-renew-mixed-read", lockMode: "read" },
+          { scopeRef: "wi-renew-mixed-write", lockMode: "write" },
+          { scopeRef: "wi-renew-mixed-execute", lockMode: "execute" },
+        ]),
+      ).toMatchObject({
+        outcome: "acquired",
+        claimToken: acquisition.claimToken,
+      });
+      const before = store.getClaimByToken(acquisition.claimToken);
+
+      const foreignRead = store.insertClaim(
+        makeClaim({
+          claim_token: "claim-foreign-renew-read",
+          target_id: "wi-foreign-renew-read",
+          expires_at: "2099-06-21T01:20:36.020Z",
+          created_at: "2099-06-20T01:16:36.020Z",
+        }),
+      );
+      store.insertScopeLock({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        claim_token: foreignRead.claim_token,
+        scope_ref: "wi:renew-mixed-read",
+        lock_mode: "write",
+        policy_name: "WriteLockPolicy",
+        acquired_at: "2099-06-20T01:16:36.020Z",
+        updated_at: "2099-06-20T01:16:36.020Z",
+        lifecycle_state: "active",
+      });
+      const foreignWrite = store.insertClaim(
+        makeClaim({
+          claim_token: "claim-foreign-renew-write",
+          target_id: "wi-foreign-renew-write",
+          expires_at: "2099-06-21T01:21:36.020Z",
+          created_at: "2099-06-20T01:16:37.020Z",
+        }),
+      );
+      store.insertScopeLock({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        claim_token: foreignWrite.claim_token,
+        scope_ref: "wi:renew-mixed-write",
+        lock_mode: "read",
+        policy_name: "ReadLockPolicy",
+        acquired_at: "2099-06-20T01:16:37.020Z",
+        updated_at: "2099-06-20T01:16:37.020Z",
+        lifecycle_state: "active",
+      });
+
+      const renewed = store.renewRuntimeClaim(acquisition.claimToken, {
+        now: new Date("2099-06-20T01:17:36.020Z"),
+        ttlMilliseconds: 30 * 60_000,
+      });
+
+      expect(renewed).toMatchObject({
+        outcome: "conflict",
+        claimToken: acquisition.claimToken,
+        conflicts: [
+          {
+            scope_ref: "wi:renew-mixed-read",
+            requested_mode: "read",
+            conflicting_modes: ["write"],
+            policy_name: "ReadLockPolicy",
+          },
+          {
+            scope_ref: "wi:renew-mixed-write",
+            requested_mode: "write",
+            conflicting_modes: ["read"],
+            policy_name: "WriteLockPolicy",
+          },
+        ],
+      });
+      expect(renewed.outcome === "conflict" ? renewed.conflicts : []).toHaveLength(
+        2,
+      );
+      expect(
+        renewed.outcome === "conflict"
+          ? renewed.conflicts.some(
+              (conflict) => conflict.scope_ref === "wi:renew-mixed-execute",
+            )
+          : false,
+      ).toBe(false);
+      expect(store.getClaimByToken(acquisition.claimToken)?.expires_at).toBe(
+        before?.expires_at,
+      );
+    } finally {
+      store.close();
+    }
+  });
+
   it("derives the default runtime claim ttl from the idle timeout plus grace", () => {
     expect(
       getRuntimeClaimDefaultTtlMilliseconds({
