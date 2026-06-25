@@ -231,4 +231,160 @@ Projection remains deterministic.
       ),
     ).toBe(true);
   });
+
+  it("projects active claim scope locks as authored claim-to-scope lock edges", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "60387-claim-lock-graph-projection.md"),
+      `---
+id: wi-60387
+title: Claim Lock Graph Projection
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+---
+
+## Goal
+
+Project claim scope locks into graph edges.
+`,
+    );
+
+    const store = openRuntimeSqliteStore({ rootDir });
+    try {
+      const executeClaim = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: "wi-60387",
+        holder: "agent-execute",
+        created_at: "2099-06-25T00:00:00.000Z",
+        expires_at: "2099-06-25T01:00:00.000Z",
+        entropy: "claim-execute",
+      });
+      const readClaim = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "document",
+        target_id: "doc:claim-lock-read",
+        holder: "agent-read",
+        created_at: "2099-06-25T00:05:00.000Z",
+        expires_at: "2099-06-25T01:05:00.000Z",
+        entropy: "claim-read",
+      });
+      const writeClaim = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "document",
+        target_id: "doc:claim-lock-write",
+        holder: "agent-write",
+        created_at: "2099-06-25T00:10:00.000Z",
+        expires_at: "2099-06-25T01:10:00.000Z",
+        entropy: "claim-write",
+      });
+
+      for (const claim of [executeClaim, readClaim, writeClaim]) {
+        expect(claim.outcome).toBe("acquired");
+      }
+
+      if (
+        executeClaim.outcome !== "acquired" ||
+        readClaim.outcome !== "acquired" ||
+        writeClaim.outcome !== "acquired"
+      ) {
+        throw new Error("Expected all scope-lock projection claims to be acquired.");
+      }
+
+      expect(
+        store.acquireRuntimeScopeLocks(readClaim.claimToken, [
+          { scopeRef: "wi-60387", lockMode: "read" },
+        ]),
+      ).toMatchObject({ outcome: "acquired" });
+      expect(
+        store.acquireRuntimeScopeLocks(writeClaim.claimToken, [
+          { scopeRef: "doc:claim-lock-spec", lockMode: "write" },
+        ]),
+      ).toMatchObject({ outcome: "acquired" });
+    } finally {
+      store.close();
+    }
+
+    const projection = await buildProjection(rootDir);
+    const lockEdges = projection.getEdgesByType("locks");
+
+    expect(lockEdges).toHaveLength(5);
+    expect(lockEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "locks",
+          from: expect.stringMatching(/^claim:/),
+          to: "scope:doc:claim-lock-spec",
+          direction: "authored",
+          properties: expect.objectContaining({
+            claimToken: expect.any(String),
+            scopeRef: "doc:claim-lock-spec",
+            lockMode: "write",
+            policyName: "WriteLockPolicy",
+            lifecycleState: "active",
+            acquiredAt: expect.any(String),
+            updatedAt: expect.any(String),
+            targetType: "document",
+            targetId: "doc:claim-lock-write",
+            claimState: "active",
+          }),
+        }),
+        expect.objectContaining({
+          type: "locks",
+          from: expect.stringMatching(/^claim:/),
+          to: "scope:wi:60387",
+          direction: "authored",
+          properties: expect.objectContaining({
+            scopeRef: "wi:60387",
+            lockMode: "execute",
+            policyName: "ExecuteLockPolicy",
+            lifecycleState: "active",
+          }),
+        }),
+        expect.objectContaining({
+          type: "locks",
+          from: expect.stringMatching(/^claim:/),
+          to: "scope:wi:60387",
+          direction: "authored",
+          properties: expect.objectContaining({
+            scopeRef: "wi:60387",
+            lockMode: "read",
+            policyName: "ReadLockPolicy",
+            lifecycleState: "active",
+            targetId: "doc:claim-lock-read",
+          }),
+        }),
+        expect.objectContaining({
+          type: "locks",
+          from: expect.stringMatching(/^claim:/),
+          to: "scope:doc:claim-lock-read",
+          direction: "authored",
+          properties: expect.objectContaining({
+            scopeRef: "doc:claim-lock-read",
+            lockMode: "execute",
+            policyName: "ExecuteLockPolicy",
+            lifecycleState: "active",
+          }),
+        }),
+        expect.objectContaining({
+          type: "locks",
+          from: expect.stringMatching(/^claim:/),
+          to: "scope:doc:claim-lock-write",
+          direction: "authored",
+          properties: expect.objectContaining({
+            scopeRef: "doc:claim-lock-write",
+            lockMode: "execute",
+            policyName: "ExecuteLockPolicy",
+            lifecycleState: "active",
+          }),
+        }),
+      ]),
+    );
+
+    expect(projection.findNode("scope:doc:claim-lock-spec")?.type).toBe("scope");
+    expect(projection.findNode("scope:wi:60387")?.type).toBe("scope");
+  });
 });

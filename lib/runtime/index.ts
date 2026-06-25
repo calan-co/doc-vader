@@ -63,6 +63,7 @@ export {
   type RuntimeLockStatusResult,
   type RuntimeLockWorktreeState,
   type RuntimeSqliteStoreOptions,
+  type RuntimeScopeLockRecord,
   persistRuntimeClaimForWrite,
   persistRuntimeEntityForWrite,
   persistRuntimeExecutionLogEntryForWrite,

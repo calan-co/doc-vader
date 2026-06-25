@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   openRuntimeSqliteStore,
   type RuntimeClaimRecord,
+  type RuntimeScopeLockRecord,
 } from "../runtime/index.js";
 import { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
 
@@ -11,7 +12,11 @@ type JsonObject = Record<string, unknown>;
 
 export type WorkGraphNodeType = "work-item" | "claim" | "record" | "scope";
 
-export type WorkGraphEdgeType = "depends_on" | "belongs_to" | "implements";
+export type WorkGraphEdgeType =
+  | "depends_on"
+  | "belongs_to"
+  | "implements"
+  | "locks";
 
 export interface WorkGraphNode {
   id: string;
@@ -392,6 +397,16 @@ function createClaimScopeNode(record: RuntimeClaimRecord): WorkGraphNode {
   });
 }
 
+function createLockScopeNode(scopeRef: string): WorkGraphNode {
+  return createScopeNode({
+    id: canonicalScopeNodeId(scopeRef),
+    label: scopeRef,
+    properties: {
+      scopeRef,
+    },
+  });
+}
+
 function normalizeClaimScopeRef(record: RuntimeClaimRecord): string {
   const targetType = normalizeText(record.target_type);
   if (targetType === "task" || targetType === "work-item" || targetType === "wi") {
@@ -680,6 +695,66 @@ function createProjectionView(index: GraphIndex): WorkGraphProjection {
   };
 }
 
+function projectRuntimeLockEdges(options: {
+  claims: RuntimeClaimRecord[];
+  scopeLocks: RuntimeScopeLockRecord[];
+  nodes: WorkGraphNode[];
+  edges: WorkGraphEdge[];
+  nodesById: Map<string, WorkGraphNode>;
+  scopeNodeIds: Set<string>;
+}): void {
+  const claimsByToken = new Map(
+    options.claims.map((claim) => [claim.claim_token, claim] as const),
+  );
+
+  for (const scopeLock of options.scopeLocks) {
+    if (scopeLock.lifecycle_state !== "active") {
+      continue;
+    }
+
+    const claimNodeId = `claim:${scopeLock.claim_token}`;
+    const claimNode = options.nodesById.get(claimNodeId);
+    const claim = claimsByToken.get(scopeLock.claim_token);
+    if (!claimNode || !claim) {
+      continue;
+    }
+
+    const scopeNodeId = `scope:${canonicalScopeNodeId(scopeLock.scope_ref)}`;
+    let scopeNode = options.nodesById.get(scopeNodeId);
+    if (!scopeNode) {
+      scopeNode = createLockScopeNode(scopeLock.scope_ref);
+      options.nodes.push(scopeNode);
+      options.nodesById.set(scopeNode.id, scopeNode);
+    }
+    options.scopeNodeIds.add(scopeNode.id);
+
+    options.edges.push(
+      createEdge(
+        claimNode,
+        scopeNode,
+        "locks",
+        {
+          kind: "runtime",
+          claimToken: scopeLock.claim_token,
+        },
+        {
+          claimToken: scopeLock.claim_token,
+          scopeRef: scopeLock.scope_ref,
+          lockMode: scopeLock.lock_mode,
+          policyName: scopeLock.policy_name,
+          acquiredAt: scopeLock.acquired_at,
+          updatedAt: scopeLock.updated_at,
+          lifecycleState: scopeLock.lifecycle_state,
+          releasedAt: scopeLock.released_at,
+          targetType: claim.target_type,
+          targetId: claim.target_id,
+          claimState: claim.state,
+        },
+      ),
+    );
+  }
+}
+
 function projectRelationshipEdges(options: {
   document: MarkdownDocument;
   sourceNode: WorkGraphNode;
@@ -835,7 +910,8 @@ export async function projectWorkGraph(
 
   const runtimeStore = openRuntimeSqliteStore({ rootDir });
   try {
-    for (const claim of runtimeStore.listClaims()) {
+    const claims = runtimeStore.listClaims();
+    for (const claim of claims) {
       const claimNode = createClaimNode(claim);
       if (!nodesById.has(claimNode.id)) {
         nodes.push(claimNode);
@@ -866,6 +942,14 @@ export async function projectWorkGraph(
         ),
       );
     }
+    projectRuntimeLockEdges({
+      claims,
+      scopeLocks: runtimeStore.listScopeLocks(),
+      nodes,
+      edges,
+      nodesById,
+      scopeNodeIds,
+    });
   } finally {
     runtimeStore.close();
   }
