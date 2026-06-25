@@ -15,6 +15,15 @@ import {
   RuntimeRenameDetectionError,
   type RuntimeRenameDiagnostic,
 } from "./entity-schemas.js";
+import {
+  evaluateRuntimeScopeLockPolicy,
+  canonicalizeClaimScopeRef,
+  type RuntimeScopeLock,
+  type RuntimeScopeLockConflict,
+  type RuntimeScopeLockLifecycleState,
+  type RuntimeScopeLockMode,
+  type RuntimeScopeLockPolicyName,
+} from "./scope-locks.js";
 export {
   createRuntimeLockIdentity,
   detectRuntimeRenameDiagnostics,
@@ -61,6 +70,7 @@ const DEFAULT_RUNTIME_DATABASE_NAME = "runtime.sqlite";
 const RUNTIME_SQLITE_BUSY_TIMEOUT_MS = 5_000;
 const RUNTIME_MIGRATION_ID = "0001-initial-runtime-entities";
 const RUNTIME_MIGRATION_ID_LAST_SEEN = "0002-claim-last-seen";
+const RUNTIME_MIGRATION_ID_SCOPE_LOCKS = "0003-claim-scope-locks";
 const RUNTIME_INTERNAL_PATH_PREFIX = ".doc-vader/runtime/";
 const DEFAULT_RUNTIME_CLAIM_TTL_MINUTES = 240;
 const DEFAULT_RUNTIME_CLAIM_GRACE_SECONDS = 300;
@@ -213,6 +223,63 @@ export const RuntimeLockSchema = Type.Object(
   },
 );
 
+const RUNTIME_SCOPE_LOCK_MODE_VALUES = [
+  "read",
+  "write",
+  "execute",
+] as const;
+
+const RUNTIME_SCOPE_LOCK_LIFECYCLE_VALUES = [
+  "active",
+  "released",
+] as const;
+
+const RUNTIME_SCOPE_LOCK_POLICY_VALUES = [
+  "ReadLockPolicy",
+  "WriteLockPolicy",
+  "ExecuteLockPolicy",
+] as const;
+
+export const RuntimeScopeLockSchema = Type.Object(
+  {
+    schema_version: Type.Literal(RUNTIME_SCHEMA_VERSION),
+    claim_token: RuntimeClaimTokenSchema,
+    scope_ref: Type.String({
+      minLength: 1,
+      description:
+        "Canonical claim scope reference with storage-neutral identity.",
+    }),
+    lock_mode: Type.Union(
+      createLiteralSchemaTuple(RUNTIME_SCOPE_LOCK_MODE_VALUES),
+      {
+        description: "Claim scope lock mode.",
+      },
+    ),
+    policy_name: Type.Union(
+      createLiteralSchemaTuple(RUNTIME_SCOPE_LOCK_POLICY_VALUES),
+      {
+        description: "Policy unit used to evaluate claim-scope compatibility.",
+      },
+    ),
+    acquired_at: ISO_TIMESTAMP_SCHEMA,
+    updated_at: ISO_TIMESTAMP_SCHEMA,
+    lifecycle_state: Type.Union(
+      createLiteralSchemaTuple(RUNTIME_SCOPE_LOCK_LIFECYCLE_VALUES),
+      {
+        description: "Lifecycle state for the claim-scope lock row.",
+      },
+    ),
+    released_at: Type.Optional(ISO_TIMESTAMP_SCHEMA),
+    metadata: Type.Optional(RuntimeMetadataSchema),
+  },
+  {
+    ...JSON_SCHEMA_2020_12_OPTIONS,
+    additionalProperties: false,
+    description:
+      "Runtime claim-scope lock record keyed by immutable claim identity, ScopeRef, and mode.",
+  },
+);
+
 function createRuntimeExecutionLogVariantSchema(
   state: RuntimeExecutionState,
   reason: RuntimeExecutionReason,
@@ -294,6 +361,7 @@ const runtimeAjv = createRuntimeAjv();
 
 const validateRuntimeClaim = runtimeAjv.compile(RuntimeClaimSchema);
 const validateRuntimeLock = runtimeAjv.compile(RuntimeLockSchema);
+const validateRuntimeScopeLock = runtimeAjv.compile(RuntimeScopeLockSchema);
 const validateRuntimeExecutionLogEntry = runtimeAjv.compile(
   RuntimeExecutionLogEntrySchema,
 );
@@ -304,6 +372,10 @@ export function isRuntimeClaim(value: unknown): value is RuntimeClaim {
 
 export function isRuntimeLock(value: unknown): value is RuntimeLock {
   return validateRuntimeLock(value);
+}
+
+export function isRuntimeScopeLock(value: unknown): value is RuntimeScopeLock {
+  return validateRuntimeScopeLock(value);
 }
 
 export function isRuntimeExecutionLogEntry(
@@ -324,6 +396,14 @@ export function assertRuntimeLock(value: unknown): asserts value is RuntimeLock 
   }
 }
 
+export function assertRuntimeScopeLock(
+  value: unknown,
+): asserts value is RuntimeScopeLock {
+  if (!isRuntimeScopeLock(value)) {
+    throw new Error("Invalid runtime scope lock payload.");
+  }
+}
+
 export function assertRuntimeExecutionLogEntry(
   value: unknown,
 ): asserts value is RuntimeExecutionLogEntry {
@@ -335,6 +415,7 @@ export function assertRuntimeExecutionLogEntry(
 export type RuntimeEntityKind =
   | "claim"
   | "lock"
+  | "scope_lock"
   | "execution_log_entry";
 
 export type RuntimeDurableWrite = (
@@ -344,6 +425,7 @@ export type RuntimeDurableWrite = (
 type RuntimeEntityMap = {
   claim: RuntimeClaim;
   lock: RuntimeLock;
+  scope_lock: RuntimeScopeLock;
   execution_log_entry: RuntimeExecutionLogEntry;
 };
 
@@ -357,6 +439,9 @@ function assertRuntimeEntity<K extends RuntimeEntityKind>(
       return;
     case "lock":
       assertRuntimeLock(value);
+      return;
+    case "scope_lock":
+      assertRuntimeScopeLock(value);
       return;
     case "execution_log_entry":
       assertRuntimeExecutionLogEntry(value);
@@ -396,6 +481,13 @@ export async function persistRuntimeLockForWrite(
   await persistRuntimeEntityForWrite("lock", value, write);
 }
 
+export async function persistRuntimeScopeLockForWrite(
+  value: unknown,
+  write: RuntimeDurableWrite,
+): Promise<void> {
+  await persistRuntimeEntityForWrite("scope_lock", value, write);
+}
+
 export async function persistRuntimeExecutionLogEntryForWrite(
   value: unknown,
   write: RuntimeDurableWrite,
@@ -415,6 +507,42 @@ export interface RuntimeClaimRecord extends RuntimeClaim {
 }
 
 export interface RuntimeLockRecord extends RuntimeLock {}
+
+export interface RuntimeScopeLockRecord extends RuntimeScopeLock {}
+
+export interface RuntimeScopeLockConflictRecord
+  extends RuntimeScopeLockConflict {
+  owner?: {
+    claim_token: string;
+    target_type: string;
+    target_id: string;
+    state?: RuntimeClaimRecord["state"];
+    expires_at?: string;
+  };
+}
+
+export interface RuntimeScopeLockAcquisitionRequest {
+  scopeRef: string;
+  lockMode: RuntimeScopeLockMode;
+  policyName?: RuntimeScopeLockPolicyName;
+  metadata?: Record<string, unknown>;
+}
+
+export interface RuntimeScopeLockAcquisitionSuccess {
+  outcome: "acquired";
+  claimToken: string;
+  locks: RuntimeScopeLockRecord[];
+}
+
+export interface RuntimeScopeLockAcquisitionConflict {
+  outcome: "conflict";
+  claimToken: string;
+  conflicts: RuntimeScopeLockConflictRecord[];
+}
+
+export type RuntimeScopeLockAcquisitionResult =
+  | RuntimeScopeLockAcquisitionSuccess
+  | RuntimeScopeLockAcquisitionConflict;
 
 export interface RuntimeExecutionLogRecord {
   id: number;
@@ -455,6 +583,7 @@ export interface RuntimeInitialClaimAcquisitionSuccess {
   outcome: "acquired";
   claimToken: string;
   claim: RuntimeClaimRecord;
+  scopeLock: RuntimeScopeLockRecord;
   locks: RuntimeLockRecord[];
   executionLogEntry: RuntimeExecutionLogRecord;
 }
@@ -736,6 +865,32 @@ const RUNTIME_SCHEMA_MIGRATIONS = [
       `);
     },
   },
+  {
+    id: RUNTIME_MIGRATION_ID_SCOPE_LOCKS,
+    apply(database: DatabaseSync): void {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS claim_scope_locks (
+          schema_version TEXT NOT NULL,
+          claim_token TEXT NOT NULL,
+          scope_ref TEXT NOT NULL,
+          lock_mode TEXT NOT NULL,
+          policy_name TEXT NOT NULL,
+          acquired_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          lifecycle_state TEXT NOT NULL,
+          released_at TEXT,
+          metadata TEXT,
+          PRIMARY KEY (claim_token, scope_ref, lock_mode),
+          FOREIGN KEY (claim_token) REFERENCES claims(claim_token) ON DELETE CASCADE
+        ) WITHOUT ROWID;
+
+        CREATE INDEX IF NOT EXISTS idx_claim_scope_locks_scope
+          ON claim_scope_locks(scope_ref, lifecycle_state, lock_mode);
+        CREATE INDEX IF NOT EXISTS idx_claim_scope_locks_claim_token
+          ON claim_scope_locks(claim_token, lifecycle_state, acquired_at);
+      `);
+    },
+  },
 ] as const;
 
 function resolveRuntimeDatabasePath(
@@ -861,6 +1016,26 @@ function toRuntimeLockRecord(row: Record<string, unknown>): RuntimeLockRecord {
   };
 }
 
+function toRuntimeScopeLockRecord(
+  row: Record<string, unknown>,
+): RuntimeScopeLockRecord {
+  const metadata = parseJsonColumn<Record<string, unknown>>(row.metadata);
+  return {
+    schema_version: row.schema_version as typeof RUNTIME_SCHEMA_VERSION,
+    claim_token: row.claim_token as string,
+    scope_ref: row.scope_ref as string,
+    lock_mode: row.lock_mode as RuntimeScopeLockMode,
+    policy_name: row.policy_name as RuntimeScopeLockPolicyName,
+    acquired_at: row.acquired_at as string,
+    updated_at: row.updated_at as string,
+    lifecycle_state: row.lifecycle_state as RuntimeScopeLockLifecycleState,
+    ...(typeof row.released_at === "string"
+      ? { released_at: row.released_at as string }
+      : {}),
+    ...(metadata ? { metadata } : {}),
+  };
+}
+
 function toRuntimeExecutionLogRecord(
   row: Record<string, unknown>,
 ): RuntimeExecutionLogRecord {
@@ -932,6 +1107,34 @@ function toRuntimeLockConflictDetail(row: Record<string, unknown>): RuntimeLockC
   };
 }
 
+function toRuntimeScopeLockConflictRecord(
+  row: Record<string, unknown>,
+): RuntimeScopeLockConflictRecord {
+  return {
+    scope_ref: row.scope_ref as string,
+    requested_mode: row.requested_mode as RuntimeScopeLockMode,
+    conflicting_modes: String(row.conflicting_modes)
+      .split(",")
+      .filter((value) => value.length > 0) as RuntimeScopeLockMode[],
+    policy_name: row.policy_name as RuntimeScopeLockPolicyName,
+    ...(typeof row.claim_token === "string"
+      ? {
+          owner: {
+            claim_token: row.claim_token as string,
+            target_type: row.target_type as string,
+            target_id: row.target_id as string,
+            ...(typeof row.claim_state === "string"
+              ? { state: row.claim_state as RuntimeClaimRecord["state"] }
+              : {}),
+            ...(typeof row.claim_expires_at === "string"
+              ? { expires_at: row.claim_expires_at as string }
+              : {}),
+          },
+        }
+      : {}),
+  };
+}
+
 function createRuntimeLockRemovalConflictDetail(
   identity: { path: string; key: string },
   details: Omit<RuntimeLockRemovalConflictDetail, "path" | "key">,
@@ -957,6 +1160,50 @@ function createLockInsertPayload(
     created_at: claim.created_at,
     ...(claim.metadata === undefined ? {} : { metadata: claim.metadata }),
   };
+}
+
+function createScopeLockInsertPayload(options: {
+  claimToken: string;
+  scopeRef: string;
+  lockMode: RuntimeScopeLockMode;
+  policyName: RuntimeScopeLockPolicyName;
+  acquiredAt: string;
+  metadata?: Record<string, unknown>;
+}): RuntimeScopeLock {
+  return {
+    schema_version: RUNTIME_SCHEMA_VERSION,
+    claim_token: options.claimToken,
+    scope_ref: options.scopeRef,
+    lock_mode: options.lockMode,
+    policy_name: options.policyName,
+    acquired_at: options.acquiredAt,
+    updated_at: options.acquiredAt,
+    lifecycle_state: "active",
+    ...(options.metadata === undefined ? {} : { metadata: options.metadata }),
+  };
+}
+
+function createClaimTargetScopeLockPayload(claim: RuntimeClaim): RuntimeScopeLock {
+  return createScopeLockInsertPayload({
+    claimToken: claim.claim_token,
+    scopeRef: canonicalizeClaimScopeRef(claim.target_type, claim.target_id),
+    lockMode: "execute",
+    policyName: runtimeScopeLockPolicyNameForMode("execute"),
+    acquiredAt: claim.created_at,
+  });
+}
+
+function runtimeScopeLockPolicyNameForMode(
+  lockMode: RuntimeScopeLockMode,
+): RuntimeScopeLockPolicyName {
+  switch (lockMode) {
+    case "read":
+      return "ReadLockPolicy";
+    case "write":
+      return "WriteLockPolicy";
+    case "execute":
+      return "ExecuteLockPolicy";
+  }
 }
 
 function gitOutput(rootDir: string, args: string[]): string | undefined {
@@ -1610,6 +1857,9 @@ export class RuntimeSqliteStore {
         }
 
         const insertedClaim = this.insertClaim(claim);
+        const claimScopeLock = this.insertScopeLock(
+          createClaimTargetScopeLockPayload(claim),
+        );
         const insertedLocks = lockIdentities.map((identity) =>
           this.insertLock(createLockInsertPayload(claim, identity)),
         );
@@ -1620,6 +1870,7 @@ export class RuntimeSqliteStore {
           outcome: "acquired",
           claimToken: claim.claim_token,
           claim: insertedClaim,
+          scopeLock: claimScopeLock,
           locks: insertedLocks,
           executionLogEntry: runningEntry,
         } satisfies RuntimeInitialClaimAcquisitionSuccess;
@@ -1815,6 +2066,86 @@ export class RuntimeSqliteStore {
           .prepare("DELETE FROM locks WHERE path = ? AND claim_token = ?")
           .run(identity.path, claimToken);
         removedLocks.push(lock);
+      }
+      return removedLocks;
+    });
+
+    return {
+      outcome: "removed",
+      claimToken,
+      removed,
+    };
+  }
+
+  removeRuntimeScopeLocks(
+    claimToken: string,
+    scopeRefs: string[],
+  ): {
+    outcome: "removed";
+    claimToken: string;
+    removed: RuntimeScopeLockRecord[];
+  } | {
+    outcome: "conflict";
+    claimToken: string;
+    conflicts: RuntimeScopeLockConflictRecord[];
+  } {
+    const claim = this.getClaimByToken(claimToken);
+    if (!claim) {
+      throw new Error(`Unknown runtime claim token: ${claimToken}`);
+    }
+    const normalizedScopeRefs = [
+      ...new Set(
+        scopeRefs.map((scopeRef) =>
+          canonicalizeClaimScopeRef(claim.target_type, scopeRef),
+        ),
+      ),
+    ];
+
+    if (claim.state === "expired") {
+      return {
+        outcome: "conflict",
+        claimToken,
+        conflicts: normalizedScopeRefs.map((scopeRef) => ({
+          scope_ref: scopeRef,
+          requested_mode: "execute",
+          conflicting_modes: ["execute"],
+          policy_name: "ExecuteLockPolicy",
+          owner: {
+            claim_token: claim.claim_token,
+            target_type: claim.target_type,
+            target_id: claim.target_id,
+            state: claim.state,
+            expires_at: claim.expires_at,
+          },
+        })),
+      };
+    }
+
+    const removed = this.withTransaction(() => {
+      const removedLocks: RuntimeScopeLockRecord[] = [];
+      for (const scopeRef of normalizedScopeRefs) {
+        const rows = this.database.prepare(
+          `SELECT * FROM claim_scope_locks
+           WHERE claim_token = ? AND scope_ref = ? AND lifecycle_state = 'active'
+           ORDER BY acquired_at, lock_mode`,
+        ).all(claimToken, scopeRef) as Record<string, unknown>[];
+        for (const row of rows) {
+          const record = toRuntimeScopeLockRecord(row);
+          const releasedAt = new Date().toISOString();
+          this.database.prepare(
+            `UPDATE claim_scope_locks
+             SET lifecycle_state = 'released',
+                 released_at = ?,
+                 updated_at = ?
+             WHERE claim_token = ? AND scope_ref = ? AND lock_mode = ?`,
+          ).run(releasedAt, releasedAt, claimToken, scopeRef, record.lock_mode);
+          removedLocks.push({
+            ...record,
+            lifecycle_state: "released",
+            released_at: releasedAt,
+            updated_at: releasedAt,
+          });
+        }
       }
       return removedLocks;
     });
@@ -2182,6 +2513,218 @@ export class RuntimeSqliteStore {
       `SELECT * FROM locks WHERE claim_token = ? ORDER BY created_at, path`,
     ).all(claimToken) as Record<string, unknown>[];
     return rows.map(toRuntimeLockRecord);
+  }
+
+  listScopeLocks(): RuntimeScopeLockRecord[] {
+    const rows = this.database.prepare(
+      `SELECT * FROM claim_scope_locks
+       ORDER BY acquired_at, scope_ref, lock_mode`,
+    ).all() as Record<string, unknown>[];
+    return rows.map(toRuntimeScopeLockRecord);
+  }
+
+  listScopeLocksByClaimToken(
+    claimToken: string,
+  ): RuntimeScopeLockRecord[] {
+    const rows = this.database.prepare(
+      `SELECT * FROM claim_scope_locks
+       WHERE claim_token = ?
+       ORDER BY acquired_at, scope_ref, lock_mode`,
+    ).all(claimToken) as Record<string, unknown>[];
+    return rows.map(toRuntimeScopeLockRecord);
+  }
+
+  private readScopeLockConflict(
+    scopeRef: string,
+    requestedMode: RuntimeScopeLockMode,
+    policyName: RuntimeScopeLockPolicyName,
+  ): RuntimeScopeLockConflictRecord | undefined {
+    const activeLocks = this.database.prepare(
+      `SELECT
+        claim_scope_locks.scope_ref,
+        claim_scope_locks.claim_token,
+        claim_scope_locks.lock_mode,
+        claim_scope_locks.policy_name,
+        runtime_claims.target_type,
+        runtime_claims.target_id,
+        runtime_claims.state AS claim_state,
+        runtime_claims.expires_at AS claim_expires_at
+       FROM claim_scope_locks
+       JOIN runtime_claims ON runtime_claims.claim_token = claim_scope_locks.claim_token
+       WHERE claim_scope_locks.scope_ref = ?
+         AND claim_scope_locks.lifecycle_state = 'active'
+       ORDER BY claim_scope_locks.acquired_at, claim_scope_locks.lock_mode`,
+    ).all(scopeRef) as Array<Record<string, unknown>>;
+
+    const existingModes = activeLocks.map(
+      (row) => row.lock_mode as RuntimeScopeLockMode,
+    );
+    const decision = evaluateRuntimeScopeLockPolicy(
+      requestedMode,
+      existingModes,
+      scopeRef,
+      policyName,
+    );
+    if (decision.allowed) {
+      return undefined;
+    }
+
+    const first = activeLocks[0];
+    return {
+      scope_ref: scopeRef,
+      requested_mode: requestedMode,
+      conflicting_modes: decision.conflict?.conflicting_modes ?? [],
+      policy_name: policyName,
+      ...(first
+        ? {
+            owner: {
+              claim_token: first.claim_token as string,
+              target_type: first.target_type as string,
+              target_id: first.target_id as string,
+              ...(typeof first.claim_state === "string"
+                ? { state: first.claim_state as RuntimeClaimRecord["state"] }
+                : {}),
+              ...(typeof first.claim_expires_at === "string"
+                ? { expires_at: first.claim_expires_at as string }
+                : {}),
+            },
+          }
+        : {}),
+    };
+  }
+
+  insertScopeLock(lock: unknown): RuntimeScopeLockRecord {
+    assertRuntimeScopeLock(lock);
+    this.database.prepare(
+      `INSERT INTO claim_scope_locks (
+        schema_version,
+        claim_token,
+        scope_ref,
+        lock_mode,
+        policy_name,
+        acquired_at,
+        updated_at,
+        lifecycle_state,
+        released_at,
+        metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      lock.schema_version,
+      lock.claim_token,
+      lock.scope_ref,
+      lock.lock_mode,
+      lock.policy_name,
+      lock.acquired_at,
+      lock.updated_at,
+      lock.lifecycle_state,
+      lock.released_at ?? null,
+      lock.metadata === undefined ? null : stringifyCanonicalJson(lock.metadata),
+    );
+    return this.getScopeLockByClaimTokenAndScopeRef(
+      lock.claim_token,
+      lock.scope_ref,
+      lock.lock_mode,
+    )!;
+  }
+
+  getScopeLockByClaimTokenAndScopeRef(
+    claimToken: string,
+    scopeRef: string,
+    lockMode: RuntimeScopeLockMode,
+  ): RuntimeScopeLockRecord | undefined {
+    const row = this.database.prepare(
+      `SELECT * FROM claim_scope_locks
+       WHERE claim_token = ? AND scope_ref = ? AND lock_mode = ?`,
+    ).get(claimToken, scopeRef, lockMode) as Record<string, unknown> | undefined;
+    return row ? toRuntimeScopeLockRecord(row) : undefined;
+  }
+
+  acquireRuntimeScopeLocks(
+    claimToken: string,
+    requestedLocks: RuntimeScopeLockAcquisitionRequest[],
+  ): RuntimeScopeLockAcquisitionResult {
+    const claim = this.getClaimByToken(claimToken);
+    if (!claim) {
+      throw new Error(`Unknown runtime claim token: ${claimToken}`);
+    }
+    if (claim.state === "active") {
+      this.touchClaimContext(claimToken, { renew: true });
+    }
+    if (claim.state === "expired") {
+      return {
+        outcome: "conflict",
+        claimToken,
+        conflicts: requestedLocks.map((request) => ({
+          scope_ref: canonicalizeClaimScopeRef(
+            claim.target_type,
+            request.scopeRef,
+          ),
+          requested_mode: request.lockMode,
+          conflicting_modes: [request.lockMode],
+          policy_name:
+            request.policyName ??
+            runtimeScopeLockPolicyNameForMode(request.lockMode),
+          owner: {
+            claim_token: claim.claim_token,
+            target_type: claim.target_type,
+            target_id: claim.target_id,
+            state: claim.state,
+            expires_at: claim.expires_at,
+          },
+        })),
+      };
+    }
+    const normalizedRequests = requestedLocks.map((request) => ({
+      scopeRef: canonicalizeClaimScopeRef(
+        claim.target_type,
+        request.scopeRef,
+      ),
+      lockMode: request.lockMode,
+      policyName:
+        request.policyName ?? runtimeScopeLockPolicyNameForMode(request.lockMode),
+      ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
+    }));
+
+    return this.withTransaction(() => {
+      const conflicts = normalizedRequests
+        .map((request) =>
+          this.readScopeLockConflict(
+            request.scopeRef,
+            request.lockMode,
+            request.policyName as RuntimeScopeLockPolicyName,
+          ),
+        )
+        .filter(
+          (value): value is RuntimeScopeLockConflictRecord =>
+            value !== undefined,
+        );
+      if (conflicts.length > 0) {
+        return {
+          outcome: "conflict",
+          claimToken,
+          conflicts,
+        } satisfies RuntimeScopeLockAcquisitionConflict;
+      }
+
+      const acquired = normalizedRequests.map((request) =>
+        this.insertScopeLock(
+          createScopeLockInsertPayload({
+            claimToken,
+            scopeRef: request.scopeRef,
+            lockMode: request.lockMode,
+            policyName: request.policyName as RuntimeScopeLockPolicyName,
+            acquiredAt: new Date().toISOString(),
+            ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
+          }),
+        ),
+      );
+
+      return {
+        outcome: "acquired",
+        claimToken,
+        locks: acquired,
+      } satisfies RuntimeScopeLockAcquisitionSuccess;
+    });
   }
 
   deleteLocksByClaimToken(claimToken: string): number {
