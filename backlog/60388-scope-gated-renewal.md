@@ -5,17 +5,17 @@ summary: Renew immutable claims only when their associated scopes remain availab
 type: work-item
 subtype: task
 lifecycle: active
-status: paused
-status_reason: blocked
+status: ready
+status_reason: auto
 priority: high
 estimated: 4
 links:
   depends_on:
-    - '[[60385-flat-claim-scopes-and-lock-policies]]'
-    - '[[60387-claim-lock-graph-projection]]'
+    - "[[60385-flat-claim-scopes-and-lock-policies]]"
+    - "[[60387-claim-lock-graph-projection]]"
   reference:
-    - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
-    - '[[../schemas/work-management/CONTEXT.md]]'
+    - "[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]"
+    - "[[../schemas/work-management/CONTEXT.md]]"
 tags:
   - afk
   - claims

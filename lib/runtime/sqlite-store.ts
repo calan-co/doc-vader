@@ -1266,6 +1266,12 @@ function toScopeLockDescriptor(
   };
 }
 
+function listUniqueScopeLockDescriptors(
+  locks: RuntimeScopeLockRecord[],
+): RuntimeScopeLockDescriptor[] {
+  return dedupeScopeLocksByIdentity(locks).map(toScopeLockDescriptor);
+}
+
 function gitOutput(rootDir: string, args: string[]): string | undefined {
   try {
     return execFileSync("git", args, {
@@ -2551,11 +2557,11 @@ export class RuntimeSqliteStore {
       );
   }
 
-  private normalizeScopeLockAcquisitionRequests(
+  private normalizeScopeLockRequests(
     claim: RuntimeClaimRecord,
-    requestedLocks: RuntimeScopeLockAcquisitionRequest[],
+    locks: RuntimeScopeLockAcquisitionRequest[],
   ): RuntimeNormalizedScopeLockRequest[] {
-    return requestedLocks.map((request) => ({
+    return locks.map((request) => ({
       scopeRef: canonicalizeClaimScopeRef(claim.target_type, request.scopeRef),
       lockMode: request.lockMode,
       policyName:
@@ -2573,7 +2579,7 @@ export class RuntimeSqliteStore {
       throw new Error(`Unknown runtime claim token: ${claimToken}`);
     }
 
-    const uniqueLocks = dedupeScopeLocksByIdentity(
+    const activeLockDescriptors = listUniqueScopeLockDescriptors(
       this.getActiveScopeLocksByClaimToken(claimToken),
     );
     if (claim.state === "expired") {
@@ -2582,15 +2588,14 @@ export class RuntimeSqliteStore {
         claimToken,
         conflicts: this.createExpiredClaimConflicts(
           claim,
-          uniqueLocks.map(toScopeLockDescriptor),
+          activeLockDescriptors,
         ),
       } satisfies RuntimeClaimRenewalConflict;
     }
 
-    const conflicts = this.findScopeLockConflicts(
-      uniqueLocks.map(toScopeLockDescriptor),
-      { excludeClaimToken: claimToken },
-    );
+    const conflicts = this.findScopeLockConflicts(activeLockDescriptors, {
+      excludeClaimToken: claimToken,
+    });
     if (conflicts.length > 0) {
       return {
         outcome: "conflict",
@@ -2838,25 +2843,23 @@ export class RuntimeSqliteStore {
         claimToken,
         conflicts: this.createExpiredClaimConflicts(
           claim,
-          this.normalizeScopeLockAcquisitionRequests(claim, requestedLocks),
+          this.normalizeScopeLockRequests(claim, requestedLocks),
         ),
       };
     }
-    const normalizedRequests = this.normalizeScopeLockAcquisitionRequests(
+    const normalizedRequests = this.normalizeScopeLockRequests(
       claim,
       requestedLocks,
     );
 
     return this.withTransaction(() => {
-      if (claim.state === "active") {
-        const renewed = this.renewRuntimeClaimWithinTransaction(claimToken);
-        if (renewed.outcome === "conflict") {
-          return {
-            outcome: "conflict",
-            claimToken,
-            conflicts: renewed.conflicts,
-          } satisfies RuntimeScopeLockAcquisitionConflict;
-        }
+      const renewed = this.renewRuntimeClaimWithinTransaction(claimToken);
+      if (renewed.outcome === "conflict") {
+        return {
+          outcome: "conflict",
+          claimToken,
+          conflicts: renewed.conflicts,
+        } satisfies RuntimeScopeLockAcquisitionConflict;
       }
 
       const conflicts = this.findScopeLockConflicts(normalizedRequests);

@@ -14,6 +14,7 @@ import {
   type RuntimeClaimRenewalResult,
   type RuntimeExecutionLogEntry,
   type RuntimeInitialClaimAcquisitionResult,
+  type RuntimeScopeLockAcquisitionRequest,
   type RuntimeLock,
 } from "../lib/runtime/sqlite-store.js";
 
@@ -174,6 +175,49 @@ function expectClaimRenewalConflict(
     throw new Error("Expected renewal to conflict.");
   }
   return result;
+}
+
+function acquireClaimWithScopeLocks(
+  store: ReturnType<typeof openRuntimeSqliteStore>,
+  options: {
+    targetId: string;
+    entropy: string;
+    scopeLocks: RuntimeScopeLockAcquisitionRequest[];
+  },
+) {
+  const acquisition = store.acquireRuntimeClaim(
+    makeClaimSeed({
+      target_id: options.targetId,
+      entropy: options.entropy,
+      expires_at: "2099-06-20T01:20:36.020Z",
+      created_at: "2099-06-20T01:14:36.020Z",
+    }),
+  );
+  const claim = expectClaimAcquired(acquisition);
+
+  expect(
+    store.acquireRuntimeScopeLocks(claim.claimToken, options.scopeLocks),
+  ).toMatchObject({
+    outcome: "acquired",
+    claimToken: claim.claimToken,
+  });
+
+  return claim;
+}
+
+function setClaimLeaseWindow(
+  store: ReturnType<typeof openRuntimeSqliteStore>,
+  claimToken: string,
+) {
+  store.database
+    .prepare(
+      "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
+    )
+    .run(
+      "2099-06-20T01:15:36.020Z",
+      "2099-06-20T01:20:36.020Z",
+      claimToken,
+    );
 }
 
 describe("runtime sqlite store", () => {
@@ -407,36 +451,16 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
     try {
-      const acquisition = store.acquireRuntimeClaim(
-        makeClaimSeed({
-          target_id: "wi-renew-all-scopes",
-          entropy: "entropy-renew-all-scopes",
-          expires_at: "2099-06-20T01:20:36.020Z",
-          created_at: "2099-06-20T01:14:36.020Z",
-        }),
-      );
-      const acquiredClaim = expectClaimAcquired(acquisition);
-
-      expect(
-        store.acquireRuntimeScopeLocks(acquiredClaim.claimToken, [
+      const acquiredClaim = acquireClaimWithScopeLocks(store, {
+        targetId: "wi-renew-all-scopes",
+        entropy: "entropy-renew-all-scopes",
+        scopeLocks: [
           { scopeRef: "wi-renew-read-scope", lockMode: "read" },
           { scopeRef: "wi-renew-write-scope", lockMode: "write" },
           { scopeRef: "wi-renew-execute-scope", lockMode: "execute" },
-        ]),
-      ).toMatchObject({
-        outcome: "acquired",
-        claimToken: acquiredClaim.claimToken,
+        ],
       });
-
-      store.database
-        .prepare(
-          "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
-        )
-        .run(
-          "2099-06-20T01:15:36.020Z",
-          "2099-06-20T01:20:36.020Z",
-          acquiredClaim.claimToken,
-        );
+      setClaimLeaseWindow(store, acquiredClaim.claimToken);
 
       const renewed = expectClaimRenewed(
         store.renewRuntimeClaim(acquiredClaim.claimToken, {
@@ -469,23 +493,12 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
     try {
-      const acquisition = store.acquireRuntimeClaim(
-        makeClaimSeed({
-          target_id: "wi-renew-blocked",
-          entropy: "entropy-renew-blocked",
-          expires_at: "2099-06-20T01:20:36.020Z",
-          created_at: "2099-06-20T01:14:36.020Z",
-        }),
-      );
-      const acquiredClaim = expectClaimAcquired(acquisition);
-
-      expect(
-        store.acquireRuntimeScopeLocks(acquiredClaim.claimToken, [
+      const acquiredClaim = acquireClaimWithScopeLocks(store, {
+        targetId: "wi-renew-blocked",
+        entropy: "entropy-renew-blocked",
+        scopeLocks: [
           { scopeRef: "wi-renew-execute-only", lockMode: "execute" },
-        ]),
-      ).toMatchObject({
-        outcome: "acquired",
-        claimToken: acquiredClaim.claimToken,
+        ],
       });
 
       const foreignClaim = store.insertClaim(
@@ -550,25 +563,14 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
     try {
-      const acquisition = store.acquireRuntimeClaim(
-        makeClaimSeed({
-          target_id: "wi-renew-mixed",
-          entropy: "entropy-renew-mixed",
-          expires_at: "2099-06-20T01:20:36.020Z",
-          created_at: "2099-06-20T01:14:36.020Z",
-        }),
-      );
-      const acquiredClaim = expectClaimAcquired(acquisition);
-
-      expect(
-        store.acquireRuntimeScopeLocks(acquiredClaim.claimToken, [
+      const acquiredClaim = acquireClaimWithScopeLocks(store, {
+        targetId: "wi-renew-mixed",
+        entropy: "entropy-renew-mixed",
+        scopeLocks: [
           { scopeRef: "wi-renew-mixed-read", lockMode: "read" },
           { scopeRef: "wi-renew-mixed-write", lockMode: "write" },
           { scopeRef: "wi-renew-mixed-execute", lockMode: "execute" },
-        ]),
-      ).toMatchObject({
-        outcome: "acquired",
-        claimToken: acquiredClaim.claimToken,
+        ],
       });
       const before = store.getClaimByToken(acquiredClaim.claimToken);
 
