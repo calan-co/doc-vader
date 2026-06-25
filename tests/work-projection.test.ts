@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { openRuntimeSqliteStore, RUNTIME_SCHEMA_VERSION } from "../lib/runtime/index.js";
 import {
   projectWorkGraph,
@@ -172,12 +172,16 @@ Projection remains deterministic.
     const workItem = projection.findNode("wi:60386");
     const dependency = projection.findNode("wi:60384");
     const projectScope = projection.findNode("scope:project:projection-graph");
-    const prdScope = projection.findNode("scope:plan:doc-vader-work-item-claim-scope-mvp-prd");
+    const prdScope = projection.findNode(
+      "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+    );
     const claim = projection.findNode(
       projection.getNodesByType("claim")[0]?.id ?? "",
     );
     const claimScope = projection.findNode(
-      projection.getNodesByType("scope").find((node) => node.id.startsWith("scope:wi:60386"))?.id ?? "",
+      projection.getNodesByType("scope").find((node) =>
+        node.id.startsWith("scope:wi:60386"),
+      )?.id ?? "",
     );
 
     expect(workItem?.type).toBe("work-item");
@@ -187,7 +191,9 @@ Projection remains deterministic.
     expect(claim?.type).toBe("claim");
     expect(claimScope?.type).toBe("scope");
 
-    const dependsOn = projection.getOutgoingEdges("wi:60386").filter((edge) => edge.type === "depends_on");
+    const dependsOn = projection
+      .getOutgoingEdges("wi:60386")
+      .filter((edge) => edge.type === "depends_on");
     expect(dependsOn).toHaveLength(1);
     expect(dependsOn[0]?.from).toBe("wi:60386");
     expect(dependsOn[0]?.to).toBe("wi:60384");
@@ -196,11 +202,15 @@ Projection remains deterministic.
     const incomingToDependency = projection.getIncomingEdges("wi:60384");
     expect(incomingToDependency.map((edge) => edge.type)).toEqual(["depends_on"]);
 
-    const belongsTo = projection.getOutgoingEdges("wi:60386").filter((edge) => edge.type === "belongs_to");
+    const belongsTo = projection
+      .getOutgoingEdges("wi:60386")
+      .filter((edge) => edge.type === "belongs_to");
     expect(belongsTo).toHaveLength(1);
     expect(belongsTo[0]?.to).toBe("scope:project:projection-graph");
 
-    const implementsEdges = projection.getOutgoingEdges("wi:60386").filter((edge) => edge.type === "implements");
+    const implementsEdges = projection
+      .getOutgoingEdges("wi:60386")
+      .filter((edge) => edge.type === "implements");
     expect(implementsEdges).toHaveLength(1);
     expect(implementsEdges[0]?.to).toBe(
       "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",

@@ -64,7 +64,7 @@ export function canonicalizeWorkItemScopeRef(value: string): string {
   let canonical: string;
   try {
     canonical = canonicalizeScopeRef(value);
-  } catch (error) {
+  } catch {
     throw new Error(
       `Provide a canonical Work Item ScopeRef, not a storage adapter reference: ${value}`,
     );

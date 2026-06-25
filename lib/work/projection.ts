@@ -86,6 +86,12 @@ const WORK_ITEM_PARENT_EDGE_TYPES = new Map<string, WorkGraphEdgeType>([
 const TRACEABILITY_EDGE_TYPES = new Map<string, WorkGraphEdgeType>([
   ["implements", "implements"],
 ]);
+const NODE_TYPE_SORT_ORDER: Record<WorkGraphNodeType, number> = {
+  "work-item": 0,
+  claim: 1,
+  record: 2,
+  scope: 3,
+};
 
 function toPosixPath(value: string): string {
   return value.split(path.sep).join("/");
@@ -372,9 +378,10 @@ function createClaimNode(record: RuntimeClaimRecord): WorkGraphNode {
 }
 
 function createClaimScopeNode(record: RuntimeClaimRecord): WorkGraphNode {
+  const scopeId = normalizeClaimScopeRef(record);
   return createScopeNode({
-    id: normalizeClaimScopeRef(record),
-    label: normalizeClaimScopeRef(record),
+    id: scopeId,
+    label: scopeId,
     originType: record.target_type,
     properties: {
       claimToken: record.claim_token,
@@ -391,6 +398,123 @@ function normalizeClaimScopeRef(record: RuntimeClaimRecord): string {
     return canonicalWorkItemNodeId(record.target_id);
   }
   return canonicalScopeNodeId(`${record.target_type}:${record.target_id}`);
+}
+
+function resolveDocumentKind(document: MarkdownDocument): WorkGraphNodeType | undefined {
+  if (isWorkItemDocument(document)) {
+    return "work-item";
+  }
+  if (isRecordDocument(document)) {
+    return "record";
+  }
+  if (isProjectlikeDocument(document)) {
+    return "scope";
+  }
+  return undefined;
+}
+
+function resolveDocumentNodeId(
+  document: MarkdownDocument,
+  kind: WorkGraphNodeType | undefined,
+  id: string,
+): string {
+  switch (kind) {
+    case "work-item":
+      return canonicalWorkItemNodeId(id);
+    case "record":
+      return `record:${id}`;
+    case "scope":
+    default:
+      return `scope:${canonicalScopeNodeId(id)}`;
+  }
+}
+
+function createNodeFromDocument(
+  document: MarkdownDocument,
+  kind: WorkGraphNodeType,
+): WorkGraphNode | undefined {
+  switch (kind) {
+    case "work-item":
+      return createWorkItemNode(document);
+    case "record":
+      return createRecordNode(document);
+    case "scope": {
+      const id = asString(document.frontmatter.id);
+      if (!id) {
+        return undefined;
+      }
+      return createScopeNode({
+        id,
+        label: asString(document.frontmatter.title) ?? id,
+        filePath: document.relativePath,
+        originType: asString(document.frontmatter.type),
+        properties: {
+          frontmatterId: id,
+          summary: asString(document.frontmatter.summary),
+        },
+      });
+    }
+  }
+}
+
+function resolveDocumentNode(
+  document: MarkdownDocument,
+): ResolvedDocument | undefined {
+  const id = asString(document.frontmatter.id);
+  if (!id) {
+    return undefined;
+  }
+
+  const kind = resolveDocumentKind(document);
+  if (!kind) {
+    return undefined;
+  }
+
+  return {
+    document,
+    nodeId: resolveDocumentNodeId(document, kind, id),
+    nodeType: kind,
+  };
+}
+
+function createResolvedTargetNode(
+  resolved: ResolvedDocument,
+  nodesById: Map<string, WorkGraphNode>,
+): WorkGraphNode | undefined {
+  const existing = nodesById.get(resolved.nodeId);
+  if (existing) {
+    return existing;
+  }
+  if (resolved.nodeType !== "scope") {
+    return undefined;
+  }
+  const id = resolved.nodeId.replace(/^scope:/, "");
+  const title = asString(resolved.document.frontmatter.title) ?? resolved.nodeId;
+  return createScopeNode({
+    id,
+    label: title,
+    filePath: resolved.document.relativePath,
+    originType: asString(resolved.document.frontmatter.type),
+    properties: {
+      frontmatterId: asString(resolved.document.frontmatter.id),
+    },
+  });
+}
+
+function ensureScopeNode(
+  targetNode: WorkGraphNode,
+  nodes: WorkGraphNode[],
+  nodesById: Map<string, WorkGraphNode>,
+  scopeNodeIds: Set<string>,
+): void {
+  if (targetNode.type !== "scope") {
+    return;
+  }
+  if (!nodesById.has(targetNode.id)) {
+    nodes.push(targetNode);
+    nodesById.set(targetNode.id, targetNode);
+  }
+  scopeNodeIds.add(targetNode.id);
 }
 
 function normalizeTargetReference(reference: string): string {
@@ -437,19 +561,11 @@ function resolveDocument(
   if (!exact) {
     return undefined;
   }
-  return {
-    document: exact,
-    nodeId: isWorkItemDocument(exact)
-      ? canonicalWorkItemNodeId(asString(exact.frontmatter.id) ?? "")
-      : isRecordDocument(exact)
-        ? `record:${asString(exact.frontmatter.id)}`
-        : `scope:${asString(exact.frontmatter.id)}`,
-    nodeType: isWorkItemDocument(exact)
-      ? "work-item"
-      : isRecordDocument(exact)
-        ? "record"
-        : "scope",
-  };
+  const resolved = resolveDocumentNode(exact);
+  if (!resolved) {
+    return undefined;
+  }
+  return resolved;
 }
 
 function createEdge(
@@ -471,7 +587,20 @@ function createEdge(
 }
 
 function mapRelationshipType(sourceKey: string): WorkGraphEdgeType | undefined {
-  return WORK_ITEM_PARENT_EDGE_TYPES.get(sourceKey) ?? TRACEABILITY_EDGE_TYPES.get(sourceKey) ?? (sourceKey === "depends_on" ? "depends_on" : undefined);
+  const mappedParent = WORK_ITEM_PARENT_EDGE_TYPES.get(sourceKey);
+  if (mappedParent) {
+    return mappedParent;
+  }
+  const mappedTraceability = TRACEABILITY_EDGE_TYPES.get(sourceKey);
+  if (mappedTraceability) {
+    return mappedTraceability;
+  }
+  switch (sourceKey) {
+    case "depends_on":
+      return "depends_on";
+    default:
+      return undefined;
+  }
 }
 
 function buildGraphIndex(nodes: WorkGraphNode[], edges: WorkGraphEdge[]): GraphIndex {
@@ -481,24 +610,10 @@ function buildGraphIndex(nodes: WorkGraphNode[], edges: WorkGraphEdge[]): GraphI
   const outgoingByNodeId = new Map<string, WorkGraphEdge[]>();
   const incomingByNodeId = new Map<string, WorkGraphEdge[]>();
 
-  const sortedNodes = [...nodes].sort((left, right) => {
-    const typeRank = (type: WorkGraphNodeType): number => {
-      switch (type) {
-        case "work-item":
-          return 0;
-        case "claim":
-          return 1;
-        case "record":
-          return 2;
-        case "scope":
-          return 3;
-      }
-    };
-    return (
-      typeRank(left.type) - typeRank(right.type) ||
-      left.id.localeCompare(right.id)
-    );
-  });
+  const sortedNodes = [...nodes].sort((left, right) =>
+    NODE_TYPE_SORT_ORDER[left.type] - NODE_TYPE_SORT_ORDER[right.type] ||
+    left.id.localeCompare(right.id),
+  );
 
   const dedupedEdges = new Map<string, WorkGraphEdge>();
   for (const edge of edges) {
@@ -572,7 +687,8 @@ function projectRelationshipEdges(options: {
   aliases: Map<string, ResolvedDocument>;
   nodesById: Map<string, WorkGraphNode>;
   edges: WorkGraphEdge[];
-  ensureScopeNode: (target: WorkGraphNode) => void;
+  scopeNodeIds: Set<string>;
+  nodes: WorkGraphNode[];
 }): void {
   const links =
     typeof options.document.frontmatter.links === "object" &&
@@ -585,23 +701,16 @@ function projectRelationshipEdges(options: {
     if (!resolved) {
       continue;
     }
-    const targetNode =
-      options.nodesById.get(resolved.nodeId) ??
-      (resolved.nodeType === "scope"
-        ? createScopeNode({
-            id: resolved.nodeId.replace(/^scope:/, ""),
-            label: asString(resolved.document.frontmatter.title) ?? resolved.nodeId,
-            filePath: resolved.document.relativePath,
-            originType: asString(resolved.document.frontmatter.type),
-            properties: {
-              frontmatterId: asString(resolved.document.frontmatter.id),
-            },
-          })
-        : undefined);
+    const targetNode = createResolvedTargetNode(resolved, options.nodesById);
     if (!targetNode) {
       continue;
     }
-    options.ensureScopeNode(targetNode);
+    ensureScopeNode(
+      targetNode,
+      options.nodes,
+      options.nodesById,
+      options.scopeNodeIds,
+    );
     options.edges.push(
       createEdge(
         options.sourceNode,
@@ -637,23 +746,16 @@ function projectRelationshipEdges(options: {
       continue;
     }
 
-    const targetNode =
-      options.nodesById.get(resolved.nodeId) ??
-      (resolved.nodeType === "scope"
-        ? createScopeNode({
-            id: resolved.nodeId.replace(/^scope:/, ""),
-            label: asString(resolved.document.frontmatter.title) ?? resolved.nodeId,
-            filePath: resolved.document.relativePath,
-            originType: asString(resolved.document.frontmatter.type),
-            properties: {
-              frontmatterId: asString(resolved.document.frontmatter.id),
-            },
-          })
-        : undefined);
+    const targetNode = createResolvedTargetNode(resolved, options.nodesById);
     if (!targetNode) {
       continue;
     }
-    options.ensureScopeNode(targetNode);
+    ensureScopeNode(
+      targetNode,
+      options.nodes,
+      options.nodesById,
+      options.scopeNodeIds,
+    );
     options.edges.push(
       createEdge(
         options.sourceNode,
@@ -689,25 +791,7 @@ export async function projectWorkGraph(
     if (!id) {
       continue;
     }
-    const resolved: ResolvedDocument | undefined = isWorkItemDocument(document)
-      ? {
-          document,
-          nodeId: canonicalWorkItemNodeId(id),
-          nodeType: "work-item",
-        }
-      : isRecordDocument(document)
-        ? {
-            document,
-            nodeId: `record:${id}`,
-            nodeType: "record",
-          }
-        : isProjectlikeDocument(document)
-          ? {
-              document,
-              nodeId: `scope:${canonicalScopeNodeId(id)}`,
-              nodeType: "scope",
-            }
-          : undefined;
+    const resolved = resolveDocumentNode(document);
 
     for (const alias of documentAliases(document.frontmatter, document.relativePath)) {
       aliases.set(alias, {
@@ -721,21 +805,7 @@ export async function projectWorkGraph(
       continue;
     }
 
-    const node =
-      resolved.nodeType === "work-item"
-        ? createWorkItemNode(document)
-        : resolved.nodeType === "record"
-          ? createRecordNode(document)
-          : createScopeNode({
-              id,
-              label: asString(document.frontmatter.title) ?? id,
-              filePath: document.relativePath,
-              originType: asString(document.frontmatter.type),
-              properties: {
-                frontmatterId: id,
-                summary: asString(document.frontmatter.summary),
-              },
-            });
+    const node = createNodeFromDocument(document, resolved.nodeType);
 
     if (!node || nodesById.has(node.id)) {
       continue;
@@ -801,17 +871,11 @@ export async function projectWorkGraph(
   }
 
   for (const document of documents) {
-    const id = asString(document.frontmatter.id);
-    if (!id) {
+    const resolved = resolveDocumentNode(document);
+    if (!resolved) {
       continue;
     }
-    const sourceNode = nodesById.get(
-      isWorkItemDocument(document)
-        ? canonicalWorkItemNodeId(id)
-        : isRecordDocument(document)
-          ? `record:${id}`
-          : `scope:${canonicalScopeNodeId(id)}`,
-    );
+    const sourceNode = nodesById.get(resolved.nodeId);
     if (!sourceNode || sourceNode.type !== "work-item") {
       continue;
     }
@@ -822,16 +886,8 @@ export async function projectWorkGraph(
       aliases,
       nodesById,
       edges,
-      ensureScopeNode(targetNode: WorkGraphNode) {
-        if (targetNode.type !== "scope") {
-          return;
-        }
-        if (!nodesById.has(targetNode.id)) {
-          nodes.push(targetNode);
-          nodesById.set(targetNode.id, targetNode);
-        }
-        scopeNodeIds.add(targetNode.id);
-      },
+      scopeNodeIds,
+      nodes,
     });
   }
 
