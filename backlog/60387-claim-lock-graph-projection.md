@@ -40,6 +40,10 @@ mode and policy. Enforcement remains in the command path introduced by
 `60385`; this slice projects the facts needed for audit, verification, and
 later query surfaces.
 
+This edge follows the authored edge direction rule from the PRD: the Claim is
+the assertion owner, and the Scope is the target over which the claim asserts
+authority.
+
 ## What to build
 
 Extend the projection port from `60386` so flat claim scopes from `60385`
@@ -50,6 +54,8 @@ as edge attributes where available.
 ## Tasks
 
 - [ ] Define the `locks` edge type in the projection vocabulary.
+- [ ] Ensure `locks` follows the canonical authored direction:
+      `Claim --locks--> Scope`.
 - [ ] Project one edge for each active claim-scope lock.
 - [ ] Attach lock mode and policy attributes to each edge.
 - [ ] Ensure Claim and Scope nodes referenced by lock edges are projected or
@@ -68,6 +74,7 @@ as edge attributes where available.
 ## Acceptance Criteria
 
 - [ ] Active claim scopes project as `Claim --locks--> Scope` edges.
+- [ ] `locks` edges follow the assertion-owner-to-target direction.
 - [ ] Each lock edge includes the lock mode.
 - [ ] Each lock edge includes enough policy metadata to explain compatibility
       decisions.

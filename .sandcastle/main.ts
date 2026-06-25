@@ -6,7 +6,7 @@
 //                               listing unblocked issues with branch names.
 //   Phase 2 (Execute + Review): For each issue, a sandbox is created via
 //                               createSandbox(). The implementer runs first
-//                               (10 iterations). If it produces commits, a
+//                               (100 iterations). If it produces commits, a
 //                               reviewer runs in the same sandbox on the same
 //                               branch (1 iteration). All issue pipelines run
 //                               concurrently via Promise.allSettled().
@@ -23,11 +23,9 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 // The planner emits its plan as JSON inside <plan> tags; Output.object extracts
@@ -36,73 +34,29 @@ import { z } from "zod";
 // https://standardschema.dev.
 const planSchema = z.object({
   issues: z.array(
-    z.object({
-      id: z.string(),
-      title: z.string(),
-      branch: z.string(),
-      mode: z.enum(["fresh", "recovered"]).default("fresh"),
-      claimId: z.string().optional(),
-      recovery: z.record(z.string(), z.unknown()).optional(),
-    }),
+    z.object({ id: z.string(), title: z.string(), branch: z.string() }),
   ),
 });
-
-const sandcastleConfigDir = path.dirname(fileURLToPath(import.meta.url));
-
-const loadDotEnv = (envPath = path.join(sandcastleConfigDir, ".env")) => {
-  if (!fs.existsSync(envPath)) return;
-
-  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-
-    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(trimmed);
-    if (!match) continue;
-
-    const [, key, rawValue] = match;
-    if (process.env[key] !== undefined) continue;
-
-    let value = rawValue.trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    process.env[key] = value;
-  }
-};
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-loadDotEnv();
-
 // Maximum number of plan→execute→merge cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
-const MAX_ITERATIONS = 20;
-const AGENT_IDLE_TIMEOUT_SECONDS = 300;
-const HOST_SANDCASTLE_CACHE = path.join(
-  os.homedir(),
-  ".cache",
-  "doc-vader",
-  "sandcastle",
-);
-const HOST_PNPM_STORE = path.join(HOST_SANDCASTLE_CACHE, "pnpm-store-linux");
-const HOST_CLAIM_STORE_DIR = path.join(HOST_SANDCASTLE_CACHE, "claims");
-const HOST_CLAIM_STORE = path.join(HOST_CLAIM_STORE_DIR, "task-claims.json");
+const MAX_ITERATIONS = 10;
+const HOST_SANDBOX_CACHE = ".sandcastle/cache";
+const HOST_COREPACK_CACHE = `${HOST_SANDBOX_CACHE}/corepack-linux`;
+const HOST_PNPM_STORE = `${HOST_SANDBOX_CACHE}/pnpm-store-linux`;
+const HOST_ROOT_NODE_MODULES = `${HOST_SANDBOX_CACHE}/root-node_modules`;
 const HOST_CODEX_AUTH = path.join(os.homedir(), ".codex", "auth.json");
 const HOST_CODEX_CONFIG = path.join(os.homedir(), ".codex", "config.toml");
-const HOST_SANDBOX_CODEX_HOME = path.join(HOST_SANDCASTLE_CACHE, "codex-home");
+const HOST_SANDBOX_CODEX_HOME = `${HOST_SANDBOX_CACHE}/codex-home`;
+const SANDBOX_COREPACK_CACHE = "/home/agent/.cache/node/corepack";
 const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
-const SANDBOX_CLAIM_STORE_DIR = "/home/agent/.cache/doc-vader/claims";
-const SANDBOX_CLAIM_STORE = `${SANDBOX_CLAIM_STORE_DIR}/task-claims.json`;
+const SANDBOX_ROOT_NODE_MODULES = "/home/agent/workspace/node_modules";
 const SANDBOX_CODEX_HOME = "/home/agent/.codex";
-const CODEX_MODEL = process.env.SANDCASTLE_CODEX_MODEL ?? "gpt-5.4-mini";
+const PNPM_INSTALL_COMMAND = `CI=true COREPACK_HOME=${SANDBOX_COREPACK_CACHE} corepack pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
 
 if (!fs.existsSync(HOST_CODEX_AUTH)) {
   throw new Error(
@@ -116,16 +70,11 @@ if (!fs.existsSync(HOST_CODEX_CONFIG)) {
   );
 }
 
+fs.mkdirSync(HOST_COREPACK_CACHE, { recursive: true });
 fs.mkdirSync(HOST_PNPM_STORE, { recursive: true });
-fs.mkdirSync(HOST_CLAIM_STORE_DIR, { recursive: true });
+fs.mkdirSync(HOST_ROOT_NODE_MODULES, { recursive: true });
 fs.mkdirSync(HOST_SANDBOX_CODEX_HOME, { recursive: true });
-if (!fs.existsSync(HOST_CLAIM_STORE)) {
-  fs.writeFileSync(HOST_CLAIM_STORE, '{"claims":[]}\n', "utf8");
-}
-fs.copyFileSync(
-  HOST_CODEX_AUTH,
-  path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"),
-);
+fs.copyFileSync(HOST_CODEX_AUTH, path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"));
 fs.copyFileSync(
   HOST_CODEX_CONFIG,
   path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"),
@@ -133,141 +82,65 @@ fs.copyFileSync(
 fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "auth.json"), 0o600);
 fs.chmodSync(path.join(HOST_SANDBOX_CODEX_HOME, "config.toml"), 0o600);
 
-const SANDCASTLE_RUN_ID =
-  process.env.SANDCASTLE_RUN_ID ?? `sandcastle-${Date.now()}`;
-const SANDCASTLE_CLAIM_HOLDER = `sandcastle:${SANDCASTLE_RUN_ID}`;
-
-const codexAgent = () => sandcastle.codex(CODEX_MODEL);
-
-const git = (args: string[], options: { ignoreFailure?: boolean } = {}) => {
-  try {
-    return execFileSync("git", args, {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", options.ignoreFailure ? "ignore" : "inherit"],
-    });
-  } catch (error) {
-    if (options.ignoreFailure) {
-      return undefined;
-    }
-    throw error;
-  }
+const sandboxEnv = {
+  CI: "true",
+  TMPDIR: "/tmp",
+  CODEX_HOME: SANDBOX_CODEX_HOME,
 };
 
-const assertCleanHostWorktree = () => {
-  const status = git(["status", "--porcelain"])?.trim();
-  if (status) {
-    throw new Error(
-      [
-        "Sandcastle requires a clean host worktree before it starts.",
-        "Commit or stash host changes first so branch worktrees can be reused without host overlays clobbering in-progress work.",
-        status,
-      ].join("\n"),
-    );
-  }
-};
-
-const releaseTaskClaim = (taskId: string) => {
-  try {
-    execFileSync(
-      "node",
-      [
-        "--import",
-        "tsx",
-        "scripts/sandcastle/dv-adapter.ts",
-        "release-task",
-        taskId,
-      ],
+const rootSandbox = () =>
+  podman({
+    env: sandboxEnv,
+    mounts: [
       {
-        cwd: process.cwd(),
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          CI: "true",
-          TMPDIR: "/tmp",
-          DOC_VADER_TASK_CLAIM_STORE: HOST_CLAIM_STORE,
-          SANDCASTLE_CLAIM_HOLDER,
-        },
-        stdio: ["ignore", "pipe", "inherit"],
+        hostPath: HOST_COREPACK_CACHE,
+        sandboxPath: SANDBOX_COREPACK_CACHE,
       },
-    );
-    console.log(`Released claim for ${taskId} after no-commit implementation.`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn(`Could not release claim for ${taskId}: ${message}`);
-  }
-};
-
-const branchHasCommits = (branch: string) => {
-  try {
-    const count = git(["rev-list", "--count", `HEAD..${branch}`], {
-      ignoreFailure: true,
-    })?.trim();
-    return Number(count) > 0;
-  } catch {
-    return false;
-  }
-};
-
-const taskStatus = (taskId: string) => {
-  try {
-    const output = execFileSync(
-      "node",
-      ["--import", "tsx", "cli/doc-vader.ts", "task", "show", taskId, "--json"],
       {
-        cwd: process.cwd(),
-        encoding: "utf8",
-        env: { ...process.env, CI: "true", TMPDIR: "/tmp" },
-        stdio: ["ignore", "pipe", "ignore"],
+        hostPath: HOST_PNPM_STORE,
+        sandboxPath: SANDBOX_PNPM_STORE,
       },
-    );
-    return JSON.parse(output).status as string | undefined;
-  } catch {
-    return undefined;
-  }
+      {
+        hostPath: HOST_ROOT_NODE_MODULES,
+        sandboxPath: SANDBOX_ROOT_NODE_MODULES,
+      },
+      {
+        hostPath: HOST_SANDBOX_CODEX_HOME,
+        sandboxPath: SANDBOX_CODEX_HOME,
+      },
+    ],
+  });
+
+const worktreeSandbox = () =>
+  podman({
+    env: sandboxEnv,
+    mounts: [
+      {
+        hostPath: HOST_COREPACK_CACHE,
+        sandboxPath: SANDBOX_COREPACK_CACHE,
+      },
+      {
+        hostPath: HOST_PNPM_STORE,
+        sandboxPath: SANDBOX_PNPM_STORE,
+      },
+      {
+        hostPath: HOST_SANDBOX_CODEX_HOME,
+        sandboxPath: SANDBOX_CODEX_HOME,
+      },
+    ],
+  });
+
+// Root-stage sandboxes mount an ignored Linux node_modules directory over the
+// host repo's macOS node_modules, so pnpm never mutates the host install.
+const rootHooks = {
+  sandbox: {
+    onSandboxReady: [{ command: PNPM_INSTALL_COMMAND }],
+  },
 };
 
-const releaseCompletedTaskClaims = (issues: Array<{ id: string }>) => {
-  for (const issue of issues) {
-    const status = taskStatus(issue.id);
-    if (status !== "completed" && status !== "closed") {
-      console.warn(
-        `Leaving claim active for ${issue.id}; host work item status is ${status ?? "unknown"}.`,
-      );
-      continue;
-    }
-    releaseTaskClaim(issue.id);
-  }
-};
-
-const branchIsAncestorOfHead = (branch: string) => {
-  try {
-    execFileSync("git", ["merge-base", "--is-ancestor", branch, "HEAD"], {
-      cwd: process.cwd(),
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const deleteBranchIfSafelyMerged = (branch: string) => {
-  if (!branchIsAncestorOfHead(branch)) {
-    console.warn(`Preserving ${branch}; it is not contained in host HEAD.`);
-    return;
-  }
-  const deleted = git(["branch", "-d", branch], { ignoreFailure: true });
-  if (deleted !== undefined) {
-    console.log(`Deleted merged branch ${branch}.`);
-  } else {
-    console.warn(`Preserving ${branch}; git refused safe branch deletion.`);
-  }
-};
-
-// Hooks run inside the sandbox before the agent starts each iteration.
-// pnpm install ensures the sandbox always has fresh dependencies.
-const hooks = {
+// Branch worktrees are separate directories under .sandcastle/worktrees. Remove
+// stale copied node_modules there, then let Linux pnpm recreate dependencies.
+const worktreeHooks = {
   host: {
     onWorktreeReady: [
       {
@@ -279,54 +152,15 @@ const hooks = {
   sandbox: {
     onSandboxReady: [
       {
-        // Sandcastle may run hook entries concurrently, so keep dependent setup
-        // steps in one shell command: build requires the install to complete.
-        // Keep Nx runtime state out of host-owned .nx paths inside rootless
-        // sandboxes, where those paths can be visible but unwritable.
-        command:
-          'export TMPDIR=/tmp NX_DAEMON=false NX_CACHE_DIRECTORY=/tmp/doc-vader-nx-cache NX_WORKSPACE_DATA_DIRECTORY=/tmp/doc-vader-nx-workspace-data; codex login status >/dev/null && CI=true pnpm install --frozen-lockfile --prefer-offline --store-dir "$SANDCASTLE_PNPM_STORE_PATH" && CI=true pnpm run build',
+        command: PNPM_INSTALL_COMMAND,
       },
     ],
   },
 };
 
-const sandboxProvider = podman({
-  mounts: [
-    {
-      hostPath: HOST_PNPM_STORE,
-      sandboxPath: SANDBOX_PNPM_STORE,
-    },
-    {
-      hostPath: HOST_CLAIM_STORE_DIR,
-      sandboxPath: SANDBOX_CLAIM_STORE_DIR,
-    },
-    {
-      hostPath: HOST_SANDBOX_CODEX_HOME,
-      sandboxPath: SANDBOX_CODEX_HOME,
-    },
-  ],
-  env: {
-    CI: "true",
-    TMPDIR: "/tmp",
-    CODEX_HOME: SANDBOX_CODEX_HOME,
-    NX_DAEMON: "false",
-    NX_CACHE_DIRECTORY: "/tmp/doc-vader-nx-cache",
-    NX_WORKSPACE_DATA_DIRECTORY: "/tmp/doc-vader-nx-workspace-data",
-    SANDCASTLE_PNPM_STORE_PATH: SANDBOX_PNPM_STORE,
-    DOC_VADER_TASK_CLAIM_STORE: SANDBOX_CLAIM_STORE,
-    SANDCASTLE_CLAIM_HOLDER,
-  },
-});
-
-// The host worktree must be committed before a run. Preserved issue worktrees
-// are reused as-is so incomplete branch changes are not overwritten.
-const copyToWorktree: string[] = [];
-
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
-
-assertCleanHostWorktree();
 
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
@@ -341,19 +175,14 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // It outputs a <plan> JSON block — Output.object parses and validates it.
   // -------------------------------------------------------------------------
   const plan = await sandcastle.run({
-    hooks,
-    sandbox: sandboxProvider,
-    branchStrategy: {
-      type: "merge-to-head",
-    },
-    copyToWorktree,
+    hooks: rootHooks,
+    sandbox: rootSandbox(),
     name: "planner",
     // One iteration is enough: the planner just needs to read and reason,
     // not write code. (Structured output requires maxIterations: 1.)
     maxIterations: 1,
-    idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
     // Opus for planning: dependency analysis benefits from deeper reasoning.
-    agent: codexAgent(),
+    agent: sandcastle.codex("gpt-5.4-mini"),
     promptFile: "./.sandcastle/plan-prompt.md",
     // Extract and validate the <plan> JSON into a typed object. Throws
     // StructuredOutputError if the tag is missing, the JSON is malformed, or
@@ -390,43 +219,30 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     issues.map(async (issue) => {
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
-        sandbox: sandboxProvider,
-        hooks,
-        copyToWorktree,
+        sandbox: worktreeSandbox(),
+        hooks: worktreeHooks,
       });
-      let producedCommits = false;
 
       try {
         // Run the implementer
         const implement = await sandbox.run({
           name: "implementer",
-          maxIterations: 10,
-          idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
-          agent: codexAgent(),
+          maxIterations: 100,
+          agent: sandcastle.codex("gpt-5.4-mini"),
           promptFile: "./.sandcastle/implement-prompt.md",
           promptArgs: {
             TASK_ID: issue.id,
             ISSUE_TITLE: issue.title,
             BRANCH: issue.branch,
-            MODE: issue.mode,
-            CLAIM_ID: issue.claimId ?? "",
-            RECOVERY_CONTEXT: issue.recovery
-              ? JSON.stringify(issue.recovery, null, 2)
-              : "{}",
           },
         });
-        producedCommits = implement.commits.length > 0;
-        const shouldReview =
-          producedCommits ||
-          (issue.mode === "recovered" && branchHasCommits(issue.branch));
 
         // Only review if the implementer produced commits
-        if (shouldReview) {
+        if (implement.commits.length > 0) {
           const review = await sandbox.run({
             name: "reviewer",
             maxIterations: 1,
-            idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
-            agent: codexAgent(),
+            agent: sandcastle.codex("gpt-5.4-mini"),
             promptFile: "./.sandcastle/review-prompt.md",
             promptArgs: {
               BRANCH: issue.branch,
@@ -443,9 +259,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
         return implement;
       } finally {
-        if (!producedCommits && !branchHasCommits(issue.branch)) {
-          releaseTaskClaim(issue.id);
-        }
         await sandbox.close();
       }
     }),
@@ -467,9 +280,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     .filter(
       (entry) =>
         entry.outcome.status === "fulfilled" &&
-        (entry.outcome.value.commits.length > 0 ||
-          (entry.issue.mode === "recovered" &&
-            branchHasCommits(entry.issue.branch))),
+        entry.outcome.value.commits.length > 0,
     )
     .map((entry) => entry.issue);
 
@@ -498,16 +309,11 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // uses to know which branches to merge and which issues to close.
   // -------------------------------------------------------------------------
   await sandcastle.run({
-    hooks,
-    sandbox: sandboxProvider,
-    branchStrategy: {
-      type: "merge-to-head",
-    },
-    copyToWorktree,
+    hooks: rootHooks,
+    sandbox: rootSandbox(),
     name: "merger",
     maxIterations: 1,
-    idleTimeoutSeconds: AGENT_IDLE_TIMEOUT_SECONDS,
-    agent: codexAgent(),
+    agent: sandcastle.codex("gpt-5.4-mini"),
     promptFile: "./.sandcastle/merge-prompt.md",
     promptArgs: {
       // A markdown list of branch names, one per line.
@@ -517,12 +323,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     },
   });
 
-  releaseCompletedTaskClaims(completedIssues);
-  for (const branch of completedBranches) {
-    deleteBranchIfSafelyMerged(branch);
-  }
-
-  console.log("\nBranches merged into host HEAD.");
+  console.log("\nBranches merged.");
 }
 
 console.log("\nAll done.");

@@ -8,38 +8,16 @@ For each branch:
 
 1. Run `git merge <branch> --no-edit`
 2. If there are merge conflicts, resolve them intelligently by reading both sides and choosing the correct resolution
-3. After resolving conflicts, run `CI=true scripts/sandcastle/run-with-heartbeat.sh typecheck pnpm run typecheck` and `CI=true scripts/sandcastle/run-with-heartbeat.sh test pnpm run test` to verify everything works
+3. After resolving conflicts, run `pnpm run typecheck` and `pnpm run test` to verify everything works
 4. If tests fail, fix the issues before proceeding to the next branch
 
-After all branches are merged, run:
-
-```sh
-CI=true scripts/sandcastle/run-with-heartbeat.sh docs:lint pnpm run docs:lint
-CI=true scripts/sandcastle/run-with-heartbeat.sh backlog:validate pnpm run backlog:validate
-CI=true scripts/sandcastle/run-with-heartbeat.sh backlog:validate:ci pnpm run backlog:validate:ci
-CI=true scripts/sandcastle/run-with-heartbeat.sh test pnpm run test
-```
-
-Make a single conventional commit summarizing the merge.
+After all branches are merged, close the merged issues, then make a single commit summarizing the merge and issue closures.
 
 # CLOSE ISSUES
 
-For each branch that was merged, close its issue only after validation passes and the temporary completion protocol is satisfied.
+For each branch that was merged, close its issue using the following command. Replace `<ID>` with the issue id from the list below.
 
-Before running `close-task` for a task:
-
-1. Open the work item Markdown file for `<TASK_ID>`.
-2. Confirm every required checklist item under `## Tasks`, `## Deliverables`, `## Acceptance Criteria`, `## Acceptance criteria`, or similarly named checklist sections is checked.
-3. If a required checkbox is unchecked but the merged branch provides concrete evidence, check it in the work item before closing.
-4. If a required checkbox remains unchecked or only partially satisfied, do not close that task. Leave the claim active only if more work will continue immediately; otherwise report the blocker and release the claim.
-5. Confirm the work item has linked evidence from `dv task record`.
-6. Confirm the final validation commands above passed after all merges and checklist edits.
-
-The command below marks the work item completed with the current work-item transition command and releases any active claim for that task from the shared Sandcastle claim store. Replace `<TASK_ID>` with the issue id from the list below and `<EFFORT>` with the actual effort hours as a number:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts close-task <TASK_ID> --actual <EFFORT>`
-
-If a task cannot be closed, do not delete its branch or worktree. The host-side orchestrator will only release remaining claims and safe-delete merged issue branches after this merge commit has been integrated back into host `HEAD`.
+`node --input-type=module -e 'import{readFileSync,writeFileSync,readdirSync}from"node:fs";import path from"node:path";const dir="backlog",needle=String(process.argv[1]??"").replace(/^wi-/,"");function split(raw){const m=raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);if(!m)throw new Error("Missing frontmatter");return{fm:m[1],body:raw.slice(m[0].length)}}function clean(v){return String(v??"").trim().replace(/^[\"\x27]|[\"\x27]$/g,"")}function idOf(fm,file){const m=fm.match(/^id:\s*(.+)$/m);return clean(m?.[1]??file.replace(/\.md$/,"")).replace(/^wi-/,"")}function setField(fm,key,value){const lines=fm.split(/\r?\n/);const i=lines.findIndex(l=>l.startsWith(key+":"));if(i>=0)lines[i]=key+": "+value;else lines.push(key+": "+value);return lines.join("\n")}for(const file of readdirSync(dir).filter(f=>f.endsWith(".md")).sort()){const filePath=path.join(dir,file);const raw=readFileSync(filePath,"utf8");const{fm,body}=split(raw);const id=idOf(fm,file);if(id===needle||file.replace(/\.md$/,"")===needle||file.startsWith(needle+"-")){const date=new Date().toISOString().slice(0,10);let next=setField(fm,"status","completed");next=setField(next,"status_reason","completed");next=setField(next,"completed_date","\""+date+"\"");writeFileSync(filePath,"---\n"+next+"\n---\n"+body,"utf8");console.log(JSON.stringify({id,number:id,title:clean(fm.match(/^title:\s*(.+)$/m)?.[1]??id),status:"completed",state:"closed",file:filePath,completed_date:date},null,2));process.exit(0)}}console.error("No markdown issue found for "+needle);process.exit(1)' <ID>`
 
 Here are all the issues:
 
