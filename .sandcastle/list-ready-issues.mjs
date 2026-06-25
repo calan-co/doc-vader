@@ -249,8 +249,64 @@ const isActiveBacklogItem = (item) =>
   item.tags.includes("afk") &&
   !item.tags.includes("hitl");
 
+const branchExists = (branch) => {
+  try {
+    execFileSync("git", ["rev-parse", "--verify", branch], {
+      encoding: "utf8",
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const readBranchItem = (item) => {
+  const branch = `sandcastle/issue-${item.id}`;
+  if (!branchExists(branch)) {
+    return undefined;
+  }
+
+  try {
+    const content = execFileSync("git", ["show", `${branch}:${item.file}`], {
+      encoding: "utf8",
+    });
+    const parsed = parseFrontmatter(content, `${branch}:${item.file}`);
+
+    return {
+      branch,
+      status: parsed.frontmatter.status,
+      lifecycle: parsed.frontmatter.lifecycle,
+      checklistsComplete: hasCompletedChecklistEvidence(parsed.body),
+    };
+  } catch {
+    return {
+      branch,
+      status: "unknown",
+      lifecycle: "unknown",
+      checklistsComplete: false,
+    };
+  }
+};
+
+const branchItems = new Map(
+  items
+    .map((item) => [item.id, readBranchItem(item)])
+    .filter(([, item]) => item),
+);
+
+const branchAllowsPlanning = (item) => {
+  const branchItem = branchItems.get(item.id);
+  if (!branchItem) {
+    return true;
+  }
+
+  return READY_STATUSES.has(branchItem.status);
+};
+
 const candidates = items
   .filter(isActiveBacklogItem)
+  .filter(branchAllowsPlanning)
   .filter(
     (item) =>
       READY_STATUSES.has(item.status) ||
