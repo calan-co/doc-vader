@@ -5,8 +5,8 @@ summary: Add the canonical Work command surface and normalize Work Item scope id
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
 links:
@@ -19,6 +19,7 @@ tags:
   - work-management
   - command-surface
   - scopes
+completed_date: "2026-06-25"
 ---
 
 ## Goal
