@@ -3,9 +3,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { execFileSync } from "node:child_process";
 
 const BACKLOG_DIR = "backlog";
 const ARCHIVE_DIR = path.join(BACKLOG_DIR, "archive");
+const WORKTREE_DIR = path.join(".sandcastle", "worktrees");
 const READY_STATUSES = new Set(["ready"]);
 const SATISFIED_STATUSES = new Set(["completed", "closed"]);
 const CLOSED_LIFECYCLES = new Set(["archived", "closed"]);
@@ -21,6 +23,15 @@ const readDependencyMarkdownFiles = () => [
   ...readMarkdownFiles(BACKLOG_DIR),
   ...(fs.existsSync(ARCHIVE_DIR) ? readMarkdownFiles(ARCHIVE_DIR) : []),
 ];
+
+const readWorktreeDirs = () =>
+  fs.existsSync(WORKTREE_DIR)
+    ? fs
+        .readdirSync(WORKTREE_DIR, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(WORKTREE_DIR, entry.name))
+        .sort()
+    : [];
 
 const parseScalar = (value) => value.replace(/^['"]|['"]$/g, "").trim();
 
@@ -119,6 +130,25 @@ const extractSection = (body, heading) => {
 const extractWikiLinks = (text) =>
   [...text.matchAll(/\[\[([^\]]+)\]\]/g)].map((match) => match[1]);
 
+const checklistState = (body, heading) => {
+  const section = extractSection(body, heading);
+  const checked = [...section.matchAll(/^\s*-\s*\[[xX]\]\s+/gm)].length;
+  const unchecked = [...section.matchAll(/^\s*-\s*\[\s\]\s+/gm)].length;
+
+  return { checked, unchecked };
+};
+
+const hasCompletedChecklistEvidence = (body) => {
+  for (const heading of ["Tasks", "Acceptance Criteria"]) {
+    const { checked, unchecked } = checklistState(body, heading);
+    if (checked === 0 || unchecked > 0) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const collectDependencyRefs = ({ frontmatter, body }) => {
   const dependencyRefs = new Set();
   const dependsOn = frontmatter.links?.depends_on;
@@ -137,7 +167,7 @@ const collectDependencyRefs = ({ frontmatter, body }) => {
     }
   }
 
-  return [...dependencyRefs].map(normalizeRef);
+  return [...new Set([...dependencyRefs].map(normalizeRef))];
 };
 
 const loadItems = () => {
@@ -161,6 +191,7 @@ const loadItems = () => {
       lifecycle: parsed.frontmatter.lifecycle,
       priority: parsed.frontmatter.priority,
       tags,
+      checklistsComplete: hasCompletedChecklistEvidence(parsed.body),
       dependencies: collectDependencyRefs(parsed),
     });
   }
@@ -175,29 +206,58 @@ for (const item of items) {
   byRef.set(item.filenameId, item);
 }
 
+const dirtyWorktrees = new Map();
+for (const worktree of readWorktreeDirs()) {
+  const branch = execFileSync("git", ["-C", worktree, "branch", "--show-current"], {
+    encoding: "utf8",
+  }).trim();
+  const status = execFileSync("git", ["-C", worktree, "status", "--porcelain"], {
+    encoding: "utf8",
+  }).trim();
+
+  if (status === "") {
+    continue;
+  }
+
+  const id = normalizeRef(branch.replace(/^sandcastle\/issue-/, ""));
+  dirtyWorktrees.set(id, { branch, worktree });
+}
+
 const isDependencySatisfied = (dependency) => {
+  if (dirtyWorktrees.has(dependency)) {
+    return false;
+  }
+
   const item = byRef.get(dependency);
   if (!item) {
     return false;
   }
 
   return (
-    SATISFIED_STATUSES.has(item.status) ||
+    (SATISFIED_STATUSES.has(item.status) && item.checklistsComplete) ||
     (CLOSED_LIFECYCLES.has(item.lifecycle) && item.status !== "ready")
   );
 };
 
+const isActiveBacklogItem = (item) =>
+  path.dirname(item.file) === BACKLOG_DIR &&
+  (item.lifecycle === undefined || item.lifecycle === "active") &&
+  item.tags.includes("afk") &&
+  !item.tags.includes("hitl");
+
 const candidates = items
-  .filter((item) => path.dirname(item.file) === BACKLOG_DIR)
-  .filter((item) => READY_STATUSES.has(item.status))
+  .filter(isActiveBacklogItem)
+  .filter(
+    (item) => READY_STATUSES.has(item.status) || dirtyWorktrees.has(item.id),
+  )
   .filter((item) => item.lifecycle === undefined || item.lifecycle === "active")
-  .filter((item) => item.tags.includes("afk"))
-  .filter((item) => !item.tags.includes("hitl"))
   .filter((item) => item.dependencies.every(isDependencySatisfied))
   .map((item) => ({
     id: item.id,
     title: item.title,
-    branch: `sandcastle/issue-${item.id}`,
+    branch:
+      dirtyWorktrees.get(item.id)?.branch ?? `sandcastle/issue-${item.id}`,
+    mode: dirtyWorktrees.has(item.id) ? "recovery" : "fresh",
     status: item.status,
     priority: item.priority,
     tags: item.tags,

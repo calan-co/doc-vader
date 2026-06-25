@@ -33,6 +33,23 @@ If applicable, use RGR to complete the task.
 3. REPEAT until done
 4. REFACTOR the code
 
+# COMPLETION EVIDENCE
+
+Before outputting `<promise>COMPLETE</promise>`, update the task file for
+`{{TASK_ID}}` on branch `{{BRANCH}}`:
+
+1. Mark every completed item in `## Tasks` with `[x]`.
+2. Mark every satisfied item in `## Acceptance Criteria` with `[x]`.
+3. Set frontmatter `status: completed`.
+4. Set frontmatter `status_reason: completed`.
+5. Set `completed_date` to today's ISO date.
+6. Commit this backlog update as the final commit on the feature branch.
+
+Do not mark the task complete unless every task and acceptance criterion is
+actually satisfied by the branch. If anything remains incomplete, leave it
+unchecked, leave the status non-completed, explain the blocker, and do not emit
+`<promise>COMPLETE</promise>`.
+
 # FEEDBACK LOOPS
 
 Before committing, run `pnpm run typecheck` and `pnpm run test` to ensure the tests pass.
@@ -51,9 +68,8 @@ Keep it concise.
 
 # THE ISSUE
 
-If the task is not complete, leave a comment on the issue with what was done.
-
-Do not close the issue - this will be done later.
+If the task is not complete, leave a note in your final response with what was
+done and what remains.
 
 Once complete, output <promise>COMPLETE</promise>.
 

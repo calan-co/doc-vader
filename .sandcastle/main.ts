@@ -23,6 +23,7 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -46,6 +47,7 @@ const planSchema = z.object({
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 const HOST_SANDBOX_CACHE = ".sandcastle/cache";
+const HOST_WORKTREE_DIR = ".sandcastle/worktrees";
 const HOST_COREPACK_CACHE = `${HOST_SANDBOX_CACHE}/corepack-linux`;
 const HOST_PNPM_STORE = `${HOST_SANDBOX_CACHE}/pnpm-store-linux`;
 const HOST_ROOT_NODE_MODULES = `${HOST_SANDBOX_CACHE}/root-node_modules`;
@@ -158,6 +160,109 @@ const worktreeHooks = {
   },
 };
 
+const worktreePathForBranch = (branch: string) =>
+  path.join(HOST_WORKTREE_DIR, branch.replaceAll("/", "-"));
+
+const worktreeStatus = (branch: string) => {
+  const worktreePath = worktreePathForBranch(branch);
+  if (!fs.existsSync(worktreePath)) {
+    return "";
+  }
+
+  return execFileSync("git", ["-C", worktreePath, "status", "--porcelain"], {
+    encoding: "utf8",
+  }).trim();
+};
+
+const assertCleanWorktree = (issue: { id: string; branch: string }) => {
+  const status = worktreeStatus(issue.branch);
+  if (status === "") {
+    return;
+  }
+
+  throw new Error(
+    `Issue ${issue.id} left uncommitted changes in ${worktreePathForBranch(
+      issue.branch,
+    )}; refusing to mark it complete or merge it.\n${status}`,
+  );
+};
+
+const extractSection = (body: string, heading: string) => {
+  const pattern = new RegExp(`^##\\s+${heading}\\s*$`, "im");
+  const match = pattern.exec(body);
+  if (!match) {
+    return "";
+  }
+
+  const rest = body.slice(match.index + match[0].length);
+  const nextHeading = /^##\s+/m.exec(rest);
+  return nextHeading ? rest.slice(0, nextHeading.index) : rest;
+};
+
+const checklistState = (body: string, heading: string) => {
+  const section = extractSection(body, heading);
+  return {
+    checked: [...section.matchAll(/^\s*-\s*\[[xX]\]\s+/gm)].length,
+    unchecked: [...section.matchAll(/^\s*-\s*\[\s\]\s+/gm)].length,
+  };
+};
+
+const issueFileForId = (searchRoot: string, id: string) => {
+  const backlogDir = path.join(searchRoot, "backlog");
+  for (const file of fs.readdirSync(backlogDir).sort()) {
+    if (!file.endsWith(".md")) {
+      continue;
+    }
+
+    const filePath = path.join(backlogDir, file);
+    const content = fs.readFileSync(filePath, "utf8");
+    const frontmatterId = /^id:\s*(.+)$/m
+      .exec(content)?.[1]
+      ?.trim()
+      .replace(/^['"]|['"]$/g, "")
+      .replace(/^wi-/, "");
+
+    if (frontmatterId === id || file.startsWith(`${id}-`)) {
+      return filePath;
+    }
+  }
+
+  throw new Error(`Could not find backlog issue ${id} under ${backlogDir}`);
+};
+
+const assertIssueCompleteInBranch = (issue: { id: string; branch: string }) => {
+  const worktreePath = worktreePathForBranch(issue.branch);
+  const issueFile = issueFileForId(worktreePath, issue.id);
+  const content = fs.readFileSync(issueFile, "utf8");
+
+  if (!/^status:\s*completed\s*$/m.test(content)) {
+    throw new Error(
+      `Issue ${issue.id} is not marked completed in ${issue.branch}; completion must be committed on the feature branch before merge.`,
+    );
+  }
+
+  if (!/^status_reason:\s*completed\s*$/m.test(content)) {
+    throw new Error(
+      `Issue ${issue.id} is missing status_reason: completed in ${issue.branch}.`,
+    );
+  }
+
+  if (!/^completed_date:\s*.+$/m.test(content)) {
+    throw new Error(
+      `Issue ${issue.id} is missing completed_date in ${issue.branch}.`,
+    );
+  }
+
+  for (const heading of ["Tasks", "Acceptance Criteria"]) {
+    const { checked, unchecked } = checklistState(content, heading);
+    if (checked === 0 || unchecked > 0) {
+      throw new Error(
+        `Issue ${issue.id} has incomplete ${heading} checklist evidence in ${issue.branch}.`,
+      );
+    }
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
@@ -215,13 +320,32 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // Promise.allSettled means one failing pipeline doesn't cancel the others.
   // -------------------------------------------------------------------------
 
-  const settled = await Promise.allSettled(
-    issues.map(async (issue) => {
+  const issueSandboxes: Array<{
+    issue: (typeof issues)[number];
+    sandbox: Awaited<ReturnType<typeof sandcastle.createSandbox>>;
+  }> = [];
+
+  try {
+    for (const issue of issues) {
+      console.log(`Preparing sandbox for ${issue.id} on ${issue.branch}`);
       const sandbox = await sandcastle.createSandbox({
         branch: issue.branch,
         sandbox: worktreeSandbox(),
         hooks: worktreeHooks,
       });
+
+      issueSandboxes.push({ issue, sandbox });
+    }
+  } catch (error) {
+    await Promise.allSettled(
+      issueSandboxes.map(({ sandbox }) => sandbox.close()),
+    );
+    throw error;
+  }
+
+  const settled = await Promise.allSettled(
+    issueSandboxes.map(async ({ issue, sandbox }) => {
+      console.log(`Starting pipeline for ${issue.id} on ${issue.branch}`);
 
       try {
         // Run the implementer
@@ -249,6 +373,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             },
           });
 
+          assertCleanWorktree(issue);
+          assertIssueCompleteInBranch(issue);
+
           // Merge commits from both runs so the merge phase sees all of them.
           // Each sandbox.run() only returns commits from its own run.
           return {
@@ -256,6 +383,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
             commits: [...implement.commits, ...review.commits],
           };
         }
+
+        assertCleanWorktree(issue);
+        assertIssueCompleteInBranch(issue);
 
         return implement;
       } finally {
@@ -267,8 +397,9 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // Log any agents that threw (network error, sandbox crash, etc.).
   for (const [i, outcome] of settled.entries()) {
     if (outcome.status === "rejected") {
+      const issue = issueSandboxes[i]!.issue;
       console.error(
-        `  ✗ ${issues[i]!.id} (${issues[i]!.branch}) failed: ${outcome.reason}`,
+        `  ✗ ${issue.id} (${issue.branch}) failed: ${outcome.reason}`,
       );
     }
   }
@@ -276,7 +407,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // Only pass branches that actually produced commits to the merge phase.
   // An agent that ran successfully but made no commits has nothing to merge.
   const completedIssues = settled
-    .map((outcome, i) => ({ outcome, issue: issues[i]! }))
+    .map((outcome, i) => ({ outcome, issue: issueSandboxes[i]!.issue }))
     .filter(
       (entry) =>
         entry.outcome.status === "fulfilled" &&
