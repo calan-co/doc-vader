@@ -5,10 +5,11 @@ summary: Persist flat claim scopes and enforce atomic read, write, and execute l
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-25'
 links:
   depends_on:
     - '[[60384-work-command-surface-and-scoperef-canonicalization]]'
@@ -51,16 +52,16 @@ making file paths the semantic lock target.
 
 ## Tasks
 
-- [ ] Define the flat claim-scope persistence shape for claim identity,
+- [x] Define the flat claim-scope persistence shape for claim identity,
       ScopeRef, lock mode, acquisition metadata, and lifecycle metadata.
-- [ ] Wire claim creation and lock acquisition through canonical ScopeRefs from
+- [x] Wire claim creation and lock acquisition through canonical ScopeRefs from
       `60384`.
-- [ ] Implement read, write, and execute lock policies as separate policy units.
-- [ ] Enforce read/read coexistence.
-- [ ] Enforce read/execute and execute/read coexistence.
-- [ ] Enforce mutual exclusion for every other mode combination.
-- [ ] Keep file locks and other storage locks behind adapters.
-- [ ] Add focused tests for all compatibility matrix entries.
+- [x] Implement read, write, and execute lock policies as separate policy units.
+- [x] Enforce read/read coexistence.
+- [x] Enforce read/execute and execute/read coexistence.
+- [x] Enforce mutual exclusion for every other mode combination.
+- [x] Keep file locks and other storage locks behind adapters.
+- [x] Add focused tests for all compatibility matrix entries.
 
 ## Deliverables
 
@@ -71,20 +72,20 @@ making file paths the semantic lock target.
 
 ## Acceptance Criteria
 
-- [ ] Claim scopes are stored against immutable claim identity, ScopeRef, and
+- [x] Claim scopes are stored against immutable claim identity, ScopeRef, and
       lock mode.
-- [ ] Existing claim and lock commands can acquire scope locks through the new
+- [x] Existing claim and lock commands can acquire scope locks through the new
       policy path.
-- [ ] Read locks can coexist with other read locks.
-- [ ] Execute locks can coexist with read locks in either acquisition order.
-- [ ] Write locks conflict with every existing read, write, or execute lock on
+- [x] Read locks can coexist with other read locks.
+- [x] Execute locks can coexist with read locks in either acquisition order.
+- [x] Write locks conflict with every existing read, write, or execute lock on
       the same scope.
-- [ ] Execute locks conflict with existing execute or write locks on the same
+- [x] Execute locks conflict with existing execute or write locks on the same
       scope.
-- [ ] Storage-specific file locks remain implementation details behind an
+- [x] Storage-specific file locks remain implementation details behind an
       adapter.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 

@@ -189,7 +189,7 @@ describe("runtime sqlite store", () => {
         .prepare("PRAGMA table_info(execution_log)")
         .all() as Array<{ name: string }>;
 
-      expect(firstMigrationCount.count).toBe(2);
+      expect(firstMigrationCount.count).toBe(3);
       expect(claimColumns.map((column) => column.name)).toEqual([
         "schema_version",
         "claim_token",
@@ -242,7 +242,7 @@ describe("runtime sqlite store", () => {
           reopened.database
             .prepare("SELECT count(*) AS count FROM runtime_migrations")
             .get(),
-        ).toMatchObject({ count: 2 });
+        ).toMatchObject({ count: 3 });
       } finally {
         reopened?.close();
       }
@@ -561,6 +561,128 @@ describe("runtime sqlite store", () => {
         expect(result.locks).toHaveLength(0);
         expect(store.listLocks()).toHaveLength(0);
       }
+    } finally {
+      store.close();
+    }
+  });
+
+  it("allows flat scope locks to coexist by compatibility policy", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const readClaim = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-scope-read",
+          entropy: "entropy-scope-read",
+          expires_at: "2099-06-23T05:14:36.020Z",
+        }),
+      );
+      const secondReadClaim = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-scope-read-2",
+          entropy: "entropy-scope-read-2",
+          expires_at: "2099-06-23T05:14:36.020Z",
+        }),
+      );
+      const executeClaim = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-scope-execute",
+          entropy: "entropy-scope-execute",
+          expires_at: "2099-06-23T05:14:36.020Z",
+        }),
+      );
+      const writeClaim = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-scope-write",
+          entropy: "entropy-scope-write",
+          expires_at: "2099-06-23T05:14:36.020Z",
+        }),
+      );
+
+      for (const claim of [
+        readClaim,
+        secondReadClaim,
+        executeClaim,
+        writeClaim,
+      ]) {
+        if (claim.outcome !== "acquired") {
+          throw new Error("Expected the claim to be acquired.");
+        }
+      }
+
+      const scopeRef = "wi-60385-scope";
+      const firstRead = store.acquireRuntimeScopeLocks(readClaim.claimToken, [
+        { scopeRef, lockMode: "read" },
+      ]);
+      const secondRead = store.acquireRuntimeScopeLocks(
+        secondReadClaim.claimToken,
+        [{ scopeRef, lockMode: "read" }],
+      );
+      const execute = store.acquireRuntimeScopeLocks(executeClaim.claimToken, [
+        { scopeRef, lockMode: "execute" },
+      ]);
+      const write = store.acquireRuntimeScopeLocks(writeClaim.claimToken, [
+        { scopeRef, lockMode: "write" },
+      ]);
+
+      expect(firstRead).toMatchObject({
+        outcome: "acquired",
+        claimToken: readClaim.claimToken,
+        locks: [
+          {
+            scope_ref: "wi:60385-scope",
+            lock_mode: "read",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+      expect(secondRead).toMatchObject({
+        outcome: "acquired",
+        claimToken: secondReadClaim.claimToken,
+        locks: [
+          {
+            scope_ref: "wi:60385-scope",
+            lock_mode: "read",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+      expect(execute).toMatchObject({
+        outcome: "acquired",
+        claimToken: executeClaim.claimToken,
+        locks: [
+          {
+            scope_ref: "wi:60385-scope",
+            lock_mode: "execute",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+      expect(write).toMatchObject({
+        outcome: "conflict",
+        claimToken: writeClaim.claimToken,
+        conflicts: [
+          expect.objectContaining({
+            scope_ref: "wi:60385-scope",
+            requested_mode: "write",
+            conflicting_modes: expect.arrayContaining(["read", "execute"]),
+            policy_name: "WriteLockPolicy",
+          }),
+        ],
+      });
+      expect(store.listScopeLocksByClaimToken(readClaim.claimToken)).toHaveLength(
+        2,
+      );
+      expect(
+        store.listScopeLocksByClaimToken(secondReadClaim.claimToken),
+      ).toHaveLength(2);
+      expect(store.listScopeLocksByClaimToken(executeClaim.claimToken)).toHaveLength(
+        2,
+      );
+      expect(store.listScopeLocksByClaimToken(writeClaim.claimToken)).toHaveLength(
+        1,
+      );
+      expect(store.listScopeLocks()).toHaveLength(7);
     } finally {
       store.close();
     }
