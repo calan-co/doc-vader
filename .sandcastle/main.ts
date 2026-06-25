@@ -59,6 +59,7 @@ const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
 const SANDBOX_ROOT_NODE_MODULES = "/home/agent/workspace/node_modules";
 const SANDBOX_CODEX_HOME = "/home/agent/.codex";
 const SANDBOX_WORKSPACE = "/home/agent/workspace";
+const SANDBOX_IMAGE_NAME = "sandcastle:sandcastle-root";
 const SANDBOX_IMAGE_SENTINEL = "doc-vader-sandcastle-image-2026-06-25";
 const SANDBOX_IMAGE_SENTINEL_FILE = "/etc/doc-vader-sandcastle-image";
 const SANDBOX_NX_CACHE = "/tmp/doc-vader-nx-cache";
@@ -184,6 +185,7 @@ const sandboxEnv = {
 
 const rootSandbox = () =>
   podman({
+    imageName: SANDBOX_IMAGE_NAME,
     env: sandboxEnv,
     mounts: [
       {
@@ -207,6 +209,7 @@ const rootSandbox = () =>
 
 const worktreeSandbox = () =>
   podman({
+    imageName: SANDBOX_IMAGE_NAME,
     env: sandboxEnv,
     mounts: [
       {
