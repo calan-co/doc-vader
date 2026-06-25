@@ -5,10 +5,11 @@ summary: Renew immutable claims only when their associated scopes remain availab
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-06-25'
 links:
   depends_on:
     - '[[60385-flat-claim-scopes-and-lock-policies]]'
@@ -45,14 +46,14 @@ locks remain compatible.
 
 ## Tasks
 
-- [ ] Locate current claim renewal or lease-extension behavior.
-- [ ] Model renewal as an operation on immutable claim identity.
-- [ ] Revalidate every associated ScopeRef before extending the claim.
-- [ ] Ensure the renewal check and metadata update are atomic for the backing
+- [x] Locate current claim renewal or lease-extension behavior.
+- [x] Model renewal as an operation on immutable claim identity.
+- [x] Revalidate every associated ScopeRef before extending the claim.
+- [x] Ensure the renewal check and metadata update are atomic for the backing
       runtime store.
-- [ ] Prevent release-and-reacquire gaps during renewal.
-- [ ] Return deterministic errors when any associated scope is unavailable.
-- [ ] Add tests for successful renewal, blocked renewal, and mixed-scope
+- [x] Prevent release-and-reacquire gaps during renewal.
+- [x] Return deterministic errors when any associated scope is unavailable.
+- [x] Add tests for successful renewal, blocked renewal, and mixed-scope
       failure.
 
 ## Deliverables
@@ -63,15 +64,15 @@ locks remain compatible.
 
 ## Acceptance Criteria
 
-- [ ] Renewal preserves the existing claim identity.
-- [ ] Renewal succeeds only when every associated scope remains available.
-- [ ] Renewal fails without releasing existing locks when any associated scope
+- [x] Renewal preserves the existing claim identity.
+- [x] Renewal succeeds only when every associated scope remains available.
+- [x] Renewal fails without releasing existing locks when any associated scope
       is unavailable.
-- [ ] Renewal produces deterministic diagnostics naming the conflicting
+- [x] Renewal produces deterministic diagnostics naming the conflicting
       ScopeRef and lock mode.
-- [ ] Tests cover read, write, and execute scope renewal cases.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Tests cover read, write, and execute scope renewal cases.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
