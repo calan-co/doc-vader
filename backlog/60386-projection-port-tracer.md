@@ -5,10 +5,11 @@ summary: Add a minimal graph-aligned projection port for Work Items, Claims, Rec
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: "2026-06-25"
 links:
   depends_on:
     - '[[60384-work-command-surface-and-scoperef-canonicalization]]'
@@ -56,27 +57,27 @@ WorkItem relationship edges needed for selection and governance:
 
 ## Tasks
 
-- [ ] Define the minimal projection port interfaces for nodes, edges, stable
+- [x] Define the minimal projection port interfaces for nodes, edges, stable
       identifiers, and query access.
-- [ ] Encode the authored edge direction rule: assertion owner points to target,
+- [x] Encode the authored edge direction rule: assertion owner points to target,
       and reverse traversal is derived query behavior.
-- [ ] Register node types for WorkItem, Claim, Record, and Scope.
-- [ ] Reserve Code as a future scope target without implementing Code node
+- [x] Register node types for WorkItem, Claim, Record, and Scope.
+- [x] Reserve Code as a future scope target without implementing Code node
       projection.
-- [ ] Project Work Item nodes using canonical Work Item identifiers and ScopeRef
+- [x] Project Work Item nodes using canonical Work Item identifiers and ScopeRef
       vocabulary from `60384`.
-- [ ] Project `WorkItem --depends_on--> WorkItem` edges from declared Work Item
+- [x] Project `WorkItem --depends_on--> WorkItem` edges from declared Work Item
       dependency metadata.
-- [ ] Project `WorkItem --belongs_to--> WorkItem|Milestone|Project` edges when
+- [x] Project `WorkItem --belongs_to--> WorkItem|Milestone|Project` edges when
       planning or governance parent metadata is declared.
-- [ ] Project `WorkItem --implements--> PRD|ADR|Requirement|Decision` edges when
+- [x] Project `WorkItem --implements--> PRD|ADR|Requirement|Decision` edges when
       traceability metadata is declared.
-- [ ] Add minimal Claim, Record, and Scope node projection stubs backed by
+- [x] Add minimal Claim, Record, and Scope node projection stubs backed by
       existing repository/runtime data where available.
-- [ ] Exclude `blocks` and generic `relates_to` from the canonical authored edge
+- [x] Exclude `blocks` and generic `relates_to` from the canonical authored edge
       set; expose blockers as derived operational findings if needed.
-- [ ] Add tests proving deterministic node projection and query access.
-- [ ] Document that commands remain adjacent to, not funneled through, the graph
+- [x] Add tests proving deterministic node projection and query access.
+- [x] Document that commands remain adjacent to, not funneled through, the graph
       for this MVP.
 
 ## Deliverables
@@ -89,21 +90,21 @@ WorkItem relationship edges needed for selection and governance:
 
 ## Acceptance Criteria
 
-- [ ] The port can project WorkItem, Claim, Record, and Scope nodes.
-- [ ] Authored edge direction follows assertion ownership across projected
+- [x] The port can project WorkItem, Claim, Record, and Scope nodes.
+- [x] Authored edge direction follows assertion ownership across projected
       relationship edges.
-- [ ] WorkItem `depends_on`, `belongs_to`, and `implements` edges project
+- [x] WorkItem `depends_on`, `belongs_to`, and `implements` edges project
       deterministically when declared.
-- [ ] `blocks` is not emitted as a canonical authored relationship edge.
-- [ ] Projected node identifiers are stable and storage-independent.
-- [ ] The implementation does not require GraphQL or a direct `context-graph`
+- [x] `blocks` is not emitted as a canonical authored relationship edge.
+- [x] Projected node identifiers are stable and storage-independent.
+- [x] The implementation does not require GraphQL or a direct `context-graph`
       package dependency.
-- [ ] The implementation does not import from a sibling workspace path.
-- [ ] Commands are not required to execute through the projection graph.
-- [ ] Tests prove repeated projection over the same source data yields stable
+- [x] The implementation does not import from a sibling workspace path.
+- [x] Commands are not required to execute through the projection graph.
+- [x] Tests prove repeated projection over the same source data yields stable
       node facts.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
