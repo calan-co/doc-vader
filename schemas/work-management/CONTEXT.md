@@ -6,16 +6,77 @@ automation.
 
 ## Language
 
+**Work**:
+The product and CLI term for the work-management entity family. Work includes
+epics, features, stories, tasks, bugs, spikes, and other planned engineering
+units that share lifecycle, relationship, evidence, and governance semantics.
+Use `Work` for family-wide command surfaces and aggregate behavior.
+_Alias_: work-management family
+_Avoid_: Task as the family term; "a work" as the singular artifact name
+
 **Work Item**:
-A tracked unit of planned engineering work with lifecycle state, completion
-criteria, and evidence links.
+A schema-backed member of Work with lifecycle state, completion criteria, and
+evidence links. Use Work Item when referring to the persisted artifact,
+frontmatter `type: work-item`, ID resolution, or schema contract.
 _Alias_: WI, item, issue
-_Avoid_: Ticket, task card (when referring to the canonical backlog artifact)
+_Avoid_: Ticket, task card, or task when referring to the canonical artifact
+family
+
+**Task**:
+A Work Item subtype for small, directly executable units of work.
+_Avoid_: Using Task as shorthand for all Work Items
+
+**Work Command Surface**:
+The family-wide CLI surface for Work operations. `dv work` should be the primary
+human-readable command, `dv wi` may exist as a terse shorthand, and legacy
+`dv task` behavior should migrate behind compatibility aliases.
+_Avoid_: Naming family-wide commands after the Task subtype
 
 **Task Projection**:
-The `dv task` command and Sandcastle-facing view over canonical Work Item data
-plus runtime execution state.
-_Avoid_: Treating task as a separate canonical repository entity
+The legacy `dv task` command and Sandcastle-facing view over canonical Work Item
+data plus runtime execution state. This projection should not remain the primary
+family-wide command name.
+_Avoid_: Treating task as a separate canonical repository entity or as the Work
+family term
+
+**Entity Type Specifier**:
+The URI scheme used in command-facing and graph-facing identifiers. If an entity
+type has a registered short form, the short form is canonical for identifiers
+and ScopeRefs; otherwise the long-form entity type is canonical. Module names,
+directories, and package names should use long-form terminology.
+_Example_: `wi` for Work Item ScopeRefs, while implementation modules use
+`work-item` or `work`
+_Avoid_: Encoding storage adapters such as `file` in the entity type specifier
+
+**ScopeRef**:
+A URI-formatted canonical reference to a lockable graph target. ScopeRefs use
+`<entity-type-specifier>:<stable-id>` and must not include file paths, database
+keys, storage adapters, or other location-specific details. Storage adapters map
+ScopeRefs to current storage locations. For existing Work Item identifiers, the
+entity-local stable id omits the duplicated entity prefix, so persisted Work Item
+id `wi-60343` canonicalizes to `wi:60343`.
+_Example_: `wi:60343`
+_Avoid_: `file:backlog/60343-example.md` as a canonical scope target
+
+**Scope**:
+A graph target abstraction identified by a ScopeRef. Work Items, Claims, Records,
+and future Code artifacts can participate as scope targets, but Scope is not a
+replacement for those concrete entity nodes.
+_Avoid_: Treating Scope as a superclass that erases concrete entity identity
+
+**Lock Policy**:
+An atomic compatibility rule for a lock mode. The MVP defines independent
+ReadLockPolicy, WriteLockPolicy, and ExecuteLockPolicy behavior: read coexists
+with read, execute coexists with read, and every other mode combination
+conflicts.
+_Avoid_: A monolithic lock policy that makes mode-specific evolution expensive
+
+**Nested Scope**:
+A hierarchical or umbrella scope relationship where one ScopeRef covers other
+ScopeRefs. Nested scopes and umbrella claims are intentionally deferred for the
+MVP; flat ScopeRef locks must leave room for a future parent/contains
+relationship.
+_Avoid_: Baking scope hierarchy into claim identity
 
 **Work Item Governance Kernel**:
 The deep module responsible for canonical Work Item interpretation, including
