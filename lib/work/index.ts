@@ -1,4 +1,16 @@
 export { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
+export {
+  createProjectionPort,
+  createWorkProjectionPort,
+  projectRepositoryGraph,
+  projectWorkGraph,
+  type ProjectWorkGraphOptions,
+  type WorkGraphEdge,
+  type WorkGraphEdgeType,
+  type WorkGraphNode,
+  type WorkGraphNodeType,
+  type WorkGraphProjection,
+} from "./projection.js";
 
 export {
   TaskCommandError as WorkCommandError,
