@@ -93,6 +93,11 @@ const WORKSPACE_TOOL_PREFLIGHT_COMMAND = withSandboxShell(
     'printf "workspace nx ok: %s\\n" "$(pnpm exec nx --version)"',
   ].join("\n"),
 );
+const SANDBOX_READY_COMMAND = [
+  SANDBOX_PREFLIGHT_COMMAND,
+  PNPM_INSTALL_COMMAND,
+  WORKSPACE_TOOL_PREFLIGHT_COMMAND,
+].join(" && ");
 const WORKTREE_NODE_MODULES_CLEANUP_COMMAND =
   'case "$PWD" in /home/agent/workspace) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside sandbox workspace: $PWD" >&2; exit 1 ;; esac';
 
@@ -223,11 +228,7 @@ const worktreeSandbox = () =>
 // host repo's macOS node_modules, so pnpm never mutates the host install.
 const rootHooks = {
   sandbox: {
-    onSandboxReady: [
-      { command: SANDBOX_PREFLIGHT_COMMAND },
-      { command: PNPM_INSTALL_COMMAND },
-      { command: WORKSPACE_TOOL_PREFLIGHT_COMMAND },
-    ],
+    onSandboxReady: [{ command: SANDBOX_READY_COMMAND }],
   },
 };
 
@@ -237,10 +238,9 @@ const rootHooks = {
 const worktreeHooks = {
   sandbox: {
     onSandboxReady: [
-      { command: WORKTREE_NODE_MODULES_CLEANUP_COMMAND },
-      { command: SANDBOX_PREFLIGHT_COMMAND },
-      { command: PNPM_INSTALL_COMMAND },
-      { command: WORKSPACE_TOOL_PREFLIGHT_COMMAND },
+      {
+        command: `${WORKTREE_NODE_MODULES_CLEANUP_COMMAND} && ${SANDBOX_READY_COMMAND}`,
+      },
     ],
   },
 };
