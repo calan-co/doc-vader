@@ -5,8 +5,9 @@ summary: Project claim scope locks into graph edges with mode and policy attribu
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
+completed_date: "2026-06-25"
 priority: high
 estimated: 4
 links:
@@ -53,17 +54,17 @@ as edge attributes where available.
 
 ## Tasks
 
-- [ ] Define the `locks` edge type in the projection vocabulary.
-- [ ] Ensure `locks` follows the canonical authored direction:
+- [x] Define the `locks` edge type in the projection vocabulary.
+- [x] Ensure `locks` follows the canonical authored direction:
       `Claim --locks--> Scope`.
-- [ ] Project one edge for each active claim-scope lock.
-- [ ] Attach lock mode and policy attributes to each edge.
-- [ ] Ensure Claim and Scope nodes referenced by lock edges are projected or
+- [x] Project one edge for each active claim-scope lock.
+- [x] Attach lock mode and policy attributes to each edge.
+- [x] Ensure Claim and Scope nodes referenced by lock edges are projected or
       resolvable.
-- [ ] Keep command enforcement in the claim-scope policy path rather than moving
+- [x] Keep command enforcement in the claim-scope policy path rather than moving
       enforcement into graph projection.
-- [ ] Add query tests for Claim-to-Scope lock edge projection.
-- [ ] Add fixture coverage for read, write, and execute lock modes.
+- [x] Add query tests for Claim-to-Scope lock edge projection.
+- [x] Add fixture coverage for read, write, and execute lock modes.
 
 ## Deliverables
 
@@ -73,17 +74,17 @@ as edge attributes where available.
 
 ## Acceptance Criteria
 
-- [ ] Active claim scopes project as `Claim --locks--> Scope` edges.
-- [ ] `locks` edges follow the assertion-owner-to-target direction.
-- [ ] Each lock edge includes the lock mode.
-- [ ] Each lock edge includes enough policy metadata to explain compatibility
+- [x] Active claim scopes project as `Claim --locks--> Scope` edges.
+- [x] `locks` edges follow the assertion-owner-to-target direction.
+- [x] Each lock edge includes the lock mode.
+- [x] Each lock edge includes enough policy metadata to explain compatibility
       decisions.
-- [ ] Projection does not mutate claim, lock, or Work Item state.
-- [ ] Missing node references fail closed or surface deterministic projection
+- [x] Projection does not mutate claim, lock, or Work Item state.
+- [x] Missing node references fail closed or surface deterministic projection
       findings.
-- [ ] Tests prove deterministic edge output for read, write, and execute locks.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Tests prove deterministic edge output for read, write, and execute locks.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
