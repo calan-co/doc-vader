@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { openRuntimeSqliteStore, RUNTIME_SCHEMA_VERSION } from "../lib/runtime/index.js";
+import {
+  openRuntimeSqliteStore,
+  RUNTIME_SCHEMA_VERSION,
+  type RuntimeInitialClaimAcquisitionResult,
+} from "../lib/runtime/index.js";
 import {
   projectWorkGraph,
   type WorkGraphProjection,
@@ -47,6 +51,17 @@ async function buildProjection(rootDir: string): Promise<WorkGraphProjection> {
     rootDir,
     workspaceDirs: ["backlog", "docs"],
   });
+}
+
+function expectAcquiredClaim(
+  result: RuntimeInitialClaimAcquisitionResult,
+  description: string,
+) {
+  expect(result.outcome).toBe("acquired");
+  if (result.outcome !== "acquired") {
+    throw new Error(`Expected ${description} claim to be acquired.`);
+  }
+  return result;
 }
 
 afterEach(async () => {
@@ -254,45 +269,42 @@ Project claim scope locks into graph edges.
 
     const store = openRuntimeSqliteStore({ rootDir });
     try {
-      const executeClaim = store.acquireRuntimeClaim({
-        schema_version: RUNTIME_SCHEMA_VERSION,
-        target_type: "task",
-        target_id: "wi-60387",
-        holder: "agent-execute",
-        created_at: "2099-06-25T00:00:00.000Z",
-        expires_at: "2099-06-25T01:00:00.000Z",
-        entropy: "claim-execute",
-      });
-      const readClaim = store.acquireRuntimeClaim({
-        schema_version: RUNTIME_SCHEMA_VERSION,
-        target_type: "document",
-        target_id: "doc:claim-lock-read",
-        holder: "agent-read",
-        created_at: "2099-06-25T00:05:00.000Z",
-        expires_at: "2099-06-25T01:05:00.000Z",
-        entropy: "claim-read",
-      });
-      const writeClaim = store.acquireRuntimeClaim({
-        schema_version: RUNTIME_SCHEMA_VERSION,
-        target_type: "document",
-        target_id: "doc:claim-lock-write",
-        holder: "agent-write",
-        created_at: "2099-06-25T00:10:00.000Z",
-        expires_at: "2099-06-25T01:10:00.000Z",
-        entropy: "claim-write",
-      });
-
-      for (const claim of [executeClaim, readClaim, writeClaim]) {
-        expect(claim.outcome).toBe("acquired");
-      }
-
-      if (
-        executeClaim.outcome !== "acquired" ||
-        readClaim.outcome !== "acquired" ||
-        writeClaim.outcome !== "acquired"
-      ) {
-        throw new Error("Expected all scope-lock projection claims to be acquired.");
-      }
+      const executeClaim = expectAcquiredClaim(
+        store.acquireRuntimeClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          target_type: "task",
+          target_id: "wi-60387",
+          holder: "agent-execute",
+          created_at: "2099-06-25T00:00:00.000Z",
+          expires_at: "2099-06-25T01:00:00.000Z",
+          entropy: "claim-execute",
+        }),
+        "execute scope-lock projection",
+      );
+      const readClaim = expectAcquiredClaim(
+        store.acquireRuntimeClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          target_type: "document",
+          target_id: "doc:claim-lock-read",
+          holder: "agent-read",
+          created_at: "2099-06-25T00:05:00.000Z",
+          expires_at: "2099-06-25T01:05:00.000Z",
+          entropy: "claim-read",
+        }),
+        "read scope-lock projection",
+      );
+      const writeClaim = expectAcquiredClaim(
+        store.acquireRuntimeClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          target_type: "document",
+          target_id: "doc:claim-lock-write",
+          holder: "agent-write",
+          created_at: "2099-06-25T00:10:00.000Z",
+          expires_at: "2099-06-25T01:10:00.000Z",
+          entropy: "claim-write",
+        }),
+        "write scope-lock projection",
+      );
 
       expect(
         store.acquireRuntimeScopeLocks(readClaim.claimToken, [

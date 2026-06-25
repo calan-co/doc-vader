@@ -397,7 +397,7 @@ function createClaimScopeNode(record: RuntimeClaimRecord): WorkGraphNode {
   });
 }
 
-function createLockScopeNode(scopeRef: string): WorkGraphNode {
+function createRuntimeLockScopeNode(scopeRef: string): WorkGraphNode {
   return createScopeNode({
     id: canonicalScopeNodeId(scopeRef),
     label: scopeRef,
@@ -695,6 +695,44 @@ function createProjectionView(index: GraphIndex): WorkGraphProjection {
   };
 }
 
+function createRuntimeLockEdgeProperties(
+  scopeLock: RuntimeScopeLockRecord,
+  claim: RuntimeClaimRecord,
+): JsonObject {
+  return {
+    claimToken: scopeLock.claim_token,
+    scopeRef: scopeLock.scope_ref,
+    lockMode: scopeLock.lock_mode,
+    policyName: scopeLock.policy_name,
+    acquiredAt: scopeLock.acquired_at,
+    updatedAt: scopeLock.updated_at,
+    lifecycleState: scopeLock.lifecycle_state,
+    releasedAt: scopeLock.released_at,
+    targetType: claim.target_type,
+    targetId: claim.target_id,
+    claimState: claim.state,
+  };
+}
+
+function ensureRuntimeLockScopeNode(
+  scopeRef: string,
+  nodes: WorkGraphNode[],
+  nodesById: Map<string, WorkGraphNode>,
+  scopeNodeIds: Set<string>,
+): WorkGraphNode {
+  const scopeNodeId = `scope:${canonicalScopeNodeId(scopeRef)}`;
+  let scopeNode = nodesById.get(scopeNodeId);
+
+  if (!scopeNode) {
+    scopeNode = createRuntimeLockScopeNode(scopeRef);
+    nodes.push(scopeNode);
+    nodesById.set(scopeNode.id, scopeNode);
+  }
+
+  scopeNodeIds.add(scopeNode.id);
+  return scopeNode;
+}
+
 function projectRuntimeLockEdges(options: {
   claims: RuntimeClaimRecord[];
   scopeLocks: RuntimeScopeLockRecord[];
@@ -719,14 +757,12 @@ function projectRuntimeLockEdges(options: {
       continue;
     }
 
-    const scopeNodeId = `scope:${canonicalScopeNodeId(scopeLock.scope_ref)}`;
-    let scopeNode = options.nodesById.get(scopeNodeId);
-    if (!scopeNode) {
-      scopeNode = createLockScopeNode(scopeLock.scope_ref);
-      options.nodes.push(scopeNode);
-      options.nodesById.set(scopeNode.id, scopeNode);
-    }
-    options.scopeNodeIds.add(scopeNode.id);
+    const scopeNode = ensureRuntimeLockScopeNode(
+      scopeLock.scope_ref,
+      options.nodes,
+      options.nodesById,
+      options.scopeNodeIds,
+    );
 
     options.edges.push(
       createEdge(
@@ -738,17 +774,7 @@ function projectRuntimeLockEdges(options: {
           claimToken: scopeLock.claim_token,
         },
         {
-          claimToken: scopeLock.claim_token,
-          scopeRef: scopeLock.scope_ref,
-          lockMode: scopeLock.lock_mode,
-          policyName: scopeLock.policy_name,
-          acquiredAt: scopeLock.acquired_at,
-          updatedAt: scopeLock.updated_at,
-          lifecycleState: scopeLock.lifecycle_state,
-          releasedAt: scopeLock.released_at,
-          targetType: claim.target_type,
-          targetId: claim.target_id,
-          claimState: claim.state,
+          ...createRuntimeLockEdgeProperties(scopeLock, claim),
         },
       ),
     );
