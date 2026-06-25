@@ -84,3 +84,7 @@ locks remain compatible.
 - `depends_on`: `[[60385-flat-claim-scopes-and-lock-policies]]`
 - `depends_on`: `[[60387-claim-lock-graph-projection]]`
 - `implements`: `[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]`
+
+## Status Notes
+
+- 2026-06-25: Verified on `sandcastle/issue-60388` with `corepack pnpm run typecheck`, `corepack pnpm exec vitest run`, `bash staging/scripts/docs-lint.sh`, `node dist/cli/doc-vader.js backlog validate --dir backlog --fail-on error`, and `sh staging/scripts/backlog-hygiene-ci.sh`. The direct `pnpm run test`, `pnpm run docs:lint`, `pnpm run backlog:validate`, and `pnpm run backlog:validate:ci` entrypoints remained blocked in this sandbox by `NX Permission denied (os error 13)`, so equivalent non-Nx validation commands were used for the final signal.
