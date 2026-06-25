@@ -48,13 +48,12 @@ const planSchema = z.object({
 const MAX_ITERATIONS = 10;
 const HOST_SANDBOX_CACHE = ".sandcastle/cache";
 const HOST_WORKTREE_DIR = ".sandcastle/worktrees";
-const HOST_COREPACK_CACHE = `${HOST_SANDBOX_CACHE}/corepack-linux`;
 const HOST_PNPM_STORE = `${HOST_SANDBOX_CACHE}/pnpm-store-linux`;
 const HOST_ROOT_NODE_MODULES = `${HOST_SANDBOX_CACHE}/root-node_modules`;
 const HOST_CODEX_AUTH = path.join(os.homedir(), ".codex", "auth.json");
 const HOST_CODEX_CONFIG = path.join(os.homedir(), ".codex", "config.toml");
 const HOST_SANDBOX_CODEX_HOME = `${HOST_SANDBOX_CACHE}/codex-home`;
-const SANDBOX_COREPACK_CACHE = "/home/agent/.cache/node/corepack";
+const SANDBOX_COREPACK_HOME = "/usr/local/share/corepack";
 const SANDBOX_PNPM_STORE = "/home/agent/.cache/pnpm/store";
 const SANDBOX_ROOT_NODE_MODULES = "/home/agent/workspace/node_modules";
 const SANDBOX_CODEX_HOME = "/home/agent/.codex";
@@ -67,7 +66,7 @@ const SANDBOX_PATH =
   `${SANDBOX_WORKSPACE}/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`;
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const withSandboxShell = (script: string) =>
-  `PATH=${SANDBOX_PATH}:$PATH COREPACK_HOME=${SANDBOX_COREPACK_CACHE} CI=true NX_DAEMON=false NX_CACHE_DIRECTORY=${SANDBOX_NX_CACHE} sh -lc ${shellQuote(
+  `PATH=${SANDBOX_PATH}:$PATH COREPACK_HOME=${SANDBOX_COREPACK_HOME} CI=true NX_DAEMON=false NX_CACHE_DIRECTORY=${SANDBOX_NX_CACHE} sh -lc ${shellQuote(
     script,
   )}`;
 const PNPM_INSTALL_COMMAND = withSandboxShell(
@@ -83,7 +82,7 @@ const SANDBOX_PREFLIGHT_COMMAND = withSandboxShell(
     `test -r ${SANDBOX_IMAGE_SENTINEL_FILE} || { printf "missing sandbox image sentinel: ${SANDBOX_IMAGE_SENTINEL_FILE}; rebuild and ensure Sandcastle launches the rebuilt image\\n" >&2; exit 1; }`,
     `test "$(cat ${SANDBOX_IMAGE_SENTINEL_FILE})" = "${SANDBOX_IMAGE_SENTINEL}" || { printf "unexpected sandbox image sentinel: %s\\n" "$(cat ${SANDBOX_IMAGE_SENTINEL_FILE})" >&2; exit 1; }`,
     'for command in node git corepack pnpm rg; do command_path="$(command -v "$command" || true)"; if [ -z "$command_path" ]; then printf "missing required sandbox image command: %s\\n" "$command" >&2; exit 127; fi; printf "sandbox command %s=%s\\n" "$command" "$command_path"; done',
-    `test -w ${SANDBOX_COREPACK_CACHE} || { printf "corepack cache is not writable: ${SANDBOX_COREPACK_CACHE}\\n" >&2; exit 1; }`,
+    `test -r ${SANDBOX_COREPACK_HOME} || { printf "corepack home is not readable: ${SANDBOX_COREPACK_HOME}\\n" >&2; exit 1; }`,
     `test -w ${SANDBOX_PNPM_STORE} || { printf "pnpm store is not writable: ${SANDBOX_PNPM_STORE}\\n" >&2; exit 1; }`,
     'printf "sandbox preflight ok: node=%s pnpm=%s rg=%s image=%s\\n" "$(node --version)" "$(pnpm --version)" "$(rg --version | head -n 1)" "$(cat /etc/doc-vader-sandcastle-image)"',
   ].join("\n"),
@@ -148,7 +147,6 @@ const runHostPreflight = () => {
   }
 
   for (const dir of [
-    HOST_COREPACK_CACHE,
     HOST_PNPM_STORE,
     HOST_ROOT_NODE_MODULES,
     HOST_SANDBOX_CODEX_HOME,
@@ -159,7 +157,6 @@ const runHostPreflight = () => {
 
 runHostPreflight();
 
-fs.mkdirSync(HOST_COREPACK_CACHE, { recursive: true });
 fs.mkdirSync(HOST_PNPM_STORE, { recursive: true });
 fs.mkdirSync(HOST_ROOT_NODE_MODULES, { recursive: true });
 fs.mkdirSync(HOST_SANDBOX_CODEX_HOME, { recursive: true });
@@ -178,7 +175,7 @@ const sandboxEnv = {
   CI: "true",
   TMPDIR: "/tmp",
   CODEX_HOME: SANDBOX_CODEX_HOME,
-  COREPACK_HOME: SANDBOX_COREPACK_CACHE,
+  COREPACK_HOME: SANDBOX_COREPACK_HOME,
   NX_DAEMON: "false",
   PATH: SANDBOX_PATH,
 };
@@ -188,10 +185,6 @@ const rootSandbox = () =>
     imageName: SANDBOX_IMAGE_NAME,
     env: sandboxEnv,
     mounts: [
-      {
-        hostPath: HOST_COREPACK_CACHE,
-        sandboxPath: SANDBOX_COREPACK_CACHE,
-      },
       {
         hostPath: HOST_PNPM_STORE,
         sandboxPath: SANDBOX_PNPM_STORE,
@@ -212,10 +205,6 @@ const worktreeSandbox = () =>
     imageName: SANDBOX_IMAGE_NAME,
     env: sandboxEnv,
     mounts: [
-      {
-        hostPath: HOST_COREPACK_CACHE,
-        sandboxPath: SANDBOX_COREPACK_CACHE,
-      },
       {
         hostPath: HOST_PNPM_STORE,
         sandboxPath: SANDBOX_PNPM_STORE,
