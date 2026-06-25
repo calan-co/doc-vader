@@ -60,28 +60,31 @@ const SANDBOX_ROOT_NODE_MODULES = "/home/agent/workspace/node_modules";
 const SANDBOX_CODEX_HOME = "/home/agent/.codex";
 const SANDBOX_PATH =
   "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
-const SANDBOX_NODE = "/usr/local/bin/node";
-const SANDBOX_GIT = "/usr/bin/git";
-const SANDBOX_COREPACK = "/usr/local/bin/corepack";
-const SANDBOX_RG = "/usr/bin/rg";
-const SANDBOX_PNPM_COMMAND = `${SANDBOX_COREPACK} pnpm`;
-const PNPM_INSTALL_COMMAND = `CI=true NX_DAEMON=false COREPACK_HOME=${SANDBOX_COREPACK_CACHE} ${SANDBOX_PNPM_COMMAND} install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`;
-const SANDBOX_PREFLIGHT_COMMAND = [
-  `test -x ${SANDBOX_NODE}`,
-  `test -x ${SANDBOX_GIT}`,
-  `test -x ${SANDBOX_COREPACK}`,
-  `test -x ${SANDBOX_RG}`,
-  `test -w ${SANDBOX_COREPACK_CACHE}`,
-  `test -w ${SANDBOX_PNPM_STORE}`,
-  `printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(${SANDBOX_NODE} --version)" "$(${SANDBOX_PNPM_COMMAND} --version)"`,
-].join(" && ");
-const WORKSPACE_TOOL_SHIM_COMMAND = [
+const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+const withSandboxShell = (script: string) =>
+  `PATH=${SANDBOX_PATH}:$PATH COREPACK_HOME=${SANDBOX_COREPACK_CACHE} CI=true NX_DAEMON=false sh -lc ${shellQuote(
+    script,
+  )}`;
+const PNPM_INSTALL_COMMAND = withSandboxShell(
+  `corepack pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`,
+);
+const SANDBOX_PREFLIGHT_COMMAND = withSandboxShell(
+  [
+    "set -eu",
+    'printf "sandbox PATH=%s\\n" "$PATH"',
+    'for command in node git corepack rg; do command_path="$(command -v "$command" || true)"; if [ -z "$command_path" ]; then printf "missing required sandbox command: %s\\n" "$command" >&2; exit 127; fi; printf "sandbox command %s=%s\\n" "$command" "$command_path"; done',
+    `test -w ${SANDBOX_COREPACK_CACHE} || { printf "corepack cache is not writable: ${SANDBOX_COREPACK_CACHE}\\n" >&2; exit 1; }`,
+    `test -w ${SANDBOX_PNPM_STORE} || { printf "pnpm store is not writable: ${SANDBOX_PNPM_STORE}\\n" >&2; exit 1; }`,
+    'printf "sandbox preflight ok: node=%s pnpm=%s\\n" "$(node --version)" "$(corepack pnpm --version)"',
+  ].join("\n"),
+);
+const WORKSPACE_TOOL_SHIM_COMMAND = withSandboxShell([
   "mkdir -p .tmp-bin node_modules/.bin",
-  `printf '%s\\n' '#!/usr/bin/env sh' 'exec ${SANDBOX_PNPM_COMMAND} "$@"' > .tmp-bin/pnpm`,
+  `printf "%s\\n" "#!/usr/bin/env sh" "PATH=${SANDBOX_PATH}:\\$PATH" "COREPACK_HOME=${SANDBOX_COREPACK_CACHE}" "export PATH COREPACK_HOME" "exec corepack pnpm \\"\\$@\\"" > .tmp-bin/pnpm`,
   "chmod +x .tmp-bin/pnpm",
   "ln -sf ../../.tmp-bin/pnpm node_modules/.bin/pnpm",
   'printf "workspace pnpm shim ok: %s\\n" "$(.tmp-bin/pnpm --version)"',
-].join(" && ");
+].join("\n"));
 const WORKTREE_NODE_MODULES_CLEANUP_COMMAND =
   'case "$PWD" in /home/agent/workspace) rm -rf node_modules ;; *) echo "Refusing to remove node_modules outside sandbox workspace: $PWD" >&2; exit 1 ;; esac';
 
