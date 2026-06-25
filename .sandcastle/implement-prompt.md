@@ -2,30 +2,11 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Mode: {{MODE}}
-Existing claim: {{CLAIM_ID}}
+Pull in the issue using `node --input-type=module -e 'import{readFileSync,readdirSync}from"node:fs";import path from"node:path";const dir="backlog",needle=String(process.argv[1]??"").replace(/^wi-/,"");function clean(v){return String(v??"").trim().replace(/^[\"\x27]|[\"\x27]$/g,"")}function split(raw){const m=raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);return m?{fm:m[1],body:raw.slice(m[0].length)}:{fm:"",body:raw}}function parse(text){const data={};let top=null,obj=data,key=null;for(const raw of text.split(/\r?\n/)){if(!raw.trim()||raw.trim().startsWith("#"))continue;let m=raw.match(/^([A-Za-z0-9_$-]+):(?:\s*(.*))?$/);if(m){top=m[1];const val=(m[2]??"").trim();data[top]=val?clean(val):[];obj=data;key=top;continue}m=raw.match(/^  ([A-Za-z0-9_$-]+):(?:\s*(.*))?$/);if(m&&top){if(Array.isArray(data[top]))data[top]={};obj=data[top];key=m[1];const val=(m[2]??"").trim();obj[key]=val?clean(val):[];continue}m=raw.match(/^\s*-\s*(.*)$/);if(m&&obj&&key&&Array.isArray(obj[key]))obj[key].push(clean(m[1]))}return data}function arr(v){return Array.isArray(v)?v:[]}function sections(body){const ms=[...body.matchAll(/^##\s+(.+)$/gm)];return ms.map((m,i)=>({heading:m[1].trim(),content:body.slice(m.index+m[0].length,ms[i+1]?.index??body.length).trim()}))}for(const file of readdirSync(dir).filter(f=>f.endsWith(".md")).sort()){const raw=readFileSync(path.join(dir,file),"utf8");const{fm,body}=split(raw);const data=parse(fm);const id=clean(data.id||"").replace(/^wi-/,"");if(id===needle||file.replace(/\.md$/,"")===needle||file.startsWith(needle+"-")){const sec=sections(body);console.log(JSON.stringify({id,number:id,title:clean(data.title||id),body:body.trim(),status:clean(data.status||""),state:["completed","aborted","closed"].includes(clean(data.status||""))?"closed":"open",priority:clean(data.priority||""),tags:arr(data.tags),dependencies:arr((data.links??{}).depends_on),references:arr((data.links??{}).reference),file:path.join(dir,file),frontmatter:data,bodySections:sec.map(s=>({heading:s.heading,content:s.content}))},null,2));process.exit(0)}}console.error("No markdown issue found for "+needle);process.exit(1)' {{TASK_ID}}`. If it has a parent PRD, pull that in too.
 
-Recovery context:
+Only work on the issue specified.
 
-```json
-{{RECOVERY_CONTEXT}}
-```
-
-First claim the task:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts claim {{TASK_ID}} --holder "$SANDCASTLE_CLAIM_HOLDER" --branch {{BRANCH}} --json`
-
-Save the returned `claimId`. For recovered work, this may return the existing adopted claim idempotently. Use that exact claim for evidence recording. Do not release it after successful implementation; the merger closes the task with this active claim and releases it after close.
-
-Pull in the issue using `CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`. If the task has a parent PRD, pull that in too.
-
-Load the implementation prompt rendered from the same task JSON:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts prompt {{TASK_ID}}`
-
-Only work on the claimed task. If claim, view, or prompt fails, stop.
-
-Work on branch {{BRANCH}}. If mode is `recovered`, inspect existing branch commits, diff, evidence, and tests before deciding what work remains. Do not assume existing commits are complete. Make commits and run tests.
+Work on branch {{BRANCH}}. Make commits and run tests.
 
 # CONTEXT
 
@@ -54,67 +35,17 @@ If applicable, use RGR to complete the task.
 
 # FEEDBACK LOOPS
 
-Before committing, run validation with heartbeat output so Sandcastle can distinguish long-running validation from an idle agent:
-
-```sh
-CI=true scripts/sandcastle/run-with-heartbeat.sh typecheck pnpm run typecheck
-CI=true scripts/sandcastle/run-with-heartbeat.sh test pnpm run test
-```
-
-# TEMPORARY WORK-ITEM COMPLETION PROTOCOL
-
-Until Doc-Vader has runtime-backed claim completion, you must maintain work-item checkboxes explicitly and conservatively.
-
-After implementation and validation:
-
-1. Re-open the claimed work item Markdown file from `dv task show <TASK_ID> --json` / `filePath`.
-2. Review every unchecked `- [ ]` item under `## Tasks`, `## Deliverables`, `## Acceptance Criteria`, `## Acceptance criteria`, or similarly named checklist sections.
-3. Change `- [ ]` to `- [x]` only when the repository now contains concrete evidence that the item is satisfied:
-   - code/docs/config changes are present in the branch,
-   - relevant tests or validation commands passed, and
-   - the implementation directly addresses the checklist text.
-4. Leave a checkbox unchecked if the evidence is partial, inferred, blocked, or outside this task's scope.
-5. Do not mark the work item `completed`, `closed`, or otherwise lifecycle-complete in the implementation phase.
-6. If any required checkbox remains unchecked, do not output `<promise>COMPLETE</promise>`; instead report the unchecked items and blockers.
-
-When you record evidence, include a concise checklist summary in the payload observation naming the validation commands that passed and any checkboxes intentionally left unchecked.
-
-# EVIDENCE AND CLAIM HANDOFF
-
-After implementation and validation, record evidence using the saved `claimId`.
-
-Create an evidence payload:
-
-```sh
-cat > /tmp/doc-vader-evidence.json <<'JSON'
-{
-  "type": "test-result",
-  "summary": "Sandcastle task validation passed",
-  "observation": "Implementation completed, required validation commands passed, and supported work-item checkboxes were checked with evidence.",
-  "outcome": "pass"
-}
-JSON
-```
-
-Record evidence:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts record --claim <claimId> --payload /tmp/doc-vader-evidence.json`
-
-Keep the claim active after evidence is recorded. The merge phase uses the active claim as the mutex guard when closing the task.
-
-If the task is abandoned or cannot be completed, release the claim before stopping:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts release --claim <claimId>`
+Before committing, run `pnpm run typecheck` and `pnpm run test` to ensure the tests pass.
 
 # COMMIT
 
 Make a git commit. The commit message must:
 
-1. Use the repository conventional commit format, such as `feat(scope): summary`, `fix(scope): summary`, `test(scope): summary`, or `docs(scope): summary`
-2. Include task completed + PRD reference in the commit body when applicable
-3. Include key decisions made
-4. Include files changed
-5. Include blockers or notes for next iteration
+1. Start with `RALPH:` prefix
+2. Include task completed + PRD reference
+3. Key decisions made
+4. Files changed
+5. Blockers or notes for next iteration
 
 Keep it concise.
 
