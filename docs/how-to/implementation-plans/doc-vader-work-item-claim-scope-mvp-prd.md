@@ -255,8 +255,8 @@ This PRD is ready to decompose into implementation Work Items. The prior AFK blo
 
 ## Implementation Decisions
 
-- Use context-graph directly as the initial in-process projection substrate.
-  Rationale: It already provides provider-scoped graph writes, deterministic snapshots, versioned query contracts, and provenance without forcing GraphQL or command lifecycle policy into the projection module.
+- Keep the current Work projection substrate behind a thin internal, context-graph-aligned port until a published package dependency is lower friction than the local seam.
+  Rationale: The current MVP only needs deterministic node and edge projection plus simple in-process queries. Keeping that behind `lib/work/**` preserves package neutrality while avoiding sibling-workspace coupling.
 
   Category: `architecture`
 
@@ -369,6 +369,45 @@ This PRD is ready to decompose into implementation Work Items. The prior AFK blo
   Rationale: This minimizes development friction without committing Doc-Vader to a sibling repository path or a vendored fork, while preserving a clean route to separately published packages.
 
   Category: `architecture`
+
+- Production code must not import a sibling workspace source path for `context-graph`, Semantify, or any other future package candidate; package adoption must happen through a normal package-manager dependency or stay behind the local seam.
+  Rationale: Relative cross-workspace imports create hidden coupling to local checkout layout and make package extraction harder than maintaining the current minimal port.
+
+  Category: `module-boundary`
+
+- Pivot from the local projection port to a direct `context-graph` dependency when a published package is available and lower friction, or when Doc-Vader would otherwise reimplement provider-scoped graph writes, deterministic snapshot/provenance contracts, or compatibility fixtures beyond the current node and edge assembly.
+  Rationale: The local port is acceptable MVP glue only while it stays thinner than the dependency it is standing in for.
+
+  Category: `architecture`
+
+- Keep ScopeRef canonicalization, claim-lock verification, and record-lineage projection local until a second slice needs the same normalization/runtime shape; pivot to Semantify when two or more Doc-Vader adapters or profiles would duplicate reusable normalization or data-catalog behavior.
+  Rationale: The current projection slices are governance-specific glue, but repeated normalization/profile runtime work is the signal that Semantify should own that concern.
+
+  Category: `technical-clarification`
+
+## Package Boundary Guardrails
+
+- Current internal boundary: `lib/work/projection.ts`, `lib/work/claim-verification.ts`, and `lib/work/scope-ref.ts` form the MVP projection and normalization seam. They may compose Doc-Vader runtime/task modules inside this repository, but they stay package-neutral at the boundary.
+
+- Sibling workspace rule: production code under `lib/**` and `cli/**` must not import relative paths that resolve outside the repository root. If `context-graph` or Semantify is adopted, it must arrive as a published/package-manager dependency rather than a sibling checkout path.
+
+- `context-graph` pivot signals:
+  - a normal package dependency is available and cheaper than keeping the local compatibility layer;
+  - Doc-Vader starts duplicating provider-scoped graph writes, deterministic snapshots, provenance, or versioned query contracts;
+  - projection extraction would otherwise require a growing set of local compatibility fixtures.
+
+- Semantify pivot signals:
+  - two or more Doc-Vader adapters or profiles duplicate Semantify-style normalization or data-catalog runtime behavior;
+  - non-Work artifacts need the same normalization/profile pipeline as Work artifacts;
+  - projection output needs reusable catalog/profile execution more than Doc-Vader-specific governance glue.
+
+- Duplication inventory:
+  - `lib/work/projection.ts` graph node and edge assembly is acceptable MVP glue.
+    Next action: keep the port contract-compatible with `context-graph` and pivot instead of expanding into provider/scenario-specific graph infrastructure.
+  - `lib/work/scope-ref.ts` canonicalization plus the lineage subject normalization used by claim verification and record projection is acceptable MVP glue.
+    Next action: keep it local until another non-Work slice needs the same normalization/profile runtime, then adopt Semantify instead of cloning more adapters.
+  - Any future local reimplementation of provider-scoped graph behavior, deterministic snapshot/provenance, or reusable normalization/profile execution is a dependency pivot candidate.
+    Next action: replace the local copy with the package dependency rather than extending the duplicate behavior.
 
 ## Testing Decisions
 
@@ -488,6 +527,8 @@ Existing runtime and legacy Task command projection tests prove claim and lock b
 
 - Audit output can explain claim, scope, mutation, and evidence lineage for one Work Item execution.
 
+- Production source code does not import sibling workspace paths for projection or normalization behavior.
+
 - Semantify pivot signals are documented before duplicating projection runtime behavior beyond the first slice.
 
 ## Out of Scope
@@ -527,6 +568,8 @@ Ready label: `ready-for-agent`
 - Use a context-graph-aligned projection port; add a normal context-graph package dependency only when it is lower friction than the minimal local port.
 
 - Keep Semantify adoption behind the documented pivot gate.
+
+- Reject sibling-workspace source imports in production code so package adoption happens through published dependencies rather than checkout-relative paths.
 
 - Do not make GraphQL part of the command mutation path in the MVP.
 
