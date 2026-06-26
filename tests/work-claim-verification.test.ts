@@ -15,6 +15,26 @@ import {
 } from "../lib/work/index.js";
 
 const tempDirs: string[] = [];
+const WORK_ITEM_PATH = path.join(
+  "backlog",
+  "60389-post-mutation-graph-verification.md",
+);
+const WORK_ITEM_CONTENT = `---
+id: wi-60389
+title: Post-Mutation Graph Verification
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+---
+
+## Goal
+
+Verify graph facts after renewal.
+`;
+const CLAIM_SNAPSHOT_SQL =
+  "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?";
 
 async function createTempRepo(): Promise<string> {
   const dir = path.join(
@@ -42,6 +62,82 @@ function expectAcquiredClaim(
   return result;
 }
 
+async function createVerificationRepo(): Promise<string> {
+  const rootDir = await createTempRepo();
+  await writeMarkdown(path.join(rootDir, WORK_ITEM_PATH), WORK_ITEM_CONTENT);
+  return rootDir;
+}
+
+interface SeedClaimOptions {
+  holder: string;
+  entropy: string;
+  scopeLocks: Array<{ scopeRef: string; lockMode: "read" | "execute" }>;
+}
+
+function seedClaim(
+  rootDir: string,
+  options: SeedClaimOptions,
+): string {
+  const store = openRuntimeSqliteStore({ rootDir });
+  try {
+    const claim = expectAcquiredClaim(
+      store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: "wi-60389",
+        holder: options.holder,
+        created_at: "2099-06-26T00:00:00.000Z",
+        expires_at: "2099-06-26T00:30:00.000Z",
+        entropy: options.entropy,
+      }),
+      options.holder,
+    );
+
+    expect(
+      store.acquireRuntimeScopeLocks(claim.claimToken, options.scopeLocks),
+    ).toMatchObject({ outcome: "acquired" });
+    store.database
+      .prepare(CLAIM_SNAPSHOT_SQL)
+      .run(
+        "2099-06-26T00:05:00.000Z",
+        "2099-06-26T00:30:00.000Z",
+        claim.claimToken,
+      );
+    return claim.claimToken;
+  } finally {
+    store.close();
+  }
+}
+
+function removeClaimLockEdge(
+  projection: WorkGraphProjection,
+  claimToken: string,
+  scopeNodeId: string,
+): WorkGraphProjection {
+  const filteredEdges = projection.edges.filter(
+    (edge) =>
+      !(
+        edge.type === "locks" &&
+        edge.from === `claim:${claimToken}` &&
+        edge.to === scopeNodeId
+      ),
+  );
+
+  return {
+    ...projection,
+    edges: filteredEdges,
+    getEdgesByType(type) {
+      return filteredEdges.filter((edge) => edge.type === type);
+    },
+    getOutgoingEdges(nodeId) {
+      return filteredEdges.filter((edge) => edge.from === nodeId);
+    },
+    getIncomingEdges(nodeId) {
+      return filteredEdges.filter((edge) => edge.to === nodeId);
+    },
+  };
+}
+
 afterEach(async () => {
   await Promise.all(
     tempDirs.splice(0, tempDirs.length).map((dir) =>
@@ -52,63 +148,19 @@ afterEach(async () => {
 
 describe("work claim graph verification", () => {
   it("reprojects and verifies graph facts after a scope-gated renewal mutation", async () => {
-    const rootDir = await createTempRepo();
-    await writeMarkdown(
-      path.join(rootDir, "backlog", "60389-post-mutation-graph-verification.md"),
-      `---
-id: wi-60389
-title: Post-Mutation Graph Verification
-type: work-item
-subtype: task
-lifecycle: active
-status: ready
-status_reason: auto
----
-
-## Goal
-
-Verify graph facts after renewal.
-`,
-    );
-
-    const store = openRuntimeSqliteStore({ rootDir });
-    let claimToken: string;
-    try {
-      const claim = expectAcquiredClaim(
-        store.acquireRuntimeClaim({
-          schema_version: RUNTIME_SCHEMA_VERSION,
-          target_type: "task",
-          target_id: "wi-60389",
-          holder: "agent-renew-verify",
-          created_at: "2099-06-26T00:00:00.000Z",
-          expires_at: "2099-06-26T00:30:00.000Z",
-          entropy: "claim-renew-verify",
-        }),
-        "renew verification",
-      );
-      claimToken = claim.claimToken;
-      expect(
-        store.acquireRuntimeScopeLocks(claim.claimToken, [
-          { scopeRef: "wi-60387", lockMode: "execute" },
-          { scopeRef: "wi-60388", lockMode: "read" },
-        ]),
-      ).toMatchObject({ outcome: "acquired" });
-      store.database
-        .prepare(
-          "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
-        )
-        .run(
-          "2099-06-26T00:05:00.000Z",
-          "2099-06-26T00:30:00.000Z",
-          claimToken,
-        );
-    } finally {
-      store.close();
-    }
+    const rootDir = await createVerificationRepo();
+    const claimToken = seedClaim(rootDir, {
+      holder: "renew verification",
+      entropy: "claim-renew-verify",
+      scopeLocks: [
+        { scopeRef: "wi-60387", lockMode: "execute" },
+        { scopeRef: "wi-60388", lockMode: "read" },
+      ],
+    });
 
     const renewed = await renewWorkClaimWithGraphVerification({
       rootDir,
-      claimToken: claimToken!,
+      claimToken,
       now: new Date("2099-06-26T00:10:00.000Z"),
       ttlMilliseconds: 30 * 60_000,
     });
@@ -135,64 +187,18 @@ Verify graph facts after renewal.
   });
 
   it("fails closed with deterministic diagnostics when post-mutation graph facts are missing", async () => {
-    const rootDir = await createTempRepo();
-    await writeMarkdown(
-      path.join(rootDir, "backlog", "60389-post-mutation-graph-verification.md"),
-      `---
-id: wi-60389
-title: Post-Mutation Graph Verification
-type: work-item
-subtype: task
-lifecycle: active
-status: ready
-status_reason: auto
----
-
-## Goal
-
-Verify graph facts after renewal.
-`,
-    );
-
-    const store = openRuntimeSqliteStore({ rootDir });
-    let claimToken: string;
-    try {
-      const claim = expectAcquiredClaim(
-        store.acquireRuntimeClaim({
-          schema_version: RUNTIME_SCHEMA_VERSION,
-          target_type: "task",
-          target_id: "wi-60389",
-          holder: "agent-renew-mismatch",
-          created_at: "2099-06-26T00:00:00.000Z",
-          expires_at: "2099-06-26T00:30:00.000Z",
-          entropy: "claim-renew-mismatch",
-        }),
-        "renew mismatch",
-      );
-      claimToken = claim.claimToken;
-      expect(
-        store.acquireRuntimeScopeLocks(claim.claimToken, [
-          { scopeRef: "wi-60388", lockMode: "read" },
-        ]),
-      ).toMatchObject({ outcome: "acquired" });
-      store.database
-        .prepare(
-          "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
-        )
-        .run(
-          "2099-06-26T00:05:00.000Z",
-          "2099-06-26T00:30:00.000Z",
-          claimToken,
-        );
-    } finally {
-      store.close();
-    }
+    const rootDir = await createVerificationRepo();
+    const claimToken = seedClaim(rootDir, {
+      holder: "renew mismatch",
+      entropy: "claim-renew-mismatch",
+      scopeLocks: [{ scopeRef: "wi-60388", lockMode: "read" }],
+    });
 
     let projectionCount = 0;
     await expect(
       renewWorkClaimWithGraphVerification({
         rootDir,
-        claimToken: claimToken!,
+        claimToken,
         now: new Date("2099-06-26T00:10:00.000Z"),
         ttlMilliseconds: 30 * 60_000,
         project: async (options): Promise<WorkGraphProjection> => {
@@ -201,27 +207,11 @@ Verify graph facts after renewal.
           if (projectionCount === 1) {
             return projection;
           }
-          const filteredEdges = projection.edges.filter(
-            (edge) =>
-              !(
-                edge.type === "locks" &&
-                edge.from === `claim:${claimToken}` &&
-                edge.to === "scope:wi:60388"
-              ),
+          return removeClaimLockEdge(
+            projection,
+            claimToken,
+            "scope:wi:60388",
           );
-          return {
-            ...projection,
-            edges: filteredEdges,
-            getEdgesByType(type) {
-              return filteredEdges.filter((edge) => edge.type === type);
-            },
-            getOutgoingEdges(nodeId) {
-              return filteredEdges.filter((edge) => edge.from === nodeId);
-            },
-            getIncomingEdges(nodeId) {
-              return filteredEdges.filter((edge) => edge.to === nodeId);
-            },
-          };
         },
       }),
     ).rejects.toMatchObject({

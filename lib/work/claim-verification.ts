@@ -77,14 +77,34 @@ export type RenewWorkClaimWithGraphVerificationResult =
   | RuntimeClaimRenewalResult
   | RenewWorkClaimWithGraphVerificationSuccess;
 
+function toClaimNodeId(claimToken: string): string {
+  return `claim:${claimToken}`;
+}
+
+function toScopeNodeId(scopeRef: string): string {
+  return `scope:${scopeRef}`;
+}
+
+function countLockEdgesForClaim(
+  projection: WorkGraphProjection,
+  claimToken: string,
+): number {
+  const claimNodeId = toClaimNodeId(claimToken);
+  return projection
+    .getEdgesByType("locks")
+    .filter((edge) => edge.from === claimNodeId).length;
+}
+
 function hasLockEdge(
   projection: WorkGraphProjection,
   scopeLock: RuntimeScopeLockRecord,
 ): boolean {
+  const claimNodeId = toClaimNodeId(scopeLock.claim_token);
+  const scopeNodeId = toScopeNodeId(scopeLock.scope_ref);
   return projection.getEdgesByType("locks").some((edge) => {
     return (
-      edge.from === `claim:${scopeLock.claim_token}` &&
-      edge.to === `scope:${scopeLock.scope_ref}` &&
+      edge.from === claimNodeId &&
+      edge.to === scopeNodeId &&
       edge.properties.claimToken === scopeLock.claim_token &&
       edge.properties.scopeRef === scopeLock.scope_ref &&
       edge.properties.lockMode === scopeLock.lock_mode &&
@@ -100,7 +120,7 @@ function collectVerificationDiagnostics(options: {
   activeScopeLocks: RuntimeScopeLockRecord[];
 }): WorkGraphVerificationDiagnostic[] {
   const diagnostics: WorkGraphVerificationDiagnostic[] = [];
-  const claimNodeId = `claim:${options.claim.claim_token}`;
+  const claimNodeId = toClaimNodeId(options.claim.claim_token);
   const claimNode = options.projection.findNode(claimNodeId);
   if (!claimNode) {
     diagnostics.push({
@@ -114,7 +134,7 @@ function collectVerificationDiagnostics(options: {
     options.claim.target_type,
     options.claim.target_id,
   );
-  const targetScopeNodeId = `scope:${targetScopeRef}`;
+  const targetScopeNodeId = toScopeNodeId(targetScopeRef);
   if (!options.projection.findNode(targetScopeNodeId)) {
     diagnostics.push({
       kind: "missing-node",
@@ -137,7 +157,7 @@ function collectVerificationDiagnostics(options: {
   }
 
   for (const scopeLock of options.activeScopeLocks) {
-    const scopeNodeId = `scope:${scopeLock.scope_ref}`;
+    const scopeNodeId = toScopeNodeId(scopeLock.scope_ref);
     if (!options.projection.findNode(scopeNodeId)) {
       diagnostics.push({
         kind: "missing-node",
@@ -207,18 +227,12 @@ export async function renewWorkClaimWithGraphVerification(
     ...renewal,
     verification: {
       before: {
-        claimNodeId: `claim:${renewal.claim.claim_token}`,
-        lockEdgeCount: before
-          .getEdgesByType("locks")
-          .filter((edge) => edge.from === `claim:${renewal.claim.claim_token}`)
-          .length,
+        claimNodeId: toClaimNodeId(renewal.claim.claim_token),
+        lockEdgeCount: countLockEdgesForClaim(before, renewal.claim.claim_token),
       },
       after: {
-        claimNodeId: `claim:${renewal.claim.claim_token}`,
-        lockEdgeCount: after
-          .getEdgesByType("locks")
-          .filter((edge) => edge.from === `claim:${renewal.claim.claim_token}`)
-          .length,
+        claimNodeId: toClaimNodeId(renewal.claim.claim_token),
+        lockEdgeCount: countLockEdgesForClaim(after, renewal.claim.claim_token),
       },
     },
   };
