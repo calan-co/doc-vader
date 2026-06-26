@@ -73,6 +73,108 @@ afterEach(async () => {
 });
 
 describe("work projection port", () => {
+  it("classifies helper documents with non-canonical generic ids without failing live projection", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "AGENTS.md"),
+      `---
+id: backloga-2056
+title: Backlog Agents Policy
+type: document
+subtype: generic
+lifecycle: evergreen
+status: closed
+---
+
+Helper policy document that is not an MVP graph node.
+`,
+    );
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "60392-live-repository-graph-projection-robustness.md"),
+      `---
+id: wi-60392
+title: Live Repository Graph Projection Robustness
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+---
+
+## Goal
+
+Keep live repository projection robust.
+`,
+    );
+
+    const projection = await buildProjection(rootDir);
+
+    expect(projection.findNode("wi:60392")?.type).toBe("work-item");
+    expect(projection.findNode("scope:wi:60392")?.type).toBe("scope");
+    expect(projection.diagnostics).toEqual([
+      {
+        classification: "unsupported",
+        relativePath: "backlog/AGENTS.md",
+        documentId: "backloga-2056",
+        reasonCode: "unsupported-document-type",
+      },
+    ]);
+  });
+
+  it("reports project-like documents with non-canonical scope ids as unsupported diagnostics", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "docs", "how-to", "implementation-plans", "example-prd.md"),
+      `---
+id: prd-example
+title: Example PRD
+type: prd
+subtype: x-prd
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Exercise non-canonical project-like ids.
+`,
+    );
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "60392-live-repository-graph-projection-robustness.md"),
+      `---
+id: wi-60392
+title: Live Repository Graph Projection Robustness
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+---
+
+## Goal
+
+Keep live repository projection robust.
+
+## Relationships
+
+- \`implements\`: [[../docs/how-to/implementation-plans/example-prd.md]]
+`,
+    );
+
+    const projection = await buildProjection(rootDir);
+
+    expect(projection.findNode("wi:60392")?.type).toBe("work-item");
+    expect(projection.getEdgesByType("implements")).toEqual([]);
+    expect(projection.diagnostics).toEqual([
+      {
+        classification: "unsupported",
+        relativePath: "docs/how-to/implementation-plans/example-prd.md",
+        documentId: "prd-example",
+        reasonCode: "non-canonical-document-id",
+      },
+    ]);
+  });
+
   it("projects stable nodes, authored edges, and derived reverse traversal", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(
