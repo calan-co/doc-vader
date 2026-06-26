@@ -233,11 +233,11 @@ function buildCreateRecordOptions(options: {
 
 function resolveRuntimeRecordSubjects(options: {
   rootDir: string;
-  claimId: string;
+  claimToken: string;
 }): string[] {
   const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
   try {
-    const runtimeClaim = store.getClaimByToken(options.claimId);
+    const runtimeClaim = store.getClaimByToken(options.claimToken);
     if (!runtimeClaim) {
       return [];
     }
@@ -249,7 +249,9 @@ function resolveRuntimeRecordSubjects(options: {
         runtimeClaim.target_id,
       ),
     ]);
-    for (const scopeLock of store.listScopeLocksByClaimToken(options.claimId)) {
+    for (const scopeLock of store.listScopeLocksByClaimToken(
+      options.claimToken,
+    )) {
       if (scopeLock.lifecycle_state === "active") {
         subjects.add(scopeLock.scope_ref);
       }
@@ -300,7 +302,7 @@ export async function recordTaskEvidence(options: {
       claim.taskId,
       ...resolveRuntimeRecordSubjects({
         rootDir,
-        claimId: options.claimId,
+        claimToken: options.claimId,
       }),
     ]),
   });

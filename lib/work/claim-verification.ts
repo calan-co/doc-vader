@@ -71,21 +71,9 @@ export interface RenewWorkClaimWithGraphVerificationSuccess
       lockEdgeCount: number;
     };
     lineage: {
-      claim: Array<{
-        recordId: string;
-        recordKind: string;
-        targetNodeId: string;
-      }>;
-      scopes: Array<{
-        recordId: string;
-        recordKind: string;
-        targetNodeId: string;
-      }>;
-      workItems: Array<{
-        recordId: string;
-        recordKind: string;
-        targetNodeId: string;
-      }>;
+      claim: VerificationLineageEntry[];
+      scopes: VerificationLineageEntry[];
+      workItems: VerificationLineageEntry[];
     };
   };
 }
@@ -93,6 +81,12 @@ export interface RenewWorkClaimWithGraphVerificationSuccess
 export type RenewWorkClaimWithGraphVerificationResult =
   | RuntimeClaimRenewalResult
   | RenewWorkClaimWithGraphVerificationSuccess;
+
+interface VerificationLineageEntry {
+  recordId: string;
+  recordKind: string;
+  targetNodeId: string;
+}
 
 function toClaimNodeId(claimToken: string): string {
   return `claim:${claimToken}`;
@@ -200,11 +194,7 @@ function collectVerificationDiagnostics(options: {
 function collectLineageEntries(
   projection: WorkGraphProjection,
   targetNodeIds: readonly string[],
-): Array<{
-  recordId: string;
-  recordKind: string;
-  targetNodeId: string;
-}> {
+): VerificationLineageEntry[] {
   const targetIdSet = new Set(targetNodeIds);
   return projection
     .getEdgesByType("records")
@@ -223,14 +213,14 @@ function collectVerificationLineage(options: {
   projection: WorkGraphProjection;
   claim: RuntimeClaimRecord;
   activeScopeLocks: RuntimeScopeLockRecord[];
-}) {
+}): RenewWorkClaimWithGraphVerificationSuccess["verification"]["lineage"] {
   const claimNodeId = toClaimNodeId(options.claim.claim_token);
-  const targetScopeRef = canonicalizeClaimScopeRef(
+  const workItemNodeId = canonicalizeClaimScopeRef(
     options.claim.target_type,
     options.claim.target_id,
   );
   const scopeNodeIds = [
-    toScopeNodeId(targetScopeRef),
+    toScopeNodeId(workItemNodeId),
     ...options.activeScopeLocks.map((scopeLock) =>
       toScopeNodeId(scopeLock.scope_ref),
     ),
@@ -239,9 +229,7 @@ function collectVerificationLineage(options: {
   return {
     claim: collectLineageEntries(options.projection, [claimNodeId]),
     scopes: collectLineageEntries(options.projection, scopeNodeIds),
-    workItems: collectLineageEntries(options.projection, [
-      canonicalizeClaimScopeRef(options.claim.target_type, options.claim.target_id),
-    ]),
+    workItems: collectLineageEntries(options.projection, [workItemNodeId]),
   };
 }
 

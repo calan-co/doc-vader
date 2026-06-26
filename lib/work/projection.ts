@@ -170,19 +170,10 @@ function parseRelationships(body: string): Array<{
   sourceKey: string;
   target: string;
 }> {
-  const headingRegex = /^##\s+Relationships\s*$/gim;
-  const headingMatch = headingRegex.exec(body);
-  if (!headingMatch) {
+  const section = findMarkdownSection(body, "Relationships");
+  if (!section) {
     return [];
   }
-
-  const sectionStart = headingMatch.index + headingMatch[0].length;
-  const nextHeadingMatch = body.slice(sectionStart).match(/\n##\s+/);
-  const sectionEnd =
-    nextHeadingMatch && nextHeadingMatch.index !== undefined
-      ? sectionStart + nextHeadingMatch.index
-      : body.length;
-  const section = body.slice(sectionStart, sectionEnd);
 
   return section
     .split(/\r?\n/)
@@ -195,12 +186,12 @@ function parseRelationships(body: string): Array<{
     .filter((entry) => entry.sourceKey.length > 0 && entry.target.length > 0);
 }
 
-function parseSectionBulletValues(body: string, heading: string): string[] {
+function findMarkdownSection(body: string, heading: string): string | undefined {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const headingRegex = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "gim");
   const headingMatch = headingRegex.exec(body);
   if (!headingMatch) {
-    return [];
+    return undefined;
   }
 
   const sectionStart = headingMatch.index + headingMatch[0].length;
@@ -209,7 +200,14 @@ function parseSectionBulletValues(body: string, heading: string): string[] {
     nextHeadingMatch && nextHeadingMatch.index !== undefined
       ? sectionStart + nextHeadingMatch.index
       : body.length;
-  const section = body.slice(sectionStart, sectionEnd);
+  return body.slice(sectionStart, sectionEnd);
+}
+
+function parseSectionBulletValues(body: string, heading: string): string[] {
+  const section = findMarkdownSection(body, heading);
+  if (!section) {
+    return [];
+  }
 
   return section
     .split(/\r?\n/)
@@ -608,6 +606,18 @@ function resolveDocument(
   return resolved;
 }
 
+function getFrontmatterLinks(frontmatter: JsonObject): JsonObject {
+  return typeof frontmatter.links === "object" && frontmatter.links !== null
+    ? (frontmatter.links as JsonObject)
+    : {};
+}
+
+function getRecordKind(node: WorkGraphNode): string {
+  return typeof node.properties.subtype === "string"
+    ? node.properties.subtype
+    : "record";
+}
+
 function createEdge(
   from: WorkGraphNode,
   to: WorkGraphNode,
@@ -816,11 +826,7 @@ function projectRelationshipEdges(options: {
   scopeNodeIds: Set<string>;
   nodes: WorkGraphNode[];
 }): void {
-  const links =
-    typeof options.document.frontmatter.links === "object" &&
-    options.document.frontmatter.links !== null
-      ? (options.document.frontmatter.links as JsonObject)
-      : {};
+  const links = getFrontmatterLinks(options.document.frontmatter);
   const frontmatterDependsOn = asArray(links.depends_on);
   for (const target of frontmatterDependsOn) {
     const resolved = resolveDocument(target, options.documents, options.aliases);
@@ -908,11 +914,7 @@ function projectWorkItemEvidenceEdges(options: {
   nodesById: Map<string, WorkGraphNode>;
   edges: WorkGraphEdge[];
 }): void {
-  const links =
-    typeof options.document.frontmatter.links === "object" &&
-    options.document.frontmatter.links !== null
-      ? (options.document.frontmatter.links as JsonObject)
-      : {};
+  const links = getFrontmatterLinks(options.document.frontmatter);
   const evidenceRefs = asArray(links.evidence);
 
   for (const evidenceRef of evidenceRefs) {
@@ -941,10 +943,7 @@ function projectWorkItemEvidenceEdges(options: {
         },
         {
           subject: evidenceRef,
-          recordKind:
-            typeof recordNode.properties.subtype === "string"
-              ? recordNode.properties.subtype
-              : "record",
+          recordKind: getRecordKind(recordNode),
           frontmatterId: asString(options.document.frontmatter.id),
         },
       ),
