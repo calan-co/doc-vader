@@ -45,8 +45,10 @@ This slice covers UAT-04, UAT-09, and UAT-10.
 
 Add a dedicated adapter from canonical full-graph export JSON into Cytoscape
 elements plus a command that renders a standalone, read-only HTML artifact from
-an export JSON file. Keep the viewer self-contained and ensure Cytoscape data
-shapes do not become canonical graph contract shapes.
+either the current projected graph or canonical export JSON supplied through
+stdin, inline payloads, or a file. Keep the viewer self-contained, make the
+common path a no-argument browser-open flow, and ensure Cytoscape data shapes
+do not become canonical graph contract shapes.
 
 ## Tasks
 
@@ -55,8 +57,10 @@ shapes do not become canonical graph contract shapes.
 - [x] Preserve stable ids, labels, source/provenance metadata, and diagnostics
       context through the adapter.
 - [x] Add a read-only `dv work graph visualize` / `dv wi graph visualize`
-      command that accepts canonical export JSON input and writes a standalone
-      HTML artifact.
+      command that defaults to the current projected graph and also accepts
+      canonical export JSON via stdin, inline payloads, or a file.
+- [x] Make `--output` optional, with stdout and explicit file support plus a
+      temporary browser-opened artifact when omitted.
 - [x] Keep the HTML artifact self-contained enough to open locally without a
       running app server.
 - [x] Ensure the viewer artifact does not reproject the repository or mutate any
@@ -68,15 +72,23 @@ shapes do not become canonical graph contract shapes.
 
 - Canonical export JSON to Cytoscape adapter.
 - Standalone HTML viewer artifact generation command.
+- Visualization transport behavior for live projection, stdin, inline JSON,
+  file input, stdout, explicit files, and temporary browser-opened artifacts.
 - Tests proving adapter fidelity and read-only artifact generation.
 
 ## Acceptance Criteria
 
 - [x] Canonical export JSON can be translated into Cytoscape elements without
       losing stable ids or metadata.
-- [x] `dv work graph visualize` can generate a standalone HTML artifact from
-      export JSON.
+- [x] `dv work graph visualize` can generate a standalone HTML artifact from the
+      current projected graph with no required flags.
+- [x] `dv work graph visualize --input <json-file|inline-json|->` can generate
+      the same viewer from canonical export JSON supplied through supported
+      transport inputs.
 - [x] The generated viewer opens locally without a dedicated app server.
+- [x] `dv work graph visualize --output -` writes HTML to stdout and
+      `--output <path>` writes a durable artifact without requiring a browser
+      launch.
 - [x] Cytoscape-specific element shapes remain non-canonical and live behind the
       adapter seam.
 - [x] Viewer generation is read-only and does not create claims, locks, records,

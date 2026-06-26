@@ -79,11 +79,11 @@ This PRD follows the entity-governance ADR set: adr-005, adr-006, adr-007, adr-0
 
 ## Problem Statement
 
-Maintainers can currently inspect graph nodes, graph edges, and a single-node neighborhood, but they still cannot export the whole projected graph through one stable contract or open a first-party visualization that supports filtering, metadata inspection, and traversal. That gap slows review, makes acceptance testing rely on inferred command output, and prevents direct exploration of graph relationships and diagnostics as the graph-backed command surface expands.
+Maintainers can currently inspect graph nodes, graph edges, and a single-node neighborhood, but they still cannot export the whole projected graph through one stable contract or open a first-party visualization that supports filtering, metadata inspection, and traversal without awkward intermediate file choreography. That gap slows review, makes acceptance testing rely on inferred command output, and prevents direct exploration of graph relationships and diagnostics as the graph-backed command surface expands.
 
 ## Solution
 
-Add a read-only graph review lane with three complementary surfaces: `summary` for fast human orientation, `export` for canonical full-graph JSON and DOT, and `visualize` for a standalone Cytoscape-backed HTML viewer generated from canonical export JSON. Keep the export JSON as the source-of-truth contract, keep viewer-specific shapes behind an adapter seam, and defer Graphology or native core replacement until visualization/export work proves that a richer in-memory graph model is worth the dependency and migration cost.
+Add a read-only graph review lane with three complementary surfaces: `summary` for fast human orientation, `export` for canonical full-graph JSON and DOT, and `visualize` for a standalone Cytoscape-backed HTML viewer. `visualize` should default to the current projected Work graph and open a temporary artifact locally, while still accepting canonical export JSON from stdin, inline payloads, or files and writing HTML to stdout or explicit files when requested. Keep the export JSON as the source-of-truth contract, keep viewer-specific shapes behind an adapter seam, and defer Graphology or native core replacement until visualization/export work proves that a richer in-memory graph model is worth the dependency and migration cost.
 
 ## Coverage Model
 
@@ -142,7 +142,7 @@ Add a read-only graph review lane with three complementary surfaces: `summary` f
 3. As a human reviewer, I want a renderable DOT export of the whole projected graph, so that I can produce directed graph diagrams from the same canonical facts used by automation.
    Covers: human reviewer / full graph export / metadata fidelity
 
-4. As a repository maintainer, I want a standalone HTML viewer generated from export JSON, so that I can open the graph locally without needing a separate dev server or direct access to repository internals.
+4. As a repository maintainer, I want `dv work graph visualize` to open the current projected graph locally by default while still supporting canonical export JSON from stdin, inline payloads, or files, so that the common review path is one command and automation still has flexible transport options.
    Covers: repository maintainer / viewer artifact generation / low-friction local usage
 
 5. As a human reviewer, I want to filter and search the graph by type and stable identifiers, so that I can isolate the relationships and artifacts relevant to one review question.
@@ -202,8 +202,14 @@ The main implementation risk is viewer delivery shape, which is intentionally co
 - Use Cytoscape.js as the first visualization target and defer Graphology until export/viewer work demonstrates a repeated need for a richer in-memory analysis model.
   Rationale: Cytoscape provides the fastest path to local filtering, selection, and traversal, while Graphology is only justified if adapter or analysis pressure grows beyond the current seam.
 
-- Generate a standalone, read-only HTML viewer artifact from canonical export JSON rather than introducing a new dev-server-backed frontend stack.
+- Generate a standalone, read-only HTML viewer artifact rather than introducing a new dev-server-backed frontend stack.
   Rationale: A standalone artifact keeps local usage friction low, fits the current repository shape, and avoids coupling visualization work to a broader frontend platform decision.
+
+- Make `dv work graph visualize` and `dv wi graph visualize` default to the current projected Work graph when `--input` is omitted, while still accepting canonical export JSON from stdin (`-`), inline JSON, or a file path.
+  Rationale: The common maintainer path should not require exporting JSON just to re-ingest the same facts, but automation and external tooling still need transport-flexible entry points.
+
+- Make `--output` optional for `visualize`, with `-` meaning stdout, an explicit path meaning a durable artifact, and omission meaning a temporary artifact that opens locally.
+  Rationale: Visualization should optimize for immediate review by default while still supporting scripted capture, deterministic fixture review, and explicit artifact retention.
 
 - Translate canonical export JSON into Cytoscape element data through a dedicated adapter seam and keep Cytoscape shapes non-canonical.
   Rationale: This preserves one source-of-truth graph contract and prevents UI library assumptions from leaking back into projection semantics.
@@ -219,7 +225,7 @@ The main implementation risk is viewer delivery shape, which is intentionally co
 
 ## Testing Decisions
 
-Validate that graph summary, full export, Cytoscape adapter output, and standalone viewer generation remain read-only while preserving stable node, edge, and diagnostic facts from the current projected Work graph.
+Validate that graph summary, full export, and graph visualization remain read-only while preserving stable node, edge, and diagnostic facts from the current projected Work graph across live projection, stdin, inline JSON, file input, stdout, durable files, and temporary browser-opened artifacts.
 
 ### Modules Under Test
 
@@ -275,7 +281,7 @@ The CLI fixture harness already covers graph projection review end-to-end. The n
 
 - The same canonical export facts can produce DOT and Cytoscape-compatible visualization output without redefining graph semantics.
 
-- Reviewers can open a standalone HTML artifact and filter, inspect, and traverse the graph locally.
+- Reviewers can open a standalone HTML artifact with a no-argument command or capture the same viewer into stdout or a durable file when needed.
 
 - A documented UAT flow covers summary, export, visualization, traversal, diagnostics visibility, and read-only guarantees.
 
@@ -309,7 +315,7 @@ Ready label: `ready-for-agent`
 
 - UAT-03: `dv work graph export --format dot` emits a renderable directed graph covering the same canonical nodes and edges as JSON export. Covered by WI-60399.
 
-- UAT-04: A maintainer can render a standalone HTML viewer artifact from canonical export JSON and open it locally without a dev server. Covered by WI-60400.
+- UAT-04: `dv work graph visualize` renders the current projected graph into a temporary HTML artifact and opens it locally when no input or output is provided; the same command can also emit a deterministic file-backed artifact with `--output`. Covered by WI-60400.
 
 - UAT-05: The viewer supports node-type and edge-type filtering plus search by stable id, label, and file path. Covered by WI-60401.
 
@@ -319,6 +325,6 @@ Ready label: `ready-for-agent`
 
 - UAT-08: Diagnostics remain separate from canonical nodes and edges but are visible in summary output and in the viewer review surface. Covered by WI-60399 and WI-60401.
 
-- UAT-09: Summary, export, and viewer generation are read-only and do not create claims, locks, records, audit files, or other repository mutations beyond explicit output artifacts. Covered by WI-60399, WI-60400, and WI-60403.
+- UAT-09: Summary, export, and viewer generation are read-only and do not create claims, locks, records, audit files, or other repository mutations beyond explicit output artifacts such as a requested file, stdout, or a temporary browser-opened viewer. Covered by WI-60399, WI-60400, and WI-60403.
 
-- UAT-10: Viewer data is derived through a dedicated adapter from canonical export JSON rather than a Cytoscape-native canonical shape. Covered by WI-60400.
+- UAT-10: Viewer data is derived through a dedicated adapter from the canonical export payload shape rather than a Cytoscape-native canonical shape, regardless of whether the payload came from live projection, stdin, inline JSON, or a file. Covered by WI-60400.

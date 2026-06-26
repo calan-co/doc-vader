@@ -50,7 +50,8 @@ Extend or add fixture-backed review commands, expected outputs, and
 documentation that cover summary, export, viewer generation, and viewer review
 steps. The review flow should prove read-only behavior, preserve canonical graph
 facts, and make it easy for a maintainer to validate each accepted UAT
-scenario.
+scenario, including the no-argument browser-open path plus stdin, inline, file,
+stdout, and deterministic file-backed visualization transport modes.
 
 ## Tasks
 
@@ -59,6 +60,9 @@ scenario.
       export.
 - [x] Add fixture-backed review coverage for standalone viewer artifact
       generation.
+- [x] Cover visualization transport variants for live projection defaults,
+      canonical export file input, stdin input, inline JSON input, stdout
+      output, explicit file output, and temporary browser-opened artifacts.
 - [x] Add a deterministic reviewer checklist that maps each UAT scenario to one
       or more commands or review actions.
 - [x] Add automated tests or snapshot assertions where practical for summary,
@@ -74,6 +78,8 @@ scenario.
 - Reviewer checklist covering UAT-01 through UAT-10.
 - Automated or snapshot coverage for stable summary/export/viewer artifact
   outputs.
+- Transport coverage for the common no-argument viewer path and optional input
+  and output modes.
 - Explicit note about any remaining manual viewer review steps.
 
 ## Acceptance Criteria
@@ -85,6 +91,9 @@ scenario.
       viewer generation.
 - [x] Automated assertions exist for every stable artifact contract that can be
       checked non-interactively.
+- [x] The review path proves `visualize` can consume live projection, file,
+      stdin, and inline canonical payload sources and emit stdout, durable file,
+      or temporary browser-opened artifacts.
 - [x] Any manual-only viewer interactions are explicitly documented rather than
       implied.
 - [x] Validation passes with `pnpm run docs:lint`.

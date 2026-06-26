@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { Command, Option } from "commander";
+import os from "node:os";
 import path from "node:path";
 import {
   openRuntimeSqliteStore,
@@ -74,8 +75,9 @@ import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
   assertWorkClaimable as assertTaskClaimable,
+  adaptWorkGraphExportToCytoscape,
+  assertWorkGraphExportResult,
   createWorkGraphOutputExtension,
-  writeStandaloneWorkGraphViewer,
   exportWorkGraph,
   inspectWorkGraphNode,
   loadCanonicalWork as loadCanonicalTask,
@@ -86,8 +88,10 @@ import {
   queryWorkGraphEdges,
   queryWorkGraphNodes,
   readWorkRecordPayload as readRecordPayload,
+  readWorkGraphExportFile,
   recoverWorkClaim as recoverTaskClaim,
   recordWorkEvidence as recordTaskEvidence,
+  renderStandaloneWorkGraphViewer,
   renderHumanWorkShow as renderHumanTaskShow,
   renderSandcastleWorkPrompt as renderSandcastlePrompt,
   formatReadyPorcelain,
@@ -103,6 +107,7 @@ import {
   type WorkRecoveryGitState as TaskRecoveryGitState,
   type WorkGraphEdgeType,
   type WorkGraphExplorerResult,
+  type WorkGraphExportResult,
   type WorkGraphExportFormat,
   type WorkGraphExplorerFormat,
   type WorkGraphNodeType,
@@ -304,6 +309,121 @@ async function writeProjectedWorkGraph(
   } catch (error) {
     failTaskCommand(error, format === "json");
   }
+}
+
+function readTextStream(input: NodeJS.ReadStream): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let buffer = "";
+    input.setEncoding("utf8");
+    input.on("data", (chunk) => {
+      buffer += chunk;
+    });
+    input.on("end", () => resolve(buffer));
+    input.on("error", reject);
+  });
+}
+
+function isInlineJsonCandidate(value: string): boolean {
+  const trimmed = value.trimStart();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+}
+
+function parseWorkGraphVisualizationInput(
+  raw: string,
+  source: string,
+): WorkGraphExportResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new TaskCommandError(
+      "WORK_GRAPH_EXPORT_INVALID_JSON",
+      `Work graph visualization ${source} is not valid JSON.`,
+      { source, cause: error instanceof Error ? error.message : String(error) },
+    );
+  }
+  return assertWorkGraphExportResult(parsed);
+}
+
+async function readWorkGraphVisualizationSource(
+  input: string | undefined,
+  stdin: NodeJS.ReadStream,
+): Promise<WorkGraphExportResult> {
+  if (!input || input.trim().length === 0) {
+    return exportWorkGraph(await projectWorkGraph());
+  }
+  if (input === "-") {
+    return parseWorkGraphVisualizationInput(
+      await readTextStream(stdin),
+      "stdin payload",
+    );
+  }
+  if (isInlineJsonCandidate(input)) {
+    return parseWorkGraphVisualizationInput(input, "inline payload");
+  }
+  return readWorkGraphExportFile(path.resolve(input));
+}
+
+function resolveBrowserOpenCommand(
+  filePath: string,
+): { command: string; args: string[] } {
+  switch (process.platform) {
+    case "darwin":
+      return { command: "open", args: [filePath] };
+    case "win32":
+      return { command: "cmd", args: ["/c", "start", "", filePath] };
+    default:
+      return { command: "xdg-open", args: [filePath] };
+  }
+}
+
+function tryOpenWorkGraphViewer(filePath: string): boolean {
+  const opener = resolveBrowserOpenCommand(filePath);
+  try {
+    execFileSync(opener.command, opener.args, { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function reportVisualizationStatus(message: string): void {
+  if (process.stderr.isTTY) {
+    process.stderr.write(`${message}\n`);
+  }
+}
+
+async function writeWorkGraphVisualizationHtml(
+  html: string,
+  output: string | undefined,
+): Promise<void> {
+  if (output === "-") {
+    process.stdout.write(html);
+    return;
+  }
+
+  if (output && output.trim().length > 0) {
+    const outputPath = path.resolve(output);
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, html, "utf8");
+    reportVisualizationStatus(`Work graph viewer written to ${outputPath}`);
+    return;
+  }
+
+  const tempDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "doc-vader-work-graph-viewer-"),
+  );
+  const outputPath = path.join(tempDir, "index.html");
+  await fs.writeFile(outputPath, html, "utf8");
+
+  if (tryOpenWorkGraphViewer(outputPath)) {
+    reportVisualizationStatus(`Opened work graph viewer in browser: ${outputPath}`);
+    return;
+  }
+
+  reportVisualizationStatus(
+    `Work graph viewer written to temporary file: ${outputPath}`,
+  );
 }
 
 function runtimeRootDir(): string {
@@ -1608,25 +1728,31 @@ function registerWorkCommandSurface(surface: Command): void {
 
   graph
     .command("visualize")
-    .description("Render a standalone Cytoscape viewer from canonical export JSON")
-    .requiredOption(
-      "--input <path>",
-      "Path to a canonical work graph export JSON file",
+    .description(
+      "Render a standalone Cytoscape viewer from the current graph or canonical export JSON",
     )
-    .requiredOption(
-      "--output <path>",
-      "Path to write the standalone HTML artifact",
+    .option(
+      "--input <json-file|inline-json|->",
+      "Canonical export JSON source; omit for the current projected graph",
+    )
+    .option(
+      "--output <html-file|->",
+      "HTML output target; omit to write a temp artifact and open it in a browser",
     )
     .action(
       async (opts: {
-        input: string;
-        output: string;
+        input?: string;
+        output?: string;
       }) => {
         try {
-          await writeStandaloneWorkGraphViewer({
-            inputPath: path.resolve(opts.input),
-            outputPath: path.resolve(opts.output),
-          });
+          const canonicalGraph = await readWorkGraphVisualizationSource(
+            opts.input,
+            process.stdin,
+          );
+          const html = renderStandaloneWorkGraphViewer(
+            adaptWorkGraphExportToCytoscape(canonicalGraph),
+          );
+          await writeWorkGraphVisualizationHtml(html, opts.output);
         } catch (error) {
           failTaskCommand(error, false);
         }

@@ -1,6 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -78,10 +86,19 @@ async function snapshotFiles(rootDir: string): Promise<Map<string, string>> {
   return snapshot;
 }
 
-function runCli(rootDir: string, args: string[]): string {
+function runCli(
+  rootDir: string,
+  args: string[],
+  options: {
+    input?: string;
+    env?: NodeJS.ProcessEnv;
+  } = {},
+): string {
   return execFileSync(process.execPath, ["--import", tsxImport, cliPath, ...args], {
     cwd: rootDir,
     encoding: "utf8",
+    input: options.input,
+    env: { ...process.env, ...options.env },
   });
 }
 
@@ -209,20 +226,9 @@ describe("work graph UAC review fixture", () => {
     await stageWorkGraphUacFixture(rootDir);
     const before = await snapshotFiles(rootDir);
 
-    const exportPayloadPath = path.join(rootDir, "graph-export.json");
     const viewerPath = path.join(rootDir, "graph-viewer.html");
-    const exportJson = runCli(rootDir, ["work", "graph", "export", "--format", "json"]);
-    await writeFile(exportPayloadPath, exportJson, "utf8");
 
-    runCli(rootDir, [
-      "work",
-      "graph",
-      "visualize",
-      "--input",
-      exportPayloadPath,
-      "--output",
-      viewerPath,
-    ]);
+    runCli(rootDir, ["work", "graph", "visualize", "--output", viewerPath]);
 
     const viewerHtml = await readFile(viewerPath, "utf8");
     expect(viewerHtml).toContain("<!DOCTYPE html>");
@@ -249,11 +255,85 @@ describe("work graph UAC review fixture", () => {
     expect(viewerHtml).toContain('"relativePath":"backlog/AGENTS.md"');
 
     const after = await snapshotFiles(rootDir);
-    expect(after.get("graph-export.json")).toBe(exportJson);
     expect(after.has("graph-viewer.html")).toBe(true);
-    after.delete("graph-export.json");
     after.delete("graph-viewer.html");
     expect(after).toEqual(before);
+  }, 15000);
+
+  it("supports canonical export JSON from file, stdin, and inline input sources", async () => {
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+    const exportPayloadPath = path.join(rootDir, "graph-export.json");
+    const exportJson = runCli(rootDir, ["work", "graph", "export", "--format", "json"]);
+    await writeFile(exportPayloadPath, exportJson, "utf8");
+
+    const fromFile = runCli(rootDir, [
+      "work",
+      "graph",
+      "visualize",
+      "--input",
+      exportPayloadPath,
+      "--output",
+      "-",
+    ]);
+    const fromStdin = runCli(
+      rootDir,
+      ["work", "graph", "visualize", "--input", "-", "--output", "-"],
+      { input: exportJson },
+    );
+    const fromInline = runCli(rootDir, [
+      "work",
+      "graph",
+      "visualize",
+      "--input",
+      exportJson,
+      "--output",
+      "-",
+    ]);
+
+    for (const html of [fromFile, fromStdin, fromInline]) {
+      expect(html).toContain("<!DOCTYPE html>");
+      expect(html).toContain("Work Graph Viewer");
+      expect(html).toContain('"schemaVersion":"work-graph-explorer/v1"');
+      expect(html).toContain('"id":"wi:70001"');
+    }
+  }, 15000);
+
+  it("defaults to a temporary artifact and opens it in the browser when no input or output is provided", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+
+    const binDir = path.join(rootDir, "bin");
+    const openerName = process.platform === "darwin" ? "open" : "xdg-open";
+    const openerLogPath = path.join(rootDir, "opener.log");
+    await mkdir(binDir, { recursive: true });
+    await writeFile(
+      path.join(binDir, openerName),
+      `#!/bin/sh\nprintf '%s' \"$1\" > \"${openerLogPath}\"\n`,
+      "utf8",
+    );
+    await chmod(path.join(binDir, openerName), 0o755);
+
+    runCli(rootDir, ["work", "graph", "visualize"], {
+      env: {
+        PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+      },
+    });
+
+    const openedPath = (await readFile(openerLogPath, "utf8")).trim();
+    expect(openedPath).not.toHaveLength(0);
+    const viewerHtml = await readFile(openedPath, "utf8");
+    expect(viewerHtml).toContain("<!DOCTYPE html>");
+    expect(viewerHtml).toContain("Work Graph Viewer");
+    expect(viewerHtml).toContain('"id":"wi:70001"');
   }, 15000);
 
   it("documents one fixture-backed UAT flow with stable summary, export, and viewer artifacts", async () => {
@@ -268,15 +348,7 @@ describe("work graph UAC review fixture", () => {
     const exportJson = runCli(rootDir, ["work", "graph", "export", "--format", "json"]);
     const exportDot = runCli(rootDir, ["work", "graph", "export", "--format", "dot"]);
     await writeFile(exportPayloadPath, exportJson, "utf8");
-    runCli(rootDir, [
-      "work",
-      "graph",
-      "visualize",
-      "--input",
-      exportPayloadPath,
-      "--output",
-      viewerPath,
-    ]);
+    runCli(rootDir, ["work", "graph", "visualize", "--output", viewerPath]);
 
     await expectFixtureText(summary, "summary.txt");
     await expectFixtureText(exportJson, "export.json");
@@ -297,7 +369,7 @@ describe("work graph UAC review fixture", () => {
       expect(reviewGuide).toContain(uatId);
     }
     expect(reviewGuide).toContain("Manual-only viewer review steps");
-    expect(reviewGuide).toContain("Open `graph-viewer.html` in a local browser.");
+    expect(reviewGuide).toContain("Run `work graph visualize` to open the temporary artifact in a local browser,");
     expect(reviewGuide).toContain("read-only");
   }, 15000);
 });
