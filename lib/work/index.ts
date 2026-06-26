@@ -72,10 +72,12 @@ export {
 } from "../task/index.js";
 export {
   loadTaskModel as loadWorkModel,
-  listTaskModels as listWorkModels,
-  type LoadTaskOptions as LoadWorkOptions,
-  type TaskModel as WorkModel,
 } from "../task/model.js";
+export {
+  listWorkModels,
+  type LoadWorkOptions,
+  type WorkModel,
+} from "./list.js";
 export {
   readRecordPayload as readWorkRecordPayload,
   recordTaskEvidence as recordWorkEvidence,

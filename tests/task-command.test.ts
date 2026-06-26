@@ -359,6 +359,91 @@ tags:
     }
   });
 
+  it("keeps task, work, and wi list output aligned while selecting only backlog work items", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await fs.mkdir(path.join(root, "docs"), { recursive: true });
+      await writeTask(
+        root,
+        "100-backlog-item.md",
+        `id: wi-100
+title: Backlog Item
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      await fs.writeFile(
+        path.join(root, "docs", "999-shadow-work-item.md"),
+        `---
+id: wi-999
+title: Shadow Work Item
+type: work-item
+lifecycle: active
+status: ready
+---
+`,
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(root, "backlog", "AGENTS.md"),
+        `---
+id: backloga-2056
+title: Backlog Agents Policy
+type: document
+subtype: generic
+lifecycle: evergreen
+status: closed
+---
+`,
+        "utf8",
+      );
+
+      const taskJson = runCliJson<{
+        schemaVersion: string;
+        tasks: Array<{ id: string; title: string; filePath: string }>;
+      }>(root, ["task", "list", "--json"]);
+      const workJson = runCliJson<{
+        schemaVersion: string;
+        tasks: Array<{ id: string; title: string; filePath: string }>;
+      }>(root, ["work", "list", "--json"]);
+      const wiJson = runCliJson<{
+        schemaVersion: string;
+        tasks: Array<{ id: string; title: string; filePath: string }>;
+      }>(root, ["wi", "list", "--json"]);
+
+      expect(taskJson).toEqual(workJson);
+      expect(workJson).toEqual(wiJson);
+      expect(taskJson).toEqual({
+        schemaVersion: "task-list/v1",
+        tasks: [
+          {
+            id: "wi-100",
+            status: "ready",
+            title: "Backlog Item",
+            filePath: "backlog/100-backlog-item.md",
+            lifecycle: "active",
+            runtime: expect.objectContaining({
+              markdownReady: true,
+              sourceDisagreement: false,
+            }),
+          },
+        ],
+      });
+
+      const taskText = runCli(root, ["task", "list"]);
+      const workText = runCli(root, ["work", "list"]);
+      const wiText = runCli(root, ["wi", "list"]);
+      expect(taskText).toBe(workText);
+      expect(workText).toBe(wiText);
+      expect(taskText).toContain("wi-100 | ready | Backlog Item");
+      expect(taskText).not.toContain("wi-999");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it(
     "explores the projected work graph through read-only work and wi CLI commands",
     async () => {
