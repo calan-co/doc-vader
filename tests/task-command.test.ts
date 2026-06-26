@@ -36,6 +36,31 @@ const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const claimStoreEnv = "DOC_VADER_TASK_CLAIM_STORE";
 let previousClaimStoreEnv: string | undefined;
 
+type WorkGraphSummaryPayload = {
+  schemaVersion: string;
+  command: string;
+  summary: {
+    nodeCount: number;
+    edgeCount: number;
+    diagnosticCount: number;
+    nodeTypes: Array<{ type: string; count: number }>;
+    edgeTypes: Array<{ type: string; count: number }>;
+  };
+};
+
+type WorkGraphExportPayload = {
+  schemaVersion: string;
+  command: string;
+  summary: {
+    nodeCount: number;
+    edgeCount: number;
+    diagnosticCount: number;
+  };
+  nodes: Array<{ id: string; type: string }>;
+  edges: Array<{ type: string; from: string; to: string }>;
+  diagnostics: Array<{ relativePath: string; reasonCode: string }>;
+};
+
 beforeEach(() => {
   previousClaimStoreEnv = process.env[claimStoreEnv];
   delete process.env[claimStoreEnv];
@@ -218,6 +243,10 @@ function runCli(
   });
 }
 
+function runCliJson<T>(root: string, args: string[]): T {
+  return JSON.parse(runCli(root, args)) as T;
+}
+
 describe.sequential("task command surface", () => {
   it("loads deterministic canonical task JSON", async () => {
     const root = await mkTmpRoot();
@@ -287,7 +316,7 @@ tags:
       const prompt = await renderTaskPrompt(task, { rootDir: root });
 
       expect(prompt).toContain("Implement wi-101: Prompt Task");
-      expect(prompt).toContain("Use `dv task show wi-101 --json`");
+      expect(prompt).toContain("Use `dv work show wi-101 --json`");
       expect(prompt).toContain("Templjs rendering is presentation only");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
@@ -321,6 +350,663 @@ tags:
       await fs.rm(root, { recursive: true, force: true });
     }
   });
+
+  it(
+    "exposes work and wi aliases with the same canonical show output",
+    { timeout: 15_000 },
+    async () => {
+      const root = await mkTmpRoot();
+      try {
+      await writeTask(
+        root,
+        "101-prompt-task.md",
+        `id: wi-101
+title: Prompt Task
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+
+      const canonicalWorkItem = await loadCanonicalTask({
+        rootDir: root,
+        taskId: "101",
+      });
+      expect(JSON.parse(runCli(root, ["work", "show", "101", "--json"]))).toEqual(
+        canonicalWorkItem,
+      );
+      expect(JSON.parse(runCli(root, ["wi", "show", "101", "--json"]))).toEqual(
+        canonicalWorkItem,
+      );
+      expect(JSON.parse(runCli(root, ["task", "show", "101", "--json"]))).toEqual(
+        canonicalWorkItem,
+      );
+      } finally {
+        await fs.rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("renders show relationships from graph edges while leaving prompt body content unchanged", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "60396-graph-backed-work-show-relationships.md",
+        `id: wi-60396
+title: Graph-Backed Work Show Relationships
+summary: Verify show uses graph-backed relationship sections.
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+priority: high
+tags:
+  - afk
+links:
+  evidence:
+    - '[[records/record-wi-60396-show-evidence.md]]'`,
+        `## Goal
+
+Keep the body content stable.
+
+## Notes
+
+The body section text must still render.
+
+## Relationships
+
+- \`depends_on\`: [[wi-60395]]
+- \`part_of\`: [[project:graph-backed-show]]
+- \`implements\`: [[../docs/how-to/implementation-plans/show-relationships-prd.md]]
+- \`blocks\`: [[wi-99999]]
+- \`relates_to\`: [[wi-88888]]
+`,
+      );
+      await writeTask(
+        root,
+        "60395-graph-backed-work-list-tracer.md",
+        `id: wi-60395
+title: Graph-Backed Work List Tracer
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: completed`,
+        `## Goal
+
+Support graph-backed list output.
+`,
+      );
+      await fs.mkdir(
+        path.join(root, "docs", "how-to", "implementation-plans"),
+        { recursive: true },
+      );
+      await fs.writeFile(
+        path.join(root, "docs", "project-graph-backed-show.md"),
+        `---
+id: project:graph-backed-show
+title: Graph-Backed Show
+type: project
+subtype: initiative
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Group graph-backed show work.
+`,
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(
+          root,
+          "docs",
+          "how-to",
+          "implementation-plans",
+          "show-relationships-prd.md",
+        ),
+        `---
+id: plan:show-relationships-prd
+title: Show Relationships PRD
+type: plan
+subtype: x-prd
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Define graph-backed relationship rendering.
+`,
+        "utf8",
+      );
+      await fs.mkdir(path.join(root, "backlog", "records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog", "records", "record-wi-60396-show-evidence.md"),
+        `---
+id: record:wi-60396-show-evidence
+title: Show Relationship Evidence
+type: record
+subtype: evidence
+lifecycle: active
+status: ready
+---
+
+## Summary
+
+Show output evidence.
+`,
+        "utf8",
+      );
+
+      const claimToken = acquireRuntimeTaskClaim(root, "wi-60396", []);
+      const showText = runCli(root, ["wi", "show", "60396"]);
+      const showJson = runCliJson<{
+        dependencies: Array<{ type: string; target: string }>;
+        relationships?: Array<{ type: string; target: string }>;
+        records?: Array<{ type: string; target: string }>;
+        activeLocks?: Array<{ claimToken: string; scopeRef: string; lockMode: string }>;
+      }>(root, ["wi", "show", "60396", "--json"]);
+      const prompt = runCli(root, ["wi", "prompt", "60396"]);
+
+      expect(showText).toContain("Keep the body content stable.");
+      expect(showText).toContain("The body section text must still render.");
+      expect(showText).toContain("## Dependencies");
+      expect(showText).toContain("- `depends_on`: [[wi-60395]]");
+      expect(showText).toContain("## Relationships");
+      expect(showText).toContain("- `belongs_to`: [[project:graph-backed-show]]");
+      expect(showText).toContain(
+        "- `implements`: [[../docs/how-to/implementation-plans/show-relationships-prd.md]]",
+      );
+      expect(showText).toContain("## Records");
+      expect(showText).toContain(
+        "- `records`: [[records/record-wi-60396-show-evidence.md]]",
+      );
+      expect(showText).toContain("## Active Locks");
+      expect(showText).toContain(claimToken);
+      expect(showText).toContain("mode=`execute`");
+      expect(showText).not.toContain("`blocks`");
+      expect(showText).not.toContain("`relates_to`");
+
+      expect(showJson.dependencies).toEqual([
+        {
+          type: "depends_on",
+          target: "[[wi-60395]]",
+        },
+      ]);
+      expect(showJson.relationships).toEqual([
+        {
+          type: "belongs_to",
+          target: "[[project:graph-backed-show]]",
+        },
+        {
+          type: "implements",
+          target: "[[../docs/how-to/implementation-plans/show-relationships-prd.md]]",
+        },
+      ]);
+      expect(showJson.records).toEqual([
+        {
+          type: "records",
+          target: "[[records/record-wi-60396-show-evidence.md]]",
+        },
+      ]);
+      expect(showJson.activeLocks).toEqual([
+        {
+          claimToken,
+          scopeRef: "wi:60396",
+          lockMode: "execute",
+        },
+      ]);
+
+      expect(prompt).toContain("## Relationships");
+      expect(prompt).toContain("- `blocks`: [[wi-99999]]");
+      expect(prompt).toContain("- `relates_to`: [[wi-88888]]");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it(
+    "keeps task, work, and wi list output aligned while selecting only backlog work items",
+    { timeout: 15_000 },
+    async () => {
+      const root = await mkTmpRoot();
+      try {
+      await fs.mkdir(path.join(root, "docs"), { recursive: true });
+      await writeTask(
+        root,
+        "100-backlog-item.md",
+        `id: wi-100
+title: Backlog Item
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      await fs.writeFile(
+        path.join(root, "docs", "999-shadow-work-item.md"),
+        `---
+id: wi-999
+title: Shadow Work Item
+type: work-item
+lifecycle: active
+status: ready
+---
+`,
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(root, "backlog", "AGENTS.md"),
+        `---
+id: backloga-2056
+title: Backlog Agents Policy
+type: document
+subtype: generic
+lifecycle: evergreen
+status: closed
+---
+`,
+        "utf8",
+      );
+
+      const taskJson = runCliJson<{
+        schemaVersion: string;
+        tasks: Array<{ id: string; title: string; filePath: string }>;
+      }>(root, ["task", "list", "--json"]);
+      const workJson = runCliJson<{
+        schemaVersion: string;
+        tasks: Array<{ id: string; title: string; filePath: string }>;
+      }>(root, ["work", "list", "--json"]);
+      const wiJson = runCliJson<{
+        schemaVersion: string;
+        tasks: Array<{ id: string; title: string; filePath: string }>;
+      }>(root, ["wi", "list", "--json"]);
+
+      expect(taskJson).toEqual(workJson);
+      expect(workJson).toEqual(wiJson);
+      expect(taskJson).toEqual({
+        schemaVersion: "task-list/v1",
+        tasks: [
+          {
+            id: "wi-100",
+            status: "ready",
+            title: "Backlog Item",
+            filePath: "backlog/100-backlog-item.md",
+            lifecycle: "active",
+            runtime: expect.objectContaining({
+              markdownReady: true,
+              sourceDisagreement: false,
+            }),
+          },
+        ],
+      });
+
+      const taskText = runCli(root, ["task", "list"]);
+      const workText = runCli(root, ["work", "list"]);
+      const wiText = runCli(root, ["wi", "list"]);
+      expect(taskText).toBe(workText);
+      expect(workText).toBe(wiText);
+      expect(taskText).toContain("wi-100 | ready | Backlog Item");
+      expect(taskText).not.toContain("wi-999");
+      } finally {
+        await fs.rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it(
+    "explores the projected work graph through read-only work and wi CLI commands",
+    { timeout: 30_000 },
+    async () => {
+      const root = await mkTmpRoot();
+      try {
+        await writeTask(
+          root,
+          "60393-read-only-work-graph-explorer-cli.md",
+          `id: wi-60393
+title: Read-Only Work Graph Explorer CLI
+summary: Add a read-only graph explorer.
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+priority: high
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[60392-live-repository-graph-projection-robustness]]'`,
+          `## Goal
+
+Inspect the projected work graph.
+
+## Relationships
+
+- \`implements\`: [[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]
+`,
+        );
+        await writeTask(
+          root,
+          "60392-live-repository-graph-projection-robustness.md",
+          `id: wi-60392
+title: Live Repository Graph Projection Robustness
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: completed`,
+          `## Goal
+
+Keep live projection robust.
+`,
+        );
+        await fs.mkdir(
+          path.join(root, "docs", "how-to", "implementation-plans"),
+          { recursive: true },
+        );
+        await fs.writeFile(
+          path.join(
+            root,
+            "docs",
+            "how-to",
+            "implementation-plans",
+            "doc-vader-work-item-claim-scope-mvp-prd.md",
+          ),
+          `---
+id: plan:doc-vader-work-item-claim-scope-mvp-prd
+title: Doc-Vader Work Item Claim Scope MVP PRD
+type: plan
+subtype: x-prd
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Define the Work graph MVP.
+`,
+          "utf8",
+        );
+        await fs.writeFile(
+          path.join(root, "backlog", "AGENTS.md"),
+          `---
+id: backloga-2056
+title: Backlog Agents Policy
+type: document
+subtype: generic
+lifecycle: evergreen
+status: closed
+---
+
+Helper policy document that should stay diagnostic-only.
+`,
+          "utf8",
+        );
+
+        await expect(
+          fs.stat(path.join(root, ".doc-vader", "runtime")),
+        ).rejects.toMatchObject({ code: "ENOENT" });
+
+        const nodes = runCliJson<{
+          schemaVersion: string;
+          command: string;
+          nodes: Array<{ id: string; type: string }>;
+          diagnostics: Array<{ relativePath: string; reasonCode: string }>;
+        }>(root, ["work", "graph", "nodes"]);
+        expect(nodes.schemaVersion).toBe("work-graph-explorer/v1");
+        expect(nodes.command).toBe("nodes");
+        expect(nodes.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: "wi:60393", type: "work-item" }),
+            expect.objectContaining({
+              id: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+              type: "scope",
+            }),
+          ]),
+        );
+        expect(nodes.diagnostics).toEqual([
+          expect.objectContaining({
+            relativePath: "backlog/AGENTS.md",
+            reasonCode: "unsupported-document-type",
+          }),
+        ]);
+
+        const workItemNodes = runCliJson<{
+          nodes: Array<{ id: string; type: string }>;
+        }>(root, [
+          "work",
+          "graph",
+          "nodes",
+          "--format",
+          "json",
+          "--node-type",
+          "work-item",
+        ]);
+        expect(workItemNodes.nodes.map((node) => node.type)).toEqual([
+          "work-item",
+          "work-item",
+        ]);
+
+        const edges = runCliJson<{
+          command: string;
+          edges: Array<{ type: string; from: string; to: string }>;
+          diagnostics: Array<{ relativePath: string }>;
+        }>(root, [
+          "wi",
+          "graph",
+          "edges",
+          "--format",
+          "json",
+          "--edge-type",
+          "depends_on",
+          "--source",
+          "wi:60393",
+        ]);
+        expect(edges.command).toBe("edges");
+        expect(edges.edges).toEqual([
+          expect.objectContaining({
+            type: "depends_on",
+            from: "wi:60393",
+            to: "wi:60392",
+          }),
+        ]);
+        expect(edges.diagnostics).toHaveLength(1);
+
+        const targetEdges = runCliJson<{
+          edges: Array<{ type: string; from: string; to: string }>;
+        }>(root, [
+          "wi",
+          "graph",
+          "edges",
+          "--format",
+          "json",
+          "--target",
+          "wi:60392",
+        ]);
+        expect(targetEdges.edges).toEqual([
+          expect.objectContaining({
+            type: "depends_on",
+            from: "wi:60393",
+            to: "wi:60392",
+          }),
+        ]);
+
+        const neighborhoodEdges = runCliJson<{
+          edges: Array<{ type: string; from: string; to: string }>;
+        }>(root, [
+          "work",
+          "graph",
+          "edges",
+          "--format",
+          "json",
+          "--node",
+          "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+        ]);
+        expect(neighborhoodEdges.edges).toEqual([
+          expect.objectContaining({
+            type: "implements",
+            from: "wi:60393",
+            to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+          }),
+        ]);
+
+        const inspect = runCliJson<{
+          command: string;
+          node: { id: string; type: string };
+          neighborhood: {
+            nodes: Array<{ id: string }>;
+            outgoingEdges: Array<{ type: string; to: string }>;
+            incomingEdges: Array<{ type: string }>;
+          };
+        }>(root, [
+          "wi",
+          "graph",
+          "inspect",
+          "wi:60393",
+          "--format",
+          "json",
+        ]);
+        expect(inspect.command).toBe("inspect");
+        expect(inspect.node).toMatchObject({ id: "wi:60393", type: "work-item" });
+        expect(inspect.neighborhood.nodes.map((node) => node.id)).toEqual(
+          expect.arrayContaining([
+            "wi:60392",
+            "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+          ]),
+        );
+        expect(inspect.neighborhood.outgoingEdges).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: "depends_on",
+              to: "wi:60392",
+            }),
+            expect.objectContaining({
+              type: "implements",
+              to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+            }),
+          ]),
+        );
+        expect(inspect.neighborhood.incomingEdges).toEqual([]);
+
+        const summaryText = runCli(root, ["work", "graph", "summary"]);
+        expect(summaryText).toContain("Work Graph Summary");
+        expect(summaryText).toContain("Nodes\t3 scope, 2 work-item");
+        expect(summaryText).toContain("Edges\t1 depends_on, 1 implements");
+        expect(summaryText).toContain("Diagnostics\t1");
+
+        const summaryJson = runCliJson<WorkGraphSummaryPayload>(root, [
+          "wi",
+          "graph",
+          "summary",
+          "--format",
+          "json",
+        ]);
+        expect(summaryJson.schemaVersion).toBe("work-graph-explorer/v1");
+        expect(summaryJson.command).toBe("summary");
+        expect(summaryJson.summary).toEqual({
+          nodeCount: 5,
+          edgeCount: 2,
+          diagnosticCount: 1,
+          nodeTypes: [
+            { type: "scope", count: 3 },
+            { type: "work-item", count: 2 },
+          ],
+          edgeTypes: [
+            { type: "depends_on", count: 1 },
+            { type: "implements", count: 1 },
+          ],
+        });
+
+        const exported = runCliJson<WorkGraphExportPayload>(root, [
+          "work",
+          "graph",
+          "export",
+        ]);
+        expect(exported.schemaVersion).toBe("work-graph-explorer/v1");
+        expect(exported.command).toBe("export");
+        expect(exported.summary).toMatchObject({
+          nodeCount: 5,
+          edgeCount: 2,
+          diagnosticCount: 1,
+        });
+        expect(exported.nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: "scope:wi:60392" }),
+            expect.objectContaining({ id: "scope:wi:60393" }),
+            expect.objectContaining({
+              id: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+            }),
+            expect.objectContaining({ id: "wi:60392" }),
+            expect.objectContaining({ id: "wi:60393" }),
+          ]),
+        );
+        expect(exported.edges).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              type: "depends_on",
+              from: "wi:60393",
+              to: "wi:60392",
+            }),
+            expect.objectContaining({
+              type: "implements",
+              from: "wi:60393",
+              to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+            }),
+          ]),
+        );
+        expect(exported.diagnostics).toEqual([
+          expect.objectContaining({
+            relativePath: "backlog/AGENTS.md",
+            reasonCode: "unsupported-document-type",
+          }),
+        ]);
+        expect(exported.nodes.some((node) => node.id === "backlog/AGENTS.md")).toBe(false);
+
+        const exportDot = runCli(root, [
+          "work",
+          "graph",
+          "export",
+          "--format",
+          "dot",
+        ]);
+        expect(exportDot).toContain("digraph WorkGraph {");
+        expect(exportDot).toContain('"wi:60393" -> "wi:60392" [label="depends_on"]');
+        expect(exportDot).toContain(
+          '"wi:60393" -> "scope:plan:doc-vader-work-item-claim-scope-mvp-prd" [label="implements"]',
+        );
+
+        const dot = runCli(root, [
+          "work",
+          "graph",
+          "inspect",
+          "wi:60393",
+          "--format",
+          "dot",
+        ]);
+        expect(dot).toContain("digraph WorkGraph {");
+        expect(dot).toContain('"wi:60393" -> "wi:60392" [label="depends_on"]');
+        expect(dot).toContain(
+          '"wi:60393" -> "scope:plan:doc-vader-work-item-claim-scope-mvp-prd" [label="implements"]',
+        );
+
+        expect(() =>
+          runCli(root, ["work", "graph", "nodes", "--format", "digraph"]),
+        ).toThrow();
+        await expect(
+          fs.stat(path.join(root, ".doc-vader", "runtime")),
+        ).rejects.toMatchObject({ code: "ENOENT" });
+      } finally {
+        await fs.rm(root, { recursive: true, force: true });
+      }
+    },
+    15000,
+  );
 
   it("fails closed for missing, ambiguous, and archived task ids", async () => {
     const root = await mkTmpRoot();
@@ -2425,7 +3111,7 @@ tags:
         ].join("\n"),
       );
       const text = runCli(root, ["task", "ready"]);
-      expect(text).toContain("Ready task candidates");
+      expect(text).toContain("Ready work candidates");
       expect(text).toContain("Candidates: 2");
       expect(text).toContain("Recoverable with --force: 2 (wi-211, wi-212)");
       expect(text).toContain("Branch lineage or task-local dirty state is uncertain");
@@ -2819,6 +3505,187 @@ links:
     }
   });
 
+  it("uses projected depends_on relationships during ready selection", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "214-relationship-dependency.md",
+        `id: wi-214
+title: Relationship Dependency
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+        `## Goal
+
+Prove graph-backed ready selection uses projected dependency edges.
+
+## Relationships
+
+- \`depends_on\`: [[wi-215]]
+`,
+      );
+      await writeTask(
+        root,
+        "215-blocking-dependency.md",
+        `id: wi-215
+title: Blocking Dependency
+type: work-item
+lifecycle: active
+status: in-progress
+tags:
+  - afk`,
+      );
+
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
+
+      expect(report.candidates).toEqual([]);
+      expect(report.exclusions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "wi-214",
+            reasons: expect.arrayContaining([
+              expect.objectContaining({ code: "dependency_blocked" }),
+            ]),
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "dependency_unsatisfied",
+                subjectId: "wi-214",
+                evidence: expect.arrayContaining([
+                  expect.objectContaining({
+                    ref: "wi-215",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+        ]),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("projects derived readiness findings separately from authored dependencies", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "206-dependency-blocked.md",
+        `id: wi-206
+title: Dependency Blocked
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[wi-207]]'`,
+      );
+      await writeTask(
+        root,
+        "207-incomplete-dependency.md",
+        `id: wi-207
+title: Incomplete Dependency
+type: work-item
+lifecycle: active
+status: in-progress
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "208-runtime-claimed.md",
+        `id: wi-208
+title: Runtime Claimed
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "209-missing-evidence.md",
+        `id: wi-209
+title: Missing Evidence
+type: work-item
+lifecycle: inactive
+status: completed
+status_reason: completed
+tags:
+  - afk`,
+      );
+
+      acquireRuntimeTaskClaim(root, "wi-208", [], "agent-runtime");
+
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
+
+      expect(report.candidates).toEqual([]);
+      expect(report.exclusions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "wi-206",
+            reasons: expect.arrayContaining([
+              expect.objectContaining({ code: "dependency_blocked" }),
+            ]),
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "dependency_unsatisfied",
+                subjectId: "wi-206",
+                severity: "error",
+                evidence: expect.arrayContaining([
+                  expect.objectContaining({
+                    ref: "wi-207",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            id: "wi-208",
+            reasons: expect.arrayContaining([
+              expect.objectContaining({ code: "task_claim_active" }),
+            ]),
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "runtime_claim_active",
+                subjectId: "wi-208",
+                severity: "error",
+                evidence: expect.arrayContaining([
+                  expect.objectContaining({
+                    ref: "claim:wi-208",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            id: "wi-209",
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "governance_missing_evidence",
+                subjectId: "wi-209",
+                severity: "error",
+              }),
+            ]),
+          }),
+        ]),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("creates and links task evidence from a claim payload", async () => {
     const root = await mkTmpRoot();
     try {
@@ -3093,6 +3960,18 @@ tags:
         taskId: "wi-206-runtime-record",
         evidenceLink: "[[record-wi-206-runtime-record-evidence]]",
       });
+      const record = await fs.readFile(
+        path.join(
+          root,
+          "backlog",
+          "records",
+          "record-wi-206-runtime-record-evidence.md",
+        ),
+        "utf8",
+      );
+      expect(record).toContain(`- claim:${created.claimToken}`);
+      expect(record).toContain("- wi-206-runtime-record");
+      expect(record).toContain("- wi:206-runtime-record");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

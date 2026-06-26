@@ -63,6 +63,10 @@ export {
   type RuntimeLockStatusResult,
   type RuntimeLockWorktreeState,
   type RuntimeSqliteStoreOptions,
+  type RuntimeScopeLockRecord,
+  type RuntimeClaimRenewalConflict,
+  type RuntimeClaimRenewalResult,
+  type RuntimeClaimRenewalSuccess,
   persistRuntimeClaimForWrite,
   persistRuntimeEntityForWrite,
   persistRuntimeExecutionLogEntryForWrite,
@@ -73,3 +77,17 @@ export {
   type RuntimeDurableWrite,
   type RuntimeEntityKind,
 } from "./sqlite-store.js";
+export {
+  ReadLockPolicy,
+  WriteLockPolicy,
+  ExecuteLockPolicy,
+  canonicalizeClaimScopeRef,
+  canonicalizeRuntimeScopeRef,
+  evaluateRuntimeScopeLockPolicy,
+  type RuntimeScopeLock,
+  type RuntimeScopeLockConflict,
+  type RuntimeScopeLockLifecycleState,
+  type RuntimeScopeLockMode,
+  type RuntimeScopeLockPolicyDecision,
+  type RuntimeScopeLockPolicyName,
+} from "./scope-locks.js";

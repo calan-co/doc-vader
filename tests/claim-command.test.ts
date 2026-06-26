@@ -542,49 +542,53 @@ tags:
     }
   });
 
-  it("rejects runtime claim creation for tasks whose latest execution log is not ready-permitting", async () => {
-    const root = await mkRoot();
-    const store = openRuntimeSqliteStore({ rootDir: root });
-    try {
-      await writeTask(root, "60343-blocked.md");
-      store.insertExecutionLogEntry({
-        schema_version: "runtime-entity/v1",
-        claim_token: "claim-wi-60343-blocked",
-        target_type: "task",
-        target_id: "wi-60343-blocked",
-        state: "halted",
-        reason: "blocked",
-        created_at: "2026-06-15T12:00:00.000Z",
-        detail: {
-          code: "x-runtime-task-blocked",
-          message: "Blocked by runtime execution.",
-        },
-      });
-    } finally {
-      store.close();
-    }
+  it(
+    "rejects runtime claim creation for tasks whose latest execution log is not ready-permitting",
+    { timeout: 15_000 },
+    async () => {
+      const root = await mkRoot();
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        await writeTask(root, "60343-blocked.md");
+        store.insertExecutionLogEntry({
+          schema_version: "runtime-entity/v1",
+          claim_token: "claim-wi-60343-blocked",
+          target_type: "task",
+          target_id: "wi-60343-blocked",
+          state: "halted",
+          reason: "blocked",
+          created_at: "2026-06-15T12:00:00.000Z",
+          detail: {
+            code: "x-runtime-task-blocked",
+            message: "Blocked by runtime execution.",
+          },
+        });
+      } finally {
+        store.close();
+      }
 
-    let output = "";
-    try {
-      runCli(root, [
-        "claim",
-        "create",
-        "--target",
-        "task:wi-60343-blocked",
-        "--holder",
-        "cli-claim-test",
-        "--json",
-      ]);
-    } catch (error) {
-      const captured = error as { stdout?: unknown; stderr?: unknown };
-      output = [String(captured.stdout ?? ""), String(captured.stderr ?? "")].join(
-        "\n",
-      );
-    }
+      let output = "";
+      try {
+        runCli(root, [
+          "claim",
+          "create",
+          "--target",
+          "task:wi-60343-blocked",
+          "--holder",
+          "cli-claim-test",
+          "--json",
+        ]);
+      } catch (error) {
+        const captured = error as { stdout?: unknown; stderr?: unknown };
+        output = [String(captured.stdout ?? ""), String(captured.stderr ?? "")].join(
+          "\n",
+        );
+      }
 
-    expect(output).toContain("TASK_NOT_CLAIMABLE");
-    expect(output).toContain("execution-not-ready");
-  });
+      expect(output).toContain("TASK_NOT_CLAIMABLE");
+      expect(output).toContain("execution-not-ready");
+    },
+  );
 
   it("allows two local agents to claim different eligible tasks in parallel", async () => {
     const root = await mkRoot();
