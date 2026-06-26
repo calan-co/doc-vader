@@ -10,6 +10,7 @@ import type {
 
 export type WorkGraphExplorerFormat = "json" | "dot";
 export type WorkGraphExplorerCommand = "nodes" | "edges" | "inspect";
+const WORK_GRAPH_EXPLORER_SCHEMA_VERSION = "work-graph-explorer/v1";
 
 export interface WorkGraphNodesQuery {
   readonly nodeTypes?: readonly WorkGraphNodeType[];
@@ -29,7 +30,7 @@ export interface WorkGraphNeighborhood {
 }
 
 export interface WorkGraphNodesResult {
-  readonly schemaVersion: "work-graph-explorer/v1";
+  readonly schemaVersion: typeof WORK_GRAPH_EXPLORER_SCHEMA_VERSION;
   readonly command: "nodes";
   readonly filters: {
     readonly nodeTypes: readonly WorkGraphNodeType[];
@@ -39,7 +40,7 @@ export interface WorkGraphNodesResult {
 }
 
 export interface WorkGraphEdgesResult {
-  readonly schemaVersion: "work-graph-explorer/v1";
+  readonly schemaVersion: typeof WORK_GRAPH_EXPLORER_SCHEMA_VERSION;
   readonly command: "edges";
   readonly filters: {
     readonly edgeTypes: readonly WorkGraphEdgeType[];
@@ -53,7 +54,7 @@ export interface WorkGraphEdgesResult {
 }
 
 export interface WorkGraphInspectResult {
-  readonly schemaVersion: "work-graph-explorer/v1";
+  readonly schemaVersion: typeof WORK_GRAPH_EXPLORER_SCHEMA_VERSION;
   readonly command: "inspect";
   readonly node: WorkGraphNode;
   readonly neighborhood: WorkGraphNeighborhood;
@@ -83,8 +84,12 @@ function stableEdges(edges: readonly WorkGraphEdge[]): WorkGraphEdge[] {
   );
 }
 
+function stableStrings(values: Iterable<string>): string[] {
+  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+
 function stableNodeIds(values: readonly string[] | undefined): string[] {
-  return [...new Set(values ?? [])].sort((left, right) => left.localeCompare(right));
+  return stableStrings(values ?? []);
 }
 
 function escapeDotValue(value: string): string {
@@ -149,6 +154,31 @@ class DotWorkGraphOutputExtension implements WorkGraphOutputExtension {
   }
 }
 
+function collectInspectNodes(
+  projection: WorkGraphProjection,
+  node: WorkGraphNode,
+  outgoingEdges: readonly WorkGraphEdge[],
+  incomingEdges: readonly WorkGraphEdge[],
+): WorkGraphNode[] {
+  const neighborhoodNodes: WorkGraphNode[] = [node];
+
+  for (const edge of outgoingEdges) {
+    const targetNode = projection.findNode(edge.to);
+    if (targetNode) {
+      neighborhoodNodes.push(targetNode);
+    }
+  }
+
+  for (const edge of incomingEdges) {
+    const sourceNode = projection.findNode(edge.from);
+    if (sourceNode) {
+      neighborhoodNodes.push(sourceNode);
+    }
+  }
+
+  return dedupeNodes(neighborhoodNodes);
+}
+
 function dotSelection(
   result: WorkGraphExplorerResult,
 ): readonly [readonly WorkGraphNode[], readonly WorkGraphEdge[]] {
@@ -189,16 +219,14 @@ export function queryWorkGraphNodes(
   projection: WorkGraphProjection,
   query: WorkGraphNodesQuery = {},
 ): WorkGraphNodesResult {
-  const nodeTypes = [...new Set(query.nodeTypes ?? [])].sort(
-    (left, right) => left.localeCompare(right),
-  );
+  const nodeTypes = stableStrings(query.nodeTypes ?? []) as WorkGraphNodeType[];
   const nodes = stableNodes(
     nodeTypes.length === 0
       ? projection.nodes
       : projection.nodes.filter((node) => nodeTypes.includes(node.type)),
   );
   return {
-    schemaVersion: "work-graph-explorer/v1",
+    schemaVersion: WORK_GRAPH_EXPLORER_SCHEMA_VERSION,
     command: "nodes",
     filters: {
       nodeTypes,
@@ -212,9 +240,7 @@ export function queryWorkGraphEdges(
   projection: WorkGraphProjection,
   query: WorkGraphEdgesQuery = {},
 ): WorkGraphEdgesResult {
-  const edgeTypes = [...new Set(query.edgeTypes ?? [])].sort(
-    (left, right) => left.localeCompare(right),
-  );
+  const edgeTypes = stableStrings(query.edgeTypes ?? []) as WorkGraphEdgeType[];
   const sourceNodeIds = stableNodeIds(query.sourceNodeIds);
   const targetNodeIds = stableNodeIds(query.targetNodeIds);
   const nodeIds = stableNodeIds(query.nodeIds);
@@ -241,7 +267,7 @@ export function queryWorkGraphEdges(
   );
   const nodes = collectEdgeEndpointNodes(projection, edges);
   return {
-    schemaVersion: "work-graph-explorer/v1",
+    schemaVersion: WORK_GRAPH_EXPLORER_SCHEMA_VERSION,
     command: "edges",
     filters: {
       edgeTypes,
@@ -269,13 +295,14 @@ export function inspectWorkGraphNode(
   }
   const outgoingEdges = stableEdges(projection.getOutgoingEdges(nodeId));
   const incomingEdges = stableEdges(projection.getIncomingEdges(nodeId));
-  const neighborhoodNodes = dedupeNodes(
-    [...outgoingEdges.map((edge) => projection.findNode(edge.to))]
-      .concat(incomingEdges.map((edge) => projection.findNode(edge.from)))
-      .filter((candidate): candidate is WorkGraphNode => Boolean(candidate)),
+  const neighborhoodNodes = collectInspectNodes(
+    projection,
+    node,
+    outgoingEdges,
+    incomingEdges,
   );
   return {
-    schemaVersion: "work-graph-explorer/v1",
+    schemaVersion: WORK_GRAPH_EXPLORER_SCHEMA_VERSION,
     command: "inspect",
     node,
     neighborhood: {

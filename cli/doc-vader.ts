@@ -97,6 +97,7 @@ import {
   type WorkModel as TaskModel,
   type WorkRecoveryGitState as TaskRecoveryGitState,
   type WorkGraphEdgeType,
+  type WorkGraphExplorerResult,
   type WorkGraphExplorerFormat,
   type WorkGraphNodeType,
   WorkCommandError as TaskCommandError,
@@ -273,15 +274,15 @@ function createWorkGraphFormatOption(): Option {
 
 async function writeProjectedWorkGraph(
   format: WorkGraphExplorerFormat,
-  renderResult: ReturnType<typeof createWorkGraphOutputExtension>["render"],
-  selectResult: Parameters<typeof renderResult>[0] extends never
-    ? never
-    : (projection: Awaited<ReturnType<typeof projectWorkGraph>>) => Parameters<typeof renderResult>[0],
+  selectResult: (
+    projection: Awaited<ReturnType<typeof projectWorkGraph>>,
+  ) => WorkGraphExplorerResult,
 ): Promise<void> {
   try {
     const projection = await projectWorkGraph();
     const result = selectResult(projection);
-    process.stdout.write(renderResult(result));
+    const output = createWorkGraphOutputExtension(format).render(result);
+    process.stdout.write(output);
   } catch (error) {
     failTaskCommand(error, format === "json");
   }
@@ -1574,8 +1575,7 @@ function registerWorkCommandSurface(surface: Command): void {
         format: WorkGraphExplorerFormat;
         nodeType?: string[];
       }) => {
-        const render = createWorkGraphOutputExtension(opts.format).render;
-        await writeProjectedWorkGraph(opts.format, render, (projection) =>
+        await writeProjectedWorkGraph(opts.format, (projection) =>
           queryWorkGraphNodes(projection, {
             nodeTypes: parseGraphNodeTypes(opts.nodeType),
           }),
@@ -1619,8 +1619,7 @@ function registerWorkCommandSurface(surface: Command): void {
         target?: string[];
         node?: string[];
       }) => {
-        const render = createWorkGraphOutputExtension(opts.format).render;
-        await writeProjectedWorkGraph(opts.format, render, (projection) =>
+        await writeProjectedWorkGraph(opts.format, (projection) =>
           queryWorkGraphEdges(projection, {
             edgeTypes: parseGraphEdgeTypes(opts.edgeType),
             sourceNodeIds: opts.source ?? [],
@@ -1643,8 +1642,7 @@ function registerWorkCommandSurface(surface: Command): void {
           format: WorkGraphExplorerFormat;
         },
       ) => {
-        const render = createWorkGraphOutputExtension(opts.format).render;
-        await writeProjectedWorkGraph(opts.format, render, (projection) =>
+        await writeProjectedWorkGraph(opts.format, (projection) =>
           inspectWorkGraphNode(projection, nodeId),
         );
       },
