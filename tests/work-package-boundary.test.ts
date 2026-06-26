@@ -11,6 +11,7 @@ import {
 
 const tempDirs: string[] = [];
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
+const PRODUCTION_SOURCE_DIRS = ["cli", "lib"] as const;
 
 async function createTempDir(): Promise<string> {
   const dir = path.join(
@@ -36,12 +37,20 @@ async function collectTypeScriptFiles(dirPath: string): Promise<string[]> {
     if (entry.name.startsWith(".")) {
       continue;
     }
+
     const fullPath = path.join(dirPath, entry.name);
+
     if (entry.isDirectory()) {
       files.push(...(await collectTypeScriptFiles(fullPath)));
       continue;
     }
-    if (entry.isFile() && entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts")) {
+
+    const isProductionTypeScriptFile =
+      entry.isFile() &&
+      entry.name.endsWith(".ts") &&
+      !entry.name.endsWith(".test.ts");
+
+    if (isProductionTypeScriptFile) {
       files.push(fullPath);
     }
   }
@@ -110,7 +119,7 @@ import { badCatalog } from "../../../semantify/src/index.js";
     const repoRoot = path.resolve(TEST_DIR, "..");
     const productionFiles = (
       await Promise.all(
-        ["cli", "lib"].map((dirName) =>
+        PRODUCTION_SOURCE_DIRS.map((dirName) =>
           collectTypeScriptFiles(path.join(repoRoot, dirName)),
         ),
       )
