@@ -80,6 +80,55 @@ function provenanceFilePath(
   return typeof provenance.filePath === "string" ? provenance.filePath : undefined;
 }
 
+function renderFilterOptions(
+  prefix: "node" | "edge",
+  entries: readonly { readonly type: string; readonly count: number }[],
+): string {
+  return entries
+    .map(
+      (entry) =>
+        `<label class="filter-option"><input type="checkbox" value="${escapeHtml(entry.type)}" checked /> <span>${prefix}:${escapeHtml(entry.type)}</span> <span class="filter-count">${entry.count}</span></label>`,
+    )
+    .join("");
+}
+
+function adaptNodeElement(node: WorkGraphNode): WorkGraphCytoscapeNodeElement {
+  const filePath = provenanceFilePath(node.source);
+  return {
+    group: "nodes",
+    data: {
+      id: node.id,
+      label: node.label,
+      stableId: node.stableId,
+      nodeType: node.type,
+      provenance: node.source,
+      properties: node.properties,
+      filePath,
+      searchText: searchText([node.stableId, node.label, filePath]),
+    },
+  };
+}
+
+function adaptEdgeElement(edge: WorkGraphEdge): WorkGraphCytoscapeEdgeElement {
+  const filePath = provenanceFilePath(edge.source);
+  return {
+    group: "edges",
+    data: {
+      id: edge.id,
+      source: edge.from,
+      target: edge.to,
+      label: edge.type,
+      stableId: edge.id,
+      edgeType: edge.type,
+      direction: edge.direction,
+      provenance: edge.source,
+      properties: edge.properties,
+      filePath,
+      searchText: searchText([edge.id, edge.type, filePath]),
+    },
+  };
+}
+
 export function assertWorkGraphExportResult(
   value: unknown,
 ): WorkGraphExportResult {
@@ -147,50 +196,14 @@ export async function readWorkGraphExportFile(
 export function adaptWorkGraphExportToCytoscape(
   result: WorkGraphExportResult,
 ): WorkGraphCytoscapeDocument {
-  const nodeElements: WorkGraphCytoscapeNodeElement[] = result.nodes.map((node) => ({
-    group: "nodes",
-    data: {
-      id: node.id,
-      label: node.label,
-      stableId: node.stableId,
-      nodeType: node.type,
-      provenance: node.source,
-      properties: node.properties,
-      filePath: provenanceFilePath(node.source),
-      searchText: searchText([
-        node.stableId,
-        node.label,
-        provenanceFilePath(node.source),
-      ]),
-    },
-  }));
-
-  const edgeElements: WorkGraphCytoscapeEdgeElement[] = result.edges.map((edge) => ({
-    group: "edges",
-    data: {
-      id: edge.id,
-      source: edge.from,
-      target: edge.to,
-      label: edge.type,
-      stableId: edge.id,
-      edgeType: edge.type,
-      direction: edge.direction,
-      provenance: edge.source,
-      properties: edge.properties,
-      filePath: provenanceFilePath(edge.source),
-      searchText: searchText([
-        edge.id,
-        edge.type,
-        provenanceFilePath(edge.source),
-      ]),
-    },
-  }));
-
   return {
     schemaVersion: result.schemaVersion,
     sourceCommand: result.command,
     summary: result.summary,
-    elements: [...nodeElements, ...edgeElements],
+    elements: [
+      ...result.nodes.map(adaptNodeElement),
+      ...result.edges.map(adaptEdgeElement),
+    ],
     diagnostics: result.diagnostics,
   };
 }
@@ -201,18 +214,8 @@ export function renderStandaloneWorkGraphViewer(
   const payload = escapeInlineJson(JSON.stringify(graph));
   const title = "Work Graph Viewer";
   const summaryText = `${graph.summary.nodeCount} nodes, ${graph.summary.edgeCount} edges, ${graph.summary.diagnosticCount} diagnostics`;
-  const nodeTypeOptions = graph.summary.nodeTypes
-    .map(
-      (entry) =>
-        `<label class="filter-option"><input type="checkbox" value="${escapeHtml(entry.type)}" checked /> <span>node:${escapeHtml(entry.type)}</span> <span class="filter-count">${entry.count}</span></label>`,
-    )
-    .join("");
-  const edgeTypeOptions = graph.summary.edgeTypes
-    .map(
-      (entry) =>
-        `<label class="filter-option"><input type="checkbox" value="${escapeHtml(entry.type)}" checked /> <span>edge:${escapeHtml(entry.type)}</span> <span class="filter-count">${entry.count}</span></label>`,
-    )
-    .join("");
+  const nodeTypeOptions = renderFilterOptions("node", graph.summary.nodeTypes);
+  const edgeTypeOptions = renderFilterOptions("edge", graph.summary.edgeTypes);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -478,11 +481,27 @@ export function renderStandaloneWorkGraphViewer(
     <script src="https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
     <script>
       const graph = JSON.parse(document.getElementById("work-graph-data").textContent);
-      const inspectorEntries = new Map(graph.elements.map((element) => [element.data.id, {
-        kind: element.group === "nodes" ? "node" : "edge",
-        ...element.data,
-        relatedDiagnostics: graph.diagnostics.filter((entry) => entry.relativePath === element.data.filePath)
-      }]));
+      const emptyInspectionMarkup = "<p class=\\"inspection-empty\\">Select a node or edge to inspect its stable metadata.</p>";
+      const defaultViewerStatus = "Filters and search only change local visibility.";
+      const diagnosticsByPath = new Map();
+      graph.diagnostics.forEach((entry) => {
+        const currentEntries = diagnosticsByPath.get(entry.relativePath);
+        if (currentEntries) {
+          currentEntries.push(entry);
+          return;
+        }
+        diagnosticsByPath.set(entry.relativePath, [entry]);
+      });
+      const inspectorEntries = new Map(graph.elements.map((element) => {
+        const fileDiagnostics = element.data.filePath
+          ? diagnosticsByPath.get(element.data.filePath) || []
+          : [];
+        return [element.data.id, {
+          kind: element.group === "nodes" ? "node" : "edge",
+          ...element.data,
+          relatedDiagnostics: fileDiagnostics
+        }];
+      }));
       const state = {
         searchQuery: "",
         nodeTypes: new Set(graph.summary.nodeTypes.map((entry) => entry.type)),
@@ -573,30 +592,33 @@ export function renderStandaloneWorkGraphViewer(
       }
       function renderInspection(entry) {
         if (!entry) {
-          inspectionPanel.innerHTML = "<p class=\\"inspection-empty\\">Select a node or edge to inspect its stable metadata.</p>";
+          inspectionPanel.innerHTML = emptyInspectionMarkup;
           return;
         }
-        const details = entry.kind === "node"
-          ? [
-              ["kind", "node"],
-              ["id", entry.id],
-              ["stable id", entry.stableId],
-              ["label", entry.label],
-              ["node type", entry.nodeType],
-              ["source kind", entry.provenance.kind],
-              ["source file", entry.filePath || "none"]
-            ]
-          : [
-              ["kind", "edge"],
-              ["id", entry.id],
-              ["stable id", entry.stableId],
-              ["edge type", entry.edgeType],
-              ["direction", entry.direction],
-              ["source", entry.source],
-              ["target", entry.target],
-              ["source kind", entry.provenance.kind],
-              ["source file", entry.filePath || "none"]
-            ];
+        const details = [];
+        if (entry.kind === "node") {
+          details.push(
+            ["kind", "node"],
+            ["id", entry.id],
+            ["stable id", entry.stableId],
+            ["label", entry.label],
+            ["node type", entry.nodeType],
+            ["source kind", entry.provenance.kind],
+            ["source file", entry.filePath || "none"]
+          );
+        } else {
+          details.push(
+            ["kind", "edge"],
+            ["id", entry.id],
+            ["stable id", entry.stableId],
+            ["edge type", entry.edgeType],
+            ["direction", entry.direction],
+            ["source", entry.source],
+            ["target", entry.target],
+            ["source kind", entry.provenance.kind],
+            ["source file", entry.filePath || "none"]
+          );
+        }
         inspectionPanel.innerHTML = [
           "<h3>" + escapeHtml(entry.label || entry.edgeType || entry.id) + "</h3>",
           "<dl class=\\"inspection-meta\\">",
@@ -615,7 +637,7 @@ export function renderStandaloneWorkGraphViewer(
         filterResults.textContent = nodeCount + " nodes, " + edgeCount + " edges visible";
         viewerStatus.textContent = state.searchQuery
           ? "Filtered read-only view for search: " + state.searchQuery
-          : "Filters and search only change local visibility.";
+          : defaultViewerStatus;
       }
       function clearSelection() {
         state.selectedElementId = null;
