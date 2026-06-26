@@ -5,10 +5,11 @@ summary: Represent dependency, resource, policy, and evidence blockers as derive
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60393-read-only-work-graph-explorer-cli]]'
@@ -50,18 +51,18 @@ evidence. Do not add `blocks` or `relates_to` as canonical relationship edges.
 
 ## Tasks
 
-- [ ] Define the derived readiness finding shape and stable reason-code
+- [x] Define the derived readiness finding shape and stable reason-code
       vocabulary.
-- [ ] Emit findings for unsatisfied `depends_on` relationships.
-- [ ] Emit findings for resource or scope conflicts when available from current
+- [x] Emit findings for unsatisfied `depends_on` relationships.
+- [x] Emit findings for resource or scope conflicts when available from current
       runtime data.
-- [ ] Emit findings for missing evidence or policy blockers already represented
+- [x] Emit findings for missing evidence or policy blockers already represented
       by governance checks.
-- [ ] Keep findings separate from graph relationship edges in data structures
+- [x] Keep findings separate from graph relationship edges in data structures
       and output.
-- [ ] Add tests proving blocker state is derived without emitting `blocks`.
-- [ ] Add tests proving generic `relates_to` is not needed for MVP readiness.
-- [ ] Document the boundary between authored relationships and derived
+- [x] Add tests proving blocker state is derived without emitting `blocks`.
+- [x] Add tests proving generic `relates_to` is not needed for MVP readiness.
+- [x] Document the boundary between authored relationships and derived
       readiness findings.
 
 ## Deliverables
@@ -73,17 +74,17 @@ evidence. Do not add `blocks` or `relates_to` as canonical relationship edges.
 
 ## Acceptance Criteria
 
-- [ ] Findings include stable reason codes and subject identifiers.
-- [ ] An unfinished `depends_on` target creates a derived finding, not a
+- [x] Findings include stable reason codes and subject identifiers.
+- [x] An unfinished `depends_on` target creates a derived finding, not a
       `blocks` edge.
-- [ ] Resource and scope conflicts create derived findings when current data is
+- [x] Resource and scope conflicts create derived findings when current data is
       available.
-- [ ] Missing evidence or policy blockers create derived findings through the
+- [x] Missing evidence or policy blockers create derived findings through the
       governance path.
-- [ ] Findings remain separate from canonical graph edges in JSON structures.
-- [ ] No canonical `blocks` or `relates_to` edge is emitted.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Findings remain separate from canonical graph edges in JSON structures.
+- [x] No canonical `blocks` or `relates_to` edge is emitted.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
