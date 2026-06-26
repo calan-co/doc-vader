@@ -5,8 +5,9 @@ summary: Source dv work show and dv wi show relationship sections from graph pro
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
+completed_date: "2026-06-26"
 priority: high
 estimated: 4
 links:
@@ -47,17 +48,17 @@ generic `relates_to` relationships.
 
 ## Tasks
 
-- [ ] Locate the current show command rendering path and its relationship
+- [x] Locate the current show command rendering path and its relationship
       sections.
-- [ ] Add a graph query for relationship edges connected to the selected Work
+- [x] Add a graph query for relationship edges connected to the selected Work
       Item.
-- [ ] Render `depends_on`, `belongs_to`, `implements`, `records`, and visible
+- [x] Render `depends_on`, `belongs_to`, `implements`, `records`, and visible
       lock relationships where currently appropriate.
-- [ ] Preserve body, task, acceptance criteria, and prompt-oriented content from
+- [x] Preserve body, task, acceptance criteria, and prompt-oriented content from
       the canonical Work Item document loader.
-- [ ] Preserve existing text and JSON output contracts where possible.
-- [ ] Add tests proving relationship sections come from graph edges.
-- [ ] Add tests proving `blocks` and `relates_to` are not emitted as canonical
+- [x] Preserve existing text and JSON output contracts where possible.
+- [x] Add tests proving relationship sections come from graph edges.
+- [x] Add tests proving `blocks` and `relates_to` are not emitted as canonical
       relationship sections.
 
 ## Deliverables
@@ -68,17 +69,17 @@ generic `relates_to` relationships.
 
 ## Acceptance Criteria
 
-- [ ] `dv wi show <id>` renders document body content as it did before this
+- [x] `dv wi show <id>` renders document body content as it did before this
       change.
-- [ ] Relationship sections are sourced from projected graph edges.
-- [ ] `depends_on`, `belongs_to`, `implements`, `records`, and visible lock
+- [x] Relationship sections are sourced from projected graph edges.
+- [x] `depends_on`, `belongs_to`, `implements`, `records`, and visible lock
       facts render from graph data when present.
-- [ ] JSON output includes graph relationship facts if the command currently
+- [x] JSON output includes graph relationship facts if the command currently
       supports JSON relationship data.
-- [ ] No canonical `blocks` or `relates_to` relationship is displayed.
-- [ ] `dv wi prompt` behavior is unchanged.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] No canonical `blocks` or `relates_to` relationship is displayed.
+- [x] `dv wi prompt` behavior is unchanged.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
