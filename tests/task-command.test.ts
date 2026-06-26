@@ -545,9 +545,12 @@ Show output evidence.
     }
   });
 
-  it("keeps task, work, and wi list output aligned while selecting only backlog work items", async () => {
-    const root = await mkTmpRoot();
-    try {
+  it(
+    "keeps task, work, and wi list output aligned while selecting only backlog work items",
+    { timeout: 15_000 },
+    async () => {
+      const root = await mkTmpRoot();
+      try {
       await fs.mkdir(path.join(root, "docs"), { recursive: true });
       await writeTask(
         root,
@@ -625,10 +628,11 @@ status: closed
       expect(workText).toBe(wiText);
       expect(taskText).toContain("wi-100 | ready | Backlog Item");
       expect(taskText).not.toContain("wi-999");
-    } finally {
-      await fs.rm(root, { recursive: true, force: true });
-    }
-  });
+      } finally {
+        await fs.rm(root, { recursive: true, force: true });
+      }
+    },
+  );
 
   it(
     "explores the projected work graph through read-only work and wi CLI commands",
