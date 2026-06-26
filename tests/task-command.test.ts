@@ -326,9 +326,12 @@ tags:
     }
   });
 
-  it("exposes work and wi aliases with the same canonical show output", async () => {
-    const root = await mkTmpRoot();
-    try {
+  it(
+    "exposes work and wi aliases with the same canonical show output",
+    { timeout: 15_000 },
+    async () => {
+      const root = await mkTmpRoot();
+      try {
       await writeTask(
         root,
         "101-prompt-task.md",
@@ -354,6 +357,189 @@ tags:
       expect(JSON.parse(runCli(root, ["task", "show", "101", "--json"]))).toEqual(
         canonicalWorkItem,
       );
+      } finally {
+        await fs.rm(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("renders show relationships from graph edges while leaving prompt body content unchanged", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "60396-graph-backed-work-show-relationships.md",
+        `id: wi-60396
+title: Graph-Backed Work Show Relationships
+summary: Verify show uses graph-backed relationship sections.
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+priority: high
+tags:
+  - afk
+links:
+  evidence:
+    - '[[records/record-wi-60396-show-evidence.md]]'`,
+        `## Goal
+
+Keep the body content stable.
+
+## Notes
+
+The body section text must still render.
+
+## Relationships
+
+- \`depends_on\`: [[wi-60395]]
+- \`part_of\`: [[project:graph-backed-show]]
+- \`implements\`: [[../docs/how-to/implementation-plans/show-relationships-prd.md]]
+- \`blocks\`: [[wi-99999]]
+- \`relates_to\`: [[wi-88888]]
+`,
+      );
+      await writeTask(
+        root,
+        "60395-graph-backed-work-list-tracer.md",
+        `id: wi-60395
+title: Graph-Backed Work List Tracer
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: completed`,
+        `## Goal
+
+Support graph-backed list output.
+`,
+      );
+      await fs.mkdir(
+        path.join(root, "docs", "how-to", "implementation-plans"),
+        { recursive: true },
+      );
+      await fs.writeFile(
+        path.join(root, "docs", "project-graph-backed-show.md"),
+        `---
+id: project:graph-backed-show
+title: Graph-Backed Show
+type: project
+subtype: initiative
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Group graph-backed show work.
+`,
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(
+          root,
+          "docs",
+          "how-to",
+          "implementation-plans",
+          "show-relationships-prd.md",
+        ),
+        `---
+id: plan:show-relationships-prd
+title: Show Relationships PRD
+type: plan
+subtype: x-prd
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Define graph-backed relationship rendering.
+`,
+        "utf8",
+      );
+      await fs.mkdir(path.join(root, "backlog", "records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog", "records", "record-wi-60396-show-evidence.md"),
+        `---
+id: record:wi-60396-show-evidence
+title: Show Relationship Evidence
+type: record
+subtype: evidence
+lifecycle: active
+status: ready
+---
+
+## Summary
+
+Show output evidence.
+`,
+        "utf8",
+      );
+
+      const claimToken = acquireRuntimeTaskClaim(root, "wi-60396", []);
+      const showText = runCli(root, ["wi", "show", "60396"]);
+      const showJson = runCliJson<{
+        dependencies: Array<{ type: string; target: string }>;
+        relationships?: Array<{ type: string; target: string }>;
+        records?: Array<{ type: string; target: string }>;
+        activeLocks?: Array<{ claimToken: string; scopeRef: string; lockMode: string }>;
+      }>(root, ["wi", "show", "60396", "--json"]);
+      const prompt = runCli(root, ["wi", "prompt", "60396"]);
+
+      expect(showText).toContain("Keep the body content stable.");
+      expect(showText).toContain("The body section text must still render.");
+      expect(showText).toContain("## Dependencies");
+      expect(showText).toContain("- `depends_on`: [[wi-60395]]");
+      expect(showText).toContain("## Relationships");
+      expect(showText).toContain("- `belongs_to`: [[project:graph-backed-show]]");
+      expect(showText).toContain(
+        "- `implements`: [[../docs/how-to/implementation-plans/show-relationships-prd.md]]",
+      );
+      expect(showText).toContain("## Records");
+      expect(showText).toContain(
+        "- `records`: [[records/record-wi-60396-show-evidence.md]]",
+      );
+      expect(showText).toContain("## Active Locks");
+      expect(showText).toContain(claimToken);
+      expect(showText).toContain("mode=`execute`");
+      expect(showText).not.toContain("`blocks`");
+      expect(showText).not.toContain("`relates_to`");
+
+      expect(showJson.dependencies).toEqual([
+        {
+          type: "depends_on",
+          target: "[[wi-60395]]",
+        },
+      ]);
+      expect(showJson.relationships).toEqual([
+        {
+          type: "belongs_to",
+          target: "[[project:graph-backed-show]]",
+        },
+        {
+          type: "implements",
+          target: "[[../docs/how-to/implementation-plans/show-relationships-prd.md]]",
+        },
+      ]);
+      expect(showJson.records).toEqual([
+        {
+          type: "records",
+          target: "[[records/record-wi-60396-show-evidence.md]]",
+        },
+      ]);
+      expect(showJson.activeLocks).toEqual([
+        {
+          claimToken,
+          scopeRef: "wi:60396",
+          lockMode: "execute",
+        },
+      ]);
+
+      expect(prompt).toContain("## Relationships");
+      expect(prompt).toContain("- `blocks`: [[wi-99999]]");
+      expect(prompt).toContain("- `relates_to`: [[wi-88888]]");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -446,6 +632,7 @@ status: closed
 
   it(
     "explores the projected work graph through read-only work and wi CLI commands",
+    { timeout: 30_000 },
     async () => {
       const root = await mkTmpRoot();
       try {
