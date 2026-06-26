@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -189,6 +189,45 @@ describe("work graph UAC review fixture", () => {
     expect(dot.startsWith("digraph WorkGraph {\n")).toBe(true);
 
     const after = await snapshotFiles(rootDir);
+    expect(after).toEqual(before);
+  }, 15000);
+
+  it("renders a standalone Cytoscape viewer from canonical export JSON without mutating the repo", async () => {
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+    const before = await snapshotFiles(rootDir);
+
+    const exportPayloadPath = path.join(rootDir, "graph-export.json");
+    const viewerPath = path.join(rootDir, "graph-viewer.html");
+    const exportJson = runCli(rootDir, ["work", "graph", "export", "--format", "json"]);
+    await writeFile(exportPayloadPath, exportJson, "utf8");
+
+    runCli(rootDir, [
+      "work",
+      "graph",
+      "visualize",
+      "--input",
+      exportPayloadPath,
+      "--output",
+      viewerPath,
+    ]);
+
+    const viewerHtml = await readFile(viewerPath, "utf8");
+    expect(viewerHtml).toContain("<!DOCTYPE html>");
+    expect(viewerHtml).toContain("Work Graph Viewer");
+    expect(viewerHtml).toContain("https://unpkg.com/cytoscape");
+    expect(viewerHtml).toContain('"schemaVersion":"work-graph-explorer/v1"');
+    expect(viewerHtml).toContain('"id":"wi:70001"');
+    expect(viewerHtml).toContain('"stableId":"wi:70001"');
+    expect(viewerHtml).toContain('"relativePath":"backlog/AGENTS.md"');
+
+    const after = await snapshotFiles(rootDir);
+    expect(after.get("graph-export.json")).toBe(exportJson);
+    expect(after.has("graph-viewer.html")).toBe(true);
+    after.delete("graph-export.json");
+    after.delete("graph-viewer.html");
     expect(after).toEqual(before);
   }, 15000);
 });

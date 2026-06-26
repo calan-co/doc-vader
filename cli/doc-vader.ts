@@ -2,6 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
 import { Command, Option } from "commander";
 import path from "node:path";
 import {
@@ -74,6 +75,7 @@ import {
   completeWorkClaim as completeTaskClaim,
   assertWorkClaimable as assertTaskClaimable,
   createWorkGraphOutputExtension,
+  writeStandaloneWorkGraphViewer,
   exportWorkGraph,
   inspectWorkGraphNode,
   loadCanonicalWork as loadCanonicalTask,
@@ -1601,6 +1603,33 @@ function registerWorkCommandSurface(surface: Command): void {
         await writeProjectedWorkGraph(opts.format, (projection) =>
           exportWorkGraph(projection),
         );
+      },
+    );
+
+  graph
+    .command("visualize")
+    .description("Render a standalone Cytoscape viewer from canonical export JSON")
+    .requiredOption(
+      "--input <path>",
+      "Path to a canonical work graph export JSON file",
+    )
+    .requiredOption(
+      "--output <path>",
+      "Path to write the standalone HTML artifact",
+    )
+    .action(
+      async (opts: {
+        input: string;
+        output: string;
+      }) => {
+        try {
+          await writeStandaloneWorkGraphViewer({
+            inputPath: path.resolve(opts.input),
+            outputPath: path.resolve(opts.output),
+          });
+        } catch (error) {
+          failTaskCommand(error, false);
+        }
       },
     );
 

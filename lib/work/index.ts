@@ -39,6 +39,16 @@ export {
   type WorkGraphSummaryResult,
 } from "./graph-explorer.js";
 export {
+  adaptWorkGraphExportToCytoscape,
+  assertWorkGraphExportResult,
+  readWorkGraphExportFile,
+  renderStandaloneWorkGraphViewer,
+  writeStandaloneWorkGraphViewer,
+  type WorkGraphCytoscapeDocument,
+  type WorkGraphCytoscapeEdgeElement,
+  type WorkGraphCytoscapeNodeElement,
+} from "./graph-visualization.js";
+export {
   WorkGraphVerificationError,
   renewWorkClaimWithGraphVerification,
   type RenewWorkClaimWithGraphVerificationOptions,
