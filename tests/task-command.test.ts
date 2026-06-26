@@ -3393,6 +3393,121 @@ links:
     }
   });
 
+  it("projects derived readiness findings separately from authored dependencies", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "206-dependency-blocked.md",
+        `id: wi-206
+title: Dependency Blocked
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[wi-207]]'`,
+      );
+      await writeTask(
+        root,
+        "207-incomplete-dependency.md",
+        `id: wi-207
+title: Incomplete Dependency
+type: work-item
+lifecycle: active
+status: in-progress
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "208-runtime-claimed.md",
+        `id: wi-208
+title: Runtime Claimed
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "209-missing-evidence.md",
+        `id: wi-209
+title: Missing Evidence
+type: work-item
+lifecycle: inactive
+status: completed
+status_reason: completed
+tags:
+  - afk`,
+      );
+
+      acquireRuntimeTaskClaim(root, "wi-208", [], "agent-runtime");
+
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
+
+      expect(report.candidates).toEqual([]);
+      expect(report.exclusions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "wi-206",
+            reasons: expect.arrayContaining([
+              expect.objectContaining({ code: "dependency_blocked" }),
+            ]),
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "dependency_unsatisfied",
+                subjectId: "wi-206",
+                severity: "error",
+                evidence: expect.arrayContaining([
+                  expect.objectContaining({
+                    ref: "wi-207",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            id: "wi-208",
+            reasons: expect.arrayContaining([
+              expect.objectContaining({ code: "task_claim_active" }),
+            ]),
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "runtime_claim_active",
+                subjectId: "wi-208",
+                severity: "error",
+                evidence: expect.arrayContaining([
+                  expect.objectContaining({
+                    ref: "claim:wi-208",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+          expect.objectContaining({
+            id: "wi-209",
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "governance_missing_evidence",
+                subjectId: "wi-209",
+                severity: "error",
+              }),
+            ]),
+          }),
+        ]),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("creates and links task evidence from a claim payload", async () => {
     const root = await mkTmpRoot();
     try {

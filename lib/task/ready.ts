@@ -5,7 +5,13 @@ import {
   evaluateWorkItemGovernance,
   type WorkItemGovernanceDependency,
   type WorkItemGovernanceReason,
+  type WorkItemGovernanceVerdict,
 } from "../work-management/kernel.js";
+import {
+  openRuntimeSqliteStore,
+  type RuntimeClaimRecord,
+  type RuntimeScopeLockRecord,
+} from "../runtime/index.js";
 import {
   composeTaskRuntimeReadiness,
   loadTaskExecutionLogSummaries,
@@ -69,6 +75,7 @@ export interface ReadyTaskCandidate {
   tags: string[];
   dependencies: ReadyTaskDependency[];
   runtime?: TaskRuntimeReadiness;
+  findings: DerivedReadinessFinding[];
 }
 
 export interface ReadyTaskExclusion {
@@ -76,11 +83,44 @@ export interface ReadyTaskExclusion {
   filePath: string;
   title?: string;
   runtime?: TaskRuntimeReadiness;
+  findings: DerivedReadinessFinding[];
   reasons: Array<{
     code: ReadyExclusionCode;
     message: string;
     details?: Record<string, unknown>;
   }>;
+}
+
+export type DerivedReadinessFindingReasonCode =
+  | "dependency_state_unknown"
+  | "dependency_unsatisfied"
+  | "governance_archived"
+  | "governance_blocked"
+  | "governance_closed"
+  | "governance_hitl"
+  | "governance_invalid"
+  | "governance_missing_classification"
+  | "governance_missing_completed_date"
+  | "governance_missing_evidence"
+  | "governance_missing_status_reason"
+  | "governance_not_active"
+  | "governance_not_ready"
+  | "runtime_claim_active"
+  | "runtime_claim_expired"
+  | "runtime_execution_not_ready";
+
+export interface DerivedReadinessFindingEvidence {
+  kind: "work-item" | "claim" | "scope-lock" | "execution-log" | "governance";
+  ref: string;
+  details?: Record<string, unknown>;
+}
+
+export interface DerivedReadinessFinding {
+  reasonCode: DerivedReadinessFindingReasonCode;
+  subjectId: string;
+  severity: "error" | "warn" | "info";
+  message: string;
+  evidence: DerivedReadinessFindingEvidence[];
 }
 
 export interface ReadyTaskSelection {
@@ -101,6 +141,7 @@ interface ReadyAuthorityContext {
   git: TaskAuthorityGitContext;
   documentsByRoot: Map<string, Promise<ReadyDocument[]>>;
   runtimeByRootAndTask: Map<string, Promise<Map<string, TaskRuntimeExecutionLog>>>;
+  runtimeClaimSnapshotsByRoot: Map<string, Promise<Map<string, TaskRuntimeClaimSnapshot>>>;
 }
 
 export interface SelectReadyTasksOptions {
@@ -112,6 +153,11 @@ export interface SelectReadyTasksOptions {
 
 const NON_TASK_PATH_PREFIXES = ["audit/", "records/"] as const;
 
+interface TaskRuntimeClaimSnapshot {
+  claim: RuntimeClaimRecord;
+  scopeLocks: RuntimeScopeLockRecord[];
+}
+
 function toPosixPath(value: string): string {
   return value.split(path.sep).join("/");
 }
@@ -122,6 +168,39 @@ async function pathExists(filePath: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function loadTaskRuntimeClaimSnapshots(options: {
+  rootDir: string;
+  taskIds: Iterable<string>;
+}): Promise<Map<string, TaskRuntimeClaimSnapshot>> {
+  const runtimeDatabasePath = path.resolve(
+    options.rootDir,
+    ".doc-vader",
+    "runtime",
+    "runtime.sqlite",
+  );
+  if (!(await pathExists(runtimeDatabasePath))) {
+    return new Map();
+  }
+
+  const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
+  try {
+    const snapshots = new Map<string, TaskRuntimeClaimSnapshot>();
+    for (const taskId of new Set(options.taskIds)) {
+      const claim = store.getClaimByTarget("task", taskId);
+      if (!claim) {
+        continue;
+      }
+      snapshots.set(taskId, {
+        claim,
+        scopeLocks: store.listScopeLocksByClaimToken(claim.claim_token),
+      });
+    }
+    return snapshots;
+  } finally {
+    store.close();
   }
 }
 
@@ -331,6 +410,197 @@ function toReadyReason(
   }
 }
 
+function toGovernanceFindingReasonCode(
+  code: WorkItemGovernanceReason["code"],
+): DerivedReadinessFindingReasonCode | undefined {
+  switch (code) {
+    case "archived":
+      return "governance_archived";
+    case "blocked":
+      return "governance_blocked";
+    case "closed":
+      return "governance_closed";
+    case "dependency_blocked":
+      return "dependency_unsatisfied";
+    case "dependency_state_unknown":
+      return "dependency_state_unknown";
+    case "hitl":
+      return "governance_hitl";
+    case "invalid":
+      return "governance_invalid";
+    case "missing_classification":
+      return "governance_missing_classification";
+    case "missing_completed_date":
+      return "governance_missing_completed_date";
+    case "missing_evidence":
+      return "governance_missing_evidence";
+    case "missing_status_reason":
+      return "governance_missing_status_reason";
+    case "not_active":
+      return "governance_not_active";
+    case "not_ready":
+      return "governance_not_ready";
+  }
+}
+
+function governanceReasonEvidence(
+  entry: WorkItemGovernanceReason,
+): DerivedReadinessFindingEvidence[] {
+  if (
+    (entry.code === "dependency_blocked" ||
+      entry.code === "dependency_state_unknown") &&
+    Array.isArray(entry.details?.dependencies)
+  ) {
+    return entry.details.dependencies
+      .filter(
+        (dependency): dependency is WorkItemGovernanceDependency =>
+          typeof dependency === "object" && dependency !== null,
+      )
+      .map((dependency) => ({
+        kind: "work-item" as const,
+        ref: dependency.id,
+        details: {
+          ref: dependency.ref,
+          satisfied: dependency.satisfied,
+          stateKnown: dependency.stateKnown,
+          ...(dependency.status ? { status: dependency.status } : {}),
+          ...(dependency.lifecycle ? { lifecycle: dependency.lifecycle } : {}),
+          ...(dependency.filePath ? { filePath: dependency.filePath } : {}),
+        },
+      }));
+  }
+
+  return [
+    {
+      kind: "governance",
+      ref: entry.code,
+      ...(entry.details ? { details: entry.details } : {}),
+    },
+  ];
+}
+
+function projectDerivedReadinessFindings(options: {
+  subjectId: string;
+  governance: WorkItemGovernanceVerdict;
+  runtime?: TaskRuntimeReadiness;
+  runtimeClaim?: TaskRuntimeClaimSnapshot;
+}): DerivedReadinessFinding[] {
+  const findings: DerivedReadinessFinding[] = [];
+  const seen = new Set<string>();
+
+  const pushFinding = (finding: DerivedReadinessFinding) => {
+    const key = JSON.stringify([
+      finding.reasonCode,
+      finding.subjectId,
+      finding.message,
+      finding.evidence.map((entry) => [entry.kind, entry.ref]),
+    ]);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    findings.push(finding);
+  };
+
+  const governanceReasons = [
+    ...options.governance.readiness.reasons,
+    ...options.governance.evidence.reasons,
+  ];
+  for (const reason of governanceReasons) {
+    const reasonCode = toGovernanceFindingReasonCode(reason.code);
+    if (!reasonCode) {
+      continue;
+    }
+    pushFinding({
+      reasonCode,
+      subjectId: options.subjectId,
+      severity: reason.code === "dependency_state_unknown" ? "warn" : "error",
+      message: reason.message,
+      evidence: governanceReasonEvidence(reason),
+    });
+  }
+
+  if (options.runtimeClaim?.claim.state === "active") {
+    pushFinding({
+      reasonCode: "runtime_claim_active",
+      subjectId: options.subjectId,
+      severity: "error",
+      message: "Task has an active runtime claim.",
+      evidence: [
+        {
+          kind: "claim",
+          ref: `claim:${options.subjectId}`,
+          details: {
+            claimToken: options.runtimeClaim.claim.claim_token,
+            holder: options.runtimeClaim.claim.holder,
+            expiresAt: options.runtimeClaim.claim.expires_at,
+            lockCount: options.runtimeClaim.scopeLocks.length,
+          },
+        },
+        ...options.runtimeClaim.scopeLocks.map((lock) => ({
+          kind: "scope-lock" as const,
+          ref: lock.scope_ref,
+          details: {
+            claimToken: lock.claim_token,
+            lockMode: lock.lock_mode,
+            lifecycleState: lock.lifecycle_state,
+            policyName: lock.policy_name,
+          },
+        })),
+      ],
+    });
+  }
+
+  if (options.runtimeClaim?.claim.state === "expired") {
+    pushFinding({
+      reasonCode: "runtime_claim_expired",
+      subjectId: options.subjectId,
+      severity: "error",
+      message: "Task has an expired runtime claim that still requires recovery.",
+      evidence: [
+        {
+          kind: "claim",
+          ref: `claim:${options.subjectId}`,
+          details: {
+            claimToken: options.runtimeClaim.claim.claim_token,
+            holder: options.runtimeClaim.claim.holder,
+            expiresAt: options.runtimeClaim.claim.expires_at,
+          },
+        },
+      ],
+    });
+  }
+
+  if (options.runtime?.latestExecutionLog && options.runtime.executionReady !== true) {
+    pushFinding({
+      reasonCode: "runtime_execution_not_ready",
+      subjectId: options.subjectId,
+      severity: "error",
+      message: "Task's latest execution log entry is not ready-permitting.",
+      evidence: [
+        {
+          kind: "execution-log",
+          ref: options.runtime.latestExecutionLog.claimToken,
+          details: {
+            state: options.runtime.latestExecutionLog.state,
+            reason: options.runtime.latestExecutionLog.reason,
+            createdAt: options.runtime.latestExecutionLog.createdAt,
+            readyPermitting: options.runtime.latestExecutionLog.readyPermitting,
+            ...(options.runtime.latestExecutionLog.claimState
+              ? { claimState: options.runtime.latestExecutionLog.claimState }
+              : {}),
+            ...(options.runtime.latestExecutionLog.lockCount !== undefined
+              ? { lockCount: options.runtime.latestExecutionLog.lockCount }
+              : {}),
+          },
+        },
+      ],
+    });
+  }
+
+  return findings;
+}
+
 function hasReason(
   reasons: ReadyTaskExclusion["reasons"],
   codes: ReadyExclusionCode[],
@@ -397,6 +667,7 @@ function appendClaimabilityGovernanceReasons(
 function toCandidate(
   document: ReadyDocument,
   dependencies: ReadyTaskDependency[],
+  findings: DerivedReadinessFinding[],
 ): ReadyTaskCandidate {
   const frontmatter = document.frontmatter as Frontmatter;
   const id = asString(frontmatter.id) ?? "";
@@ -417,6 +688,7 @@ function toCandidate(
     ...(priority ? { priority } : {}),
     tags: normalizeTags(frontmatter.tags),
     dependencies,
+    findings,
   };
 }
 
@@ -425,11 +697,13 @@ async function evaluateDocument(
   document: ReadyDocument,
   documents: ReadyDocument[],
   latestExecutionLog?: TaskRuntimeExecutionLog,
+  runtimeClaimSnapshots?: Map<string, TaskRuntimeClaimSnapshot>,
 ): Promise<{ candidate?: ReadyTaskCandidate; exclusion?: ReadyTaskExclusion }> {
   if (document.parseError) {
     return {
       exclusion: {
         filePath: document.relativePath,
+        findings: [],
         reasons: [
           reason("validation_state_unknown", "Task frontmatter could not be parsed.", {
             error: document.parseError,
@@ -463,6 +737,7 @@ async function evaluateDocument(
     links,
     dependencies: dependencyRefs.map((ref) => toGovernanceDependency(ref, documents)),
   });
+  const runtimeClaim = id ? runtimeClaimSnapshots?.get(id) : undefined;
   const reasons: ReadyTaskExclusion["reasons"] = governance.readiness.reasons.map(
     toReadyReason,
   );
@@ -470,6 +745,14 @@ async function evaluateDocument(
     governance.readiness.ready,
     latestExecutionLog,
   );
+  const findings = id
+    ? projectDerivedReadinessFindings({
+        subjectId: id,
+        governance,
+        runtime: readiness,
+        runtimeClaim,
+      })
+    : [];
   const claimability = evaluateTaskClaimability({
     id: id ?? "",
     validation: {
@@ -483,6 +766,26 @@ async function evaluateDocument(
   });
 
   appendClaimabilityGovernanceReasons(reasons, claimability.failures);
+
+  if (runtimeClaim?.claim.state === "active") {
+    reasons.push(
+      reason("task_claim_active", "Task has an active runtime claim.", {
+        claimToken: runtimeClaim.claim.claim_token,
+        holder: runtimeClaim.claim.holder,
+        expiresAt: runtimeClaim.claim.expires_at,
+      }),
+    );
+  }
+
+  if (runtimeClaim?.claim.state === "expired") {
+    reasons.push(
+      reason("task_claim_expired", "Task has an expired runtime claim.", {
+        claimToken: runtimeClaim.claim.claim_token,
+        holder: runtimeClaim.claim.holder,
+        expiresAt: runtimeClaim.claim.expires_at,
+      }),
+    );
+  }
 
   if (claimability.failures.includes("execution-not-ready")) {
     const gitState = collectTaskRecoveryGitState({
@@ -539,6 +842,7 @@ async function evaluateDocument(
         filePath: document.relativePath,
         ...(title ? { title } : {}),
         runtime: readiness,
+        findings,
         reasons,
       },
     };
@@ -546,7 +850,7 @@ async function evaluateDocument(
 
   return {
     candidate: {
-      ...toCandidate(document, dependencies),
+      ...toCandidate(document, dependencies, findings),
       runtime: readiness,
     },
   };
@@ -578,7 +882,25 @@ async function evaluateDocumentWithAuthority(
         rootDir,
       };
   if (authority.rootDir === rootDir) {
-    return evaluateDocument(rootDir, document, documents, latestExecutionLog);
+    const runtimeClaimSnapshotsPromise =
+      authorityContext?.runtimeClaimSnapshotsByRoot.get(authority.rootDir)
+      ?? loadTaskRuntimeClaimSnapshots({
+        rootDir: authority.rootDir,
+        taskIds: documents
+          .map((candidate) => asString(candidate.frontmatter?.id))
+          .filter((id): id is string => Boolean(id)),
+      });
+    authorityContext?.runtimeClaimSnapshotsByRoot.set(
+      authority.rootDir,
+      runtimeClaimSnapshotsPromise,
+    );
+    return evaluateDocument(
+      rootDir,
+      document,
+      documents,
+      latestExecutionLog,
+      await runtimeClaimSnapshotsPromise,
+    );
   }
 
   const documentsPromise = authorityContext?.documentsByRoot.get(authority.rootDir)
@@ -600,11 +922,24 @@ async function evaluateDocumentWithAuthority(
     });
   authorityContext?.runtimeByRootAndTask.set(runtimeKey, runtimePromise);
   const authorityRuntime = await runtimePromise;
+  const runtimeClaimSnapshotsPromise =
+    authorityContext?.runtimeClaimSnapshotsByRoot.get(authority.rootDir)
+    ?? loadTaskRuntimeClaimSnapshots({
+      rootDir: authority.rootDir,
+      taskIds: authorityDocuments
+        .map((candidate) => asString(candidate.frontmatter?.id))
+        .filter((id): id is string => Boolean(id)),
+    });
+  authorityContext?.runtimeClaimSnapshotsByRoot.set(
+    authority.rootDir,
+    runtimeClaimSnapshotsPromise,
+  );
   return evaluateDocument(
     authority.rootDir,
     authorityDocument,
     authorityDocuments,
     authorityRuntime.get(taskId),
+    await runtimeClaimSnapshotsPromise,
   );
 }
 
@@ -646,6 +981,10 @@ export async function selectReadyTasks(
     rootDir,
     taskIds,
   });
+  const runtimeClaimSnapshots = await loadTaskRuntimeClaimSnapshots({
+    rootDir,
+    taskIds,
+  });
   const authorityContext: ReadyAuthorityContext = {
     git: {
       currentBranch: currentGitBranch(rootDir),
@@ -653,6 +992,7 @@ export async function selectReadyTasks(
     },
     documentsByRoot: new Map([[rootDir, Promise.resolve(documents)]]),
     runtimeByRootAndTask: new Map(),
+    runtimeClaimSnapshotsByRoot: new Map([[rootDir, Promise.resolve(runtimeClaimSnapshots)]]),
   };
   const results = await Promise.all(
     documents.map((document) => {
