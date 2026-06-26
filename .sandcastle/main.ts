@@ -38,6 +38,7 @@ const planSchema = z.object({
     z.object({ id: z.string(), title: z.string(), branch: z.string() }),
   ),
 });
+type PlannedIssue = z.infer<typeof planSchema>["issues"][number];
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -289,33 +290,50 @@ const checklistState = (body: string, heading: string) => {
   };
 };
 
-const issueFileForId = (searchRoot: string, id: string) => {
-  const backlogDir = path.join(searchRoot, "backlog");
-  for (const file of fs.readdirSync(backlogDir).sort()) {
-    if (!file.endsWith(".md")) {
-      continue;
-    }
+const gitOutput = (args: string[]) =>
+  execFileSync("git", args, { encoding: "utf8" }).trim();
 
-    const filePath = path.join(backlogDir, file);
-    const content = fs.readFileSync(filePath, "utf8");
+const readGitFile = (branch: string, file: string) =>
+  execFileSync("git", ["show", `${branch}:${file}`], {
+    encoding: "utf8",
+  });
+
+const backlogFilesInBranch = (branch: string) =>
+  gitOutput(["ls-tree", "-r", "--name-only", branch, "backlog"])
+    .split("\n")
+    .map((file: string) => file.trim())
+    .filter(
+      (file: string) =>
+        file.startsWith("backlog/") &&
+        !file.startsWith("backlog/archive/") &&
+        file.endsWith(".md"),
+    );
+
+const issueContentForBranch = (branch: string, id: string) => {
+  for (const file of backlogFilesInBranch(branch)) {
+    const content = readGitFile(branch, file);
     const frontmatterId = /^id:\s*(.+)$/m
       .exec(content)?.[1]
       ?.trim()
       .replace(/^['"]|['"]$/g, "")
       .replace(/^wi-/, "");
 
-    if (frontmatterId === id || file.startsWith(`${id}-`)) {
-      return filePath;
+    if (frontmatterId === id || path.basename(file).startsWith(`${id}-`)) {
+      return { file, content };
     }
   }
 
-  throw new Error(`Could not find backlog issue ${id} under ${backlogDir}`);
+  throw new Error(`Could not find backlog issue ${id} in ${branch}.`);
 };
 
+const frontmatterField = (content: string, field: string) =>
+  new RegExp(`^${field}:\\s*(.+)$`, "m")
+    .exec(content)?.[1]
+    ?.trim()
+    .replace(/^['"]|['"]$/g, "");
+
 const assertIssueCompleteInBranch = (issue: { id: string; branch: string }) => {
-  const worktreePath = worktreePathForBranch(issue.branch);
-  const issueFile = issueFileForId(worktreePath, issue.id);
-  const content = fs.readFileSync(issueFile, "utf8");
+  const { content } = issueContentForBranch(issue.branch, issue.id);
 
   if (!/^status:\s*completed\s*$/m.test(content)) {
     throw new Error(
@@ -357,6 +375,52 @@ const branchExists = (branch: string) => {
   }
 };
 
+const branchIsMerged = (branch: string) => {
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", branch, "HEAD"], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const sandcastleIssueBranches = () =>
+  gitOutput([
+    "for-each-ref",
+    "--format=%(refname:short)",
+    "refs/heads/sandcastle/issue-*",
+  ])
+    .split("\n")
+    .map((branch: string) => branch.trim())
+    .filter((branch: string) => /^sandcastle\/issue-\d+$/.test(branch));
+
+const completedUnmergedIssues = (): PlannedIssue[] => {
+  const issues: PlannedIssue[] = [];
+
+  for (const branch of sandcastleIssueBranches()) {
+    if (branchIsMerged(branch)) {
+      continue;
+    }
+
+    const id = branch.replace(/^sandcastle\/issue-/, "");
+    try {
+      assertIssueCompleteInBranch({ id, branch });
+      const { content } = issueContentForBranch(branch, id);
+      issues.push({
+        id,
+        title: frontmatterField(content, "title") ?? id,
+        branch,
+      });
+    } catch {
+      // Incomplete branches remain normal planner/implementer candidates.
+    }
+  }
+
+  return issues;
+};
+
 const changedFilesForBranch = (branch: string) => {
   if (!branchExists(branch)) {
     return new Set<string>();
@@ -368,7 +432,7 @@ const changedFilesForBranch = (branch: string) => {
     { encoding: "utf8" },
   )
     .split("\n")
-    .map((file) => file.trim())
+    .map((file: string) => file.trim())
     .filter(Boolean);
 
   return new Set(files);
@@ -401,12 +465,48 @@ const selectNonOverlappingIssues = <T extends { id: string; branch: string }>(
   return selected;
 };
 
+const runMerge = async (issues: PlannedIssue[]) => {
+  const branches = issues.map((issue) => issue.branch);
+
+  await sandcastle.run({
+    hooks: rootHooks,
+    sandbox: rootSandbox(),
+    name: "merger",
+    maxIterations: 1,
+    agent: sandcastle.codex("gpt-5.4"),
+    promptFile: "./.sandcastle/merge-prompt.md",
+    promptArgs: {
+      // A markdown list of branch names, one per line.
+      BRANCHES: branches.map((branch) => `- ${branch}`).join("\n"),
+      // A markdown list of issue IDs and titles, one per line.
+      ISSUES: issues.map((issue) => `- ${issue.id}: ${issue.title}`).join("\n"),
+    },
+  });
+};
+
 // ---------------------------------------------------------------------------
 // Main loop
 // ---------------------------------------------------------------------------
 
 for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   console.log(`\n=== Iteration ${iteration}/${MAX_ITERATIONS} ===\n`);
+
+  const mergeRecoveryIssues = selectNonOverlappingIssues(
+    completedUnmergedIssues(),
+  );
+
+  if (mergeRecoveryIssues.length > 0) {
+    console.log(
+      `Recovered ${mergeRecoveryIssues.length} completed unmerged branch(es):`,
+    );
+    for (const issue of mergeRecoveryIssues) {
+      console.log(`  ${issue.id}: ${issue.title} → ${issue.branch}`);
+    }
+
+    await runMerge(mergeRecoveryIssues);
+    console.log("\nRecovered branches merged.");
+    continue;
+  }
 
   // -------------------------------------------------------------------------
   // Phase 1: Plan
@@ -577,20 +677,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
   // uses to know which branches to merge and which issues to close.
   // -------------------------------------------------------------------------
-  await sandcastle.run({
-    hooks: rootHooks,
-    sandbox: rootSandbox(),
-    name: "merger",
-    maxIterations: 1,
-    agent: sandcastle.codex("gpt-5.4"),
-    promptFile: "./.sandcastle/merge-prompt.md",
-    promptArgs: {
-      // A markdown list of branch names, one per line.
-      BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
-      // A markdown list of issue IDs and titles, one per line.
-      ISSUES: completedIssues.map((i) => `- ${i.id}: ${i.title}`).join("\n"),
-    },
-  });
+  await runMerge(completedIssues);
 
   console.log("\nBranches merged.");
 }

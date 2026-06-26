@@ -20,8 +20,12 @@ For each branch:
    sides and choosing the correct resolution.
 5. After resolving conflicts, run the relevant gates from
    `.sandcastle/VALIDATION.md`; at minimum run `pnpm run typecheck` and
-   `pnpm run test` to verify everything works.
-6. If tests fail, fix the issues before proceeding to the next branch.
+   `pnpm run test` to verify everything works. Run gates serially, not in
+   parallel.
+6. If tests fail, capture the final failing test or process error. Rerun the
+   exact failing file/test once. Only call it pre-existing after reproducing the
+   same failure on the merge base or pre-merge branch with the command recorded.
+   Otherwise, fix the issue before proceeding to the next branch.
 
 Here are all the issues:
 
