@@ -220,6 +220,29 @@ function setClaimLeaseWindow(
     );
 }
 
+function insertActiveScopeLock(
+  store: ReturnType<typeof openRuntimeSqliteStore>,
+  options: {
+    claimToken: string;
+    scopeRef: string;
+    lockMode: "read" | "write" | "execute";
+    policyName: "ReadLockPolicy" | "WriteLockPolicy" | "ExecuteLockPolicy";
+    acquiredAt: string;
+    updatedAt?: string;
+  },
+) {
+  store.insertScopeLock({
+    schema_version: RUNTIME_SCHEMA_VERSION,
+    claim_token: options.claimToken,
+    scope_ref: options.scopeRef,
+    lock_mode: options.lockMode,
+    policy_name: options.policyName,
+    acquired_at: options.acquiredAt,
+    updated_at: options.updatedAt ?? options.acquiredAt,
+    lifecycle_state: "active",
+  });
+}
+
 describe("runtime sqlite store", () => {
   it("derives claim tokens from canonical static claim records", () => {
     const seedA = makeClaimSeed({
@@ -509,15 +532,12 @@ describe("runtime sqlite store", () => {
           created_at: "2099-06-20T01:16:36.020Z",
         }),
       );
-      store.insertScopeLock({
-        schema_version: RUNTIME_SCHEMA_VERSION,
-        claim_token: foreignClaim.claim_token,
-        scope_ref: "wi:renew-execute-only",
-        lock_mode: "write",
-        policy_name: "WriteLockPolicy",
-        acquired_at: "2099-06-20T01:16:36.020Z",
-        updated_at: "2099-06-20T01:16:36.020Z",
-        lifecycle_state: "active",
+      insertActiveScopeLock(store, {
+        claimToken: foreignClaim.claim_token,
+        scopeRef: "wi:renew-execute-only",
+        lockMode: "write",
+        policyName: "WriteLockPolicy",
+        acquiredAt: "2099-06-20T01:16:36.020Z",
       });
 
       const before = store.getClaimByToken(acquiredClaim.claimToken);
@@ -582,15 +602,12 @@ describe("runtime sqlite store", () => {
           created_at: "2099-06-20T01:16:36.020Z",
         }),
       );
-      store.insertScopeLock({
-        schema_version: RUNTIME_SCHEMA_VERSION,
-        claim_token: foreignRead.claim_token,
-        scope_ref: "wi:renew-mixed-read",
-        lock_mode: "write",
-        policy_name: "WriteLockPolicy",
-        acquired_at: "2099-06-20T01:16:36.020Z",
-        updated_at: "2099-06-20T01:16:36.020Z",
-        lifecycle_state: "active",
+      insertActiveScopeLock(store, {
+        claimToken: foreignRead.claim_token,
+        scopeRef: "wi:renew-mixed-read",
+        lockMode: "write",
+        policyName: "WriteLockPolicy",
+        acquiredAt: "2099-06-20T01:16:36.020Z",
       });
       const foreignWrite = store.insertClaim(
         makeClaim({
@@ -600,15 +617,12 @@ describe("runtime sqlite store", () => {
           created_at: "2099-06-20T01:16:37.020Z",
         }),
       );
-      store.insertScopeLock({
-        schema_version: RUNTIME_SCHEMA_VERSION,
-        claim_token: foreignWrite.claim_token,
-        scope_ref: "wi:renew-mixed-write",
-        lock_mode: "read",
-        policy_name: "ReadLockPolicy",
-        acquired_at: "2099-06-20T01:16:37.020Z",
-        updated_at: "2099-06-20T01:16:37.020Z",
-        lifecycle_state: "active",
+      insertActiveScopeLock(store, {
+        claimToken: foreignWrite.claim_token,
+        scopeRef: "wi:renew-mixed-write",
+        lockMode: "read",
+        policyName: "ReadLockPolicy",
+        acquiredAt: "2099-06-20T01:16:37.020Z",
       });
 
       const renewed = expectClaimRenewalConflict(

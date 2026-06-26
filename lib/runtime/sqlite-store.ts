@@ -1272,6 +1272,16 @@ function listUniqueScopeLockDescriptors(
   return dedupeScopeLocksByIdentity(locks).map(toScopeLockDescriptor);
 }
 
+function toExecuteScopeLockDescriptors(
+  scopeRefs: string[],
+): RuntimeScopeLockDescriptor[] {
+  return scopeRefs.map((scopeRef) => ({
+    scopeRef,
+    lockMode: "execute",
+    policyName: "ExecuteLockPolicy",
+  }));
+}
+
 function gitOutput(rootDir: string, args: string[]): string | undefined {
   try {
     return execFileSync("git", args, {
@@ -2173,11 +2183,7 @@ export class RuntimeSqliteStore {
         claimToken,
         conflicts: this.createExpiredClaimConflicts(
           claim,
-          normalizedScopeRefs.map((scopeRef) => ({
-            scopeRef,
-            lockMode: "execute",
-            policyName: "ExecuteLockPolicy",
-          })),
+          toExecuteScopeLockDescriptors(normalizedScopeRefs),
         ),
       };
     }
@@ -2499,7 +2505,7 @@ export class RuntimeSqliteStore {
     );
   }
 
-  private getActiveScopeLocksByClaimToken(
+  private listActiveScopeLocksByClaimToken(
     claimToken: string,
   ): RuntimeScopeLockRecord[] {
     return this.listScopeLocksByClaimToken(claimToken).filter(
@@ -2539,7 +2545,7 @@ export class RuntimeSqliteStore {
     return locks.map((lock) => this.createExpiredClaimConflict(claim, lock));
   }
 
-  private findScopeLockConflicts(
+  private listScopeLockConflicts(
     locks: RuntimeScopeLockDescriptor[],
     options: { excludeClaimToken?: string } = {},
   ): RuntimeScopeLockConflictRecord[] {
@@ -2580,7 +2586,7 @@ export class RuntimeSqliteStore {
     }
 
     const activeLockDescriptors = listUniqueScopeLockDescriptors(
-      this.getActiveScopeLocksByClaimToken(claimToken),
+      this.listActiveScopeLocksByClaimToken(claimToken),
     );
     if (claim.state === "expired") {
       return {
@@ -2593,7 +2599,7 @@ export class RuntimeSqliteStore {
       } satisfies RuntimeClaimRenewalConflict;
     }
 
-    const conflicts = this.findScopeLockConflicts(activeLockDescriptors, {
+    const conflicts = this.listScopeLockConflicts(activeLockDescriptors, {
       excludeClaimToken: claimToken,
     });
     if (conflicts.length > 0) {
@@ -2862,7 +2868,7 @@ export class RuntimeSqliteStore {
         } satisfies RuntimeScopeLockAcquisitionConflict;
       }
 
-      const conflicts = this.findScopeLockConflicts(normalizedRequests);
+      const conflicts = this.listScopeLockConflicts(normalizedRequests);
       if (conflicts.length > 0) {
         return {
           outcome: "conflict",
