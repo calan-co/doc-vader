@@ -37,6 +37,19 @@ type WorkGraphExportPayload = {
   }>;
 };
 
+const expectedUatIds = [
+  "UAT-01",
+  "UAT-02",
+  "UAT-03",
+  "UAT-04",
+  "UAT-05",
+  "UAT-06",
+  "UAT-07",
+  "UAT-08",
+  "UAT-09",
+  "UAT-10",
+] as const;
+
 async function createTempRoot(): Promise<string> {
   const rootDir = await mkdtemp(
     path.join(os.tmpdir(), `doc-vader-work-graph-uac-${randomUUID()}-`),
@@ -74,6 +87,16 @@ function runCli(rootDir: string, args: string[]): string {
 
 function normalizeFixtureText(value: string): string {
   return value.replace(/\r\n/g, "\n").trimEnd();
+}
+
+async function readExpectedFixtureFile(fileName: string): Promise<string> {
+  return readFile(path.join(workGraphUacExpectedDir, fileName), "utf8");
+}
+
+async function expectFixtureText(actual: string, fileName: string): Promise<void> {
+  expect(normalizeFixtureText(actual)).toBe(
+    normalizeFixtureText(await readExpectedFixtureFile(fileName)),
+  );
 }
 
 afterEach(async () => {
@@ -114,38 +137,11 @@ describe("work graph UAC review fixture", () => {
       "dot",
     ]);
 
-    expect(normalizeFixtureText(nodes)).toBe(
-      normalizeFixtureText(
-        await readFile(path.join(workGraphUacExpectedDir, "nodes.json"), "utf8"),
-      ),
-    );
-    expect(normalizeFixtureText(edges)).toBe(
-      normalizeFixtureText(
-        await readFile(path.join(workGraphUacExpectedDir, "edges.json"), "utf8"),
-      ),
-    );
-    expect(normalizeFixtureText(summary)).toBe(
-      normalizeFixtureText(
-        [
-          "Work Graph Summary",
-          "Nodes\t4 scope, 2 work-item, 1 claim, 1 record",
-          "Edges\t3 records, 2 belongs_to, 2 locks, 1 depends_on, 1 implements",
-          "Diagnostics\t1",
-          "Totals\t8 nodes, 9 edges",
-          "",
-        ].join("\n"),
-      ),
-    );
-    expect(normalizeFixtureText(inspect)).toBe(
-      normalizeFixtureText(
-        await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.json"), "utf8"),
-      ),
-    );
-    expect(normalizeFixtureText(dot)).toBe(
-      normalizeFixtureText(
-        await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.dot"), "utf8"),
-      ),
-    );
+    await expectFixtureText(nodes, "nodes.json");
+    await expectFixtureText(edges, "edges.json");
+    await expectFixtureText(summary, "summary.txt");
+    await expectFixtureText(inspect, "inspect-wi-70001.json");
+    await expectFixtureText(dot, "inspect-wi-70001.dot");
     expect(exportDot.startsWith("digraph WorkGraph {\n")).toBe(true);
 
     const parsedNodes = JSON.parse(nodes) as {
@@ -282,48 +278,22 @@ describe("work graph UAC review fixture", () => {
       viewerPath,
     ]);
 
-    expect(normalizeFixtureText(summary)).toBe(
-      normalizeFixtureText(
-        await readFile(path.join(workGraphUacExpectedDir, "summary.txt"), "utf8"),
-      ),
-    );
-    expect(normalizeFixtureText(exportJson)).toBe(
-      normalizeFixtureText(
-        await readFile(path.join(workGraphUacExpectedDir, "export.json"), "utf8"),
-      ),
-    );
-    expect(normalizeFixtureText(exportDot)).toBe(
-      normalizeFixtureText(
-        await readFile(path.join(workGraphUacExpectedDir, "export.dot"), "utf8"),
-      ),
-    );
+    await expectFixtureText(summary, "summary.txt");
+    await expectFixtureText(exportJson, "export.json");
+    await expectFixtureText(exportDot, "export.dot");
     const viewerHtml = await readFile(viewerPath, "utf8");
     const expectedViewerFragments = JSON.parse(
-      await readFile(path.join(workGraphUacExpectedDir, "viewer-fragments.json"), "utf8"),
+      await readExpectedFixtureFile("viewer-fragments.json"),
     ) as string[];
     for (const fragment of expectedViewerFragments) {
       expect(viewerHtml).toContain(fragment);
     }
 
-    const reviewGuide = await readFile(
-      path.join(workGraphUacExpectedDir, "uat-review-checklist.md"),
-      "utf8",
-    );
+    const reviewGuide = await readExpectedFixtureFile("uat-review-checklist.md");
     expect(
       await readFile(path.join(path.dirname(workGraphUacExpectedDir), "README.md"), "utf8"),
     ).toContain(reviewGuide);
-    for (const uatId of [
-      "UAT-01",
-      "UAT-02",
-      "UAT-03",
-      "UAT-04",
-      "UAT-05",
-      "UAT-06",
-      "UAT-07",
-      "UAT-08",
-      "UAT-09",
-      "UAT-10",
-    ]) {
+    for (const uatId of expectedUatIds) {
       expect(reviewGuide).toContain(uatId);
     }
     expect(reviewGuide).toContain("Manual-only viewer review steps");
