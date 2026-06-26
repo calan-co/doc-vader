@@ -62,16 +62,17 @@ const SANDBOX_IMAGE_NAME = "sandcastle:sandcastle-root";
 const SANDBOX_IMAGE_SENTINEL = "doc-vader-sandcastle-image-2026-06-25";
 const SANDBOX_IMAGE_SENTINEL_FILE = "/etc/doc-vader-sandcastle-image";
 const SANDBOX_NX_CACHE = "/tmp/doc-vader-nx-cache";
+const SANDBOX_NX_WORKSPACE_DATA = "/tmp/doc-vader-nx-workspace-data";
 const SANDBOX_PATH =
   `${SANDBOX_WORKSPACE}/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`;
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const withSandboxShell = (script: string) =>
-  `PATH=${SANDBOX_PATH}:$PATH COREPACK_HOME=${SANDBOX_COREPACK_HOME} CI=true NX_DAEMON=false NX_CACHE_DIRECTORY=${SANDBOX_NX_CACHE} sh -lc ${shellQuote(
+  `PATH=${SANDBOX_PATH}:$PATH COREPACK_HOME=${SANDBOX_COREPACK_HOME} CI=true NX_DAEMON=false NX_CACHE_DIRECTORY=${SANDBOX_NX_CACHE} NX_WORKSPACE_DATA_DIRECTORY=${SANDBOX_NX_WORKSPACE_DATA} sh -lc ${shellQuote(
     script,
   )}`;
 const PNPM_INSTALL_COMMAND = withSandboxShell(
   [
-    `mkdir -p ${SANDBOX_NX_CACHE}`,
+    `mkdir -p ${SANDBOX_NX_CACHE} ${SANDBOX_NX_WORKSPACE_DATA}`,
     `pnpm install --frozen-lockfile --store-dir ${SANDBOX_PNPM_STORE}`,
   ].join("\n"),
 );
@@ -180,6 +181,7 @@ const sandboxEnv = {
   COREPACK_HOME: SANDBOX_COREPACK_HOME,
   NX_DAEMON: "false",
   NX_CACHE_DIRECTORY: SANDBOX_NX_CACHE,
+  NX_WORKSPACE_DATA_DIRECTORY: SANDBOX_NX_WORKSPACE_DATA,
   PATH: SANDBOX_PATH,
 };
 
