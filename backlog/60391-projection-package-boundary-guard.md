@@ -5,10 +5,11 @@ summary: Document and test the context-graph and Semantify dependency posture wi
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: medium
 estimated: 3
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60386-projection-port-tracer]]'
@@ -49,15 +50,15 @@ or Semantify dependencies.
 
 ## Tasks
 
-- [ ] Document the current internal projection port boundary and why it remains
+- [x] Document the current internal projection port boundary and why it remains
       package-neutral.
-- [ ] Document that sibling workspace imports are not allowed for this MVP.
-- [ ] Define pivot signals for adopting `context-graph` as a direct dependency.
-- [ ] Define pivot signals for adopting Semantify as a normalization/data
+- [x] Document that sibling workspace imports are not allowed for this MVP.
+- [x] Define pivot signals for adopting `context-graph` as a direct dependency.
+- [x] Define pivot signals for adopting Semantify as a normalization/data
       catalog dependency.
-- [ ] Add tests or static checks that protect against accidental sibling-path
+- [x] Add tests or static checks that protect against accidental sibling-path
       coupling.
-- [ ] Identify any duplicated behavior introduced by prior projection slices and
+- [x] Identify any duplicated behavior introduced by prior projection slices and
       classify it as acceptable MVP glue or a dependency pivot candidate.
 
 ## Deliverables
@@ -70,17 +71,17 @@ or Semantify dependencies.
 
 ## Acceptance Criteria
 
-- [ ] The docs define when to keep the internal projection port and when to
+- [x] The docs define when to keep the internal projection port and when to
       pivot to `context-graph`.
-- [ ] The docs define when Semantify should own normalization or data-catalog
+- [x] The docs define when Semantify should own normalization or data-catalog
       behavior.
-- [ ] No production code imports from a sibling workspace path.
-- [ ] A test or static check fails if direct sibling-path coupling is
+- [x] No production code imports from a sibling workspace path.
+- [x] A test or static check fails if direct sibling-path coupling is
       introduced.
-- [ ] Any duplicated projection or normalization behavior is explicitly
+- [x] Any duplicated projection or normalization behavior is explicitly
       classified with a next action.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
