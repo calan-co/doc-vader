@@ -67,6 +67,16 @@ export interface WorkGraphPathTrace {
   readonly edgeIds: readonly string[];
 }
 
+type WorkGraphTraversalEdgeReference = {
+  readonly nextNodeId: string;
+  readonly edgeId: string;
+};
+
+type WorkGraphPathParentReference = {
+  readonly nodeId: string;
+  readonly edgeId: string;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -172,6 +182,170 @@ function listEdgeElements(
   );
 }
 
+function createEmptyNeighborhood(
+  centerNodeId: string,
+  direction: WorkGraphTraversalDirection,
+): WorkGraphTraversalNeighborhood {
+  return { centerNodeId, direction, nodeIds: [], edgeIds: [] };
+}
+
+function createEmptyPathTrace(
+  startNodeId: string,
+  endNodeId: string,
+): WorkGraphPathTrace {
+  return {
+    startNodeId,
+    endNodeId,
+    found: false,
+    nodeIds: [],
+    edgeIds: [],
+  };
+}
+
+function buildDirectedAdjacency(
+  edges: readonly WorkGraphCytoscapeEdgeElement[],
+): Map<string, WorkGraphTraversalEdgeReference[]> {
+  const adjacency = new Map<string, WorkGraphTraversalEdgeReference[]>();
+
+  for (const edge of edges) {
+    const nextEdge = { nextNodeId: edge.data.target, edgeId: edge.data.id };
+    const currentEntries = adjacency.get(edge.data.source);
+    if (currentEntries) {
+      currentEntries.push(nextEdge);
+      continue;
+    }
+    adjacency.set(edge.data.source, [nextEdge]);
+  }
+
+  return adjacency;
+}
+
+function collectNeighborhood(
+  nodeIds: ReadonlySet<string>,
+  edges: readonly WorkGraphCytoscapeEdgeElement[],
+  centerNodeId: string,
+  direction: WorkGraphTraversalDirection,
+): WorkGraphTraversalNeighborhood {
+  if (!nodeIds.has(centerNodeId)) {
+    return createEmptyNeighborhood(centerNodeId, direction);
+  }
+
+  const seenNodeIds = new Set<string>([centerNodeId]);
+  const neighborhoodNodeIds = [centerNodeId];
+  const neighborhoodEdgeIds: string[] = [];
+  const directions: readonly WorkGraphTraversalDirection[] =
+    direction === "both" ? ["outgoing", "incoming"] : [direction];
+
+  for (const traversalDirection of directions) {
+    for (const edge of edges) {
+      const matchesCenterNode = traversalDirection === "outgoing"
+        ? edge.data.source === centerNodeId
+        : edge.data.target === centerNodeId;
+
+      if (!matchesCenterNode) {
+        continue;
+      }
+
+      neighborhoodEdgeIds.push(edge.data.id);
+      const neighborNodeId = traversalDirection === "outgoing"
+        ? edge.data.target
+        : edge.data.source;
+
+      if (seenNodeIds.has(neighborNodeId)) {
+        continue;
+      }
+
+      seenNodeIds.add(neighborNodeId);
+      neighborhoodNodeIds.push(neighborNodeId);
+    }
+  }
+
+  return {
+    centerNodeId,
+    direction,
+    nodeIds: neighborhoodNodeIds,
+    edgeIds: neighborhoodEdgeIds,
+  };
+}
+
+function reconstructPathTrace(
+  startNodeId: string,
+  endNodeId: string,
+  parents: ReadonlyMap<string, WorkGraphPathParentReference>,
+): WorkGraphPathTrace {
+  const pathNodeIds = [endNodeId];
+  const pathEdgeIds: string[] = [];
+  let cursor = endNodeId;
+
+  while (cursor !== startNodeId) {
+    const parent = parents.get(cursor);
+    if (!parent) {
+      return createEmptyPathTrace(startNodeId, endNodeId);
+    }
+    pathEdgeIds.unshift(parent.edgeId);
+    pathNodeIds.unshift(parent.nodeId);
+    cursor = parent.nodeId;
+  }
+
+  return {
+    startNodeId,
+    endNodeId,
+    found: true,
+    nodeIds: pathNodeIds,
+    edgeIds: pathEdgeIds,
+  };
+}
+
+function traceDirectedPath(
+  nodeIds: ReadonlySet<string>,
+  edges: readonly WorkGraphCytoscapeEdgeElement[],
+  startNodeId: string,
+  endNodeId: string,
+): WorkGraphPathTrace {
+  if (!nodeIds.has(startNodeId) || !nodeIds.has(endNodeId)) {
+    return createEmptyPathTrace(startNodeId, endNodeId);
+  }
+
+  if (startNodeId === endNodeId) {
+    return {
+      startNodeId,
+      endNodeId,
+      found: true,
+      nodeIds: [startNodeId],
+      edgeIds: [],
+    };
+  }
+
+  const adjacency = buildDirectedAdjacency(edges);
+  const queue = [startNodeId];
+  const visited = new Set<string>([startNodeId]);
+  const parents = new Map<string, WorkGraphPathParentReference>();
+
+  for (let queueIndex = 0; queueIndex < queue.length; queueIndex += 1) {
+    const currentNodeId = queue[queueIndex];
+
+    for (const candidate of adjacency.get(currentNodeId) ?? []) {
+      if (visited.has(candidate.nextNodeId)) {
+        continue;
+      }
+
+      visited.add(candidate.nextNodeId);
+      parents.set(candidate.nextNodeId, {
+        nodeId: currentNodeId,
+        edgeId: candidate.edgeId,
+      });
+
+      if (candidate.nextNodeId === endNodeId) {
+        return reconstructPathTrace(startNodeId, endNodeId, parents);
+      }
+
+      queue.push(candidate.nextNodeId);
+    }
+  }
+
+  return createEmptyPathTrace(startNodeId, endNodeId);
+}
+
 export function assertWorkGraphExportResult(
   value: unknown,
 ): WorkGraphExportResult {
@@ -256,48 +430,12 @@ export function getWorkGraphNeighborhood(
   centerNodeId: string,
   direction: WorkGraphTraversalDirection,
 ): WorkGraphTraversalNeighborhood {
-  const nodeIds = listNodeIds(graph);
-  if (!nodeIds.has(centerNodeId)) {
-    return { centerNodeId, direction, nodeIds: [], edgeIds: [] };
-  }
-
-  const seenNodeIds = new Set<string>([centerNodeId]);
-  const neighborhoodNodeIds = [centerNodeId];
-  const neighborhoodEdgeIds: string[] = [];
-  const edges = listEdgeElements(graph);
-
-  if (direction === "outgoing" || direction === "both") {
-    for (const edge of edges) {
-      if (edge.data.source !== centerNodeId) {
-        continue;
-      }
-      neighborhoodEdgeIds.push(edge.data.id);
-      if (!seenNodeIds.has(edge.data.target)) {
-        seenNodeIds.add(edge.data.target);
-        neighborhoodNodeIds.push(edge.data.target);
-      }
-    }
-  }
-
-  if (direction === "incoming" || direction === "both") {
-    for (const edge of edges) {
-      if (edge.data.target !== centerNodeId) {
-        continue;
-      }
-      neighborhoodEdgeIds.push(edge.data.id);
-      if (!seenNodeIds.has(edge.data.source)) {
-        seenNodeIds.add(edge.data.source);
-        neighborhoodNodeIds.push(edge.data.source);
-      }
-    }
-  }
-
-  return {
+  return collectNeighborhood(
+    listNodeIds(graph),
+    listEdgeElements(graph),
     centerNodeId,
     direction,
-    nodeIds: neighborhoodNodeIds,
-    edgeIds: neighborhoodEdgeIds,
-  };
+  );
 }
 
 export function findWorkGraphPathTrace(
@@ -305,90 +443,12 @@ export function findWorkGraphPathTrace(
   startNodeId: string,
   endNodeId: string,
 ): WorkGraphPathTrace {
-  const nodeIds = listNodeIds(graph);
-  if (!nodeIds.has(startNodeId) || !nodeIds.has(endNodeId)) {
-    return {
-      startNodeId,
-      endNodeId,
-      found: false,
-      nodeIds: [],
-      edgeIds: [],
-    };
-  }
-  if (startNodeId === endNodeId) {
-    return {
-      startNodeId,
-      endNodeId,
-      found: true,
-      nodeIds: [startNodeId],
-      edgeIds: [],
-    };
-  }
-
-  const adjacency = new Map<
-    string,
-    Array<{ readonly nextNodeId: string; readonly edgeId: string }>
-  >();
-  for (const edge of listEdgeElements(graph)) {
-    const currentEntries = adjacency.get(edge.data.source);
-    const nextEdge = { nextNodeId: edge.data.target, edgeId: edge.data.id };
-    if (currentEntries) {
-      currentEntries.push(nextEdge);
-    } else {
-      adjacency.set(edge.data.source, [nextEdge]);
-    }
-  }
-
-  const queue = [startNodeId];
-  const visited = new Set<string>([startNodeId]);
-  const parents = new Map<string, { readonly nodeId: string; readonly edgeId: string }>();
-
-  while (queue.length > 0) {
-    const currentNodeId = queue.shift();
-    if (!currentNodeId) {
-      break;
-    }
-    for (const candidate of adjacency.get(currentNodeId) ?? []) {
-      if (visited.has(candidate.nextNodeId)) {
-        continue;
-      }
-      visited.add(candidate.nextNodeId);
-      parents.set(candidate.nextNodeId, {
-        nodeId: currentNodeId,
-        edgeId: candidate.edgeId,
-      });
-      if (candidate.nextNodeId === endNodeId) {
-        const pathNodeIds = [endNodeId];
-        const pathEdgeIds: string[] = [];
-        let cursor = endNodeId;
-        while (cursor !== startNodeId) {
-          const parent = parents.get(cursor);
-          if (!parent) {
-            break;
-          }
-          pathEdgeIds.unshift(parent.edgeId);
-          pathNodeIds.unshift(parent.nodeId);
-          cursor = parent.nodeId;
-        }
-        return {
-          startNodeId,
-          endNodeId,
-          found: true,
-          nodeIds: pathNodeIds,
-          edgeIds: pathEdgeIds,
-        };
-      }
-      queue.push(candidate.nextNodeId);
-    }
-  }
-
-  return {
+  return traceDirectedPath(
+    listNodeIds(graph),
+    listEdgeElements(graph),
     startNodeId,
     endNodeId,
-    found: false,
-    nodeIds: [],
-    edgeIds: [],
-  };
+  );
 }
 
 export function renderStandaloneWorkGraphViewer(
@@ -400,6 +460,14 @@ export function renderStandaloneWorkGraphViewer(
   const nodeTypeOptions = renderFilterOptions("node", graph.summary.nodeTypes);
   const edgeTypeOptions = renderFilterOptions("edge", graph.summary.edgeTypes);
   const nodeSelectOptions = renderNodeSelectOptions(graph);
+  const traversalRuntimeHelpers = [
+    createEmptyNeighborhood,
+    createEmptyPathTrace,
+    buildDirectedAdjacency,
+    collectNeighborhood,
+    reconstructPathTrace,
+    traceDirectedPath,
+  ].map((helper) => helper.toString()).join("\n");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -835,102 +903,7 @@ export function renderStandaloneWorkGraphViewer(
       function prettyJson(value) {
         return escapeHtml(JSON.stringify(value, null, 2));
       }
-      function collectNeighborhood(centerNodeId, direction) {
-        if (!nodeIds.has(centerNodeId)) {
-          return { centerNodeId, direction, nodeIds: [], edgeIds: [] };
-        }
-        const seenNodeIds = new Set([centerNodeId]);
-        const neighborhoodNodeIds = [centerNodeId];
-        const neighborhoodEdgeIds = [];
-        if (direction === "outgoing" || direction === "both") {
-          edgeElements.forEach((edge) => {
-            if (edge.data.source !== centerNodeId) {
-              return;
-            }
-            neighborhoodEdgeIds.push(edge.data.id);
-            if (!seenNodeIds.has(edge.data.target)) {
-              seenNodeIds.add(edge.data.target);
-              neighborhoodNodeIds.push(edge.data.target);
-            }
-          });
-        }
-        if (direction === "incoming" || direction === "both") {
-          edgeElements.forEach((edge) => {
-            if (edge.data.target !== centerNodeId) {
-              return;
-            }
-            neighborhoodEdgeIds.push(edge.data.id);
-            if (!seenNodeIds.has(edge.data.source)) {
-              seenNodeIds.add(edge.data.source);
-              neighborhoodNodeIds.push(edge.data.source);
-            }
-          });
-        }
-        return {
-          centerNodeId,
-          direction,
-          nodeIds: neighborhoodNodeIds,
-          edgeIds: neighborhoodEdgeIds
-        };
-      }
-      function traceDirectedPath(startNodeId, endNodeId) {
-        if (!nodeIds.has(startNodeId) || !nodeIds.has(endNodeId)) {
-          return { startNodeId, endNodeId, found: false, nodeIds: [], edgeIds: [] };
-        }
-        if (startNodeId === endNodeId) {
-          return { startNodeId, endNodeId, found: true, nodeIds: [startNodeId], edgeIds: [] };
-        }
-        const adjacency = new Map();
-        edgeElements.forEach((edge) => {
-          const currentEntries = adjacency.get(edge.data.source);
-          const nextEdge = { nextNodeId: edge.data.target, edgeId: edge.data.id };
-          if (currentEntries) {
-            currentEntries.push(nextEdge);
-          } else {
-            adjacency.set(edge.data.source, [nextEdge]);
-          }
-        });
-        const queue = [startNodeId];
-        const visited = new Set([startNodeId]);
-        const parents = new Map();
-        while (queue.length > 0) {
-          const currentNodeId = queue.shift();
-          const outgoing = adjacency.get(currentNodeId) || [];
-          for (const candidate of outgoing) {
-            if (visited.has(candidate.nextNodeId)) {
-              continue;
-            }
-            visited.add(candidate.nextNodeId);
-            parents.set(candidate.nextNodeId, {
-              nodeId: currentNodeId,
-              edgeId: candidate.edgeId
-            });
-            if (candidate.nextNodeId === endNodeId) {
-              const pathNodeIds = [endNodeId];
-              const pathEdgeIds = [];
-              let cursor = endNodeId;
-              while (cursor !== startNodeId) {
-                const parent = parents.get(cursor);
-                if (!parent) {
-                  break;
-                }
-                pathEdgeIds.unshift(parent.edgeId);
-                pathNodeIds.unshift(parent.nodeId);
-                cursor = parent.nodeId;
-              }
-              return {
-                startNodeId,
-                endNodeId,
-                found: true,
-                nodeIds: pathNodeIds,
-                edgeIds: pathEdgeIds
-              };
-            }
-            queue.push(candidate.nextNodeId);
-          }
-        }
-        return { startNodeId, endNodeId, found: false, nodeIds: [], edgeIds: [] };
-      }
+      ${traversalRuntimeHelpers}
       function getSelectedNodeEntry() {
         if (!state.selectedElementId) {
           return null;
@@ -1114,7 +1087,12 @@ export function renderStandaloneWorkGraphViewer(
           applyFilters();
           return;
         }
-        state.traversal = collectNeighborhood(selectedNode.id, direction);
+        state.traversal = collectNeighborhood(
+          nodeIds,
+          edgeElements,
+          selectedNode.id,
+          direction,
+        );
         state.focusNodeIds = null;
         state.focusEdgeIds = null;
         traversalResults.textContent =
@@ -1131,7 +1109,12 @@ export function renderStandaloneWorkGraphViewer(
           return;
         }
         if (!state.traversal || state.traversal.centerNodeId !== selectedNode.id) {
-          state.traversal = collectNeighborhood(selectedNode.id, "both");
+          state.traversal = collectNeighborhood(
+            nodeIds,
+            edgeElements,
+            selectedNode.id,
+            "both",
+          );
         }
         state.focusNodeIds = new Set(state.traversal.nodeIds);
         state.focusEdgeIds = new Set(state.traversal.edgeIds);
@@ -1146,7 +1129,12 @@ export function renderStandaloneWorkGraphViewer(
         applyFilters();
       }
       function tracePath() {
-        state.pathTrace = traceDirectedPath(pathStartSelect.value, pathEndSelect.value);
+        state.pathTrace = traceDirectedPath(
+          nodeIds,
+          edgeElements,
+          pathStartSelect.value,
+          pathEndSelect.value,
+        );
         pathResults.dataset.state = state.pathTrace.found ? "info" : "warning";
         if (state.pathTrace.found) {
           pathResults.textContent =
