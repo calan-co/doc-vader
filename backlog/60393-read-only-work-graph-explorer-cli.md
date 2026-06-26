@@ -5,8 +5,9 @@ summary: Add dv work graph and dv wi graph inspection commands with JSON and DOT
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
+completed_date: '2026-06-26'
 priority: high
 estimated: 5
 links:
@@ -53,20 +54,20 @@ model supports it.
 
 ## Tasks
 
-- [ ] Add `dv work graph` and `dv wi graph` command entry points.
-- [ ] Add `nodes`, `edges`, and `inspect <node-id>` graph explorer subcommands.
-- [ ] Add `--format json` and `--format dot`; make JSON the default if that
+- [x] Add `dv work graph` and `dv wi graph` command entry points.
+- [x] Add `nodes`, `edges`, and `inspect <node-id>` graph explorer subcommands.
+- [x] Add `--format json` and `--format dot`; make JSON the default if that
       matches local CLI conventions.
-- [ ] Implement JSON and DOT formatting behind a context-graph-compatible
+- [x] Implement JSON and DOT formatting behind a context-graph-compatible
       output extension seam instead of CLI-local serializers.
-- [ ] Reject or omit a `digraph` format or alias.
-- [ ] Add filters for node type, edge type, source node, target node, and
+- [x] Reject or omit a `digraph` format or alias.
+- [x] Add filters for node type, edge type, source node, target node, and
       one-node neighborhood.
-- [ ] Include projection diagnostics from live repository projection in JSON
+- [x] Include projection diagnostics from live repository projection in JSON
       output without making them graph nodes.
-- [ ] Ensure the command is read-only and cannot create claims, locks, records,
+- [x] Ensure the command is read-only and cannot create claims, locks, records,
       audit files, or repository edits.
-- [ ] Add integration tests for JSON output, DOT output, filters, and
+- [x] Add integration tests for JSON output, DOT output, filters, and
       diagnostics.
 
 ## Deliverables
@@ -78,20 +79,20 @@ model supports it.
 
 ## Acceptance Criteria
 
-- [ ] `dv work graph nodes --format json` returns stable projected node data.
-- [ ] `dv wi graph edges --format json` returns stable projected edge data.
-- [ ] `dv wi graph inspect <node-id> --format json` returns the node and its
+- [x] `dv work graph nodes --format json` returns stable projected node data.
+- [x] `dv wi graph edges --format json` returns stable projected edge data.
+- [x] `dv wi graph inspect <node-id> --format json` returns the node and its
       one-node relationship neighborhood.
-- [ ] DOT output is valid Graphviz directed graph syntax and can be piped to a
+- [x] DOT output is valid Graphviz directed graph syntax and can be piped to a
       file or rendering command.
-- [ ] JSON and DOT output are produced through context-graph-compatible
+- [x] JSON and DOT output are produced through context-graph-compatible
       extension implementations, not command-local serialization branches.
-- [ ] The explorer supports JSON and DOT only; no `digraph` alias is added.
-- [ ] Projection diagnostics are visible to users without becoming graph edges
+- [x] The explorer supports JSON and DOT only; no `digraph` alias is added.
+- [x] Projection diagnostics are visible to users without becoming graph edges
       or nodes.
-- [ ] The explorer does not mutate repository, runtime, record, or audit state.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] The explorer does not mutate repository, runtime, record, or audit state.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
