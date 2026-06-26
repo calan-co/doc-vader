@@ -11,7 +11,10 @@ import {
   RUNTIME_SCHEMA_VERSION,
   type RuntimeClaimAcquisitionSeed,
   type RuntimeClaim,
+  type RuntimeClaimRenewalResult,
   type RuntimeExecutionLogEntry,
+  type RuntimeInitialClaimAcquisitionResult,
+  type RuntimeScopeLockAcquisitionRequest,
   type RuntimeLock,
 } from "../lib/runtime/sqlite-store.js";
 
@@ -147,6 +150,97 @@ function snapshotSchema(store: ReturnType<typeof openRuntimeSqliteStore>) {
        ORDER BY type, name`,
     )
     .all() as Array<{ type: string; name: string; sql: string | null }>;
+}
+
+function expectClaimAcquired(
+  result: RuntimeInitialClaimAcquisitionResult,
+) {
+  if (result.outcome !== "acquired") {
+    throw new Error("Expected the claim to be acquired.");
+  }
+  return result;
+}
+
+function expectClaimRenewed(result: RuntimeClaimRenewalResult) {
+  if (result.outcome !== "renewed") {
+    throw new Error("Expected the claim to be renewed.");
+  }
+  return result;
+}
+
+function expectClaimRenewalConflict(
+  result: RuntimeClaimRenewalResult,
+) {
+  if (result.outcome !== "conflict") {
+    throw new Error("Expected renewal to conflict.");
+  }
+  return result;
+}
+
+function acquireClaimWithScopeLocks(
+  store: ReturnType<typeof openRuntimeSqliteStore>,
+  options: {
+    targetId: string;
+    entropy: string;
+    scopeLocks: RuntimeScopeLockAcquisitionRequest[];
+  },
+) {
+  const acquisition = store.acquireRuntimeClaim(
+    makeClaimSeed({
+      target_id: options.targetId,
+      entropy: options.entropy,
+      expires_at: "2099-06-20T01:20:36.020Z",
+      created_at: "2099-06-20T01:14:36.020Z",
+    }),
+  );
+  const claim = expectClaimAcquired(acquisition);
+
+  expect(
+    store.acquireRuntimeScopeLocks(claim.claimToken, options.scopeLocks),
+  ).toMatchObject({
+    outcome: "acquired",
+    claimToken: claim.claimToken,
+  });
+
+  return claim;
+}
+
+function setClaimLeaseWindow(
+  store: ReturnType<typeof openRuntimeSqliteStore>,
+  claimToken: string,
+) {
+  store.database
+    .prepare(
+      "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
+    )
+    .run(
+      "2099-06-20T01:15:36.020Z",
+      "2099-06-20T01:20:36.020Z",
+      claimToken,
+    );
+}
+
+function insertActiveScopeLock(
+  store: ReturnType<typeof openRuntimeSqliteStore>,
+  options: {
+    claimToken: string;
+    scopeRef: string;
+    lockMode: "read" | "write" | "execute";
+    policyName: "ReadLockPolicy" | "WriteLockPolicy" | "ExecuteLockPolicy";
+    acquiredAt: string;
+    updatedAt?: string;
+  },
+) {
+  store.insertScopeLock({
+    schema_version: RUNTIME_SCHEMA_VERSION,
+    claim_token: options.claimToken,
+    scope_ref: options.scopeRef,
+    lock_mode: options.lockMode,
+    policy_name: options.policyName,
+    acquired_at: options.acquiredAt,
+    updated_at: options.updatedAt ?? options.acquiredAt,
+    lifecycle_state: "active",
+  });
 }
 
 describe("runtime sqlite store", () => {
@@ -370,6 +464,200 @@ describe("runtime sqlite store", () => {
       });
       expect(store.getClaimByToken(claim.claim_token)?.expires_at).not.toBe(
         "2099-06-20T01:20:36.020Z",
+      );
+    } finally {
+      store.close();
+    }
+  });
+
+  it("renews immutable claims only when every associated scope remains available", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquiredClaim = acquireClaimWithScopeLocks(store, {
+        targetId: "wi-renew-all-scopes",
+        entropy: "entropy-renew-all-scopes",
+        scopeLocks: [
+          { scopeRef: "wi-renew-read-scope", lockMode: "read" },
+          { scopeRef: "wi-renew-write-scope", lockMode: "write" },
+          { scopeRef: "wi-renew-execute-scope", lockMode: "execute" },
+        ],
+      });
+      setClaimLeaseWindow(store, acquiredClaim.claimToken);
+
+      const renewed = expectClaimRenewed(
+        store.renewRuntimeClaim(acquiredClaim.claimToken, {
+          now: new Date("2099-06-20T01:17:36.020Z"),
+          ttlMilliseconds: 30 * 60_000,
+        }),
+      );
+
+      expect(renewed).toMatchObject({
+        outcome: "renewed",
+        claimToken: acquiredClaim.claimToken,
+        claim: {
+          claim_token: acquiredClaim.claimToken,
+          last_seen_at: "2099-06-20T01:17:36.020Z",
+          expires_at: "2099-06-20T01:47:36.020Z",
+        },
+      });
+      expect(renewed.claim.claim_token).toBe(acquiredClaim.claimToken);
+      expect(
+        store.listScopeLocksByClaimToken(acquiredClaim.claimToken).filter(
+          (lock) => lock.lifecycle_state === "active",
+        ),
+      ).toHaveLength(4);
+    } finally {
+      store.close();
+    }
+  });
+
+  it("blocks renewal when an execute scope becomes unavailable", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquiredClaim = acquireClaimWithScopeLocks(store, {
+        targetId: "wi-renew-blocked",
+        entropy: "entropy-renew-blocked",
+        scopeLocks: [
+          { scopeRef: "wi-renew-execute-only", lockMode: "execute" },
+        ],
+      });
+
+      const foreignClaim = store.insertClaim(
+        makeClaim({
+          claim_token: "claim-foreign-renew-execute",
+          target_id: "wi-foreign-renew-execute",
+          expires_at: "2099-06-21T01:20:36.020Z",
+          created_at: "2099-06-20T01:16:36.020Z",
+        }),
+      );
+      insertActiveScopeLock(store, {
+        claimToken: foreignClaim.claim_token,
+        scopeRef: "wi:renew-execute-only",
+        lockMode: "write",
+        policyName: "WriteLockPolicy",
+        acquiredAt: "2099-06-20T01:16:36.020Z",
+      });
+
+      const before = store.getClaimByToken(acquiredClaim.claimToken);
+      const renewed = expectClaimRenewalConflict(
+        store.renewRuntimeClaim(acquiredClaim.claimToken, {
+          now: new Date("2099-06-20T01:17:36.020Z"),
+          ttlMilliseconds: 30 * 60_000,
+        }),
+      );
+
+      expect(renewed).toMatchObject({
+        outcome: "conflict",
+        claimToken: acquiredClaim.claimToken,
+        conflicts: [
+          {
+            scope_ref: "wi:renew-execute-only",
+            requested_mode: "execute",
+            conflicting_modes: ["write"],
+            policy_name: "ExecuteLockPolicy",
+            owner: {
+              claim_token: foreignClaim.claim_token,
+              target_id: foreignClaim.target_id,
+            },
+          },
+        ],
+      });
+      expect(store.getClaimByToken(acquiredClaim.claimToken)?.expires_at).toBe(
+        before?.expires_at,
+      );
+      expect(
+        store.getScopeLockByClaimTokenAndScopeRef(
+          acquiredClaim.claimToken,
+          "wi:renew-execute-only",
+          "execute",
+        )?.lifecycle_state,
+      ).toBe("active");
+    } finally {
+      store.close();
+    }
+  });
+
+  it("reports only the conflicting associated scopes during mixed-scope renewal failure", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const acquiredClaim = acquireClaimWithScopeLocks(store, {
+        targetId: "wi-renew-mixed",
+        entropy: "entropy-renew-mixed",
+        scopeLocks: [
+          { scopeRef: "wi-renew-mixed-read", lockMode: "read" },
+          { scopeRef: "wi-renew-mixed-write", lockMode: "write" },
+          { scopeRef: "wi-renew-mixed-execute", lockMode: "execute" },
+        ],
+      });
+      const before = store.getClaimByToken(acquiredClaim.claimToken);
+
+      const foreignRead = store.insertClaim(
+        makeClaim({
+          claim_token: "claim-foreign-renew-read",
+          target_id: "wi-foreign-renew-read",
+          expires_at: "2099-06-21T01:20:36.020Z",
+          created_at: "2099-06-20T01:16:36.020Z",
+        }),
+      );
+      insertActiveScopeLock(store, {
+        claimToken: foreignRead.claim_token,
+        scopeRef: "wi:renew-mixed-read",
+        lockMode: "write",
+        policyName: "WriteLockPolicy",
+        acquiredAt: "2099-06-20T01:16:36.020Z",
+      });
+      const foreignWrite = store.insertClaim(
+        makeClaim({
+          claim_token: "claim-foreign-renew-write",
+          target_id: "wi-foreign-renew-write",
+          expires_at: "2099-06-21T01:21:36.020Z",
+          created_at: "2099-06-20T01:16:37.020Z",
+        }),
+      );
+      insertActiveScopeLock(store, {
+        claimToken: foreignWrite.claim_token,
+        scopeRef: "wi:renew-mixed-write",
+        lockMode: "read",
+        policyName: "ReadLockPolicy",
+        acquiredAt: "2099-06-20T01:16:37.020Z",
+      });
+
+      const renewed = expectClaimRenewalConflict(
+        store.renewRuntimeClaim(acquiredClaim.claimToken, {
+          now: new Date("2099-06-20T01:17:36.020Z"),
+          ttlMilliseconds: 30 * 60_000,
+        }),
+      );
+
+      expect(renewed).toMatchObject({
+        outcome: "conflict",
+        claimToken: acquiredClaim.claimToken,
+        conflicts: [
+          {
+            scope_ref: "wi:renew-mixed-read",
+            requested_mode: "read",
+            conflicting_modes: ["write"],
+            policy_name: "ReadLockPolicy",
+          },
+          {
+            scope_ref: "wi:renew-mixed-write",
+            requested_mode: "write",
+            conflicting_modes: ["read"],
+            policy_name: "WriteLockPolicy",
+          },
+        ],
+      });
+      expect(renewed.conflicts).toHaveLength(2);
+      expect(
+        renewed.conflicts.some(
+          (conflict) => conflict.scope_ref === "wi:renew-mixed-execute",
+        ),
+      ).toBe(false);
+      expect(store.getClaimByToken(acquiredClaim.claimToken)?.expires_at).toBe(
+        before?.expires_at,
       );
     } finally {
       store.close();

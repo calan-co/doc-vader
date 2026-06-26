@@ -544,6 +544,40 @@ export type RuntimeScopeLockAcquisitionResult =
   | RuntimeScopeLockAcquisitionSuccess
   | RuntimeScopeLockAcquisitionConflict;
 
+export interface RuntimeClaimRenewalSuccess {
+  outcome: "renewed";
+  claimToken: string;
+  claim: RuntimeClaimRecord;
+}
+
+export interface RuntimeClaimRenewalConflict {
+  outcome: "conflict";
+  claimToken: string;
+  conflicts: RuntimeScopeLockConflictRecord[];
+}
+
+export type RuntimeClaimRenewalResult =
+  | RuntimeClaimRenewalSuccess
+  | RuntimeClaimRenewalConflict;
+
+type RuntimeScopeLockDescriptor = {
+  scopeRef: string;
+  lockMode: RuntimeScopeLockMode;
+  policyName: RuntimeScopeLockPolicyName;
+};
+
+type RuntimeNormalizedScopeLockRequest = RuntimeScopeLockDescriptor & {
+  metadata?: Record<string, unknown>;
+};
+
+type RuntimeClaimTouchOptions = {
+  now?: Date;
+  renew?: boolean;
+  ttlMilliseconds?: number;
+};
+
+type RuntimeClaimRenewalOptions = Omit<RuntimeClaimTouchOptions, "renew">;
+
 export interface RuntimeExecutionLogRecord {
   id: number;
   schema_version: typeof RUNTIME_SCHEMA_VERSION;
@@ -1204,6 +1238,48 @@ function runtimeScopeLockPolicyNameForMode(
     case "execute":
       return "ExecuteLockPolicy";
   }
+}
+
+function dedupeScopeLocksByIdentity(
+  locks: RuntimeScopeLockRecord[],
+): RuntimeScopeLockRecord[] {
+  const byIdentity = new Map<string, RuntimeScopeLockRecord>();
+  for (const lock of locks) {
+    const key = `${lock.scope_ref}\u0000${lock.lock_mode}\u0000${lock.policy_name}`;
+    if (!byIdentity.has(key)) {
+      byIdentity.set(key, lock);
+    }
+  }
+  return [...byIdentity.values()];
+}
+
+function toScopeLockDescriptor(
+  lock: Pick<
+    RuntimeScopeLockRecord,
+    "scope_ref" | "lock_mode" | "policy_name"
+  >,
+): RuntimeScopeLockDescriptor {
+  return {
+    scopeRef: lock.scope_ref,
+    lockMode: lock.lock_mode,
+    policyName: lock.policy_name,
+  };
+}
+
+function listUniqueScopeLockDescriptors(
+  locks: RuntimeScopeLockRecord[],
+): RuntimeScopeLockDescriptor[] {
+  return dedupeScopeLocksByIdentity(locks).map(toScopeLockDescriptor);
+}
+
+function toExecuteScopeLockDescriptors(
+  scopeRefs: string[],
+): RuntimeScopeLockDescriptor[] {
+  return scopeRefs.map((scopeRef) => ({
+    scopeRef,
+    lockMode: "execute",
+    policyName: "ExecuteLockPolicy",
+  }));
 }
 
 function gitOutput(rootDir: string, args: string[]): string | undefined {
@@ -2105,19 +2181,10 @@ export class RuntimeSqliteStore {
       return {
         outcome: "conflict",
         claimToken,
-        conflicts: normalizedScopeRefs.map((scopeRef) => ({
-          scope_ref: scopeRef,
-          requested_mode: "execute",
-          conflicting_modes: ["execute"],
-          policy_name: "ExecuteLockPolicy",
-          owner: {
-            claim_token: claim.claim_token,
-            target_type: claim.target_type,
-            target_id: claim.target_id,
-            state: claim.state,
-            expires_at: claim.expires_at,
-          },
-        })),
+        conflicts: this.createExpiredClaimConflicts(
+          claim,
+          toExecuteScopeLockDescriptors(normalizedScopeRefs),
+        ),
       };
     }
 
@@ -2407,7 +2474,7 @@ export class RuntimeSqliteStore {
 
   touchClaimContext(
     claimToken: string,
-    options: { now?: Date; renew?: boolean; ttlMilliseconds?: number } = {},
+    options: RuntimeClaimTouchOptions = {},
   ): RuntimeClaimRecord {
     const now = options.now ?? new Date();
     const nowIso = now.toISOString();
@@ -2427,6 +2494,131 @@ export class RuntimeSqliteStore {
        WHERE claim_token = ?`,
     ).run(nowIso, nowIso, expiresAt, claimToken);
     return this.getClaimByToken(claimToken)!;
+  }
+
+  renewRuntimeClaim(
+    claimToken: string,
+    options: RuntimeClaimRenewalOptions = {},
+  ): RuntimeClaimRenewalResult {
+    return this.withTransaction(() =>
+      this.renewRuntimeClaimWithinTransaction(claimToken, options),
+    );
+  }
+
+  private listActiveScopeLocksByClaimToken(
+    claimToken: string,
+  ): RuntimeScopeLockRecord[] {
+    return this.listScopeLocksByClaimToken(claimToken).filter(
+      (lock) => lock.lifecycle_state === "active",
+    );
+  }
+
+  private createScopeLockConflictOwner(
+    claim: RuntimeClaimRecord,
+  ): NonNullable<RuntimeScopeLockConflictRecord["owner"]> {
+    return {
+      claim_token: claim.claim_token,
+      target_type: claim.target_type,
+      target_id: claim.target_id,
+      state: claim.state,
+      expires_at: claim.expires_at,
+    };
+  }
+
+  private createExpiredClaimConflict(
+    claim: RuntimeClaimRecord,
+    lock: RuntimeScopeLockDescriptor,
+  ): RuntimeScopeLockConflictRecord {
+    return {
+      scope_ref: lock.scopeRef,
+      requested_mode: lock.lockMode,
+      conflicting_modes: [lock.lockMode],
+      policy_name: lock.policyName,
+      owner: this.createScopeLockConflictOwner(claim),
+    };
+  }
+
+  private createExpiredClaimConflicts(
+    claim: RuntimeClaimRecord,
+    locks: RuntimeScopeLockDescriptor[],
+  ): RuntimeScopeLockConflictRecord[] {
+    return locks.map((lock) => this.createExpiredClaimConflict(claim, lock));
+  }
+
+  private listScopeLockConflicts(
+    locks: RuntimeScopeLockDescriptor[],
+    options: { excludeClaimToken?: string } = {},
+  ): RuntimeScopeLockConflictRecord[] {
+    return locks
+      .map((lock) =>
+        this.readScopeLockConflict(
+          lock.scopeRef,
+          lock.lockMode,
+          lock.policyName,
+          options,
+        ),
+      )
+      .filter(
+        (value): value is RuntimeScopeLockConflictRecord => value !== undefined,
+      );
+  }
+
+  private normalizeScopeLockRequests(
+    claim: RuntimeClaimRecord,
+    locks: RuntimeScopeLockAcquisitionRequest[],
+  ): RuntimeNormalizedScopeLockRequest[] {
+    return locks.map((request) => ({
+      scopeRef: canonicalizeClaimScopeRef(claim.target_type, request.scopeRef),
+      lockMode: request.lockMode,
+      policyName:
+        request.policyName ?? runtimeScopeLockPolicyNameForMode(request.lockMode),
+      ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
+    }));
+  }
+
+  private renewRuntimeClaimWithinTransaction(
+    claimToken: string,
+    options: RuntimeClaimRenewalOptions = {},
+  ): RuntimeClaimRenewalResult {
+    const claim = this.getClaimByToken(claimToken);
+    if (!claim) {
+      throw new Error(`Unknown runtime claim token: ${claimToken}`);
+    }
+
+    const activeLockDescriptors = listUniqueScopeLockDescriptors(
+      this.listActiveScopeLocksByClaimToken(claimToken),
+    );
+    if (claim.state === "expired") {
+      return {
+        outcome: "conflict",
+        claimToken,
+        conflicts: this.createExpiredClaimConflicts(
+          claim,
+          activeLockDescriptors,
+        ),
+      } satisfies RuntimeClaimRenewalConflict;
+    }
+
+    const conflicts = this.listScopeLockConflicts(activeLockDescriptors, {
+      excludeClaimToken: claimToken,
+    });
+    if (conflicts.length > 0) {
+      return {
+        outcome: "conflict",
+        claimToken,
+        conflicts,
+      } satisfies RuntimeClaimRenewalConflict;
+    }
+
+    return {
+      outcome: "renewed",
+      claimToken,
+      claim: this.touchClaimContext(claimToken, {
+        now: options.now,
+        renew: true,
+        ttlMilliseconds: options.ttlMilliseconds,
+      }),
+    } satisfies RuntimeClaimRenewalSuccess;
   }
 
   getClaimByToken(claimToken: string): RuntimeClaimRecord | undefined {
@@ -2538,8 +2730,9 @@ export class RuntimeSqliteStore {
     scopeRef: string,
     requestedMode: RuntimeScopeLockMode,
     policyName: RuntimeScopeLockPolicyName,
+    options: { excludeClaimToken?: string } = {},
   ): RuntimeScopeLockConflictRecord | undefined {
-    const activeLocks = this.database.prepare(
+    const rows = this.database.prepare(
       `SELECT
         claim_scope_locks.scope_ref,
         claim_scope_locks.claim_token,
@@ -2555,6 +2748,9 @@ export class RuntimeSqliteStore {
          AND claim_scope_locks.lifecycle_state = 'active'
        ORDER BY claim_scope_locks.acquired_at, claim_scope_locks.lock_mode`,
     ).all(scopeRef) as Array<Record<string, unknown>>;
+    const activeLocks = rows.filter(
+      (row) => row.claim_token !== options.excludeClaimToken,
+    );
 
     const existingModes = activeLocks.map(
       (row) => row.lock_mode as RuntimeScopeLockMode,
@@ -2647,57 +2843,32 @@ export class RuntimeSqliteStore {
     if (!claim) {
       throw new Error(`Unknown runtime claim token: ${claimToken}`);
     }
-    if (claim.state === "active") {
-      this.touchClaimContext(claimToken, { renew: true });
-    }
     if (claim.state === "expired") {
       return {
         outcome: "conflict",
         claimToken,
-        conflicts: requestedLocks.map((request) => ({
-          scope_ref: canonicalizeClaimScopeRef(
-            claim.target_type,
-            request.scopeRef,
-          ),
-          requested_mode: request.lockMode,
-          conflicting_modes: [request.lockMode],
-          policy_name:
-            request.policyName ??
-            runtimeScopeLockPolicyNameForMode(request.lockMode),
-          owner: {
-            claim_token: claim.claim_token,
-            target_type: claim.target_type,
-            target_id: claim.target_id,
-            state: claim.state,
-            expires_at: claim.expires_at,
-          },
-        })),
+        conflicts: this.createExpiredClaimConflicts(
+          claim,
+          this.normalizeScopeLockRequests(claim, requestedLocks),
+        ),
       };
     }
-    const normalizedRequests = requestedLocks.map((request) => ({
-      scopeRef: canonicalizeClaimScopeRef(
-        claim.target_type,
-        request.scopeRef,
-      ),
-      lockMode: request.lockMode,
-      policyName:
-        request.policyName ?? runtimeScopeLockPolicyNameForMode(request.lockMode),
-      ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
-    }));
+    const normalizedRequests = this.normalizeScopeLockRequests(
+      claim,
+      requestedLocks,
+    );
 
     return this.withTransaction(() => {
-      const conflicts = normalizedRequests
-        .map((request) =>
-          this.readScopeLockConflict(
-            request.scopeRef,
-            request.lockMode,
-            request.policyName as RuntimeScopeLockPolicyName,
-          ),
-        )
-        .filter(
-          (value): value is RuntimeScopeLockConflictRecord =>
-            value !== undefined,
-        );
+      const renewed = this.renewRuntimeClaimWithinTransaction(claimToken);
+      if (renewed.outcome === "conflict") {
+        return {
+          outcome: "conflict",
+          claimToken,
+          conflicts: renewed.conflicts,
+        } satisfies RuntimeScopeLockAcquisitionConflict;
+      }
+
+      const conflicts = this.listScopeLockConflicts(normalizedRequests);
       if (conflicts.length > 0) {
         return {
           outcome: "conflict",
@@ -2712,7 +2883,7 @@ export class RuntimeSqliteStore {
             claimToken,
             scopeRef: request.scopeRef,
             lockMode: request.lockMode,
-            policyName: request.policyName as RuntimeScopeLockPolicyName,
+            policyName: request.policyName,
             acquiredAt: new Date().toISOString(),
             ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
           }),
