@@ -50,6 +50,23 @@ export interface WorkGraphCytoscapeDocument {
   readonly diagnostics: readonly WorkGraphProjectionDiagnostic[];
 }
 
+export type WorkGraphTraversalDirection = "incoming" | "outgoing" | "both";
+
+export interface WorkGraphTraversalNeighborhood {
+  readonly centerNodeId: string;
+  readonly direction: WorkGraphTraversalDirection;
+  readonly nodeIds: readonly string[];
+  readonly edgeIds: readonly string[];
+}
+
+export interface WorkGraphPathTrace {
+  readonly startNodeId: string;
+  readonly endNodeId: string;
+  readonly found: boolean;
+  readonly nodeIds: readonly string[];
+  readonly edgeIds: readonly string[];
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -92,6 +109,16 @@ function renderFilterOptions(
     .join("");
 }
 
+function renderNodeSelectOptions(graph: WorkGraphCytoscapeDocument): string {
+  return graph.elements
+    .filter((element): element is WorkGraphCytoscapeNodeElement => element.group === "nodes")
+    .map((element) => {
+      const label = `${element.data.label} [${element.data.nodeType}] (${element.data.id})`;
+      return `<option value="${escapeHtml(element.data.id)}">${escapeHtml(label)}</option>`;
+    })
+    .join("");
+}
+
 function adaptNodeElement(node: WorkGraphNode): WorkGraphCytoscapeNodeElement {
   const filePath = provenanceFilePath(node.source);
   return {
@@ -127,6 +154,22 @@ function adaptEdgeElement(edge: WorkGraphEdge): WorkGraphCytoscapeEdgeElement {
       searchText: searchText([edge.id, edge.type, filePath]),
     },
   };
+}
+
+function listNodeIds(graph: WorkGraphCytoscapeDocument): Set<string> {
+  return new Set(
+    graph.elements
+      .filter((element): element is WorkGraphCytoscapeNodeElement => element.group === "nodes")
+      .map((element) => element.data.id),
+  );
+}
+
+function listEdgeElements(
+  graph: WorkGraphCytoscapeDocument,
+): readonly WorkGraphCytoscapeEdgeElement[] {
+  return graph.elements.filter(
+    (element): element is WorkGraphCytoscapeEdgeElement => element.group === "edges",
+  );
 }
 
 export function assertWorkGraphExportResult(
@@ -208,6 +251,146 @@ export function adaptWorkGraphExportToCytoscape(
   };
 }
 
+export function getWorkGraphNeighborhood(
+  graph: WorkGraphCytoscapeDocument,
+  centerNodeId: string,
+  direction: WorkGraphTraversalDirection,
+): WorkGraphTraversalNeighborhood {
+  const nodeIds = listNodeIds(graph);
+  if (!nodeIds.has(centerNodeId)) {
+    return { centerNodeId, direction, nodeIds: [], edgeIds: [] };
+  }
+
+  const seenNodeIds = new Set<string>([centerNodeId]);
+  const neighborhoodNodeIds = [centerNodeId];
+  const neighborhoodEdgeIds: string[] = [];
+  const edges = listEdgeElements(graph);
+
+  if (direction === "outgoing" || direction === "both") {
+    for (const edge of edges) {
+      if (edge.data.source !== centerNodeId) {
+        continue;
+      }
+      neighborhoodEdgeIds.push(edge.data.id);
+      if (!seenNodeIds.has(edge.data.target)) {
+        seenNodeIds.add(edge.data.target);
+        neighborhoodNodeIds.push(edge.data.target);
+      }
+    }
+  }
+
+  if (direction === "incoming" || direction === "both") {
+    for (const edge of edges) {
+      if (edge.data.target !== centerNodeId) {
+        continue;
+      }
+      neighborhoodEdgeIds.push(edge.data.id);
+      if (!seenNodeIds.has(edge.data.source)) {
+        seenNodeIds.add(edge.data.source);
+        neighborhoodNodeIds.push(edge.data.source);
+      }
+    }
+  }
+
+  return {
+    centerNodeId,
+    direction,
+    nodeIds: neighborhoodNodeIds,
+    edgeIds: neighborhoodEdgeIds,
+  };
+}
+
+export function findWorkGraphPathTrace(
+  graph: WorkGraphCytoscapeDocument,
+  startNodeId: string,
+  endNodeId: string,
+): WorkGraphPathTrace {
+  const nodeIds = listNodeIds(graph);
+  if (!nodeIds.has(startNodeId) || !nodeIds.has(endNodeId)) {
+    return {
+      startNodeId,
+      endNodeId,
+      found: false,
+      nodeIds: [],
+      edgeIds: [],
+    };
+  }
+  if (startNodeId === endNodeId) {
+    return {
+      startNodeId,
+      endNodeId,
+      found: true,
+      nodeIds: [startNodeId],
+      edgeIds: [],
+    };
+  }
+
+  const adjacency = new Map<
+    string,
+    Array<{ readonly nextNodeId: string; readonly edgeId: string }>
+  >();
+  for (const edge of listEdgeElements(graph)) {
+    const currentEntries = adjacency.get(edge.data.source);
+    const nextEdge = { nextNodeId: edge.data.target, edgeId: edge.data.id };
+    if (currentEntries) {
+      currentEntries.push(nextEdge);
+    } else {
+      adjacency.set(edge.data.source, [nextEdge]);
+    }
+  }
+
+  const queue = [startNodeId];
+  const visited = new Set<string>([startNodeId]);
+  const parents = new Map<string, { readonly nodeId: string; readonly edgeId: string }>();
+
+  while (queue.length > 0) {
+    const currentNodeId = queue.shift();
+    if (!currentNodeId) {
+      break;
+    }
+    for (const candidate of adjacency.get(currentNodeId) ?? []) {
+      if (visited.has(candidate.nextNodeId)) {
+        continue;
+      }
+      visited.add(candidate.nextNodeId);
+      parents.set(candidate.nextNodeId, {
+        nodeId: currentNodeId,
+        edgeId: candidate.edgeId,
+      });
+      if (candidate.nextNodeId === endNodeId) {
+        const pathNodeIds = [endNodeId];
+        const pathEdgeIds: string[] = [];
+        let cursor = endNodeId;
+        while (cursor !== startNodeId) {
+          const parent = parents.get(cursor);
+          if (!parent) {
+            break;
+          }
+          pathEdgeIds.unshift(parent.edgeId);
+          pathNodeIds.unshift(parent.nodeId);
+          cursor = parent.nodeId;
+        }
+        return {
+          startNodeId,
+          endNodeId,
+          found: true,
+          nodeIds: pathNodeIds,
+          edgeIds: pathEdgeIds,
+        };
+      }
+      queue.push(candidate.nextNodeId);
+    }
+  }
+
+  return {
+    startNodeId,
+    endNodeId,
+    found: false,
+    nodeIds: [],
+    edgeIds: [],
+  };
+}
+
 export function renderStandaloneWorkGraphViewer(
   graph: WorkGraphCytoscapeDocument,
 ): string {
@@ -216,6 +399,7 @@ export function renderStandaloneWorkGraphViewer(
   const summaryText = `${graph.summary.nodeCount} nodes, ${graph.summary.edgeCount} edges, ${graph.summary.diagnosticCount} diagnostics`;
   const nodeTypeOptions = renderFilterOptions("node", graph.summary.nodeTypes);
   const edgeTypeOptions = renderFilterOptions("edge", graph.summary.edgeTypes);
+  const nodeSelectOptions = renderNodeSelectOptions(graph);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -306,7 +490,9 @@ export function renderStandaloneWorkGraphViewer(
         color: var(--muted);
         font-size: 0.95rem;
       }
-      .search-input {
+      .search-input,
+      .control-select,
+      .control-button {
         width: 100%;
         margin-top: 8px;
         padding: 10px 12px;
@@ -316,13 +502,21 @@ export function renderStandaloneWorkGraphViewer(
         background: #fff;
         color: var(--ink);
       }
+      .control-button {
+        cursor: pointer;
+        background: #f8fafc;
+      }
       .filter-group {
         margin-top: 16px;
       }
-      .filter-grid {
+      .filter-grid,
+      .action-grid {
         display: grid;
         gap: 8px;
         margin-top: 10px;
+      }
+      .action-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .filter-option {
         display: grid;
@@ -337,6 +531,9 @@ export function renderStandaloneWorkGraphViewer(
       .filter-count {
         color: var(--muted);
         font: 600 12px/1.2 ui-monospace, SFMono-Regular, monospace;
+      }
+      .results[data-state="warning"] {
+        color: #b45309;
       }
       .inspection-meta {
         margin: 0;
@@ -450,6 +647,29 @@ export function renderStandaloneWorkGraphViewer(
             <div id="edge-type-filters" class="filter-grid">${edgeTypeOptions}</div>
           </div>
           <p id="filter-results" class="results">${escapeHtml(summaryText)} visible</p>
+          <div class="filter-group">
+            <h2>Traversal</h2>
+            <p class="control-help">Select a node, then expand incoming or outgoing one-hop neighbors.</p>
+            <div class="action-grid">
+              <button id="traversal-incoming" class="control-button" type="button">Expand Incoming</button>
+              <button id="traversal-outgoing" class="control-button" type="button">Expand Outgoing</button>
+              <button id="focus-neighborhood" class="control-button" type="button">Focus Neighborhood</button>
+              <button id="clear-focus" class="control-button" type="button">Clear Focus</button>
+            </div>
+            <p id="traversal-results" class="results">Select a node to expand its one-hop neighbors.</p>
+          </div>
+          <div class="filter-group">
+            <h2>Path Trace</h2>
+            <label for="path-start">Path start</label>
+            <select id="path-start" class="control-select">${nodeSelectOptions}</select>
+            <label for="path-end" style="margin-top: 12px;">Path end</label>
+            <select id="path-end" class="control-select">${nodeSelectOptions}</select>
+            <div class="action-grid">
+              <button id="trace-path" class="control-button" type="button">Trace Path</button>
+              <button id="clear-path" class="control-button" type="button">Clear Path</button>
+            </div>
+            <p id="path-results" class="results">No directed path found between the selected nodes.</p>
+          </div>
         </section>
         <section class="inspection">
           <h2>Inspection</h2>
@@ -483,6 +703,15 @@ export function renderStandaloneWorkGraphViewer(
       const graph = JSON.parse(document.getElementById("work-graph-data").textContent);
       const emptyInspectionMarkup = "<p class=\\"inspection-empty\\">Select a node or edge to inspect its stable metadata.</p>";
       const defaultViewerStatus = "Filters and search only change local visibility.";
+      const defaultTraversalMessage = "Select a node to expand its one-hop neighbors.";
+      const defaultPathMessage = "Trace a directed path between two nodes.";
+      const noPathMessage = "No directed path found between the selected nodes.";
+      const nodeIds = new Set(
+        graph.elements
+          .filter((element) => element.group === "nodes")
+          .map((element) => element.data.id)
+      );
+      const edgeElements = graph.elements.filter((element) => element.group === "edges");
       const diagnosticsByPath = new Map();
       graph.diagnostics.forEach((entry) => {
         const currentEntries = diagnosticsByPath.get(entry.relativePath);
@@ -506,14 +735,28 @@ export function renderStandaloneWorkGraphViewer(
         searchQuery: "",
         nodeTypes: new Set(graph.summary.nodeTypes.map((entry) => entry.type)),
         edgeTypes: new Set(graph.summary.edgeTypes.map((entry) => entry.type)),
-        selectedElementId: null
+        selectedElementId: null,
+        traversal: null,
+        focusNodeIds: null,
+        focusEdgeIds: null,
+        pathTrace: null
       };
       const searchInput = document.getElementById("graph-search");
       const nodeTypeFilters = document.getElementById("node-type-filters");
       const edgeTypeFilters = document.getElementById("edge-type-filters");
       const filterResults = document.getElementById("filter-results");
+      const traversalResults = document.getElementById("traversal-results");
+      const pathResults = document.getElementById("path-results");
       const inspectionPanel = document.getElementById("inspection-panel");
       const viewerStatus = document.getElementById("viewer-status");
+      const traversalIncomingButton = document.getElementById("traversal-incoming");
+      const traversalOutgoingButton = document.getElementById("traversal-outgoing");
+      const focusNeighborhoodButton = document.getElementById("focus-neighborhood");
+      const clearFocusButton = document.getElementById("clear-focus");
+      const pathStartSelect = document.getElementById("path-start");
+      const pathEndSelect = document.getElementById("path-end");
+      const tracePathButton = document.getElementById("trace-path");
+      const clearPathButton = document.getElementById("clear-path");
       const cy = cytoscape({
         container: document.getElementById("graph"),
         elements: graph.elements,
@@ -560,6 +803,25 @@ export function renderStandaloneWorkGraphViewer(
               "target-arrow-color": "#b45309",
               "background-color": "#f59e0b"
             }
+          },
+          {
+            selector: ".traversal-context",
+            style: {
+              "background-color": "#14b8a6",
+              "line-color": "#14b8a6",
+              "target-arrow-color": "#14b8a6",
+              "border-color": "#0f766e"
+            }
+          },
+          {
+            selector: ".path-trace",
+            style: {
+              "background-color": "#2563eb",
+              "line-color": "#2563eb",
+              "target-arrow-color": "#2563eb",
+              "border-color": "#1d4ed8",
+              "width": 4
+            }
           }
         ]
       });
@@ -572,6 +834,109 @@ export function renderStandaloneWorkGraphViewer(
       }
       function prettyJson(value) {
         return escapeHtml(JSON.stringify(value, null, 2));
+      }
+      function collectNeighborhood(centerNodeId, direction) {
+        if (!nodeIds.has(centerNodeId)) {
+          return { centerNodeId, direction, nodeIds: [], edgeIds: [] };
+        }
+        const seenNodeIds = new Set([centerNodeId]);
+        const neighborhoodNodeIds = [centerNodeId];
+        const neighborhoodEdgeIds = [];
+        if (direction === "outgoing" || direction === "both") {
+          edgeElements.forEach((edge) => {
+            if (edge.data.source !== centerNodeId) {
+              return;
+            }
+            neighborhoodEdgeIds.push(edge.data.id);
+            if (!seenNodeIds.has(edge.data.target)) {
+              seenNodeIds.add(edge.data.target);
+              neighborhoodNodeIds.push(edge.data.target);
+            }
+          });
+        }
+        if (direction === "incoming" || direction === "both") {
+          edgeElements.forEach((edge) => {
+            if (edge.data.target !== centerNodeId) {
+              return;
+            }
+            neighborhoodEdgeIds.push(edge.data.id);
+            if (!seenNodeIds.has(edge.data.source)) {
+              seenNodeIds.add(edge.data.source);
+              neighborhoodNodeIds.push(edge.data.source);
+            }
+          });
+        }
+        return {
+          centerNodeId,
+          direction,
+          nodeIds: neighborhoodNodeIds,
+          edgeIds: neighborhoodEdgeIds
+        };
+      }
+      function traceDirectedPath(startNodeId, endNodeId) {
+        if (!nodeIds.has(startNodeId) || !nodeIds.has(endNodeId)) {
+          return { startNodeId, endNodeId, found: false, nodeIds: [], edgeIds: [] };
+        }
+        if (startNodeId === endNodeId) {
+          return { startNodeId, endNodeId, found: true, nodeIds: [startNodeId], edgeIds: [] };
+        }
+        const adjacency = new Map();
+        edgeElements.forEach((edge) => {
+          const currentEntries = adjacency.get(edge.data.source);
+          const nextEdge = { nextNodeId: edge.data.target, edgeId: edge.data.id };
+          if (currentEntries) {
+            currentEntries.push(nextEdge);
+          } else {
+            adjacency.set(edge.data.source, [nextEdge]);
+          }
+        });
+        const queue = [startNodeId];
+        const visited = new Set([startNodeId]);
+        const parents = new Map();
+        while (queue.length > 0) {
+          const currentNodeId = queue.shift();
+          const outgoing = adjacency.get(currentNodeId) || [];
+          for (const candidate of outgoing) {
+            if (visited.has(candidate.nextNodeId)) {
+              continue;
+            }
+            visited.add(candidate.nextNodeId);
+            parents.set(candidate.nextNodeId, {
+              nodeId: currentNodeId,
+              edgeId: candidate.edgeId
+            });
+            if (candidate.nextNodeId === endNodeId) {
+              const pathNodeIds = [endNodeId];
+              const pathEdgeIds = [];
+              let cursor = endNodeId;
+              while (cursor !== startNodeId) {
+                const parent = parents.get(cursor);
+                if (!parent) {
+                  break;
+                }
+                pathEdgeIds.unshift(parent.edgeId);
+                pathNodeIds.unshift(parent.nodeId);
+                cursor = parent.nodeId;
+              }
+              return {
+                startNodeId,
+                endNodeId,
+                found: true,
+                nodeIds: pathNodeIds,
+                edgeIds: pathEdgeIds
+              };
+            }
+            queue.push(candidate.nextNodeId);
+          }
+        }
+        return { startNodeId, endNodeId, found: false, nodeIds: [], edgeIds: [] };
+      }
+      function getSelectedNodeEntry() {
+        if (!state.selectedElementId) {
+          return null;
+        }
+        const entry = inspectorEntries.get(state.selectedElementId);
+        return entry && entry.kind === "node" ? entry : null;
       }
       function renderDiagnostics(items) {
         if (!items.length) {
@@ -635,6 +1000,30 @@ export function renderStandaloneWorkGraphViewer(
       }
       function updateVisibleCounts(nodeCount, edgeCount) {
         filterResults.textContent = nodeCount + " nodes, " + edgeCount + " edges visible";
+      }
+      function updateViewerStatus() {
+        if (state.pathTrace && !state.pathTrace.found) {
+          viewerStatus.textContent = noPathMessage;
+          return;
+        }
+        if (state.pathTrace && state.pathTrace.found) {
+          viewerStatus.textContent =
+            "Directed path traced from " + state.pathTrace.startNodeId +
+            " to " + state.pathTrace.endNodeId + ".";
+          return;
+        }
+        if (state.focusNodeIds && state.focusEdgeIds) {
+          viewerStatus.textContent =
+            "Focused on " + state.focusNodeIds.size + " nodes and " +
+            state.focusEdgeIds.size + " edges in the current traversal context.";
+          return;
+        }
+        if (state.traversal) {
+          viewerStatus.textContent =
+            "Expanded " + state.traversal.direction + " one-hop neighbors from " +
+            state.traversal.centerNodeId + ".";
+          return;
+        }
         viewerStatus.textContent = state.searchQuery
           ? "Filtered read-only view for search: " + state.searchQuery
           : defaultViewerStatus;
@@ -644,6 +1033,28 @@ export function renderStandaloneWorkGraphViewer(
         cy.elements(":selected").unselect();
         renderInspection(null);
       }
+      function applyHighlights() {
+        cy.nodes().removeClass("traversal-context");
+        cy.edges().removeClass("traversal-context");
+        cy.nodes().removeClass("path-trace");
+        cy.edges().removeClass("path-trace");
+        if (state.traversal) {
+          state.traversal.nodeIds.forEach((nodeId) => {
+            cy.getElementById(nodeId).addClass("traversal-context");
+          });
+          state.traversal.edgeIds.forEach((edgeId) => {
+            cy.getElementById(edgeId).addClass("traversal-context");
+          });
+        }
+        if (state.pathTrace && state.pathTrace.found) {
+          state.pathTrace.nodeIds.forEach((nodeId) => {
+            cy.getElementById(nodeId).addClass("path-trace");
+          });
+          state.pathTrace.edgeIds.forEach((edgeId) => {
+            cy.getElementById(edgeId).addClass("path-trace");
+          });
+        }
+      }
       function applyFilters() {
         const visibleNodeIds = new Set();
         let visibleNodeCount = 0;
@@ -651,6 +1062,7 @@ export function renderStandaloneWorkGraphViewer(
         cy.nodes().forEach((node) => {
           const entry = inspectorEntries.get(node.id());
           const visible = state.nodeTypes.has(entry.nodeType)
+            && (!state.focusNodeIds || state.focusNodeIds.has(node.id()))
             && (!state.searchQuery || entry.searchText.includes(state.searchQuery));
           node.style("display", visible ? "element" : "none");
           if (visible) {
@@ -661,6 +1073,7 @@ export function renderStandaloneWorkGraphViewer(
         cy.edges().forEach((edge) => {
           const entry = inspectorEntries.get(edge.id());
           const visible = state.edgeTypes.has(entry.edgeType)
+            && (!state.focusEdgeIds || state.focusEdgeIds.has(edge.id()))
             && visibleNodeIds.has(entry.source)
             && visibleNodeIds.has(entry.target)
             && (!state.searchQuery || entry.searchText.includes(state.searchQuery));
@@ -676,6 +1089,8 @@ export function renderStandaloneWorkGraphViewer(
             clearSelection();
           }
         }
+        applyHighlights();
+        updateViewerStatus();
       }
       function attachFilterHandlers(container, targetSet) {
         container.querySelectorAll("input[type=\\"checkbox\\"]").forEach((input) => {
@@ -689,12 +1104,78 @@ export function renderStandaloneWorkGraphViewer(
           });
         });
       }
+      function expandTraversal(direction) {
+        const selectedNode = getSelectedNodeEntry();
+        if (!selectedNode) {
+          state.traversal = null;
+          state.focusNodeIds = null;
+          state.focusEdgeIds = null;
+          traversalResults.textContent = defaultTraversalMessage;
+          applyFilters();
+          return;
+        }
+        state.traversal = collectNeighborhood(selectedNode.id, direction);
+        state.focusNodeIds = null;
+        state.focusEdgeIds = null;
+        traversalResults.textContent =
+          "Expanded " + direction + " one-hop neighbors from " + selectedNode.stableId +
+          ": " + Math.max(state.traversal.nodeIds.length - 1, 0) + " nodes, " +
+          state.traversal.edgeIds.length + " edges.";
+        applyFilters();
+      }
+      function focusTraversalNeighborhood() {
+        const selectedNode = getSelectedNodeEntry();
+        if (!selectedNode) {
+          traversalResults.textContent = "Select a node before focusing its one-hop neighborhood.";
+          applyFilters();
+          return;
+        }
+        if (!state.traversal || state.traversal.centerNodeId !== selectedNode.id) {
+          state.traversal = collectNeighborhood(selectedNode.id, "both");
+        }
+        state.focusNodeIds = new Set(state.traversal.nodeIds);
+        state.focusEdgeIds = new Set(state.traversal.edgeIds);
+        traversalResults.textContent =
+          "Focused on the one-hop neighborhood around " + selectedNode.stableId + ".";
+        applyFilters();
+      }
+      function clearFocus() {
+        state.focusNodeIds = null;
+        state.focusEdgeIds = null;
+        traversalResults.textContent = defaultTraversalMessage;
+        applyFilters();
+      }
+      function tracePath() {
+        state.pathTrace = traceDirectedPath(pathStartSelect.value, pathEndSelect.value);
+        pathResults.dataset.state = state.pathTrace.found ? "info" : "warning";
+        if (state.pathTrace.found) {
+          pathResults.textContent =
+            "Directed path traced from " + state.pathTrace.startNodeId +
+            " to " + state.pathTrace.endNodeId + " across " +
+            state.pathTrace.edgeIds.length + " edges.";
+        } else {
+          pathResults.textContent = noPathMessage;
+        }
+        applyFilters();
+      }
+      function clearPath() {
+        state.pathTrace = null;
+        pathResults.dataset.state = "info";
+        pathResults.textContent = defaultPathMessage;
+        applyFilters();
+      }
       searchInput.addEventListener("input", (event) => {
         state.searchQuery = event.target.value.trim().toLowerCase();
         applyFilters();
       });
       attachFilterHandlers(nodeTypeFilters, state.nodeTypes);
       attachFilterHandlers(edgeTypeFilters, state.edgeTypes);
+      traversalIncomingButton.addEventListener("click", () => expandTraversal("incoming"));
+      traversalOutgoingButton.addEventListener("click", () => expandTraversal("outgoing"));
+      focusNeighborhoodButton.addEventListener("click", focusTraversalNeighborhood);
+      clearFocusButton.addEventListener("click", clearFocus);
+      tracePathButton.addEventListener("click", tracePath);
+      clearPathButton.addEventListener("click", clearPath);
       cy.on("select", "node, edge", (event) => {
         const entry = inspectorEntries.get(event.target.id());
         state.selectedElementId = event.target.id();
@@ -705,6 +1186,29 @@ export function renderStandaloneWorkGraphViewer(
           clearSelection();
         }
       });
+      globalThis.__WORK_GRAPH_VIEWER__ = {
+        expandIncoming: () => expandTraversal("incoming"),
+        expandOutgoing: () => expandTraversal("outgoing"),
+        focusNeighborhood: () => focusTraversalNeighborhood(),
+        clearFocus: () => clearFocus(),
+        tracePath: (startNodeId, endNodeId) => {
+          pathStartSelect.value = startNodeId;
+          pathEndSelect.value = endNodeId;
+          tracePath();
+          return state.pathTrace;
+        },
+        clearPath: () => clearPath(),
+        getState: () => ({
+          searchQuery: state.searchQuery,
+          selectedElementId: state.selectedElementId,
+          traversal: state.traversal,
+          focusedNodeIds: state.focusNodeIds ? Array.from(state.focusNodeIds) : null,
+          focusedEdgeIds: state.focusEdgeIds ? Array.from(state.focusEdgeIds) : null,
+          pathTrace: state.pathTrace
+        })
+      };
+      pathResults.dataset.state = "info";
+      pathResults.textContent = defaultPathMessage;
       applyFilters();
     </script>
   </body>

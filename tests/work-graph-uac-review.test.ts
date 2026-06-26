@@ -224,9 +224,16 @@ describe("work graph UAC review fixture", () => {
     expect(viewerHtml).toContain('id="graph-search"');
     expect(viewerHtml).toContain('id="node-type-filters"');
     expect(viewerHtml).toContain('id="edge-type-filters"');
+    expect(viewerHtml).toContain('id="traversal-incoming"');
+    expect(viewerHtml).toContain('id="traversal-outgoing"');
+    expect(viewerHtml).toContain('id="focus-neighborhood"');
+    expect(viewerHtml).toContain('id="path-start"');
+    expect(viewerHtml).toContain('id="path-end"');
+    expect(viewerHtml).toContain('id="trace-path"');
     expect(viewerHtml).toContain('id="inspection-panel"');
     expect(viewerHtml).toContain("Read-only Artifact");
     expect(viewerHtml).toContain("Filters and search only change local visibility.");
+    expect(viewerHtml).toContain("Trace a directed path between two nodes.");
     expect(viewerHtml).toContain("Diagnostics Context");
     expect(viewerHtml).toContain('"searchText":"wi:70001 work graph uac review main backlog/70001-work-graph-uac-main.md"');
     expect(viewerHtml).toContain('"relativePath":"backlog/AGENTS.md"');

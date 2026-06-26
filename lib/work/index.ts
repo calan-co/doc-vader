@@ -41,12 +41,17 @@ export {
 export {
   adaptWorkGraphExportToCytoscape,
   assertWorkGraphExportResult,
+  findWorkGraphPathTrace,
+  getWorkGraphNeighborhood,
   readWorkGraphExportFile,
   renderStandaloneWorkGraphViewer,
   writeStandaloneWorkGraphViewer,
   type WorkGraphCytoscapeDocument,
   type WorkGraphCytoscapeEdgeElement,
   type WorkGraphCytoscapeNodeElement,
+  type WorkGraphPathTrace,
+  type WorkGraphTraversalNeighborhood,
+  type WorkGraphTraversalDirection,
 } from "./graph-visualization.js";
 export {
   WorkGraphVerificationError,

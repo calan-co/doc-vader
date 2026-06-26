@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   adaptWorkGraphExportToCytoscape,
   exportWorkGraph,
+  findWorkGraphPathTrace,
+  getWorkGraphNeighborhood,
   projectWorkGraph,
   renderStandaloneWorkGraphViewer,
 } from "../lib/work/index.js";
@@ -28,7 +30,161 @@ afterEach(async () => {
   );
 });
 
+const syntheticGraph = {
+  schemaVersion: "work-graph-explorer/v1",
+  sourceCommand: "export",
+  summary: {
+    nodeCount: 4,
+    edgeCount: 3,
+    diagnosticCount: 0,
+    nodeTypes: [{ type: "work-item", count: 4 }],
+    edgeTypes: [{ type: "depends_on", count: 3 }],
+  },
+  diagnostics: [],
+  elements: [
+    {
+      group: "nodes" as const,
+      data: {
+        id: "a",
+        label: "Node A",
+        stableId: "a",
+        nodeType: "work-item" as const,
+        provenance: { kind: "work-item" as const, filePath: "backlog/a.md" },
+        properties: {},
+        filePath: "backlog/a.md",
+        searchText: "a node a backlog/a.md",
+      },
+    },
+    {
+      group: "nodes" as const,
+      data: {
+        id: "b",
+        label: "Node B",
+        stableId: "b",
+        nodeType: "work-item" as const,
+        provenance: { kind: "work-item" as const, filePath: "backlog/b.md" },
+        properties: {},
+        filePath: "backlog/b.md",
+        searchText: "b node b backlog/b.md",
+      },
+    },
+    {
+      group: "nodes" as const,
+      data: {
+        id: "c",
+        label: "Node C",
+        stableId: "c",
+        nodeType: "work-item" as const,
+        provenance: { kind: "work-item" as const, filePath: "backlog/c.md" },
+        properties: {},
+        filePath: "backlog/c.md",
+        searchText: "c node c backlog/c.md",
+      },
+    },
+    {
+      group: "nodes" as const,
+      data: {
+        id: "d",
+        label: "Node D",
+        stableId: "d",
+        nodeType: "work-item" as const,
+        provenance: { kind: "work-item" as const, filePath: "backlog/d.md" },
+        properties: {},
+        filePath: "backlog/d.md",
+        searchText: "d node d backlog/d.md",
+      },
+    },
+    {
+      group: "edges" as const,
+      data: {
+        id: "a->b",
+        source: "a",
+        target: "b",
+        label: "depends_on",
+        stableId: "a->b",
+        edgeType: "depends_on" as const,
+        direction: "outgoing" as const,
+        provenance: { kind: "relationships" as const, filePath: "backlog/a.md" },
+        properties: {},
+        filePath: "backlog/a.md",
+        searchText: "a->b depends_on backlog/a.md",
+      },
+    },
+    {
+      group: "edges" as const,
+      data: {
+        id: "c->a",
+        source: "c",
+        target: "a",
+        label: "depends_on",
+        stableId: "c->a",
+        edgeType: "depends_on" as const,
+        direction: "outgoing" as const,
+        provenance: { kind: "relationships" as const, filePath: "backlog/c.md" },
+        properties: {},
+        filePath: "backlog/c.md",
+        searchText: "c->a depends_on backlog/c.md",
+      },
+    },
+    {
+      group: "edges" as const,
+      data: {
+        id: "b->d",
+        source: "b",
+        target: "d",
+        label: "depends_on",
+        stableId: "b->d",
+        edgeType: "depends_on" as const,
+        direction: "outgoing" as const,
+        provenance: { kind: "relationships" as const, filePath: "backlog/b.md" },
+        properties: {},
+        filePath: "backlog/b.md",
+        searchText: "b->d depends_on backlog/b.md",
+      },
+    },
+  ],
+};
+
 describe("work graph visualization", () => {
+  it("computes one-hop traversal neighborhoods and directed path traces without mutating graph facts", () => {
+    const before = JSON.parse(JSON.stringify(syntheticGraph));
+
+    expect(getWorkGraphNeighborhood(syntheticGraph, "a", "incoming")).toEqual({
+      centerNodeId: "a",
+      direction: "incoming",
+      nodeIds: ["a", "c"],
+      edgeIds: ["c->a"],
+    });
+    expect(getWorkGraphNeighborhood(syntheticGraph, "a", "outgoing")).toEqual({
+      centerNodeId: "a",
+      direction: "outgoing",
+      nodeIds: ["a", "b"],
+      edgeIds: ["a->b"],
+    });
+    expect(getWorkGraphNeighborhood(syntheticGraph, "a", "both")).toEqual({
+      centerNodeId: "a",
+      direction: "both",
+      nodeIds: ["a", "b", "c"],
+      edgeIds: ["a->b", "c->a"],
+    });
+
+    expect(findWorkGraphPathTrace(syntheticGraph, "c", "d")).toEqual({
+      startNodeId: "c",
+      endNodeId: "d",
+      found: true,
+      nodeIds: ["c", "a", "b", "d"],
+      edgeIds: ["c->a", "a->b", "b->d"],
+    });
+    expect(findWorkGraphPathTrace(syntheticGraph, "d", "c")).toEqual({
+      startNodeId: "d",
+      endNodeId: "c",
+      found: false,
+      nodeIds: [],
+      edgeIds: [],
+    });
+    expect(syntheticGraph).toEqual(before);
+  });
+
   it("adapts canonical export JSON into non-canonical Cytoscape elements", async () => {
     const rootDir = await createTempRoot();
     await stageWorkGraphUacFixture(rootDir);
@@ -102,6 +258,15 @@ describe("work graph visualization", () => {
     expect(html).toContain("Search by stable id, label, or source file");
     expect(html).toContain('id="node-type-filters"');
     expect(html).toContain('id="edge-type-filters"');
+    expect(html).toContain('id="traversal-incoming"');
+    expect(html).toContain('id="traversal-outgoing"');
+    expect(html).toContain('id="focus-neighborhood"');
+    expect(html).toContain('id="clear-focus"');
+    expect(html).toContain('id="path-start"');
+    expect(html).toContain('id="path-end"');
+    expect(html).toContain('id="trace-path"');
+    expect(html).toContain('id="clear-path"');
+    expect(html).toContain("No directed path found");
     expect(html).toContain('id="inspection-panel"');
     expect(html).toContain("Select a node or edge to inspect its stable metadata.");
     expect(html).toContain("Diagnostics Context");
