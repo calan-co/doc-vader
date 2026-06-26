@@ -5,8 +5,9 @@ summary: Create repeatable UAC fixtures and review commands for validating Work 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
+completed_date: '2026-06-26'
 priority: medium
 estimated: 3
 links:
@@ -47,19 +48,19 @@ surface.
 
 ## Tasks
 
-- [ ] Identify the appropriate fixture location for Work graph UAC review data.
-- [ ] Create or reuse a small Work graph fixture with WorkItem, Claim, Record,
+- [x] Identify the appropriate fixture location for Work graph UAC review data.
+- [x] Create or reuse a small Work graph fixture with WorkItem, Claim, Record,
       and Scope nodes.
-- [ ] Include examples for `depends_on`, `belongs_to`, `implements`, `locks`,
+- [x] Include examples for `depends_on`, `belongs_to`, `implements`, `locks`,
       and `records` edges.
-- [ ] Include an explicit absence check for canonical `blocks` and
+- [x] Include an explicit absence check for canonical `blocks` and
       `relates_to` edges.
-- [ ] Add documented commands for JSON node, JSON edge, inspect, and DOT output
+- [x] Add documented commands for JSON node, JSON edge, inspect, and DOT output
       review.
-- [ ] Ensure JSON and DOT fixture expectations are generated through the graph
+- [x] Ensure JSON and DOT fixture expectations are generated through the graph
       output extension seam.
-- [ ] Add automated tests or snapshots that keep fixture expectations stable.
-- [ ] Ensure fixture review commands do not mutate repository or runtime state.
+- [x] Add automated tests or snapshots that keep fixture expectations stable.
+- [x] Ensure fixture review commands do not mutate repository or runtime state.
 
 ## Deliverables
 
@@ -70,18 +71,18 @@ surface.
 
 ## Acceptance Criteria
 
-- [ ] A reviewer can run documented commands and confirm the projected node set.
-- [ ] A reviewer can run documented commands and confirm the projected edge set.
-- [ ] JSON review covers `depends_on`, `belongs_to`, `implements`, `locks`, and
+- [x] A reviewer can run documented commands and confirm the projected node set.
+- [x] A reviewer can run documented commands and confirm the projected edge set.
+- [x] JSON review covers `depends_on`, `belongs_to`, `implements`, `locks`, and
       `records`.
-- [ ] DOT review produces renderable directed graph output.
-- [ ] JSON and DOT review fixtures exercise the output extension seam rather
+- [x] DOT review produces renderable directed graph output.
+- [x] JSON and DOT review fixtures exercise the output extension seam rather
       than bypassing it with test-only formatters.
-- [ ] The fixture or tests prove `blocks` and `relates_to` are not canonical
+- [x] The fixture or tests prove `blocks` and `relates_to` are not canonical
       authored relationship edges.
-- [ ] Review commands are read-only.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Review commands are read-only.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
