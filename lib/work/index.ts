@@ -15,6 +15,22 @@ export {
   type WorkGraphNodeType,
 } from "./projection.js";
 export {
+  createWorkGraphOutputExtension,
+  inspectWorkGraphNode,
+  queryWorkGraphEdges,
+  queryWorkGraphNodes,
+  type WorkGraphEdgesQuery,
+  type WorkGraphEdgesResult,
+  type WorkGraphExplorerCommand,
+  type WorkGraphExplorerFormat,
+  type WorkGraphExplorerResult,
+  type WorkGraphNeighborhood,
+  type WorkGraphNodesQuery,
+  type WorkGraphNodesResult,
+  type WorkGraphOutputExtension,
+  type WorkGraphInspectResult,
+} from "./graph-explorer.js";
+export {
   WorkGraphVerificationError,
   renewWorkClaimWithGraphVerification,
   type RenewWorkClaimWithGraphVerificationOptions,

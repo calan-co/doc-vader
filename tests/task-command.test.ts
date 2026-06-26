@@ -355,6 +355,236 @@ tags:
     }
   });
 
+  it(
+    "explores the projected work graph through read-only work and wi CLI commands",
+    async () => {
+      const root = await mkTmpRoot();
+      try {
+      await writeTask(
+        root,
+        "60393-read-only-work-graph-explorer-cli.md",
+        `id: wi-60393
+title: Read-Only Work Graph Explorer CLI
+summary: Add a read-only graph explorer.
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+priority: high
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[60392-live-repository-graph-projection-robustness]]'`,
+        `## Goal
+
+Inspect the projected work graph.
+
+## Relationships
+
+- \`implements\`: [[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]
+`,
+      );
+      await writeTask(
+        root,
+        "60392-live-repository-graph-projection-robustness.md",
+        `id: wi-60392
+title: Live Repository Graph Projection Robustness
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: completed`,
+        `## Goal
+
+Keep live projection robust.
+`,
+      );
+      await fs.mkdir(
+        path.join(root, "docs", "how-to", "implementation-plans"),
+        { recursive: true },
+      );
+      await fs.writeFile(
+        path.join(
+          root,
+          "docs",
+          "how-to",
+          "implementation-plans",
+          "doc-vader-work-item-claim-scope-mvp-prd.md",
+        ),
+        `---
+id: plan:doc-vader-work-item-claim-scope-mvp-prd
+title: Doc-Vader Work Item Claim Scope MVP PRD
+type: plan
+subtype: x-prd
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Define the Work graph MVP.
+`,
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(root, "backlog", "AGENTS.md"),
+        `---
+id: backloga-2056
+title: Backlog Agents Policy
+type: document
+subtype: generic
+lifecycle: evergreen
+status: closed
+---
+
+Helper policy document that should stay diagnostic-only.
+`,
+        "utf8",
+      );
+
+      await expect(
+        fs.stat(path.join(root, ".doc-vader", "runtime")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+
+      const nodes = JSON.parse(
+        runCli(root, ["work", "graph", "nodes", "--format", "json"]),
+      ) as {
+        schemaVersion: string;
+        command: string;
+        nodes: Array<{ id: string; type: string }>;
+        diagnostics: Array<{ relativePath: string; reasonCode: string }>;
+      };
+      expect(nodes.schemaVersion).toBe("work-graph-explorer/v1");
+      expect(nodes.command).toBe("nodes");
+      expect(nodes.nodes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "wi:60393", type: "work-item" }),
+          expect.objectContaining({
+            id: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+            type: "scope",
+          }),
+        ]),
+      );
+      expect(nodes.diagnostics).toEqual([
+        expect.objectContaining({
+          relativePath: "backlog/AGENTS.md",
+          reasonCode: "unsupported-document-type",
+        }),
+      ]);
+      const workItemNodes = JSON.parse(
+        runCli(root, [
+          "work",
+          "graph",
+          "nodes",
+          "--format",
+          "json",
+          "--node-type",
+          "work-item",
+        ]),
+      ) as {
+        nodes: Array<{ id: string; type: string }>;
+      };
+      expect(workItemNodes.nodes.map((node) => node.type)).toEqual([
+        "work-item",
+        "work-item",
+      ]);
+
+      const edges = JSON.parse(
+        runCli(root, [
+          "wi",
+          "graph",
+          "edges",
+          "--format",
+          "json",
+          "--edge-type",
+          "depends_on",
+          "--source",
+          "wi:60393",
+        ]),
+      ) as {
+        command: string;
+        edges: Array<{ type: string; from: string; to: string }>;
+        diagnostics: Array<{ relativePath: string }>;
+      };
+      expect(edges.command).toBe("edges");
+      expect(edges.edges).toEqual([
+        expect.objectContaining({
+          type: "depends_on",
+          from: "wi:60393",
+          to: "wi:60392",
+        }),
+      ]);
+      expect(edges.diagnostics).toHaveLength(1);
+
+      const inspect = JSON.parse(
+        runCli(root, [
+          "wi",
+          "graph",
+          "inspect",
+          "wi:60393",
+          "--format",
+          "json",
+        ]),
+      ) as {
+        command: string;
+        node: { id: string; type: string };
+        neighborhood: {
+          nodes: Array<{ id: string }>;
+          outgoingEdges: Array<{ type: string; to: string }>;
+          incomingEdges: Array<{ type: string }>;
+        };
+      };
+      expect(inspect.command).toBe("inspect");
+      expect(inspect.node).toMatchObject({ id: "wi:60393", type: "work-item" });
+      expect(inspect.neighborhood.nodes.map((node) => node.id)).toEqual(
+        expect.arrayContaining([
+          "wi:60392",
+          "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+        ]),
+      );
+      expect(inspect.neighborhood.outgoingEdges).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "depends_on",
+            to: "wi:60392",
+          }),
+          expect.objectContaining({
+            type: "implements",
+            to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+          }),
+        ]),
+      );
+      expect(inspect.neighborhood.incomingEdges).toEqual([]);
+
+      const dot = runCli(root, [
+        "work",
+        "graph",
+        "inspect",
+        "wi:60393",
+        "--format",
+        "dot",
+      ]);
+      expect(dot).toContain("digraph WorkGraph {");
+      expect(dot).toContain('"wi:60393" -> "wi:60392" [label="depends_on"]');
+      expect(dot).toContain(
+        '"wi:60393" -> "scope:plan:doc-vader-work-item-claim-scope-mvp-prd" [label="implements"]',
+      );
+
+      expect(() =>
+        runCli(root, ["work", "graph", "nodes", "--format", "digraph"]),
+      ).toThrow();
+      await expect(
+        fs.stat(path.join(root, ".doc-vader", "runtime")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+      } finally {
+        await fs.rm(root, { recursive: true, force: true });
+      }
+    },
+    15000,
+  );
+
   it("fails closed for missing, ambiguous, and archived task ids", async () => {
     const root = await mkTmpRoot();
     try {

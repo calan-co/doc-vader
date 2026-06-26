@@ -73,9 +73,14 @@ import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
   assertWorkClaimable as assertTaskClaimable,
+  createWorkGraphOutputExtension,
+  inspectWorkGraphNode,
   loadCanonicalWork as loadCanonicalTask,
   loadWorkModel as loadTaskModel,
   listWorkModels as listTaskModels,
+  projectWorkGraph,
+  queryWorkGraphEdges,
+  queryWorkGraphNodes,
   readWorkRecordPayload as readRecordPayload,
   recoverWorkClaim as recoverTaskClaim,
   recordWorkEvidence as recordTaskEvidence,
@@ -91,6 +96,9 @@ import {
   type WorkRecoveryForceMode as TaskRecoveryForceMode,
   type WorkModel as TaskModel,
   type WorkRecoveryGitState as TaskRecoveryGitState,
+  type WorkGraphEdgeType,
+  type WorkGraphExplorerFormat,
+  type WorkGraphNodeType,
   WorkCommandError as TaskCommandError,
   toWorkErrorPayload as toTaskErrorPayload,
 } from "../lib/work/index.js";
@@ -195,6 +203,54 @@ function parseTaskNumber(
     );
   }
   return parsed;
+}
+
+const WORK_GRAPH_NODE_TYPES = [
+  "work-item",
+  "claim",
+  "record",
+  "scope",
+] as const satisfies readonly WorkGraphNodeType[];
+
+const WORK_GRAPH_EDGE_TYPES = [
+  "depends_on",
+  "belongs_to",
+  "implements",
+  "locks",
+  "records",
+] as const satisfies readonly WorkGraphEdgeType[];
+
+const WORK_GRAPH_FORMATS = [
+  "json",
+  "dot",
+] as const satisfies readonly WorkGraphExplorerFormat[];
+
+function parseGraphNodeTypes(values: string[] = []): WorkGraphNodeType[] {
+  const allowed = new Set<string>(WORK_GRAPH_NODE_TYPES);
+  return [...new Set(values)].map((value) => {
+    if (!allowed.has(value)) {
+      throw new TaskCommandError(
+        "WORK_GRAPH_INVALID_NODE_TYPE",
+        `Work graph node type must be one of ${WORK_GRAPH_NODE_TYPES.join(", ")}.`,
+        { nodeType: value },
+      );
+    }
+    return value as WorkGraphNodeType;
+  });
+}
+
+function parseGraphEdgeTypes(values: string[] = []): WorkGraphEdgeType[] {
+  const allowed = new Set<string>(WORK_GRAPH_EDGE_TYPES);
+  return [...new Set(values)].map((value) => {
+    if (!allowed.has(value)) {
+      throw new TaskCommandError(
+        "WORK_GRAPH_INVALID_EDGE_TYPE",
+        `Work graph edge type must be one of ${WORK_GRAPH_EDGE_TYPES.join(", ")}.`,
+        { edgeType: value },
+      );
+    }
+    return value as WorkGraphEdgeType;
+  });
 }
 
 function runtimeRootDir(): string {
@@ -1465,6 +1521,128 @@ workManagement
 
 // --- DOMAIN: work items ---
 function registerWorkCommandSurface(surface: Command): void {
+  const graph = surface
+    .command("graph")
+    .description("Inspect the projected read-only Work graph");
+
+  graph
+    .command("nodes")
+    .description("List projected graph nodes")
+    .addOption(
+      new Option("--format <format>", "Output format")
+        .choices([...WORK_GRAPH_FORMATS])
+        .default("json"),
+    )
+    .option(
+      "--node-type <type>",
+      "Filter by projected node type; repeat or use comma-separated values",
+      collectCsvOption,
+      [],
+    )
+    .action(
+      async (opts: {
+        format: WorkGraphExplorerFormat;
+        nodeType?: string[];
+      }) => {
+        try {
+          const projection = await projectWorkGraph();
+          const result = queryWorkGraphNodes(projection, {
+            nodeTypes: parseGraphNodeTypes(opts.nodeType),
+          });
+          process.stdout.write(
+            createWorkGraphOutputExtension(opts.format).render(result),
+          );
+        } catch (error) {
+          failTaskCommand(error, opts.format === "json");
+        }
+      },
+    );
+
+  graph
+    .command("edges")
+    .description("List projected graph edges")
+    .addOption(
+      new Option("--format <format>", "Output format")
+        .choices([...WORK_GRAPH_FORMATS])
+        .default("json"),
+    )
+    .option(
+      "--edge-type <type>",
+      "Filter by projected edge type; repeat or use comma-separated values",
+      collectCsvOption,
+      [],
+    )
+    .option(
+      "--source <node-id>",
+      "Filter by source node id; repeat or use comma-separated values",
+      collectCsvOption,
+      [],
+    )
+    .option(
+      "--target <node-id>",
+      "Filter by target node id; repeat or use comma-separated values",
+      collectCsvOption,
+      [],
+    )
+    .option(
+      "--node <node-id>",
+      "Filter to a one-node edge neighborhood; repeat or use comma-separated values",
+      collectCsvOption,
+      [],
+    )
+    .action(
+      async (opts: {
+        format: WorkGraphExplorerFormat;
+        edgeType?: string[];
+        source?: string[];
+        target?: string[];
+        node?: string[];
+      }) => {
+        try {
+          const projection = await projectWorkGraph();
+          const result = queryWorkGraphEdges(projection, {
+            edgeTypes: parseGraphEdgeTypes(opts.edgeType),
+            sourceNodeIds: opts.source ?? [],
+            targetNodeIds: opts.target ?? [],
+            nodeIds: opts.node ?? [],
+          });
+          process.stdout.write(
+            createWorkGraphOutputExtension(opts.format).render(result),
+          );
+        } catch (error) {
+          failTaskCommand(error, opts.format === "json");
+        }
+      },
+    );
+
+  graph
+    .command("inspect")
+    .description("Inspect one projected node and its one-node neighborhood")
+    .argument("<node-id>", "Projected node id to inspect")
+    .addOption(
+      new Option("--format <format>", "Output format")
+        .choices([...WORK_GRAPH_FORMATS])
+        .default("json"),
+    )
+    .action(
+      async (
+        nodeId: string,
+        opts: {
+          format: WorkGraphExplorerFormat;
+        },
+      ) => {
+        try {
+          const projection = await projectWorkGraph();
+          const result = inspectWorkGraphNode(projection, nodeId);
+          process.stdout.write(
+            createWorkGraphOutputExtension(opts.format).render(result),
+          );
+        } catch (error) {
+          failTaskCommand(error, opts.format === "json");
+        }
+      },
+    );
+
   surface
     .command("list")
     .description("List open backlog work items")

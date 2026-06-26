@@ -1,8 +1,9 @@
 import matter from "gray-matter";
 import { promises as fs } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import {
-  openRuntimeSqliteStore,
   type RuntimeClaimRecord,
   type RuntimeScopeLockRecord,
 } from "../runtime/index.js";
@@ -850,6 +851,108 @@ function createProjectionView(
   };
 }
 
+function parseJsonObject(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function toReadonlyRuntimeClaimRecord(
+  row: Record<string, unknown>,
+): RuntimeClaimRecord {
+  const metadata = parseJsonObject(row.metadata);
+  return {
+    schema_version: row.schema_version as RuntimeClaimRecord["schema_version"],
+    claim_token: row.claim_token as string,
+    target_type: row.target_type as string,
+    target_id: row.target_id as string,
+    holder: row.holder as string,
+    created_at: row.created_at as string,
+    expires_at: row.expires_at as string,
+    ...(typeof row.last_seen_at === "string"
+      ? { last_seen_at: row.last_seen_at as string }
+      : {}),
+    ...(metadata ? { metadata } : {}),
+    state: row.state === "expired" ? "expired" : "active",
+  };
+}
+
+function toReadonlyRuntimeScopeLockRecord(
+  row: Record<string, unknown>,
+): RuntimeScopeLockRecord {
+  const metadata = parseJsonObject(row.metadata);
+  return {
+    schema_version: row.schema_version as RuntimeScopeLockRecord["schema_version"],
+    claim_token: row.claim_token as string,
+    scope_ref: row.scope_ref as string,
+    lock_mode: row.lock_mode as RuntimeScopeLockRecord["lock_mode"],
+    policy_name: row.policy_name as RuntimeScopeLockRecord["policy_name"],
+    acquired_at: row.acquired_at as string,
+    updated_at: row.updated_at as string,
+    lifecycle_state: row.lifecycle_state as RuntimeScopeLockRecord["lifecycle_state"],
+    ...(typeof row.released_at === "string"
+      ? { released_at: row.released_at as string }
+      : {}),
+    ...(metadata ? { metadata } : {}),
+  };
+}
+
+function hasDatabaseObject(database: DatabaseSync, objectName: string): boolean {
+  const row = database
+    .prepare(
+      `SELECT 1
+         FROM sqlite_master
+        WHERE type IN ('table', 'view')
+          AND name = ?
+        LIMIT 1`,
+    )
+    .get(objectName) as Record<string, unknown> | undefined;
+  return Boolean(row);
+}
+
+function readRuntimeProjectionState(rootDir: string): {
+  claims: RuntimeClaimRecord[];
+  scopeLocks: RuntimeScopeLockRecord[];
+} {
+  const databasePath = path.join(rootDir, ".doc-vader", "runtime", "runtime.sqlite");
+  if (!existsSync(databasePath)) {
+    return { claims: [], scopeLocks: [] };
+  }
+
+  let database: DatabaseSync | undefined;
+  try {
+    database = new DatabaseSync(databasePath, { readOnly: true });
+    const claims = hasDatabaseObject(database, "runtime_claims")
+      ? (database.prepare(
+          `SELECT * FROM runtime_claims ORDER BY created_at, claim_token`,
+        ).all() as Record<string, unknown>[])
+          .map(toReadonlyRuntimeClaimRecord)
+      : [];
+    const scopeLocks = hasDatabaseObject(database, "claim_scope_locks")
+      ? (database.prepare(
+          `SELECT * FROM claim_scope_locks
+           ORDER BY acquired_at, scope_ref, lock_mode`,
+        ).all() as Record<string, unknown>[])
+          .map(toReadonlyRuntimeScopeLockRecord)
+      : [];
+    return { claims, scopeLocks };
+  } catch {
+    return { claims: [], scopeLocks: [] };
+  } finally {
+    database?.close();
+  }
+}
+
 function createRuntimeLockEdgeProperties(
   scopeLock: RuntimeScopeLockRecord,
   claim: RuntimeClaimRecord,
@@ -1219,51 +1322,46 @@ export async function projectWorkGraph(
     }
   }
 
-  const runtimeStore = openRuntimeSqliteStore({ rootDir });
-  try {
-    const claims = runtimeStore.listClaims();
-    for (const claim of claims) {
-      const claimNode = createClaimNode(claim);
-      if (!nodesById.has(claimNode.id)) {
-        nodes.push(claimNode);
-        nodesById.set(claimNode.id, claimNode);
-      }
-      const scopeNode = createClaimScopeNode(claim);
-      if (!nodesById.has(scopeNode.id)) {
-        nodes.push(scopeNode);
-        nodesById.set(scopeNode.id, scopeNode);
-      }
-      if (!scopeNodeIds.has(scopeNode.id)) {
-        scopeNodeIds.add(scopeNode.id);
-      }
-      edges.push(
-        createEdge(
-          claimNode,
-          scopeNode,
-          "belongs_to",
-          {
-            kind: "runtime",
-            claimToken: claim.claim_token,
-          },
-          {
-            targetType: claim.target_type,
-            targetId: claim.target_id,
-            state: claim.state,
-          },
-        ),
-      );
+  const runtimeState = readRuntimeProjectionState(rootDir);
+  for (const claim of runtimeState.claims) {
+    const claimNode = createClaimNode(claim);
+    if (!nodesById.has(claimNode.id)) {
+      nodes.push(claimNode);
+      nodesById.set(claimNode.id, claimNode);
     }
-    projectRuntimeLockEdges({
-      claims,
-      scopeLocks: runtimeStore.listScopeLocks(),
-      nodes,
-      edges,
-      nodesById,
-      scopeNodeIds,
-    });
-  } finally {
-    runtimeStore.close();
+    const scopeNode = createClaimScopeNode(claim);
+    if (!nodesById.has(scopeNode.id)) {
+      nodes.push(scopeNode);
+      nodesById.set(scopeNode.id, scopeNode);
+    }
+    if (!scopeNodeIds.has(scopeNode.id)) {
+      scopeNodeIds.add(scopeNode.id);
+    }
+    edges.push(
+      createEdge(
+        claimNode,
+        scopeNode,
+        "belongs_to",
+        {
+          kind: "runtime",
+          claimToken: claim.claim_token,
+        },
+        {
+          targetType: claim.target_type,
+          targetId: claim.target_id,
+          state: claim.state,
+        },
+      ),
+    );
   }
+  projectRuntimeLockEdges({
+    claims: runtimeState.claims,
+    scopeLocks: runtimeState.scopeLocks,
+    nodes,
+    edges,
+    nodesById,
+    scopeNodeIds,
+  });
 
   for (const classifiedDocument of classifiedDocuments) {
     if (!isProjectableDocument(classifiedDocument)) {
