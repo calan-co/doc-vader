@@ -17,6 +17,8 @@ export interface WorkGraphCytoscapeNodeElement {
     readonly nodeType: WorkGraphNode["type"];
     readonly provenance: WorkGraphNode["source"];
     readonly properties: WorkGraphNode["properties"];
+    readonly filePath?: string;
+    readonly searchText: string;
   };
 }
 
@@ -32,6 +34,8 @@ export interface WorkGraphCytoscapeEdgeElement {
     readonly direction: WorkGraphEdge["direction"];
     readonly provenance: WorkGraphEdge["source"];
     readonly properties: WorkGraphEdge["properties"];
+    readonly filePath?: string;
+    readonly searchText: string;
   };
 }
 
@@ -60,6 +64,20 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;");
+}
+
+function searchText(parts: readonly (string | undefined)[]): string {
+  return parts
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .join(" ")
+    .trim()
+    .toLowerCase();
+}
+
+function provenanceFilePath(
+  provenance: WorkGraphNode["source"] | WorkGraphEdge["source"],
+): string | undefined {
+  return typeof provenance.filePath === "string" ? provenance.filePath : undefined;
 }
 
 export function assertWorkGraphExportResult(
@@ -138,6 +156,12 @@ export function adaptWorkGraphExportToCytoscape(
       nodeType: node.type,
       provenance: node.source,
       properties: node.properties,
+      filePath: provenanceFilePath(node.source),
+      searchText: searchText([
+        node.stableId,
+        node.label,
+        provenanceFilePath(node.source),
+      ]),
     },
   }));
 
@@ -153,6 +177,12 @@ export function adaptWorkGraphExportToCytoscape(
       direction: edge.direction,
       provenance: edge.source,
       properties: edge.properties,
+      filePath: provenanceFilePath(edge.source),
+      searchText: searchText([
+        edge.id,
+        edge.type,
+        provenanceFilePath(edge.source),
+      ]),
     },
   }));
 
@@ -171,6 +201,18 @@ export function renderStandaloneWorkGraphViewer(
   const payload = escapeInlineJson(JSON.stringify(graph));
   const title = "Work Graph Viewer";
   const summaryText = `${graph.summary.nodeCount} nodes, ${graph.summary.edgeCount} edges, ${graph.summary.diagnosticCount} diagnostics`;
+  const nodeTypeOptions = graph.summary.nodeTypes
+    .map(
+      (entry) =>
+        `<label class="filter-option"><input type="checkbox" value="${escapeHtml(entry.type)}" checked /> <span>node:${escapeHtml(entry.type)}</span> <span class="filter-count">${entry.count}</span></label>`,
+    )
+    .join("");
+  const edgeTypeOptions = graph.summary.edgeTypes
+    .map(
+      (entry) =>
+        `<label class="filter-option"><input type="checkbox" value="${escapeHtml(entry.type)}" checked /> <span>edge:${escapeHtml(entry.type)}</span> <span class="filter-count">${entry.count}</span></label>`,
+    )
+    .join("");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -228,12 +270,98 @@ export function renderStandaloneWorkGraphViewer(
         border-radius: 16px;
         background: rgba(255, 255, 255, 0.7);
       }
+      .controls, .inspection {
+        margin-top: 20px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.82);
+      }
       .summary p, .diagnostics p {
         margin: 0 0 12px;
         color: var(--muted);
       }
       .summary ul, .diagnostics ul {
         margin: 0;
+        padding-left: 18px;
+      }
+      .controls label,
+      .inspection h2,
+      .inspection h3 {
+        display: block;
+      }
+      .controls h2,
+      .inspection h2,
+      .inspection h3 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+      }
+      .control-help,
+      .inspection-empty,
+      .results {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      .search-input {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        font: inherit;
+        background: #fff;
+        color: var(--ink);
+      }
+      .filter-group {
+        margin-top: 16px;
+      }
+      .filter-grid {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .filter-option {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.9);
+      }
+      .filter-count {
+        color: var(--muted);
+        font: 600 12px/1.2 ui-monospace, SFMono-Regular, monospace;
+      }
+      .inspection-meta {
+        margin: 0;
+        display: grid;
+        grid-template-columns: minmax(88px, 112px) 1fr;
+        gap: 8px 12px;
+        font-size: 0.95rem;
+      }
+      .inspection-meta dt {
+        margin: 0;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .inspection-meta dd {
+        margin: 0;
+        word-break: break-word;
+      }
+      .json-block {
+        margin: 12px 0 0;
+        padding: 12px;
+        border-radius: 12px;
+        background: #1c1917;
+        color: #f5f5f4;
+        overflow-x: auto;
+        font: 12px/1.5 ui-monospace, SFMono-Regular, monospace;
+      }
+      .inspection-list {
+        margin: 10px 0 0;
         padding-left: 18px;
       }
       .viewer {
@@ -243,6 +371,24 @@ export function renderStandaloneWorkGraphViewer(
       #graph {
         position: absolute;
         inset: 0;
+      }
+      .viewer-header {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 1;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 252, 247, 0.92);
+        backdrop-filter: blur(8px);
+      }
+      .viewer-status {
+        color: var(--muted);
+        font-size: 0.95rem;
       }
       .badge {
         display: inline-block;
@@ -282,6 +428,32 @@ export function renderStandaloneWorkGraphViewer(
               .join("")}
           </ul>
         </section>
+        <section class="controls">
+          <h2>Review Controls</h2>
+          <label for="graph-search">Search graph</label>
+          <input
+            id="graph-search"
+            class="search-input"
+            type="search"
+            placeholder="Search by stable id, label, or source file"
+          />
+          <p class="control-help">Search by stable id, label, or source file.</p>
+          <div class="filter-group">
+            <h2>Node Types</h2>
+            <div id="node-type-filters" class="filter-grid">${nodeTypeOptions}</div>
+          </div>
+          <div class="filter-group">
+            <h2>Edge Types</h2>
+            <div id="edge-type-filters" class="filter-grid">${edgeTypeOptions}</div>
+          </div>
+          <p id="filter-results" class="results">${escapeHtml(summaryText)} visible</p>
+        </section>
+        <section class="inspection">
+          <h2>Inspection</h2>
+          <div id="inspection-panel">
+            <p class="inspection-empty">Select a node or edge to inspect its stable metadata.</p>
+          </div>
+        </section>
         <section class="diagnostics">
           <p>Diagnostics are preserved outside Cytoscape elements.</p>
           <ul>
@@ -295,6 +467,10 @@ export function renderStandaloneWorkGraphViewer(
         </section>
       </aside>
       <main class="viewer">
+        <div class="viewer-header">
+          <span class="badge">Read-only Artifact</span>
+          <span id="viewer-status" class="viewer-status">Filters and search only change local visibility.</span>
+        </div>
         <div id="graph" aria-label="Work graph visualization"></div>
       </main>
     </div>
@@ -302,10 +478,26 @@ export function renderStandaloneWorkGraphViewer(
     <script src="https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
     <script>
       const graph = JSON.parse(document.getElementById("work-graph-data").textContent);
-      const elements = graph.elements;
-      cytoscape({
+      const inspectorEntries = new Map(graph.elements.map((element) => [element.data.id, {
+        kind: element.group === "nodes" ? "node" : "edge",
+        ...element.data,
+        relatedDiagnostics: graph.diagnostics.filter((entry) => entry.relativePath === element.data.filePath)
+      }]));
+      const state = {
+        searchQuery: "",
+        nodeTypes: new Set(graph.summary.nodeTypes.map((entry) => entry.type)),
+        edgeTypes: new Set(graph.summary.edgeTypes.map((entry) => entry.type)),
+        selectedElementId: null
+      };
+      const searchInput = document.getElementById("graph-search");
+      const nodeTypeFilters = document.getElementById("node-type-filters");
+      const edgeTypeFilters = document.getElementById("edge-type-filters");
+      const filterResults = document.getElementById("filter-results");
+      const inspectionPanel = document.getElementById("inspection-panel");
+      const viewerStatus = document.getElementById("viewer-status");
+      const cy = cytoscape({
         container: document.getElementById("graph"),
-        elements,
+        elements: graph.elements,
         layout: { name: "cose", animate: false, padding: 24 },
         style: [
           {
@@ -320,7 +512,8 @@ export function renderStandaloneWorkGraphViewer(
               "border-width": 1,
               "border-color": "#134e4a",
               "text-valign": "bottom",
-              "text-margin-y": -8
+              "text-margin-y": -8,
+              "overlay-opacity": 0
             }
           },
           {
@@ -335,11 +528,162 @@ export function renderStandaloneWorkGraphViewer(
               "color": "#44403c",
               "text-background-opacity": 1,
               "text-background-color": "#fffbeb",
-              "text-background-padding": 2
+              "text-background-padding": 2,
+              "overlay-opacity": 0
+            }
+          },
+          {
+            selector: ":selected",
+            style: {
+              "border-width": 3,
+              "border-color": "#b45309",
+              "line-color": "#b45309",
+              "target-arrow-color": "#b45309",
+              "background-color": "#f59e0b"
             }
           }
         ]
       });
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+      function prettyJson(value) {
+        return escapeHtml(JSON.stringify(value, null, 2));
+      }
+      function renderDiagnostics(items) {
+        if (!items.length) {
+          return "<p class=\\"control-help\\">No related diagnostics for this selection.</p>";
+        }
+        return [
+          "<h3>Diagnostics Context</h3>",
+          "<ul class=\\"inspection-list\\">",
+          items.map((item) =>
+            "<li>" +
+              escapeHtml(item.relativePath) +
+              " [" + escapeHtml(item.classification) + "] " +
+              escapeHtml(item.reasonCode) +
+            "</li>"
+          ).join(""),
+          "</ul>"
+        ].join("");
+      }
+      function renderInspection(entry) {
+        if (!entry) {
+          inspectionPanel.innerHTML = "<p class=\\"inspection-empty\\">Select a node or edge to inspect its stable metadata.</p>";
+          return;
+        }
+        const details = entry.kind === "node"
+          ? [
+              ["kind", "node"],
+              ["id", entry.id],
+              ["stable id", entry.stableId],
+              ["label", entry.label],
+              ["node type", entry.nodeType],
+              ["source kind", entry.provenance.kind],
+              ["source file", entry.filePath || "none"]
+            ]
+          : [
+              ["kind", "edge"],
+              ["id", entry.id],
+              ["stable id", entry.stableId],
+              ["edge type", entry.edgeType],
+              ["direction", entry.direction],
+              ["source", entry.source],
+              ["target", entry.target],
+              ["source kind", entry.provenance.kind],
+              ["source file", entry.filePath || "none"]
+            ];
+        inspectionPanel.innerHTML = [
+          "<h3>" + escapeHtml(entry.label || entry.edgeType || entry.id) + "</h3>",
+          "<dl class=\\"inspection-meta\\">",
+          details.map(([label, value]) =>
+            "<dt>" + escapeHtml(label) + "</dt><dd>" + escapeHtml(value) + "</dd>"
+          ).join(""),
+          "</dl>",
+          "<h3>Provenance</h3>",
+          "<pre class=\\"json-block\\">" + prettyJson(entry.provenance) + "</pre>",
+          "<h3>Graph Properties</h3>",
+          "<pre class=\\"json-block\\">" + prettyJson(entry.properties) + "</pre>",
+          renderDiagnostics(entry.relatedDiagnostics)
+        ].join("");
+      }
+      function updateVisibleCounts(nodeCount, edgeCount) {
+        filterResults.textContent = nodeCount + " nodes, " + edgeCount + " edges visible";
+        viewerStatus.textContent = state.searchQuery
+          ? "Filtered read-only view for search: " + state.searchQuery
+          : "Filters and search only change local visibility.";
+      }
+      function clearSelection() {
+        state.selectedElementId = null;
+        cy.elements(":selected").unselect();
+        renderInspection(null);
+      }
+      function applyFilters() {
+        const visibleNodeIds = new Set();
+        let visibleNodeCount = 0;
+        let visibleEdgeCount = 0;
+        cy.nodes().forEach((node) => {
+          const entry = inspectorEntries.get(node.id());
+          const visible = state.nodeTypes.has(entry.nodeType)
+            && (!state.searchQuery || entry.searchText.includes(state.searchQuery));
+          node.style("display", visible ? "element" : "none");
+          if (visible) {
+            visibleNodeIds.add(node.id());
+            visibleNodeCount += 1;
+          }
+        });
+        cy.edges().forEach((edge) => {
+          const entry = inspectorEntries.get(edge.id());
+          const visible = state.edgeTypes.has(entry.edgeType)
+            && visibleNodeIds.has(entry.source)
+            && visibleNodeIds.has(entry.target)
+            && (!state.searchQuery || entry.searchText.includes(state.searchQuery));
+          edge.style("display", visible ? "element" : "none");
+          if (visible) {
+            visibleEdgeCount += 1;
+          }
+        });
+        updateVisibleCounts(visibleNodeCount, visibleEdgeCount);
+        if (state.selectedElementId) {
+          const selected = cy.getElementById(state.selectedElementId);
+          if (selected.empty() || selected.style("display") === "none") {
+            clearSelection();
+          }
+        }
+      }
+      function attachFilterHandlers(container, targetSet) {
+        container.querySelectorAll("input[type=\\"checkbox\\"]").forEach((input) => {
+          input.addEventListener("change", () => {
+            if (input.checked) {
+              targetSet.add(input.value);
+            } else {
+              targetSet.delete(input.value);
+            }
+            applyFilters();
+          });
+        });
+      }
+      searchInput.addEventListener("input", (event) => {
+        state.searchQuery = event.target.value.trim().toLowerCase();
+        applyFilters();
+      });
+      attachFilterHandlers(nodeTypeFilters, state.nodeTypes);
+      attachFilterHandlers(edgeTypeFilters, state.edgeTypes);
+      cy.on("select", "node, edge", (event) => {
+        const entry = inspectorEntries.get(event.target.id());
+        state.selectedElementId = event.target.id();
+        renderInspection(entry);
+      });
+      cy.on("tap", (event) => {
+        if (event.target === cy) {
+          clearSelection();
+        }
+      });
+      applyFilters();
     </script>
   </body>
 </html>

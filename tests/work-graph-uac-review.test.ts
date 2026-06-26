@@ -221,6 +221,14 @@ describe("work graph UAC review fixture", () => {
     expect(viewerHtml).toContain('"schemaVersion":"work-graph-explorer/v1"');
     expect(viewerHtml).toContain('"id":"wi:70001"');
     expect(viewerHtml).toContain('"stableId":"wi:70001"');
+    expect(viewerHtml).toContain('id="graph-search"');
+    expect(viewerHtml).toContain('id="node-type-filters"');
+    expect(viewerHtml).toContain('id="edge-type-filters"');
+    expect(viewerHtml).toContain('id="inspection-panel"');
+    expect(viewerHtml).toContain("Read-only Artifact");
+    expect(viewerHtml).toContain("Filters and search only change local visibility.");
+    expect(viewerHtml).toContain("Diagnostics Context");
+    expect(viewerHtml).toContain('"searchText":"wi:70001 work graph uac review main backlog/70001-work-graph-uac-main.md"');
     expect(viewerHtml).toContain('"relativePath":"backlog/AGENTS.md"');
 
     const after = await snapshotFiles(rootDir);

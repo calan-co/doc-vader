@@ -98,6 +98,15 @@ describe("work graph visualization", () => {
     expect(html).toContain("Standalone Artifact");
     expect(html).toContain("https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js");
     expect(html).toContain("Diagnostics are preserved outside Cytoscape elements.");
+    expect(html).toContain('for="graph-search"');
+    expect(html).toContain("Search by stable id, label, or source file");
+    expect(html).toContain('id="node-type-filters"');
+    expect(html).toContain('id="edge-type-filters"');
+    expect(html).toContain('id="inspection-panel"');
+    expect(html).toContain("Select a node or edge to inspect its stable metadata.");
+    expect(html).toContain("Diagnostics Context");
+    expect(html).toContain('"searchText":"wi:70001 work graph uac review main backlog/70001-work-graph-uac-main.md"');
+    expect(html).toContain('"filePath":"backlog/70001-work-graph-uac-main.md"');
     expect(html).toContain('"id":"wi:70001"');
     expect(html).toContain('"relativePath":"backlog/AGENTS.md"');
   });
