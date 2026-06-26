@@ -5,10 +5,11 @@ summary: Renew immutable claims only when their associated scopes remain availab
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-06-26'
 links:
   depends_on:
     - "[[60385-flat-claim-scopes-and-lock-policies]]"
@@ -70,8 +71,8 @@ locks remain compatible.
 - [x] Renewal produces deterministic diagnostics naming the conflicting
       ScopeRef and lock mode.
 - [x] Tests cover read, write, and execute scope renewal cases.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
@@ -86,6 +87,7 @@ locks remain compatible.
 
 ## Status Notes
 
+- 2026-06-26: Direct validation gates now pass on `sandcastle/issue-60388`. `pnpm run typecheck`, `pnpm run test`, `pnpm run docs:lint`, `pnpm run backlog:validate`, and `pnpm run backlog:validate:ci` all completed successfully in this environment, so the work item can be marked complete.
 - 2026-06-25: Re-ran the required validation matrix on `sandcastle/issue-60388`. `pnpm run typecheck` passed. The direct `pnpm run test`, `pnpm run docs:lint`, and `pnpm run backlog:validate` commands still failed with `NX Permission denied (os error 13)` even after retrying with `NX_DAEMON=false`. Fallback validation still passed with `pnpm exec vitest run`, `node --import tsx scripts/validate-docs.ts --docs-dir docs`, `node dist/cli/doc-vader.js backlog validate --dir backlog --fail-on error`, and `sh staging/scripts/backlog-hygiene-ci.sh`, so the implementation remains verified but cannot be marked complete until the direct Nx-backed gates succeed in this environment.
 - 2026-06-25: Verified on `sandcastle/issue-60388` with `corepack pnpm run typecheck`, `corepack pnpm exec vitest run`, `bash staging/scripts/docs-lint.sh`, `node dist/cli/doc-vader.js backlog validate --dir backlog --fail-on error`, and `sh staging/scripts/backlog-hygiene-ci.sh`. The direct `pnpm run test`, `pnpm run docs:lint`, `pnpm run backlog:validate`, and `pnpm run backlog:validate:ci` entrypoints remained blocked in this sandbox by `NX Permission denied (os error 13)`, so equivalent non-Nx validation commands were used for the final signal.
 - 2026-06-25: Revalidated the issue scope on `sandcastle/issue-60388`. `corepack pnpm run typecheck` and `corepack pnpm exec vitest run tests/runtime-sqlite-store.test.ts` passed, and the non-Nx backlog/doc fallbacks still passed, but the required direct `pnpm run test`, `pnpm run docs:lint`, and `pnpm run backlog:validate` commands remained blocked by the same Nx sandbox error: `Permission denied (os error 13)`. The work item stays paused until the direct validation gates can pass in this environment.
