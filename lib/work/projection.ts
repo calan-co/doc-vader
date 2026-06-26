@@ -99,6 +99,12 @@ interface ClassifiedDocument {
   diagnostic?: WorkGraphProjectionDiagnostic;
 }
 
+interface ProjectableDocument extends ClassifiedDocument {
+  documentId: string;
+  classification: "projectable";
+  resolved: ResolvedDocument;
+}
+
 interface GraphIndex {
   nodes: WorkGraphNode[];
   edges: WorkGraphEdge[];
@@ -540,6 +546,30 @@ function resolveDocumentNode(
   };
 }
 
+function safelyResolveDocumentNode(
+  document: MarkdownDocument,
+): ResolvedDocument | undefined {
+  try {
+    return resolveDocumentNode(document);
+  } catch {
+    return undefined;
+  }
+}
+
+function createProjectionDiagnostic(options: {
+  classification: WorkGraphProjectionDiagnosticClassification;
+  document: MarkdownDocument;
+  reasonCode: WorkGraphProjectionDiagnosticReasonCode;
+  documentId?: string;
+}): WorkGraphProjectionDiagnostic {
+  return {
+    classification: options.classification,
+    relativePath: options.document.relativePath,
+    documentId: options.documentId,
+    reasonCode: options.reasonCode,
+  };
+}
+
 // Keep helper and policy documents observable during live scans without
 // coercing them into MVP graph nodes.
 function classifyDocument(document: MarkdownDocument): ClassifiedDocument {
@@ -548,28 +578,26 @@ function classifyDocument(document: MarkdownDocument): ClassifiedDocument {
     return {
       document,
       classification: "skipped",
-      diagnostic: {
+      diagnostic: createProjectionDiagnostic({
         classification: "skipped",
-        relativePath: document.relativePath,
         reasonCode: "missing-document-id",
-      },
+        document,
+      }),
     };
   }
 
-  let resolved: ResolvedDocument | undefined;
-  try {
-    resolved = resolveDocumentNode(document);
-  } catch {
+  const resolved = safelyResolveDocumentNode(document);
+  if (resolved === undefined && resolveDocumentKind(document)) {
     return {
       document,
       documentId,
       classification: "unsupported",
-      diagnostic: {
+      diagnostic: createProjectionDiagnostic({
         classification: "unsupported",
-        relativePath: document.relativePath,
-        documentId,
         reasonCode: "non-canonical-document-id",
-      },
+        document,
+        documentId,
+      }),
     };
   }
 
@@ -578,12 +606,12 @@ function classifyDocument(document: MarkdownDocument): ClassifiedDocument {
       document,
       documentId,
       classification: "unsupported",
-      diagnostic: {
+      diagnostic: createProjectionDiagnostic({
         classification: "unsupported",
-        relativePath: document.relativePath,
-        documentId,
         reasonCode: "unsupported-document-type",
-      },
+        document,
+        documentId,
+      }),
     };
   }
 
@@ -593,6 +621,12 @@ function classifyDocument(document: MarkdownDocument): ClassifiedDocument {
     classification: "projectable",
     resolved,
   };
+}
+
+function isProjectableDocument(
+  document: ClassifiedDocument,
+): document is ProjectableDocument {
+  return document.classification === "projectable";
 }
 
 function createResolvedTargetNode(
@@ -679,16 +713,7 @@ function resolveDocument(
   if (!exact) {
     return undefined;
   }
-  let resolved: ResolvedDocument | undefined;
-  try {
-    resolved = resolveDocumentNode(exact);
-  } catch {
-    return undefined;
-  }
-  if (!resolved) {
-    return undefined;
-  }
-  return resolved;
+  return safelyResolveDocumentNode(exact);
 }
 
 function getFrontmatterLinks(frontmatter: JsonObject): JsonObject {
@@ -1153,13 +1178,10 @@ export async function projectWorkGraph(
   );
 
   for (const classifiedDocument of classifiedDocuments) {
-    if (classifiedDocument.classification !== "projectable") {
+    if (!isProjectableDocument(classifiedDocument)) {
       continue;
     }
     const { document, documentId, resolved } = classifiedDocument;
-    if (!resolved || !documentId) {
-      continue;
-    }
 
     for (const alias of documentAliases(document.frontmatter, document.relativePath)) {
       aliases.set(alias, {
@@ -1244,13 +1266,10 @@ export async function projectWorkGraph(
   }
 
   for (const classifiedDocument of classifiedDocuments) {
-    if (classifiedDocument.classification !== "projectable") {
+    if (!isProjectableDocument(classifiedDocument)) {
       continue;
     }
     const { document, resolved } = classifiedDocument;
-    if (!resolved) {
-      continue;
-    }
     const sourceNode = nodesById.get(resolved.nodeId);
     if (!sourceNode) {
       continue;
