@@ -141,6 +141,15 @@ function stableCounts<T extends string>(
     .map(([type, count]) => ({ type, count }));
 }
 
+function formatSummaryCounts<T extends string>(
+  counts: readonly WorkGraphSummaryCount<T>[],
+): string {
+  if (counts.length === 0) {
+    return "0";
+  }
+  return counts.map(({ type, count }) => `${count} ${type}`).join(", ");
+}
+
 function stableNodeIds(values: readonly string[] | undefined): string[] {
   return stableStrings(values ?? []);
 }
@@ -219,19 +228,10 @@ class TableWorkGraphOutputExtension implements WorkGraphOutputExtension {
       );
     }
 
-    const formatCounts = <T extends string>(
-      counts: readonly WorkGraphSummaryCount<T>[],
-    ): string => {
-      if (counts.length === 0) {
-        return "0";
-      }
-      return counts.map(({ type, count }) => `${count} ${type}`).join(", ");
-    };
-
     const lines = [
       "Work Graph Summary",
-      `Nodes\t${formatCounts(result.summary.nodeTypes)}`,
-      `Edges\t${formatCounts(result.summary.edgeTypes)}`,
+      `Nodes\t${formatSummaryCounts(result.summary.nodeTypes)}`,
+      `Edges\t${formatSummaryCounts(result.summary.edgeTypes)}`,
       `Diagnostics\t${result.summary.diagnosticCount}`,
       `Totals\t${result.summary.nodeCount} nodes, ${result.summary.edgeCount} edges`,
     ];

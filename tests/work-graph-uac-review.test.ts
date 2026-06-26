@@ -17,6 +17,26 @@ const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 
 const tempDirs: string[] = [];
 
+type WorkGraphExportPayload = {
+  schemaVersion: string;
+  command: string;
+  summary: {
+    nodeCount: number;
+    edgeCount: number;
+    diagnosticCount: number;
+    nodeTypes: Array<{ type: string; count: number }>;
+    edgeTypes: Array<{ type: string; count: number }>;
+  };
+  nodes: Array<{ id: string; type: string }>;
+  edges: Array<{ type: string }>;
+  diagnostics: Array<{
+    classification: string;
+    relativePath: string;
+    documentId: string;
+    reasonCode: string;
+  }>;
+};
+
 async function createTempRoot(): Promise<string> {
   const rootDir = await mkdtemp(
     path.join(os.tmpdir(), `doc-vader-work-graph-uac-${randomUUID()}-`),
@@ -120,25 +140,7 @@ describe("work graph UAC review fixture", () => {
     const parsedEdges = JSON.parse(edges) as {
       edges: Array<{ type: string }>;
     };
-    const parsedExport = JSON.parse(exportJson) as {
-      schemaVersion: string;
-      command: string;
-      summary: {
-        nodeCount: number;
-        edgeCount: number;
-        diagnosticCount: number;
-        nodeTypes: Array<{ type: string; count: number }>;
-        edgeTypes: Array<{ type: string; count: number }>;
-      };
-      nodes: Array<{ id: string; type: string }>;
-      edges: Array<{ type: string }>;
-      diagnostics: Array<{
-        classification: string;
-        relativePath: string;
-        documentId: string;
-        reasonCode: string;
-      }>;
-    };
+    const parsedExport = JSON.parse(exportJson) as WorkGraphExportPayload;
 
     expect(new Set(parsedNodes.nodes.map((node) => node.type))).toEqual(
       new Set(["work-item", "claim", "record", "scope"]),

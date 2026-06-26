@@ -36,6 +36,31 @@ const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const claimStoreEnv = "DOC_VADER_TASK_CLAIM_STORE";
 let previousClaimStoreEnv: string | undefined;
 
+type WorkGraphSummaryPayload = {
+  schemaVersion: string;
+  command: string;
+  summary: {
+    nodeCount: number;
+    edgeCount: number;
+    diagnosticCount: number;
+    nodeTypes: Array<{ type: string; count: number }>;
+    edgeTypes: Array<{ type: string; count: number }>;
+  };
+};
+
+type WorkGraphExportPayload = {
+  schemaVersion: string;
+  command: string;
+  summary: {
+    nodeCount: number;
+    edgeCount: number;
+    diagnosticCount: number;
+  };
+  nodes: Array<{ id: string; type: string }>;
+  edges: Array<{ type: string; from: string; to: string }>;
+  diagnostics: Array<{ relativePath: string; reasonCode: string }>;
+};
+
 beforeEach(() => {
   previousClaimStoreEnv = process.env[claimStoreEnv];
   delete process.env[claimStoreEnv];
@@ -875,17 +900,13 @@ Helper policy document that should stay diagnostic-only.
         expect(summaryText).toContain("Edges\t1 depends_on, 1 implements");
         expect(summaryText).toContain("Diagnostics\t1");
 
-        const summaryJson = runCliJson<{
-          schemaVersion: string;
-          command: string;
-          summary: {
-            nodeCount: number;
-            edgeCount: number;
-            diagnosticCount: number;
-            nodeTypes: Array<{ type: string; count: number }>;
-            edgeTypes: Array<{ type: string; count: number }>;
-          };
-        }>(root, ["wi", "graph", "summary", "--format", "json"]);
+        const summaryJson = runCliJson<WorkGraphSummaryPayload>(root, [
+          "wi",
+          "graph",
+          "summary",
+          "--format",
+          "json",
+        ]);
         expect(summaryJson.schemaVersion).toBe("work-graph-explorer/v1");
         expect(summaryJson.command).toBe("summary");
         expect(summaryJson.summary).toEqual({
@@ -902,18 +923,11 @@ Helper policy document that should stay diagnostic-only.
           ],
         });
 
-        const exported = runCliJson<{
-          schemaVersion: string;
-          command: string;
-          summary: {
-            nodeCount: number;
-            edgeCount: number;
-            diagnosticCount: number;
-          };
-          nodes: Array<{ id: string; type: string }>;
-          edges: Array<{ type: string; from: string; to: string }>;
-          diagnostics: Array<{ relativePath: string; reasonCode: string }>;
-        }>(root, ["work", "graph", "export"]);
+        const exported = runCliJson<WorkGraphExportPayload>(root, [
+          "work",
+          "graph",
+          "export",
+        ]);
         expect(exported.schemaVersion).toBe("work-graph-explorer/v1");
         expect(exported.command).toBe("export");
         expect(exported.summary).toMatchObject({
@@ -923,25 +937,27 @@ Helper policy document that should stay diagnostic-only.
         });
         expect(exported.nodes).toEqual(
           expect.arrayContaining([
-          expect.objectContaining({ id: "scope:wi:60392" }),
-          expect.objectContaining({ id: "scope:wi:60393" }),
-          expect.objectContaining({ id: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd" }),
-          expect.objectContaining({ id: "wi:60392" }),
-          expect.objectContaining({ id: "wi:60393" }),
+            expect.objectContaining({ id: "scope:wi:60392" }),
+            expect.objectContaining({ id: "scope:wi:60393" }),
+            expect.objectContaining({
+              id: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+            }),
+            expect.objectContaining({ id: "wi:60392" }),
+            expect.objectContaining({ id: "wi:60393" }),
           ]),
         );
         expect(exported.edges).toEqual(
           expect.arrayContaining([
-          expect.objectContaining({
-            type: "depends_on",
-            from: "wi:60393",
-            to: "wi:60392",
-          }),
-          expect.objectContaining({
-            type: "implements",
-            from: "wi:60393",
-            to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
-          }),
+            expect.objectContaining({
+              type: "depends_on",
+              from: "wi:60393",
+              to: "wi:60392",
+            }),
+            expect.objectContaining({
+              type: "implements",
+              from: "wi:60393",
+              to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+            }),
           ]),
         );
         expect(exported.diagnostics).toEqual([
