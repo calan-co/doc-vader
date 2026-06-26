@@ -89,6 +89,8 @@ priority: high
 links:
   depends_on:
     - '[[wi-60384]]'
+  evidence:
+    - '[[records/record-projection-note.md]]'
 ---
 
 ## Goal
@@ -245,6 +247,16 @@ Projection remains deterministic.
         (node) => node.id === "record:projection-note",
       ),
     ).toBe(true);
+    expect(projection.getEdgesByType("records")).toEqual([
+      expect.objectContaining({
+        from: "record:projection-note",
+        to: "wi:60386",
+        type: "records",
+        properties: expect.objectContaining({
+          recordKind: "evidence",
+        }),
+      }),
+    ]);
   });
 
   it("projects active claim scope locks as authored claim-to-scope lock edges", async () => {
@@ -398,5 +410,131 @@ Project claim scope locks into graph edges.
 
     expect(projection.findNode("scope:doc:claim-lock-spec")?.type).toBe("scope");
     expect(projection.findNode("scope:wi:60387")?.type).toBe("scope");
+  });
+
+  it("projects record lineage edges to work items, claims, and scopes in deterministic order", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "60390-record-edges-and-audit-lineage.md"),
+      `---
+id: wi-60390
+title: Record Edges And Audit Lineage
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+links:
+  evidence:
+    - '[[records/record-claim-scope-audit.md]]'
+---
+
+## Goal
+
+Project record edges for audit lineage.
+`,
+    );
+
+    const store = openRuntimeSqliteStore({ rootDir });
+    let claimToken = "";
+    try {
+      const claim = expectAcquiredClaim(
+        store.acquireRuntimeClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          target_type: "task",
+          target_id: "wi-60390",
+          holder: "agent-lineage",
+          created_at: "2099-06-26T00:00:00.000Z",
+          expires_at: "2099-06-26T01:00:00.000Z",
+          entropy: "claim-lineage",
+        }),
+        "record-lineage projection",
+      );
+      claimToken = claim.claimToken;
+
+      expect(
+        store.acquireRuntimeScopeLocks(claimToken, [
+          { scopeRef: "wi-60391", lockMode: "write" },
+        ]),
+      ).toMatchObject({ outcome: "acquired" });
+    } finally {
+      store.close();
+    }
+
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "records", "record-claim-scope-audit.md"),
+      `---
+id: record:claim-scope-audit
+title: Claim Scope Audit
+summary: Claim scope audit lineage
+type: record
+subtype: audit-note
+lifecycle: active
+status: ready
+status_reason: recorded
+---
+
+## Observation
+
+Projected lineage stays queryable.
+
+## Subject References
+
+- [[60390-record-edges-and-audit-lineage]]
+- claim:${claimToken}
+- wi:60390
+- wi:60391
+`,
+    );
+
+    const projection = await buildProjection(rootDir);
+    const recordEdges = projection.getEdgesByType("records");
+
+    expect(recordEdges).toEqual([
+      expect.objectContaining({
+        id: `record:claim-scope-audit::records::claim:${claimToken}`,
+        type: "records",
+        from: "record:claim-scope-audit",
+        to: `claim:${claimToken}`,
+        direction: "authored",
+        properties: expect.objectContaining({
+          recordKind: "audit-note",
+          subject: `claim:${claimToken}`,
+        }),
+      }),
+      expect.objectContaining({
+        id: "record:claim-scope-audit::records::scope:wi:60390",
+        type: "records",
+        from: "record:claim-scope-audit",
+        to: "scope:wi:60390",
+        direction: "authored",
+        properties: expect.objectContaining({
+          recordKind: "audit-note",
+          subject: "wi:60390",
+        }),
+      }),
+      expect.objectContaining({
+        id: "record:claim-scope-audit::records::scope:wi:60391",
+        type: "records",
+        from: "record:claim-scope-audit",
+        to: "scope:wi:60391",
+        direction: "authored",
+        properties: expect.objectContaining({
+          recordKind: "audit-note",
+          subject: "wi:60391",
+        }),
+      }),
+      expect.objectContaining({
+        id: "record:claim-scope-audit::records::wi:60390",
+        type: "records",
+        from: "record:claim-scope-audit",
+        to: "wi:60390",
+        direction: "authored",
+        properties: expect.objectContaining({
+          recordKind: "audit-note",
+          subject: "[[60390-record-edges-and-audit-lineage]]",
+        }),
+      }),
+    ]);
   });
 });

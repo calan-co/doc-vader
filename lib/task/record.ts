@@ -7,6 +7,8 @@ import {
   type CreateRecordOptions,
   type CreateRecordResult,
 } from "../work-management/index.js";
+import { openRuntimeSqliteStore } from "../runtime/index.js";
+import { canonicalizeClaimScopeRef } from "../runtime/scope-locks.js";
 import { getClaimStatus } from "./claims.js";
 import { TaskCommandError } from "./errors.js";
 
@@ -229,6 +231,35 @@ function buildCreateRecordOptions(options: {
   };
 }
 
+function resolveRuntimeRecordSubjects(options: {
+  rootDir: string;
+  claimId: string;
+}): string[] {
+  const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
+  try {
+    const runtimeClaim = store.getClaimByToken(options.claimId);
+    if (!runtimeClaim) {
+      return [];
+    }
+
+    const subjects = new Set<string>([
+      `claim:${runtimeClaim.claim_token}`,
+      canonicalizeClaimScopeRef(
+        runtimeClaim.target_type,
+        runtimeClaim.target_id,
+      ),
+    ]);
+    for (const scopeLock of store.listScopeLocksByClaimToken(options.claimId)) {
+      if (scopeLock.lifecycle_state === "active") {
+        subjects.add(scopeLock.scope_ref);
+      }
+    }
+    return [...subjects];
+  } finally {
+    store.close();
+  }
+}
+
 export async function recordTaskEvidence(options: {
   claimId: string;
   type?: string;
@@ -265,7 +296,13 @@ export async function recordTaskEvidence(options: {
     payload: options.payload,
     type: options.type,
     consumerConfig,
-    subjects: resolveSubjects(options.payload, [claim.taskId]),
+    subjects: resolveSubjects(options.payload, [
+      claim.taskId,
+      ...resolveRuntimeRecordSubjects({
+        rootDir,
+        claimId: options.claimId,
+      }),
+    ]),
   });
 
   const recordPreflight = await createRecord({

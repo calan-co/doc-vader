@@ -70,6 +70,23 @@ export interface RenewWorkClaimWithGraphVerificationSuccess
       claimNodeId: string;
       lockEdgeCount: number;
     };
+    lineage: {
+      claim: Array<{
+        recordId: string;
+        recordKind: string;
+        targetNodeId: string;
+      }>;
+      scopes: Array<{
+        recordId: string;
+        recordKind: string;
+        targetNodeId: string;
+      }>;
+      workItems: Array<{
+        recordId: string;
+        recordKind: string;
+        targetNodeId: string;
+      }>;
+    };
   };
 }
 
@@ -180,6 +197,54 @@ function collectVerificationDiagnostics(options: {
   return diagnostics;
 }
 
+function collectLineageEntries(
+  projection: WorkGraphProjection,
+  targetNodeIds: readonly string[],
+): Array<{
+  recordId: string;
+  recordKind: string;
+  targetNodeId: string;
+}> {
+  const targetIdSet = new Set(targetNodeIds);
+  return projection
+    .getEdgesByType("records")
+    .filter((edge) => targetIdSet.has(edge.to))
+    .map((edge) => ({
+      recordId: edge.from,
+      recordKind:
+        typeof edge.properties.recordKind === "string"
+          ? edge.properties.recordKind
+          : "record",
+      targetNodeId: edge.to,
+    }));
+}
+
+function collectVerificationLineage(options: {
+  projection: WorkGraphProjection;
+  claim: RuntimeClaimRecord;
+  activeScopeLocks: RuntimeScopeLockRecord[];
+}) {
+  const claimNodeId = toClaimNodeId(options.claim.claim_token);
+  const targetScopeRef = canonicalizeClaimScopeRef(
+    options.claim.target_type,
+    options.claim.target_id,
+  );
+  const scopeNodeIds = [
+    toScopeNodeId(targetScopeRef),
+    ...options.activeScopeLocks.map((scopeLock) =>
+      toScopeNodeId(scopeLock.scope_ref),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
+
+  return {
+    claim: collectLineageEntries(options.projection, [claimNodeId]),
+    scopes: collectLineageEntries(options.projection, scopeNodeIds),
+    workItems: collectLineageEntries(options.projection, [
+      canonicalizeClaimScopeRef(options.claim.target_type, options.claim.target_id),
+    ]),
+  };
+}
+
 export async function renewWorkClaimWithGraphVerification(
   options: RenewWorkClaimWithGraphVerificationOptions,
 ): Promise<RenewWorkClaimWithGraphVerificationResult> {
@@ -234,6 +299,11 @@ export async function renewWorkClaimWithGraphVerification(
         claimNodeId: toClaimNodeId(renewal.claim.claim_token),
         lockEdgeCount: countLockEdgesForClaim(after, renewal.claim.claim_token),
       },
+      lineage: collectVerificationLineage({
+        projection: after,
+        claim: renewal.claim,
+        activeScopeLocks,
+      }),
     },
   };
 }

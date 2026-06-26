@@ -3126,6 +3126,18 @@ tags:
         taskId: "wi-206-runtime-record",
         evidenceLink: "[[record-wi-206-runtime-record-evidence]]",
       });
+      const record = await fs.readFile(
+        path.join(
+          root,
+          "backlog",
+          "records",
+          "record-wi-206-runtime-record-evidence.md",
+        ),
+        "utf8",
+      );
+      expect(record).toContain(`- claim:${created.claimToken}`);
+      expect(record).toContain("- wi-206-runtime-record");
+      expect(record).toContain("- wi:206-runtime-record");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

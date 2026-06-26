@@ -16,7 +16,8 @@ export type WorkGraphEdgeType =
   | "depends_on"
   | "belongs_to"
   | "implements"
-  | "locks";
+  | "locks"
+  | "records";
 
 export interface WorkGraphNode {
   id: string;
@@ -192,6 +193,30 @@ function parseRelationships(body: string): Array<{
       target: (match[2] ?? "").trim(),
     }))
     .filter((entry) => entry.sourceKey.length > 0 && entry.target.length > 0);
+}
+
+function parseSectionBulletValues(body: string, heading: string): string[] {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const headingRegex = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "gim");
+  const headingMatch = headingRegex.exec(body);
+  if (!headingMatch) {
+    return [];
+  }
+
+  const sectionStart = headingMatch.index + headingMatch[0].length;
+  const nextHeadingMatch = body.slice(sectionStart).match(/\n##\s+/);
+  const sectionEnd =
+    nextHeadingMatch && nextHeadingMatch.index !== undefined
+      ? sectionStart + nextHeadingMatch.index
+      : body.length;
+  const section = body.slice(sectionStart, sectionEnd);
+
+  return section
+    .split(/\r?\n/)
+    .map((line) => line.match(/^\s*-\s+(.+)$/))
+    .filter((match): match is RegExpMatchArray => Boolean(match))
+    .map((match) => (match[1] ?? "").trim())
+    .filter((value) => value.length > 0);
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
@@ -437,7 +462,7 @@ function resolveDocumentNodeId(
     case "work-item":
       return canonicalWorkItemNodeId(id);
     case "record":
-      return `record:${id}`;
+      return id.startsWith("record:") ? id : `record:${id}`;
     case "scope":
     default:
       return `scope:${canonicalScopeNodeId(id)}`;
@@ -875,6 +900,148 @@ function projectRelationshipEdges(options: {
   }
 }
 
+function projectWorkItemEvidenceEdges(options: {
+  document: MarkdownDocument;
+  sourceNode: WorkGraphNode;
+  documents: MarkdownDocument[];
+  aliases: Map<string, ResolvedDocument>;
+  nodesById: Map<string, WorkGraphNode>;
+  edges: WorkGraphEdge[];
+}): void {
+  const links =
+    typeof options.document.frontmatter.links === "object" &&
+    options.document.frontmatter.links !== null
+      ? (options.document.frontmatter.links as JsonObject)
+      : {};
+  const evidenceRefs = asArray(links.evidence);
+
+  for (const evidenceRef of evidenceRefs) {
+    const resolved = resolveDocument(
+      evidenceRef,
+      options.documents,
+      options.aliases,
+    );
+    if (!resolved || resolved.nodeType !== "record") {
+      continue;
+    }
+
+    const recordNode = options.nodesById.get(resolved.nodeId);
+    if (!recordNode) {
+      continue;
+    }
+
+    options.edges.push(
+      createEdge(
+        recordNode,
+        options.sourceNode,
+        "records",
+        {
+          kind: "frontmatter",
+          filePath: options.document.relativePath,
+        },
+        {
+          subject: evidenceRef,
+          recordKind:
+            typeof recordNode.properties.subtype === "string"
+              ? recordNode.properties.subtype
+              : "record",
+          frontmatterId: asString(options.document.frontmatter.id),
+        },
+      ),
+    );
+  }
+}
+
+function resolveRecordSubjectTarget(options: {
+  subject: string;
+  documents: MarkdownDocument[];
+  aliases: Map<string, ResolvedDocument>;
+  nodesById: Map<string, WorkGraphNode>;
+}): WorkGraphNode | undefined {
+  const trimmedSubject = options.subject.trim();
+  if (trimmedSubject.length === 0) {
+    return undefined;
+  }
+
+  if (trimmedSubject.startsWith("claim:")) {
+    return options.nodesById.get(trimmedSubject);
+  }
+
+  const resolved = resolveDocument(
+    trimmedSubject,
+    options.documents,
+    options.aliases,
+  );
+  if (resolved) {
+    return createResolvedTargetNode(resolved, options.nodesById);
+  }
+
+  try {
+    return createScopeNode({
+      id: canonicalScopeNodeId(trimmedSubject),
+      label: trimmedSubject,
+      properties: {
+        scopeRef: trimmedSubject,
+      },
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function projectRecordEdges(options: {
+  document: MarkdownDocument;
+  sourceNode: WorkGraphNode;
+  documents: MarkdownDocument[];
+  aliases: Map<string, ResolvedDocument>;
+  nodesById: Map<string, WorkGraphNode>;
+  edges: WorkGraphEdge[];
+  scopeNodeIds: Set<string>;
+  nodes: WorkGraphNode[];
+}): void {
+  const subjects = parseSectionBulletValues(
+    options.document.body,
+    "Subject References",
+  );
+  const recordKind =
+    asString(options.document.frontmatter.subtype) ?? "record";
+
+  for (const subject of subjects) {
+    const targetNode = resolveRecordSubjectTarget({
+      subject,
+      documents: options.documents,
+      aliases: options.aliases,
+      nodesById: options.nodesById,
+    });
+    if (!targetNode) {
+      continue;
+    }
+
+    ensureScopeNode(
+      targetNode,
+      options.nodes,
+      options.nodesById,
+      options.scopeNodeIds,
+    );
+    options.edges.push(
+      createEdge(
+        options.sourceNode,
+        targetNode,
+        "records",
+        {
+          kind: "relationships",
+          filePath: options.document.relativePath,
+        },
+        {
+          subject,
+          recordKind,
+          frontmatterId: asString(options.document.frontmatter.id),
+        },
+      ),
+    );
+  }
+}
+
 export async function projectWorkGraph(
   options: ProjectWorkGraphOptions = {},
 ): Promise<WorkGraphProjection> {
@@ -986,19 +1153,42 @@ export async function projectWorkGraph(
       continue;
     }
     const sourceNode = nodesById.get(resolved.nodeId);
-    if (!sourceNode || sourceNode.type !== "work-item") {
+    if (!sourceNode) {
       continue;
     }
-    projectRelationshipEdges({
-      document,
-      sourceNode,
-      documents,
-      aliases,
-      nodesById,
-      edges,
-      scopeNodeIds,
-      nodes,
-    });
+    if (sourceNode.type === "work-item") {
+      projectWorkItemEvidenceEdges({
+        document,
+        sourceNode,
+        documents,
+        aliases,
+        nodesById,
+        edges,
+      });
+      projectRelationshipEdges({
+        document,
+        sourceNode,
+        documents,
+        aliases,
+        nodesById,
+        edges,
+        scopeNodeIds,
+        nodes,
+      });
+      continue;
+    }
+    if (sourceNode.type === "record") {
+      projectRecordEdges({
+        document,
+        sourceNode,
+        documents,
+        aliases,
+        nodesById,
+        edges,
+        scopeNodeIds,
+        nodes,
+      });
+    }
   }
 
   return createProjectionView(buildGraphIndex(nodes, edges));

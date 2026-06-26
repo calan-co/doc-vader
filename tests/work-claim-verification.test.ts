@@ -158,6 +158,32 @@ describe("work claim graph verification", () => {
       ],
     });
 
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "records", "record-renew-lineage.md"),
+      `---
+id: record:renew-lineage
+title: Renew Lineage
+summary: Renewal lineage audit
+type: record
+subtype: audit-note
+lifecycle: active
+status: ready
+status_reason: recorded
+---
+
+## Observation
+
+Renewal audit stayed deterministic.
+
+## Subject References
+
+- [[60389-post-mutation-graph-verification]]
+- claim:${claimToken}
+- wi:60387
+- wi:60388
+`,
+    );
+
     const renewed = await renewWorkClaimWithGraphVerification({
       rootDir,
       claimToken,
@@ -181,6 +207,34 @@ describe("work claim graph verification", () => {
         after: {
           claimNodeId: `claim:${claimToken}`,
           lockEdgeCount: 3,
+        },
+        lineage: {
+          claim: [
+            {
+              recordId: "record:renew-lineage",
+              recordKind: "audit-note",
+              targetNodeId: `claim:${claimToken}`,
+            },
+          ],
+          scopes: [
+            {
+              recordId: "record:renew-lineage",
+              recordKind: "audit-note",
+              targetNodeId: "scope:wi:60387",
+            },
+            {
+              recordId: "record:renew-lineage",
+              recordKind: "audit-note",
+              targetNodeId: "scope:wi:60388",
+            },
+          ],
+          workItems: [
+            {
+              recordId: "record:renew-lineage",
+              recordKind: "audit-note",
+              targetNodeId: "wi:60389",
+            },
+          ],
         },
       },
     });
