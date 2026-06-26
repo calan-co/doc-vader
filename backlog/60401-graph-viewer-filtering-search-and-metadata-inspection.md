@@ -5,8 +5,9 @@ summary: "Add the first maintainer-facing interactive review features to the sta
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
+completed_date: '2026-06-26'
 priority: high
 estimated: 5
 links:
@@ -47,14 +48,14 @@ underlying graph.
 
 ## Tasks
 
-- [ ] Add node-type and edge-type filters to the viewer.
-- [ ] Add search by stable id, label, and source file path.
-- [ ] Add selection and inspection panels for nodes and edges.
-- [ ] Surface stable metadata such as ids, labels, source/provenance, and graph
+- [x] Add node-type and edge-type filters to the viewer.
+- [x] Add search by stable id, label, and source file path.
+- [x] Add selection and inspection panels for nodes and edges.
+- [x] Surface stable metadata such as ids, labels, source/provenance, and graph
       properties in the inspection panel.
-- [ ] Surface diagnostics context in the viewer without representing diagnostics
+- [x] Surface diagnostics context in the viewer without representing diagnostics
       as canonical graph nodes or edges.
-- [ ] Add focused tests or deterministic fixture assertions for filtering,
+- [x] Add focused tests or deterministic fixture assertions for filtering,
       search, selection, metadata display, and diagnostics visibility.
 
 ## Deliverables
@@ -66,15 +67,15 @@ underlying graph.
 
 ## Acceptance Criteria
 
-- [ ] A reviewer can filter visible nodes and edges by type.
-- [ ] A reviewer can search by stable id, label, and source file path.
-- [ ] Selecting a node or edge reveals stable metadata and source/provenance
+- [x] A reviewer can filter visible nodes and edges by type.
+- [x] A reviewer can search by stable id, label, and source file path.
+- [x] Selecting a node or edge reveals stable metadata and source/provenance
       details.
-- [ ] Diagnostics are visible in the viewer without becoming canonical graph
+- [x] Diagnostics are visible in the viewer without becoming canonical graph
       nodes or edges.
-- [ ] The viewer remains read-only.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] The viewer remains read-only.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
