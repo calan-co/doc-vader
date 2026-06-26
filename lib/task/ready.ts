@@ -32,6 +32,12 @@ import {
   resolveTaskAuthorityFromGitContext,
   type TaskAuthorityGitContext,
 } from "./authority.js";
+import {
+  projectWorkGraph,
+  type WorkGraphEdge,
+  type WorkGraphNode,
+  type WorkGraphProjection,
+} from "../work/projection.js";
 
 type Frontmatter = Record<string, unknown>;
 
@@ -133,6 +139,7 @@ interface ReadyDocument {
   filePath: string;
   relativePath: string;
   archived: boolean;
+  body?: string;
   frontmatter?: Frontmatter;
   parseError?: string;
 }
@@ -156,6 +163,10 @@ const NON_TASK_PATH_PREFIXES = ["audit/", "records/"] as const;
 interface TaskRuntimeClaimSnapshot {
   claim: RuntimeClaimRecord;
   scopeLocks: RuntimeScopeLockRecord[];
+}
+
+interface ReadyGraphContext {
+  dependenciesByTaskId: Map<string, ReadyTaskDependency[]>;
 }
 
 function toPosixPath(value: string): string {
@@ -245,6 +256,7 @@ async function readReadyDocuments(
         filePath,
         relativePath,
         archived: relativeToBacklog.startsWith("archive/"),
+        body: parsed.content,
         frontmatter: (parsed.data ?? {}) as Frontmatter,
       });
     } catch (error) {
@@ -293,6 +305,43 @@ function getLinks(frontmatter: Frontmatter): Record<string, unknown> {
   return typeof frontmatter.links === "object" && frontmatter.links !== null
     ? (frontmatter.links as Record<string, unknown>)
     : {};
+}
+
+function findMarkdownSection(body: string, heading: string): string | undefined {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const headingRegex = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "gim");
+  const headingMatch = headingRegex.exec(body);
+  if (!headingMatch) {
+    return undefined;
+  }
+
+  const sectionStart = headingMatch.index + headingMatch[0].length;
+  const nextHeadingMatch = body.slice(sectionStart).match(/\n##\s+/);
+  const sectionEnd =
+    nextHeadingMatch && nextHeadingMatch.index !== undefined
+      ? sectionStart + nextHeadingMatch.index
+      : body.length;
+  return body.slice(sectionStart, sectionEnd);
+}
+
+function parseRelationshipDependencyRefs(body: string): string[] {
+  const section = findMarkdownSection(body, "Relationships");
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .split(/\r?\n/)
+    .map((line) => line.match(/^\s*-\s*`([^`]+)`:\s*(.+)$/))
+    .filter((match): match is RegExpMatchArray => Boolean(match))
+    .map((match) => ({
+      relationship: (match[1] ?? "").trim().toLowerCase(),
+      target: (match[2] ?? "").trim(),
+    }))
+    .filter(
+      (entry) => entry.relationship === "depends_on" && entry.target.length > 0,
+    )
+    .map((entry) => entry.target);
 }
 
 function stripWikiLink(value: string): string {
@@ -379,6 +428,213 @@ function toGovernanceDependency(
     ...(dependency ? { filePath: dependency.relativePath } : {}),
     satisfied: status === "completed" || status === "closed" || lifecycle === "inactive",
     stateKnown: Boolean(dependency && !dependency.parseError && status),
+  };
+}
+
+function toGovernanceDependencyRecord(
+  dependency: ReadyTaskDependency,
+): WorkItemGovernanceDependency {
+  return {
+    id: dependency.id,
+    ref: dependency.ref,
+    ...(dependency.status ? { status: dependency.status } : {}),
+    ...(dependency.lifecycle ? { lifecycle: dependency.lifecycle } : {}),
+    ...(dependency.filePath ? { filePath: dependency.filePath } : {}),
+    satisfied: dependency.satisfied,
+    stateKnown: dependency.stateKnown,
+  };
+}
+
+function normalizeBacklogDir(backlogDir: string): string {
+  return toPosixPath(backlogDir).replace(/\/+$/u, "");
+}
+
+function isProjectedBacklogWorkItem(
+  node: WorkGraphNode,
+  backlogDir: string,
+): boolean {
+  const filePath = node.source.filePath;
+  if (node.type !== "work-item" || !filePath) {
+    return false;
+  }
+
+  const backlogRoot = `${backlogDir}/`;
+  if (!filePath.startsWith(backlogRoot)) {
+    return false;
+  }
+
+  return !(
+    filePath.startsWith(`${backlogDir}/archive/`) ||
+    filePath.startsWith(`${backlogDir}/audit/`) ||
+    filePath.startsWith(`${backlogDir}/records/`)
+  );
+}
+
+function collectDocumentAliases(document: ReadyDocument): string[] {
+  const basename = path.basename(document.filePath, ".md");
+  const id = documentTaskId(document);
+  return [
+    ...(id ? [id, id.replace(/^wi-/, "")] : []),
+    basename,
+    ...(basename.match(/^(\d+)/)?.[1] ? [basename.match(/^(\d+)/)?.[1] as string] : []),
+  ].map((entry) => entry.trim().toLowerCase());
+}
+
+function dependencyMatchesRef(
+  dependency: ReadyTaskDependency,
+  ref: string,
+  documentsById: Map<string, ReadyDocument>,
+): boolean {
+  const stripped = stripWikiLink(ref).toLowerCase();
+  const normalizedId = normalizeDependencyId(ref).toLowerCase();
+  if (dependency.id.toLowerCase() === normalizedId) {
+    return true;
+  }
+
+  const dependencyDocument = documentsById.get(dependency.id);
+  return dependencyDocument
+    ? collectDocumentAliases(dependencyDocument).includes(stripped)
+    : false;
+}
+
+function buildGraphReadyDependencies(options: {
+  document: ReadyDocument;
+  documentsById: Map<string, ReadyDocument>;
+  nodeByFrontmatterId: Map<string, WorkGraphNode>;
+  projection: WorkGraphProjection;
+}): ReadyTaskDependency[] {
+  const id = documentTaskId(options.document);
+  if (!id) {
+    return [];
+  }
+
+  const sourceNode = options.nodeByFrontmatterId.get(id);
+  if (!sourceNode) {
+    return [];
+  }
+
+  const knownDependencies = options.projection
+    .getOutgoingEdges(sourceNode.id)
+    .filter((edge): edge is WorkGraphEdge => edge.type === "depends_on")
+    .map((edge) => options.projection.findNode(edge.to))
+    .filter((node): node is WorkGraphNode => Boolean(node && node.type === "work-item"))
+    .map((node) => {
+      const dependencyId = typeof node.properties.frontmatterId === "string"
+        ? node.properties.frontmatterId
+        : node.id.replace(/^wi:/, "wi-");
+      const dependencyDocument = options.documentsById.get(dependencyId);
+      const status = dependencyDocument?.frontmatter
+        ? asString(dependencyDocument.frontmatter.status)
+        : typeof node.properties.status === "string"
+          ? node.properties.status
+          : undefined;
+      const lifecycle = dependencyDocument?.frontmatter
+        ? asString(dependencyDocument.frontmatter.lifecycle)
+        : typeof node.properties.lifecycle === "string"
+          ? node.properties.lifecycle
+          : undefined;
+      return {
+        id: dependencyId,
+        ref: `[[${dependencyId}]]`,
+        ...(status ? { status } : {}),
+        ...(lifecycle ? { lifecycle } : {}),
+        ...(dependencyDocument ? { filePath: dependencyDocument.relativePath } : {}),
+        satisfied:
+          status === "completed" || status === "closed" || lifecycle === "inactive",
+        stateKnown: Boolean(status),
+      } satisfies ReadyTaskDependency;
+    });
+
+  const authoredRefs = [
+    ...new Set([
+      ...collectStringLinks(getLinks(options.document.frontmatter ?? {}).depends_on),
+      ...parseRelationshipDependencyRefs(options.document.body ?? ""),
+    ]),
+  ];
+  if (authoredRefs.length === 0) {
+    return knownDependencies;
+  }
+
+  const orderedDependencies: ReadyTaskDependency[] = [];
+  const matchedDependencyIds = new Set<string>();
+  for (const ref of authoredRefs) {
+    const matched = knownDependencies.find(
+      (dependency) =>
+        !matchedDependencyIds.has(dependency.id) &&
+        dependencyMatchesRef(dependency, ref, options.documentsById),
+    );
+    if (matched) {
+      matchedDependencyIds.add(matched.id);
+      orderedDependencies.push({
+        ...matched,
+        ref,
+      });
+      continue;
+    }
+
+    orderedDependencies.push({
+      id: normalizeDependencyId(ref),
+      ref,
+      satisfied: false,
+      stateKnown: false,
+    });
+  }
+
+  for (const dependency of knownDependencies) {
+    if (!matchedDependencyIds.has(dependency.id)) {
+      orderedDependencies.push(dependency);
+    }
+  }
+
+  return orderedDependencies;
+}
+
+async function buildReadyGraphContext(options: {
+  rootDir: string;
+  backlogDir: string;
+  documents: ReadyDocument[];
+}): Promise<ReadyGraphContext> {
+  const backlogDir = normalizeBacklogDir(options.backlogDir);
+  const projection = await projectWorkGraph({
+    rootDir: options.rootDir,
+    workspaceDirs: [...new Set([backlogDir, "docs"])],
+  });
+  const documentsById = new Map(
+    options.documents
+      .map((document) => [documentTaskId(document), document] as const)
+      .filter((entry): entry is readonly [string, ReadyDocument] => Boolean(entry[0])),
+  );
+  const nodeByFrontmatterId = new Map(
+    projection
+      .getNodesByType("work-item")
+      .filter((node) => isProjectedBacklogWorkItem(node, backlogDir))
+      .map((node) => [
+        typeof node.properties.frontmatterId === "string"
+          ? node.properties.frontmatterId
+          : undefined,
+        node,
+      ] as const)
+      .filter((entry): entry is readonly [string, WorkGraphNode] => Boolean(entry[0])),
+  );
+  const dependenciesByTaskId = new Map<string, ReadyTaskDependency[]>();
+  for (const [taskId] of nodeByFrontmatterId) {
+    const document = documentsById.get(taskId);
+    if (!document) {
+      continue;
+    }
+    dependenciesByTaskId.set(
+      taskId,
+      buildGraphReadyDependencies({
+        document,
+        documentsById,
+        nodeByFrontmatterId,
+        projection,
+      }),
+    );
+  }
+
+  return {
+    dependenciesByTaskId,
   };
 }
 
@@ -698,6 +954,7 @@ async function evaluateDocument(
   documents: ReadyDocument[],
   latestExecutionLog?: TaskRuntimeExecutionLog,
   runtimeClaimSnapshots?: Map<string, TaskRuntimeClaimSnapshot>,
+  projectedDependencies?: ReadyTaskDependency[],
 ): Promise<{ candidate?: ReadyTaskCandidate; exclusion?: ReadyTaskExclusion }> {
   if (document.parseError) {
     return {
@@ -725,8 +982,8 @@ async function evaluateDocument(
   const lifecycle = asString(frontmatter.lifecycle);
   const tags = normalizeTags(frontmatter.tags);
   const links = getLinks(frontmatter);
-  const dependencyRefs = collectStringLinks(links.depends_on);
-  const dependencies = dependencyRefs.map((ref) => toDependency(ref, documents));
+  const dependencies = projectedDependencies
+    ?? collectStringLinks(links.depends_on).map((ref) => toDependency(ref, documents));
   const governance = evaluateWorkItemGovernance({
     id: id ?? "",
     ...(title ? { title } : {}),
@@ -735,7 +992,7 @@ async function evaluateDocument(
     tags,
     archived: document.archived || lifecycle === "archived",
     links,
-    dependencies: dependencyRefs.map((ref) => toGovernanceDependency(ref, documents)),
+    dependencies: dependencies.map(toGovernanceDependencyRecord),
   });
   const runtimeClaim = id ? runtimeClaimSnapshots?.get(id) : undefined;
   const reasons: ReadyTaskExclusion["reasons"] = governance.readiness.reasons.map(
@@ -863,6 +1120,7 @@ async function evaluateDocumentWithAuthority(
   documents: ReadyDocument[],
   latestExecutionLog?: TaskRuntimeExecutionLog,
   authorityContext?: ReadyAuthorityContext,
+  projectedDependencies?: ReadyTaskDependency[],
 ): Promise<{ candidate?: ReadyTaskCandidate; exclusion?: ReadyTaskExclusion }> {
   const taskId = asString(document.frontmatter?.id);
   if (!taskId) {
@@ -900,6 +1158,7 @@ async function evaluateDocumentWithAuthority(
       documents,
       latestExecutionLog,
       await runtimeClaimSnapshotsPromise,
+      authority.rootDir === rootDir ? projectedDependencies : undefined,
     );
   }
 
@@ -940,6 +1199,7 @@ async function evaluateDocumentWithAuthority(
     authorityDocuments,
     authorityRuntime.get(taskId),
     await runtimeClaimSnapshotsPromise,
+    projectedDependencies,
   );
 }
 
@@ -974,6 +1234,11 @@ export async function selectReadyTasks(
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const backlogDir = options.backlogDir ?? "backlog";
   const documents = await readReadyDocuments(rootDir, backlogDir);
+  const graphContext = await buildReadyGraphContext({
+    rootDir,
+    backlogDir,
+    documents,
+  });
   const taskIds = documents
     .map((document) => asString(document.frontmatter?.id))
     .filter((id): id is string => Boolean(id));
@@ -1004,6 +1269,7 @@ export async function selectReadyTasks(
         documents,
         taskId ? runtimeSummaries.get(taskId) : undefined,
         authorityContext,
+        taskId ? graphContext.dependenciesByTaskId.get(taskId) : undefined,
       );
     }),
   );

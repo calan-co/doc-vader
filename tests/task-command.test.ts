@@ -3393,6 +3393,72 @@ links:
     }
   });
 
+  it("uses projected depends_on relationships during ready selection", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "214-relationship-dependency.md",
+        `id: wi-214
+title: Relationship Dependency
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+        `## Goal
+
+Prove graph-backed ready selection uses projected dependency edges.
+
+## Relationships
+
+- \`depends_on\`: [[wi-215]]
+`,
+      );
+      await writeTask(
+        root,
+        "215-blocking-dependency.md",
+        `id: wi-215
+title: Blocking Dependency
+type: work-item
+lifecycle: active
+status: in-progress
+tags:
+  - afk`,
+      );
+
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
+
+      expect(report.candidates).toEqual([]);
+      expect(report.exclusions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "wi-214",
+            reasons: expect.arrayContaining([
+              expect.objectContaining({ code: "dependency_blocked" }),
+            ]),
+            findings: expect.arrayContaining([
+              expect.objectContaining({
+                reasonCode: "dependency_unsatisfied",
+                subjectId: "wi-214",
+                evidence: expect.arrayContaining([
+                  expect.objectContaining({
+                    ref: "wi-215",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+        ]),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("projects derived readiness findings separately from authored dependencies", async () => {
     const root = await mkTmpRoot();
     try {
