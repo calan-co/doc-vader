@@ -1,0 +1,20 @@
+[
+  "<!DOCTYPE html>",
+  "Work Graph Viewer",
+  "https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js",
+  "Read-only Artifact",
+  "Filters and search only change local visibility.",
+  "Diagnostics Context",
+  "Trace a directed path between two nodes.",
+  "\"schemaVersion\":\"work-graph-explorer/v1\"",
+  "\"id\":\"wi:70001\"",
+  "\"stableId\":\"wi:70001\"",
+  "\"relativePath\":\"backlog/AGENTS.md\"",
+  "id=\"graph-search\"",
+  "id=\"node-type-filters\"",
+  "id=\"edge-type-filters\"",
+  "id=\"path-start\"",
+  "id=\"path-end\"",
+  "id=\"trace-path\"",
+  "id=\"inspection-panel\""
+]

@@ -72,6 +72,10 @@ function runCli(rootDir: string, args: string[]): string {
   });
 }
 
+function normalizeFixtureText(value: string): string {
+  return value.replace(/\r\n/g, "\n").trimEnd();
+}
+
 afterEach(async () => {
   await Promise.all(
     tempDirs.splice(0, tempDirs.length).map((dir) =>
@@ -110,27 +114,37 @@ describe("work graph UAC review fixture", () => {
       "dot",
     ]);
 
-    expect(nodes).toBe(
-      await readFile(path.join(workGraphUacExpectedDir, "nodes.json"), "utf8"),
+    expect(normalizeFixtureText(nodes)).toBe(
+      normalizeFixtureText(
+        await readFile(path.join(workGraphUacExpectedDir, "nodes.json"), "utf8"),
+      ),
     );
-    expect(edges).toBe(
-      await readFile(path.join(workGraphUacExpectedDir, "edges.json"), "utf8"),
+    expect(normalizeFixtureText(edges)).toBe(
+      normalizeFixtureText(
+        await readFile(path.join(workGraphUacExpectedDir, "edges.json"), "utf8"),
+      ),
     );
-    expect(summary).toBe(
-      [
-        "Work Graph Summary",
-        "Nodes\t4 scope, 2 work-item, 1 claim, 1 record",
-        "Edges\t3 records, 2 belongs_to, 2 locks, 1 depends_on, 1 implements",
-        "Diagnostics\t1",
-        "Totals\t8 nodes, 9 edges",
-        "",
-      ].join("\n"),
+    expect(normalizeFixtureText(summary)).toBe(
+      normalizeFixtureText(
+        [
+          "Work Graph Summary",
+          "Nodes\t4 scope, 2 work-item, 1 claim, 1 record",
+          "Edges\t3 records, 2 belongs_to, 2 locks, 1 depends_on, 1 implements",
+          "Diagnostics\t1",
+          "Totals\t8 nodes, 9 edges",
+          "",
+        ].join("\n"),
+      ),
     );
-    expect(inspect).toBe(
-      await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.json"), "utf8"),
+    expect(normalizeFixtureText(inspect)).toBe(
+      normalizeFixtureText(
+        await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.json"), "utf8"),
+      ),
     );
-    expect(dot).toBe(
-      await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.dot"), "utf8"),
+    expect(normalizeFixtureText(dot)).toBe(
+      normalizeFixtureText(
+        await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.dot"), "utf8"),
+      ),
     );
     expect(exportDot.startsWith("digraph WorkGraph {\n")).toBe(true);
 
@@ -244,5 +258,76 @@ describe("work graph UAC review fixture", () => {
     after.delete("graph-export.json");
     after.delete("graph-viewer.html");
     expect(after).toEqual(before);
+  }, 15000);
+
+  it("documents one fixture-backed UAT flow with stable summary, export, and viewer artifacts", async () => {
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+    const exportPayloadPath = path.join(rootDir, "graph-export.json");
+    const viewerPath = path.join(rootDir, "graph-viewer.html");
+
+    const summary = runCli(rootDir, ["work", "graph", "summary"]);
+    const exportJson = runCli(rootDir, ["work", "graph", "export", "--format", "json"]);
+    const exportDot = runCli(rootDir, ["work", "graph", "export", "--format", "dot"]);
+    await writeFile(exportPayloadPath, exportJson, "utf8");
+    runCli(rootDir, [
+      "work",
+      "graph",
+      "visualize",
+      "--input",
+      exportPayloadPath,
+      "--output",
+      viewerPath,
+    ]);
+
+    expect(normalizeFixtureText(summary)).toBe(
+      normalizeFixtureText(
+        await readFile(path.join(workGraphUacExpectedDir, "summary.txt"), "utf8"),
+      ),
+    );
+    expect(normalizeFixtureText(exportJson)).toBe(
+      normalizeFixtureText(
+        await readFile(path.join(workGraphUacExpectedDir, "export.json"), "utf8"),
+      ),
+    );
+    expect(normalizeFixtureText(exportDot)).toBe(
+      normalizeFixtureText(
+        await readFile(path.join(workGraphUacExpectedDir, "export.dot"), "utf8"),
+      ),
+    );
+    const viewerHtml = await readFile(viewerPath, "utf8");
+    const expectedViewerFragments = JSON.parse(
+      await readFile(path.join(workGraphUacExpectedDir, "viewer-fragments.json"), "utf8"),
+    ) as string[];
+    for (const fragment of expectedViewerFragments) {
+      expect(viewerHtml).toContain(fragment);
+    }
+
+    const reviewGuide = await readFile(
+      path.join(workGraphUacExpectedDir, "uat-review-checklist.md"),
+      "utf8",
+    );
+    expect(
+      await readFile(path.join(path.dirname(workGraphUacExpectedDir), "README.md"), "utf8"),
+    ).toContain(reviewGuide);
+    for (const uatId of [
+      "UAT-01",
+      "UAT-02",
+      "UAT-03",
+      "UAT-04",
+      "UAT-05",
+      "UAT-06",
+      "UAT-07",
+      "UAT-08",
+      "UAT-09",
+      "UAT-10",
+    ]) {
+      expect(reviewGuide).toContain(uatId);
+    }
+    expect(reviewGuide).toContain("Manual-only viewer review steps");
+    expect(reviewGuide).toContain("Open `graph-viewer.html` in a local browser.");
+    expect(reviewGuide).toContain("read-only");
   }, 15000);
 });
