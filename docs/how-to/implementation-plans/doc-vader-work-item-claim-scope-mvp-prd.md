@@ -77,6 +77,18 @@ Doc-Vader already has schema-backed Work Items, a legacy Task command projection
 
 - records edge
 
+- Work graph explorer
+
+- DOT graph output
+
+- context-graph output extension
+
+- Derived readiness finding
+
+- graph-backed list
+
+- graph-backed ready
+
 - Runtime Authority
 
 - Storage Adapter
@@ -115,6 +127,14 @@ Aligned with ADR-005 entity governance, ADR-007 Git plus SQLite local runtime au
 
 - Conversation decision: canonical authored edge direction follows assertion ownership; reverse traversal is a query/view concern, not a second authored truth.
 
+- Conversation decision: the MVP needs an operator-facing read-only graph explorer before graph-backed command migration can be reviewed.
+
+- Conversation decision: the graph explorer should support JSON and DOT output, with no separate digraph alias.
+
+- Conversation decision: graph explorer output formats should be implemented as context-graph-compatible output extensions behind the local projection port so JSON and DOT can migrate to native context-graph without rewriting CLI behavior.
+
+- Conversation decision: existing non-mutating Work commands should migrate incrementally to graph-backed behavior, starting with list, then relationship sections in show, then readiness findings and ready selection.
+
 - Code review evidence: backlog/60343 records renewal only on explicit claim-context mutation commands and read-only touch updates last_seen_at without extending expires_at.
 
 - Code review evidence: lib/runtime/sqlite-store.ts renews active claims when runtime lock acquisition mutates claim context.
@@ -127,7 +147,7 @@ Doc-Vader has enough runtime and governance primitives to coordinate local multi
 
 ## Solution
 
-Define a narrow MVP that treats Work as the family/domain term, keeps Work Item as the schema-backed member artifact, reserves Task for one Work Item subtype, projects Work Items, Claims, Claim leases, Claim scopes, Records, changed artifacts, and authored relationship edges into a canonical artifact graph, uses URI-formatted ScopeRef targets for read/write/execute scopes, enforces scope availability through atomic lock policies before command mutation, renews claims only when associated scopes remain available, and verifies mutations by reprojecting graph state after authoritative storage changes. Canonical authored edges follow assertion ownership: a Work Item depends_on prerequisite Work Items, belongs_to its planning/governance parent when declared, implements the PRD/ADR/requirement/decision it realizes, a Claim locks a Scope, and a Record records its subject. Rename the family-wide command surface to dv work, provide dv wi as the terse shorthand, keep dv work-item only as an explicit compatibility/discovery alias if needed, and deprecate dv task as a legacy alias. Use a context-graph-aligned projection port that can adopt context-graph directly when the dependency path is low-friction, mirror Semantify's adapter/profile/projection shape for the first slice, and define explicit pivot signals before adopting Semantify directly.
+Define a narrow MVP that treats Work as the family/domain term, keeps Work Item as the schema-backed member artifact, reserves Task for one Work Item subtype, projects Work Items, Claims, Claim leases, Claim scopes, Records, changed artifacts, and authored relationship edges into a canonical artifact graph, uses URI-formatted ScopeRef targets for read/write/execute scopes, enforces scope availability through atomic lock policies before command mutation, renews claims only when associated scopes remain available, and verifies mutations by reprojecting graph state after authoritative storage changes. Canonical authored edges follow assertion ownership: a Work Item depends_on prerequisite Work Items, belongs_to its planning/governance parent when declared, implements the PRD/ADR/requirement/decision it realizes, a Claim locks a Scope, and a Record records its subject. Add a read-only Work graph explorer that can inspect live repository projection output as JSON or Graphviz DOT so UAC review can validate graph facts directly. Implement JSON and DOT formatting as context-graph-compatible output extensions behind the local projection port, with the CLI selecting formats rather than owning formatter logic. Rename the family-wide command surface to dv work, provide dv wi as the terse shorthand, keep dv work-item only as an explicit compatibility/discovery alias if needed, and deprecate dv task as a legacy alias. Use a context-graph-aligned projection port that can adopt context-graph directly when the dependency path is low-friction, mirror Semantify's adapter/profile/projection shape for the first slice, and define explicit pivot signals before adopting Semantify directly.
 
 ## Coverage Model
 
@@ -228,11 +248,20 @@ Define a narrow MVP that treats Work as the family/domain term, keeps Work Item 
 11. As a future package author, I want the Work Item + Claim MVP to define only the shared projection and scope contracts needed for this slice, so that later extension work can build on proven seams instead of speculative abstractions.
    Covers: future package author / projection / migration path to Semantify
 
+12. As a repository maintainer, I want a read-only graph explorer with JSON and DOT output, so that I can validate Work graph UAC without inferring from command side effects or editing source files.
+   Covers: repository maintainer / projection / graph contract
+
+13. As a CLI user, I want graph projection over the live repository to skip or classify non-projectable documents deterministically, so that helper files such as backlog/AGENTS.md do not make graph inspection fail.
+   Covers: human contributor / projection / deterministic projection
+
+14. As a repository maintainer, I want non-mutating Work commands to migrate toward graph-backed reads in small slices, so that existing output contracts remain stable while graph facts become reviewable.
+   Covers: repository maintainer / projection / command ergonomics
+
 ## Coverage Review
 
 Status: `complete`
 
-The stories cover projection, URI identity, claim creation, scope acquisition, renewal, mutation, verification, command naming, graph contract, and recovery across the Work + Claim vertical. Broader package and query facade concerns are explicitly deferred.
+The stories cover projection, URI identity, graph inspection, claim creation, scope acquisition, renewal, mutation, verification, command naming, graph contract, and recovery across the Work + Claim vertical. Broader package and query facade concerns are explicitly deferred.
 
 ## Quality Review
 
@@ -256,7 +285,7 @@ This PRD is ready to decompose into implementation Work Items. The prior AFK blo
 ## Implementation Decisions
 
 - Keep the current Work projection substrate behind a thin internal, context-graph-aligned port until a published package dependency is lower friction than the local seam.
-  Rationale: The current MVP only needs deterministic node and edge projection plus simple in-process queries. Keeping that behind `lib/work/**` preserves package neutrality while avoiding sibling-workspace coupling.
+  Rationale: The current MVP only needs deterministic node and edge projection plus simple in-process queries. Keeping that behind lib/work/** preserves package neutrality while avoiding sibling-workspace coupling.
 
   Category: `architecture`
 
@@ -370,12 +399,47 @@ This PRD is ready to decompose into implementation Work Items. The prior AFK blo
 
   Category: `architecture`
 
-- Production code must not import a sibling workspace source path for `context-graph`, Semantify, or any other future package candidate; package adoption must happen through a normal package-manager dependency or stay behind the local seam.
+- Production code must not import a sibling workspace source path for context-graph, Semantify, or any other future package candidate; package adoption must happen through a normal package-manager dependency or stay behind the local seam.
   Rationale: Relative cross-workspace imports create hidden coupling to local checkout layout and make package extraction harder than maintaining the current minimal port.
 
   Category: `module-boundary`
 
-- Pivot from the local projection port to a direct `context-graph` dependency when a published package is available and lower friction, or when Doc-Vader would otherwise reimplement provider-scoped graph writes, deterministic snapshot/provenance contracts, or compatibility fixtures beyond the current node and edge assembly.
+- Expose graph projection through a read-only dv work graph / dv wi graph explorer before migrating existing Work commands to the graph as their backing read model.
+  Rationale: The graph must be inspectable directly for UAC review. A dedicated read-only explorer gives maintainers a stable inspection surface without forcing all legacy Work command contracts to move at once.
+
+  Category: `interface`
+
+- Support JSON and Graphviz DOT output for the graph explorer; do not add a separate digraph output alias.
+  Rationale: JSON is the automation and inspection format. DOT is the standard streamable graph visualization format and already describes directed graphs, so an additional digraph alias would add vocabulary without capability.
+
+  Category: `interface`
+
+- Implement graph explorer output formats as context-graph-compatible output extensions behind the local projection port rather than CLI-local formatters.
+  Rationale: The CLI should choose an output extension and stream its result, not own graph serialization semantics. Keeping JSON and DOT behind an extension contract makes a future native context-graph migration a provider swap instead of a command rewrite.
+
+  Category: `module-boundary`
+
+- Make live repository graph projection robust to non-projectable documents by skipping, warning, or classifying them deterministically instead of throwing during graph inspection.
+  Rationale: The current repository contains helper and policy documents such as backlog/AGENTS.md whose identifiers are valid documents but not graph ScopeRefs. Graph inspection must handle those documents without treating them as graph projection failures.
+
+  Category: `architecture`
+
+- Migrate non-mutating Work commands toward graph-backed reads in this order: dv wi list, relationship sections in dv wi show, derived readiness findings, then dv wi ready.
+  Rationale: This sequence exercises graph-backed reads from lowest-risk to highest-governance impact while preserving existing body rendering, runtime diagnostics, and readiness output contracts during migration.
+
+  Category: `interface`
+
+- Keep dv wi status, dv wi prompt, dv wi claim, dv wi recover, and dv wi record out of the graph-backed command migration for this PRD slice.
+  Rationale: These commands depend on runtime state, git worktree state, prompt/body rendering, or mutation-adjacent behavior. Moving them before graph-backed list/show/ready stabilizes would conflate inspection, selection, and mutation concerns.
+
+  Category: `technical-clarification`
+
+- Represent dependency, resource, policy, and evidence blockers as derived readiness findings rather than canonical relationship edges.
+  Rationale: A blocker is a transient operational state, while relationship edges are durable authored facts. Keeping findings separate prevents resource conflicts or missing evidence from being misrepresented as Work Item dependencies.
+
+  Category: `architecture`
+
+- Pivot from the local projection port to a direct context-graph dependency when a published package is available and lower friction, or when Doc-Vader would otherwise reimplement provider-scoped graph writes, deterministic snapshot/provenance contracts, or compatibility fixtures beyond the current node and edge assembly.
   Rationale: The local port is acceptable MVP glue only while it stays thinner than the dependency it is standing in for.
 
   Category: `architecture`
@@ -384,30 +448,6 @@ This PRD is ready to decompose into implementation Work Items. The prior AFK blo
   Rationale: The current projection slices are governance-specific glue, but repeated normalization/profile runtime work is the signal that Semantify should own that concern.
 
   Category: `technical-clarification`
-
-## Package Boundary Guardrails
-
-- Current internal boundary: `lib/work/projection.ts`, `lib/work/claim-verification.ts`, and `lib/work/scope-ref.ts` form the MVP projection and normalization seam. They may compose Doc-Vader runtime/task modules inside this repository, but they stay package-neutral at the boundary.
-
-- Sibling workspace rule: production code under `lib/**` and `cli/**` must not import relative paths that resolve outside the repository root. If `context-graph` or Semantify is adopted, it must arrive as a published/package-manager dependency rather than a sibling checkout path.
-
-- `context-graph` pivot signals:
-  - a normal package dependency is available and cheaper than keeping the local compatibility layer;
-  - Doc-Vader starts duplicating provider-scoped graph writes, deterministic snapshots, provenance, or versioned query contracts;
-  - projection extraction would otherwise require a growing set of local compatibility fixtures.
-
-- Semantify pivot signals:
-  - two or more Doc-Vader adapters or profiles duplicate Semantify-style normalization or data-catalog runtime behavior;
-  - non-Work artifacts need the same normalization/profile pipeline as Work artifacts;
-  - projection output needs reusable catalog/profile execution more than Doc-Vader-specific governance glue.
-
-- Duplication inventory:
-  - `lib/work/projection.ts` graph node and edge assembly is acceptable MVP glue.
-    Next action: keep the port contract-compatible with `context-graph` and pivot instead of expanding into provider/scenario-specific graph infrastructure.
-  - `lib/work/scope-ref.ts` canonicalization plus the lineage subject normalization used by claim verification and record projection is acceptable MVP glue.
-    Next action: keep it local until another non-Work slice needs the same normalization/profile runtime, then adopt Semantify instead of cloning more adapters.
-  - Any future local reimplementation of provider-scoped graph behavior, deterministic snapshot/provenance, or reusable normalization/profile execution is a dependency pivot candidate.
-    Next action: replace the local copy with the package dependency rather than extending the duplicate behavior.
 
 ## Testing Decisions
 
@@ -437,6 +477,14 @@ A Work Item can be claimed, scoped, renewed, mutated, and released only when pro
 
 - context-graph-aligned projection port
 
+- Work graph explorer CLI
+
+- context-graph-compatible output extensions
+
+- DOT graph formatter
+
+- Derived readiness findings
+
 ### Test Seams
 
 - Projection contract (`integration`): Work Item, Claim, Claim lease, Claim scope, Record, and changed artifact facts must project into deterministic nodes and edges with provenance.
@@ -463,6 +511,24 @@ A Work Item can be claimed, scoped, renewed, mutated, and released only when pro
 
   - work-item governance kernel tests
 
+- Graph explorer CLI (`end-to-end`): Maintainers must be able to inspect live repository graph nodes and edges directly as JSON or DOT without mutating repository files or runtime state, and those output formats must be exercised through the same extension seam intended for context-graph migration.
+
+  Prior art:
+
+  - tests/work-projection.test.ts
+
+  - existing Work command JSON output tests
+
+- Derived readiness findings (`integration`): Selection blockers must be represented as derived findings separate from durable relationship edges so resource conflicts and missing evidence do not become authored dependencies.
+
+  Prior art:
+
+  - work-item governance kernel tests
+
+  - deterministic backlog review profile tests
+
+  - task ready selection tests
+
 - Command lifecycle (`end-to-end`): The user-visible contract is project, resolve, gate, mutate, reproject, verify, and record for a Work Item execution path.
 
   Prior art:
@@ -482,6 +548,8 @@ A Work Item can be claimed, scoped, renewed, mutated, and released only when pro
 - tests/work-item-governance-kernel.test.ts
 
 - tests/canonical-task-model.test.ts
+
+- tests/work-projection.test.ts
 
 - context-graph package tests
 
@@ -519,6 +587,20 @@ Existing runtime and legacy Task command projection tests prove claim and lock b
 
 - The graph projection emits WorkItem, Claim, Record, and Scope nodes plus depends_on, belongs_to, implements, locks, and records edges with required attributes.
 
+- Live repository graph projection handles non-projectable policy/helper documents deterministically without crashing graph inspection.
+
+- dv work graph and dv wi graph expose read-only graph inspection with JSON and DOT output.
+
+- Graph explorer JSON and DOT outputs are implemented through context-graph-compatible output extensions rather than CLI-local serializers.
+
+- Graph explorer filtering can inspect nodes, edges, edge types, source nodes, target nodes, and one-node neighborhoods without mutating state.
+
+- dv wi list is graph-backed while preserving its current user-facing output contract.
+
+- dv wi show renders graph-backed relationship sections while preserving canonical Work Item body rendering.
+
+- dv wi ready uses graph relationships plus derived readiness findings without emitting blocks or relates_to as canonical authored edges.
+
 - Claim creation records read, write, and execute scopes and rejects unavailable mutex scopes.
 
 - Claim renewal extends the lease only after all associated scopes are still available.
@@ -547,6 +629,14 @@ Existing runtime and legacy Task command projection tests prove claim and lock b
 
 - Full data catalog product surface.
 
+- Migrating dv wi status to graph-backed output is out of scope for this slice because status combines runtime state, git worktree diagnostics, halted/recoverable analysis, and dirty/unlocked path checks that should stay hybrid until graph-backed list/show/ready are stable.
+
+- Migrating dv wi prompt to graph-backed output is out of scope for this slice because prompt rendering depends on the full canonical Work Item body model, checklist content, and execution instructions rather than relationship facts alone.
+
+- Migrating dv wi claim, dv wi recover, and dv wi record to graph-backed backing models is out of scope for this slice because they are mutation or mutation-adjacent flows and must continue to use authoritative command/runtime paths.
+
+- Adding GraphQL, a generic query language, or a graph mutation API for inspection is out of scope because JSON and DOT explorer output provide enough reviewability without creating a second command surface or authority model.
+
 - Schema-wide rename of frontmatter type: work-item, existing WI identifiers, or persisted historical file names.
 
 - Generic lifecycle support for ADRs, PRDs, READMEs, tutorials, or contributor docs beyond what is needed to support the Work Item + Claim MVP.
@@ -567,9 +657,19 @@ Ready label: `ready-for-agent`
 
 - Use a context-graph-aligned projection port; add a normal context-graph package dependency only when it is lower friction than the minimal local port.
 
+- Implement graph explorer JSON and DOT output as context-graph-compatible output extensions so native context-graph adoption can reuse or replace the extension provider.
+
 - Keep Semantify adoption behind the documented pivot gate.
 
 - Reject sibling-workspace source imports in production code so package adoption happens through published dependencies rather than checkout-relative paths.
+
+- Add a read-only graph explorer before migrating existing non-mutating Work commands to graph-backed reads.
+
+- Support graph explorer output as JSON and DOT only; do not add a digraph alias.
+
+- Migrate graph-backed Work command behavior in order: list, show relationship sections, derived readiness findings, then ready.
+
+- Keep status, prompt, claim, recover, and record hybrid or legacy-backed in this slice unless a later PRD explicitly expands their graph-backed contract.
 
 - Do not make GraphQL part of the command mutation path in the MVP.
 
@@ -614,5 +714,25 @@ Ready label: `ready-for-agent`
 - Build capability: canonical ScopeRef model, read/write/execute scope schema, scope availability policy, and graph projection for Claim scopes.
 
 - Build capability: command lifecycle verification that reprojects graph state after mutation and prevents success when expected graph facts do not appear.
+
+- Package boundary guardrail: lib/work/projection.ts, lib/work/claim-verification.ts, and lib/work/scope-ref.ts are the current MVP seam and may compose in-repo runtime/task modules, but production code must not import sibling workspace source paths.
+
+- Duplication inventory: lib/work/projection.ts node/edge assembly is acceptable MVP glue; keep it contract-compatible with context-graph and pivot instead of growing local provider/scenario-specific graph infrastructure.
+
+- Duplication inventory: ScopeRef canonicalization and record/claim lineage subject normalization are acceptable MVP glue; keep them local until another non-Work slice needs the same normalization/profile runtime, then adopt Semantify instead of cloning more adapters.
+
+- Dependency pivot signal: any future local reimplementation of provider-scoped graph behavior, deterministic snapshot/provenance, or reusable normalization/profile execution should be replaced with the package dependency instead of extended locally.
+
+- Explorer requirement: dv work graph and dv wi graph are read-only UAC surfaces and must not mutate repository files, runtime claims, locks, records, or audit artifacts.
+
+- Explorer requirement: JSON and DOT output must be implemented as context-graph-compatible output extensions behind the local projection port, not as one-off CLI serializers.
+
+- Explorer requirement: JSON output is the automation format and DOT output is the renderable graph visualization format suitable for piping to Graphviz.
+
+- Migration requirement: graph-backed list should be the first migrated non-mutating Work command because it only needs WorkItem nodes and stable ordering.
+
+- Migration requirement: graph-backed show should initially source relationship sections from projection while retaining canonical Work Item loading for body, tasks, acceptance criteria, and prompt-oriented context.
+
+- Migration requirement: graph-backed ready should wait for derived readiness findings so transient blockers remain separate from canonical relationship edges.
 
 - Defer capability: broad Package registry, full GraphQL facade, hosted authority, section-level scope, and code symbol traceability.
