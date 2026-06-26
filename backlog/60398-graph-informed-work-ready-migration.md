@@ -5,10 +5,11 @@ summary: Migrate dv work ready and dv wi ready to use graph relationships plus d
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60397-derived-readiness-findings-projection]]'
@@ -48,19 +49,19 @@ documented and covered by tests.
 
 ## Tasks
 
-- [ ] Locate the current ready selection path and output contract.
-- [ ] Use projected WorkItem nodes and `depends_on` edges for dependency-aware
+- [x] Locate the current ready selection path and output contract.
+- [x] Use projected WorkItem nodes and `depends_on` edges for dependency-aware
       selection.
-- [ ] Consume derived readiness findings for dependency, resource, policy, and
+- [x] Consume derived readiness findings for dependency, resource, policy, and
       evidence blockers.
-- [ ] Preserve current text and JSON output contracts where possible.
-- [ ] Preserve deprecated `dv task ready` compatibility during the migration
+- [x] Preserve current text and JSON output contracts where possible.
+- [x] Preserve deprecated `dv task ready` compatibility during the migration
       window if it currently exists.
-- [ ] Add tests comparing legacy ready selection expectations with
+- [x] Add tests comparing legacy ready selection expectations with
       graph-informed output.
-- [ ] Add tests proving blockers are reported as findings rather than
+- [x] Add tests proving blockers are reported as findings rather than
       relationship edges.
-- [ ] Avoid migrating `status`, `prompt`, `claim`, `recover`, or `record` in
+- [x] Avoid migrating `status`, `prompt`, `claim`, `recover`, or `record` in
       this slice.
 
 ## Deliverables
@@ -71,19 +72,19 @@ documented and covered by tests.
 
 ## Acceptance Criteria
 
-- [ ] `dv wi ready` uses projected WorkItem nodes for candidate selection.
-- [ ] `dv wi ready` uses `depends_on` graph edges for dependency evaluation.
-- [ ] `dv wi ready` excludes or explains unready items through derived
+- [x] `dv wi ready` uses projected WorkItem nodes for candidate selection.
+- [x] `dv wi ready` uses `depends_on` graph edges for dependency evaluation.
+- [x] `dv wi ready` excludes or explains unready items through derived
       readiness findings.
-- [ ] Existing ready output remains stable or intentional differences are
+- [x] Existing ready output remains stable or intentional differences are
       documented and tested.
-- [ ] Deprecated `dv task ready` compatibility remains intact if it currently
+- [x] Deprecated `dv task ready` compatibility remains intact if it currently
       exists.
-- [ ] No canonical `blocks` or `relates_to` edge is emitted or persisted.
-- [ ] `status`, `prompt`, `claim`, `recover`, and `record` behavior is
+- [x] No canonical `blocks` or `relates_to` edge is emitted or persisted.
+- [x] `status`, `prompt`, `claim`, `recover`, and `record` behavior is
       unchanged.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
