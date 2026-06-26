@@ -225,32 +225,66 @@ const WORK_GRAPH_FORMATS = [
   "dot",
 ] as const satisfies readonly WorkGraphExplorerFormat[];
 
-function parseGraphNodeTypes(values: string[] = []): WorkGraphNodeType[] {
-  const allowed = new Set<string>(WORK_GRAPH_NODE_TYPES);
+function parseGraphValues<T extends string>(
+  values: string[] | undefined,
+  allowedValues: readonly T[],
+  errorCode: string,
+  errorMessage: string,
+  errorPayloadKey: string,
+): T[] {
+  const allowed = new Set<string>(allowedValues);
   return [...new Set(values)].map((value) => {
     if (!allowed.has(value)) {
       throw new TaskCommandError(
-        "WORK_GRAPH_INVALID_NODE_TYPE",
-        `Work graph node type must be one of ${WORK_GRAPH_NODE_TYPES.join(", ")}.`,
-        { nodeType: value },
+        errorCode,
+        errorMessage,
+        { [errorPayloadKey]: value },
       );
     }
-    return value as WorkGraphNodeType;
+    return value as T;
   });
 }
 
+function parseGraphNodeTypes(values: string[] = []): WorkGraphNodeType[] {
+  return parseGraphValues(
+    values,
+    WORK_GRAPH_NODE_TYPES,
+    "WORK_GRAPH_INVALID_NODE_TYPE",
+    `Work graph node type must be one of ${WORK_GRAPH_NODE_TYPES.join(", ")}.`,
+    "nodeType",
+  );
+}
+
 function parseGraphEdgeTypes(values: string[] = []): WorkGraphEdgeType[] {
-  const allowed = new Set<string>(WORK_GRAPH_EDGE_TYPES);
-  return [...new Set(values)].map((value) => {
-    if (!allowed.has(value)) {
-      throw new TaskCommandError(
-        "WORK_GRAPH_INVALID_EDGE_TYPE",
-        `Work graph edge type must be one of ${WORK_GRAPH_EDGE_TYPES.join(", ")}.`,
-        { edgeType: value },
-      );
-    }
-    return value as WorkGraphEdgeType;
-  });
+  return parseGraphValues(
+    values,
+    WORK_GRAPH_EDGE_TYPES,
+    "WORK_GRAPH_INVALID_EDGE_TYPE",
+    `Work graph edge type must be one of ${WORK_GRAPH_EDGE_TYPES.join(", ")}.`,
+    "edgeType",
+  );
+}
+
+function createWorkGraphFormatOption(): Option {
+  return new Option("--format <format>", "Output format")
+    .choices([...WORK_GRAPH_FORMATS])
+    .default("json");
+}
+
+async function writeProjectedWorkGraph(
+  format: WorkGraphExplorerFormat,
+  renderResult: ReturnType<typeof createWorkGraphOutputExtension>["render"],
+  selectResult: Parameters<typeof renderResult>[0] extends never
+    ? never
+    : (projection: Awaited<ReturnType<typeof projectWorkGraph>>) => Parameters<typeof renderResult>[0],
+): Promise<void> {
+  try {
+    const projection = await projectWorkGraph();
+    const result = selectResult(projection);
+    process.stdout.write(renderResult(result));
+  } catch (error) {
+    failTaskCommand(error, format === "json");
+  }
 }
 
 function runtimeRootDir(): string {
@@ -1528,11 +1562,7 @@ function registerWorkCommandSurface(surface: Command): void {
   graph
     .command("nodes")
     .description("List projected graph nodes")
-    .addOption(
-      new Option("--format <format>", "Output format")
-        .choices([...WORK_GRAPH_FORMATS])
-        .default("json"),
-    )
+    .addOption(createWorkGraphFormatOption())
     .option(
       "--node-type <type>",
       "Filter by projected node type; repeat or use comma-separated values",
@@ -1544,28 +1574,19 @@ function registerWorkCommandSurface(surface: Command): void {
         format: WorkGraphExplorerFormat;
         nodeType?: string[];
       }) => {
-        try {
-          const projection = await projectWorkGraph();
-          const result = queryWorkGraphNodes(projection, {
+        const render = createWorkGraphOutputExtension(opts.format).render;
+        await writeProjectedWorkGraph(opts.format, render, (projection) =>
+          queryWorkGraphNodes(projection, {
             nodeTypes: parseGraphNodeTypes(opts.nodeType),
-          });
-          process.stdout.write(
-            createWorkGraphOutputExtension(opts.format).render(result),
-          );
-        } catch (error) {
-          failTaskCommand(error, opts.format === "json");
-        }
+          }),
+        );
       },
     );
 
   graph
     .command("edges")
     .description("List projected graph edges")
-    .addOption(
-      new Option("--format <format>", "Output format")
-        .choices([...WORK_GRAPH_FORMATS])
-        .default("json"),
-    )
+    .addOption(createWorkGraphFormatOption())
     .option(
       "--edge-type <type>",
       "Filter by projected edge type; repeat or use comma-separated values",
@@ -1598,20 +1619,15 @@ function registerWorkCommandSurface(surface: Command): void {
         target?: string[];
         node?: string[];
       }) => {
-        try {
-          const projection = await projectWorkGraph();
-          const result = queryWorkGraphEdges(projection, {
+        const render = createWorkGraphOutputExtension(opts.format).render;
+        await writeProjectedWorkGraph(opts.format, render, (projection) =>
+          queryWorkGraphEdges(projection, {
             edgeTypes: parseGraphEdgeTypes(opts.edgeType),
             sourceNodeIds: opts.source ?? [],
             targetNodeIds: opts.target ?? [],
             nodeIds: opts.node ?? [],
-          });
-          process.stdout.write(
-            createWorkGraphOutputExtension(opts.format).render(result),
-          );
-        } catch (error) {
-          failTaskCommand(error, opts.format === "json");
-        }
+          }),
+        );
       },
     );
 
@@ -1619,11 +1635,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .command("inspect")
     .description("Inspect one projected node and its one-node neighborhood")
     .argument("<node-id>", "Projected node id to inspect")
-    .addOption(
-      new Option("--format <format>", "Output format")
-        .choices([...WORK_GRAPH_FORMATS])
-        .default("json"),
-    )
+    .addOption(createWorkGraphFormatOption())
     .action(
       async (
         nodeId: string,
@@ -1631,15 +1643,10 @@ function registerWorkCommandSurface(surface: Command): void {
           format: WorkGraphExplorerFormat;
         },
       ) => {
-        try {
-          const projection = await projectWorkGraph();
-          const result = inspectWorkGraphNode(projection, nodeId);
-          process.stdout.write(
-            createWorkGraphOutputExtension(opts.format).render(result),
-          );
-        } catch (error) {
-          failTaskCommand(error, opts.format === "json");
-        }
+        const render = createWorkGraphOutputExtension(opts.format).render;
+        await writeProjectedWorkGraph(opts.format, render, (projection) =>
+          inspectWorkGraphNode(projection, nodeId),
+        );
       },
     );
 

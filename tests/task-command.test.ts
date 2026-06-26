@@ -448,9 +448,7 @@ Helper policy document that should stay diagnostic-only.
         fs.stat(path.join(root, ".doc-vader", "runtime")),
       ).rejects.toMatchObject({ code: "ENOENT" });
 
-      const nodes = JSON.parse(
-        runCli(root, ["work", "graph", "nodes", "--format", "json"]),
-      ) as {
+      const nodes = JSON.parse(runCli(root, ["work", "graph", "nodes"])) as {
         schemaVersion: string;
         command: string;
         nodes: Array<{ id: string; type: string }>;
@@ -517,6 +515,46 @@ Helper policy document that should stay diagnostic-only.
         }),
       ]);
       expect(edges.diagnostics).toHaveLength(1);
+      const targetEdges = JSON.parse(
+        runCli(root, [
+          "wi",
+          "graph",
+          "edges",
+          "--format",
+          "json",
+          "--target",
+          "wi:60392",
+        ]),
+      ) as {
+        edges: Array<{ type: string; from: string; to: string }>;
+      };
+      expect(targetEdges.edges).toEqual([
+        expect.objectContaining({
+          type: "depends_on",
+          from: "wi:60393",
+          to: "wi:60392",
+        }),
+      ]);
+      const neighborhoodEdges = JSON.parse(
+        runCli(root, [
+          "work",
+          "graph",
+          "edges",
+          "--format",
+          "json",
+          "--node",
+          "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+        ]),
+      ) as {
+        edges: Array<{ type: string; from: string; to: string }>;
+      };
+      expect(neighborhoodEdges.edges).toEqual([
+        expect.objectContaining({
+          type: "implements",
+          from: "wi:60393",
+          to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+        }),
+      ]);
 
       const inspect = JSON.parse(
         runCli(root, [
