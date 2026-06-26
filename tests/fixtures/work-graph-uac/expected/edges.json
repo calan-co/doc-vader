@@ -147,6 +147,7 @@
     {
       "id": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2::belongs_to::scope:wi:70001",
       "type": "belongs_to",
+      "authority": "formal",
       "from": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
       "to": "scope:wi:70001",
       "direction": "authored",
@@ -163,6 +164,7 @@
     {
       "id": "wi:70001::belongs_to::scope:project:work-graph-uac-review",
       "type": "belongs_to",
+      "authority": "formal",
       "from": "wi:70001",
       "to": "scope:project:work-graph-uac-review",
       "direction": "authored",
@@ -171,13 +173,16 @@
         "filePath": "backlog/70001-work-graph-uac-main.md"
       },
       "properties": {
+        "sourceKey": "part_of",
         "rawTarget": "[[project-work-graph-uac-review]]",
+        "resolvedTargetId": "scope:project:work-graph-uac-review",
         "relationship": "part_of"
       }
     },
     {
       "id": "wi:70001::depends_on::wi:70002",
       "type": "depends_on",
+      "authority": "formal",
       "from": "wi:70001",
       "to": "wi:70002",
       "direction": "authored",
@@ -186,13 +191,16 @@
         "filePath": "backlog/70001-work-graph-uac-main.md"
       },
       "properties": {
+        "sourceKey": "depends_on",
         "rawTarget": "[[wi-70002]]",
+        "resolvedTargetId": "wi:70002",
         "relationship": "depends_on"
       }
     },
     {
       "id": "wi:70001::implements::scope:plan:work-graph-uac-review-prd",
       "type": "implements",
+      "authority": "formal",
       "from": "wi:70001",
       "to": "scope:plan:work-graph-uac-review-prd",
       "direction": "authored",
@@ -201,13 +209,16 @@
         "filePath": "backlog/70001-work-graph-uac-main.md"
       },
       "properties": {
+        "sourceKey": "implements",
         "rawTarget": "[[../docs/how-to/implementation-plans/work-graph-uac-review-prd.md]]",
+        "resolvedTargetId": "scope:plan:work-graph-uac-review-prd",
         "relationship": "implements"
       }
     },
     {
       "id": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2::locks::scope:wi:70001",
       "type": "locks",
+      "authority": "formal",
       "from": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
       "to": "scope:wi:70001",
       "direction": "authored",
@@ -216,6 +227,9 @@
         "claimToken": "b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2"
       },
       "properties": {
+        "sourceKey": "scope_lock",
+        "rawTarget": "wi:70001",
+        "resolvedTargetId": "scope:wi:70001",
         "claimToken": "b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
         "scopeRef": "wi:70001",
         "lockMode": "execute",
@@ -231,6 +245,7 @@
     {
       "id": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2::locks::scope:wi:70002",
       "type": "locks",
+      "authority": "formal",
       "from": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
       "to": "scope:wi:70002",
       "direction": "authored",
@@ -239,6 +254,9 @@
         "claimToken": "b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2"
       },
       "properties": {
+        "sourceKey": "scope_lock",
+        "rawTarget": "wi:70002",
+        "resolvedTargetId": "scope:wi:70002",
         "claimToken": "b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
         "scopeRef": "wi:70002",
         "lockMode": "read",
@@ -254,6 +272,7 @@
     {
       "id": "record:work-graph-uac-review::records::claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
       "type": "records",
+      "authority": "formal",
       "from": "record:work-graph-uac-review",
       "to": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
       "direction": "authored",
@@ -262,6 +281,9 @@
         "filePath": "backlog/records/record-work-graph-uac-review.md"
       },
       "properties": {
+        "sourceKey": "subject_reference",
+        "rawTarget": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
+        "resolvedTargetId": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
         "subject": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
         "recordKind": "evidence",
         "frontmatterId": "record:work-graph-uac-review"
@@ -270,6 +292,7 @@
     {
       "id": "record:work-graph-uac-review::records::scope:wi:70001",
       "type": "records",
+      "authority": "formal",
       "from": "record:work-graph-uac-review",
       "to": "scope:wi:70001",
       "direction": "authored",
@@ -278,6 +301,9 @@
         "filePath": "backlog/records/record-work-graph-uac-review.md"
       },
       "properties": {
+        "sourceKey": "subject_reference",
+        "rawTarget": "wi:70001",
+        "resolvedTargetId": "scope:wi:70001",
         "subject": "wi:70001",
         "recordKind": "evidence",
         "frontmatterId": "record:work-graph-uac-review"
@@ -286,6 +312,7 @@
     {
       "id": "record:work-graph-uac-review::records::wi:70001",
       "type": "records",
+      "authority": "formal",
       "from": "record:work-graph-uac-review",
       "to": "wi:70001",
       "direction": "authored",
@@ -294,6 +321,9 @@
         "filePath": "backlog/records/record-work-graph-uac-review.md"
       },
       "properties": {
+        "sourceKey": "subject_reference",
+        "rawTarget": "[[70001-work-graph-uac-main]]",
+        "resolvedTargetId": "wi:70001",
         "subject": "[[70001-work-graph-uac-main]]",
         "recordKind": "evidence",
         "frontmatterId": "record:work-graph-uac-review"

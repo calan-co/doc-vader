@@ -36,7 +36,15 @@ type WorkGraphExportPayload = {
     edgeTypes: Array<{ type: string; count: number }>;
   };
   nodes: Array<{ id: string; type: string }>;
-  edges: Array<{ type: string }>;
+  edges: Array<{
+    type: string;
+    authority: string;
+    properties?: {
+      sourceKey?: string;
+      rawTarget?: string;
+      resolvedTargetId?: string;
+    };
+  }>;
   diagnostics: Array<{
     classification: string;
     relativePath: string;
@@ -175,8 +183,18 @@ describe("work graph UAC review fixture", () => {
     expect(new Set(parsedEdges.edges.map((edge) => edge.type))).toEqual(
       new Set(["depends_on", "belongs_to", "implements", "locks", "records"]),
     );
+    expect(new Set(parsedEdges.edges.map((edge) => edge.authority))).toEqual(
+      new Set(["formal"]),
+    );
     expect(parsedEdges.edges.some((edge) => edge.type === "blocks")).toBe(false);
     expect(parsedEdges.edges.some((edge) => edge.type === "relates_to")).toBe(false);
+    expect(
+      parsedEdges.edges.some(
+        (edge) =>
+          edge.properties?.sourceKey === "depends_on" &&
+          edge.properties?.resolvedTargetId === "wi:70002",
+      ),
+    ).toBe(true);
     expect(parsedExport.schemaVersion).toBe("work-graph-explorer/v1");
     expect(parsedExport.command).toBe("export");
     expect(parsedExport.summary).toEqual({
@@ -249,8 +267,13 @@ describe("work graph UAC review fixture", () => {
     expect(viewerHtml).toContain('id="inspection-panel"');
     expect(viewerHtml).toContain("Read-only Artifact");
     expect(viewerHtml).toContain("Filters and search only change local visibility.");
+    expect(viewerHtml).toContain("Overview");
     expect(viewerHtml).toContain("Trace a directed path between two nodes.");
     expect(viewerHtml).toContain("Diagnostics Context");
+    expect(viewerHtml).toContain('"authority":"formal"');
+    expect(viewerHtml).toContain('"sourceKey":"depends_on"');
+    expect(viewerHtml).toContain('"rawTarget":"[[wi-70002]]"');
+    expect(viewerHtml).toContain('"resolvedTargetId":"wi:70002"');
     expect(viewerHtml).toContain('"searchText":"wi:70001 work graph uac review main backlog/70001-work-graph-uac-main.md"');
     expect(viewerHtml).toContain('"relativePath":"backlog/AGENTS.md"');
 

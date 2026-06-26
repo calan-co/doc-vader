@@ -20,6 +20,8 @@ export type WorkGraphEdgeType =
   | "locks"
   | "records";
 
+export type WorkGraphEdgeAuthority = "formal" | "informational";
+
 export interface WorkGraphNode {
   id: string;
   type: WorkGraphNodeType;
@@ -36,6 +38,7 @@ export interface WorkGraphNode {
 export interface WorkGraphEdge {
   id: string;
   type: WorkGraphEdgeType;
+  authority: WorkGraphEdgeAuthority;
   from: string;
   to: string;
   direction: "authored";
@@ -733,12 +736,14 @@ function createEdge(
   from: WorkGraphNode,
   to: WorkGraphNode,
   type: WorkGraphEdgeType,
+  authority: WorkGraphEdgeAuthority,
   source: WorkGraphEdge["source"],
   properties: JsonObject,
 ): WorkGraphEdge {
   return {
     id: `${from.id}::${type}::${to.id}`,
     type,
+    authority,
     from: from.id,
     to: to.id,
     direction: "authored",
@@ -956,8 +961,12 @@ function readRuntimeProjectionState(rootDir: string): {
 function createRuntimeLockEdgeProperties(
   scopeLock: RuntimeScopeLockRecord,
   claim: RuntimeClaimRecord,
+  resolvedTargetId: string,
 ): JsonObject {
   return {
+    sourceKey: "scope_lock",
+    rawTarget: scopeLock.scope_ref,
+    resolvedTargetId,
     claimToken: scopeLock.claim_token,
     scopeRef: scopeLock.scope_ref,
     lockMode: scopeLock.lock_mode,
@@ -1027,12 +1036,13 @@ function projectRuntimeLockEdges(options: {
         claimNode,
         scopeNode,
         "locks",
+        "formal",
         {
           kind: "runtime",
           claimToken: scopeLock.claim_token,
         },
         {
-          ...createRuntimeLockEdgeProperties(scopeLock, claim),
+          ...createRuntimeLockEdgeProperties(scopeLock, claim, scopeNode.id),
         },
       ),
     );
@@ -1071,12 +1081,15 @@ function projectRelationshipEdges(options: {
         options.sourceNode,
         targetNode,
         "depends_on",
+        "formal",
         {
           kind: "frontmatter",
           filePath: options.document.relativePath,
         },
         {
+          sourceKey: "depends_on",
           rawTarget: target,
+          resolvedTargetId: targetNode.id,
           frontmatterId: asString(options.document.frontmatter.id),
         },
       ),
@@ -1116,12 +1129,15 @@ function projectRelationshipEdges(options: {
         options.sourceNode,
         targetNode,
         mappedType,
+        "formal",
         {
           kind: "relationships",
           filePath: options.document.relativePath,
         },
         {
+          sourceKey: relationship.sourceKey,
           rawTarget: relationship.target,
+          resolvedTargetId: targetNode.id,
           relationship: relationship.sourceKey,
         },
       ),
@@ -1160,11 +1176,15 @@ function projectWorkItemEvidenceEdges(options: {
         recordNode,
         options.sourceNode,
         "records",
+        "formal",
         {
           kind: "frontmatter",
           filePath: options.document.relativePath,
         },
         {
+          sourceKey: "evidence",
+          rawTarget: evidenceRef,
+          resolvedTargetId: recordNode.id,
           subject: evidenceRef,
           recordKind: getRecordKind(recordNode),
           frontmatterId: asString(options.document.frontmatter.id),
@@ -1250,11 +1270,15 @@ function projectRecordEdges(options: {
         options.sourceNode,
         targetNode,
         "records",
+        "formal",
         {
           kind: "relationships",
           filePath: options.document.relativePath,
         },
         {
+          sourceKey: "subject_reference",
+          rawTarget: subject,
+          resolvedTargetId: targetNode.id,
           subject,
           recordKind,
           frontmatterId: asString(options.document.frontmatter.id),
@@ -1342,6 +1366,7 @@ export async function projectWorkGraph(
         claimNode,
         scopeNode,
         "belongs_to",
+        "formal",
         {
           kind: "runtime",
           claimToken: claim.claim_token,

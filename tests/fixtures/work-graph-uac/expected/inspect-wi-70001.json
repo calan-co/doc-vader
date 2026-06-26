@@ -109,6 +109,7 @@
       {
         "id": "wi:70001::belongs_to::scope:project:work-graph-uac-review",
         "type": "belongs_to",
+        "authority": "formal",
         "from": "wi:70001",
         "to": "scope:project:work-graph-uac-review",
         "direction": "authored",
@@ -117,13 +118,16 @@
           "filePath": "backlog/70001-work-graph-uac-main.md"
         },
         "properties": {
+          "sourceKey": "part_of",
           "rawTarget": "[[project-work-graph-uac-review]]",
+          "resolvedTargetId": "scope:project:work-graph-uac-review",
           "relationship": "part_of"
         }
       },
       {
         "id": "wi:70001::depends_on::wi:70002",
         "type": "depends_on",
+        "authority": "formal",
         "from": "wi:70001",
         "to": "wi:70002",
         "direction": "authored",
@@ -132,13 +136,16 @@
           "filePath": "backlog/70001-work-graph-uac-main.md"
         },
         "properties": {
+          "sourceKey": "depends_on",
           "rawTarget": "[[wi-70002]]",
+          "resolvedTargetId": "wi:70002",
           "relationship": "depends_on"
         }
       },
       {
         "id": "wi:70001::implements::scope:plan:work-graph-uac-review-prd",
         "type": "implements",
+        "authority": "formal",
         "from": "wi:70001",
         "to": "scope:plan:work-graph-uac-review-prd",
         "direction": "authored",
@@ -147,7 +154,9 @@
           "filePath": "backlog/70001-work-graph-uac-main.md"
         },
         "properties": {
+          "sourceKey": "implements",
           "rawTarget": "[[../docs/how-to/implementation-plans/work-graph-uac-review-prd.md]]",
+          "resolvedTargetId": "scope:plan:work-graph-uac-review-prd",
           "relationship": "implements"
         }
       }
@@ -156,6 +165,7 @@
       {
         "id": "record:work-graph-uac-review::records::wi:70001",
         "type": "records",
+        "authority": "formal",
         "from": "record:work-graph-uac-review",
         "to": "wi:70001",
         "direction": "authored",
@@ -164,6 +174,9 @@
           "filePath": "backlog/records/record-work-graph-uac-review.md"
         },
         "properties": {
+          "sourceKey": "subject_reference",
+          "rawTarget": "[[70001-work-graph-uac-main]]",
+          "resolvedTargetId": "wi:70001",
           "subject": "[[70001-work-graph-uac-main]]",
           "recordKind": "evidence",
           "frontmatterId": "record:work-graph-uac-review"

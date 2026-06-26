@@ -103,7 +103,11 @@ const syntheticGraph = {
         label: "depends_on",
         stableId: "a->b",
         edgeType: "depends_on" as const,
-        direction: "outgoing" as const,
+        authority: "formal" as const,
+        sourceKey: "depends_on",
+        rawTarget: "[[b]]",
+        resolvedTargetId: "b",
+        direction: "authored" as const,
         provenance: { kind: "relationships" as const, filePath: "backlog/a.md" },
         properties: {},
         filePath: "backlog/a.md",
@@ -119,7 +123,11 @@ const syntheticGraph = {
         label: "depends_on",
         stableId: "c->a",
         edgeType: "depends_on" as const,
-        direction: "outgoing" as const,
+        authority: "informational" as const,
+        sourceKey: "depends_on_typo",
+        rawTarget: "[[a]]",
+        resolvedTargetId: "a",
+        direction: "authored" as const,
         provenance: { kind: "relationships" as const, filePath: "backlog/c.md" },
         properties: {},
         filePath: "backlog/c.md",
@@ -135,7 +143,11 @@ const syntheticGraph = {
         label: "depends_on",
         stableId: "b->d",
         edgeType: "depends_on" as const,
-        direction: "outgoing" as const,
+        authority: "formal" as const,
+        sourceKey: "depends_on",
+        rawTarget: "[[d]]",
+        resolvedTargetId: "d",
+        direction: "authored" as const,
         provenance: { kind: "relationships" as const, filePath: "backlog/b.md" },
         properties: {},
         filePath: "backlog/b.md",
@@ -232,6 +244,10 @@ describe("work graph visualization", () => {
         label: "depends_on",
         stableId: "wi:70001::depends_on::wi:70002",
         edgeType: "depends_on",
+        authority: "formal",
+        sourceKey: "depends_on",
+        rawTarget: "[[wi-70002]]",
+        resolvedTargetId: "wi:70002",
         provenance: {
           kind: "relationships",
           filePath: "backlog/70001-work-graph-uac-main.md",
@@ -253,7 +269,7 @@ describe("work graph visualization", () => {
     expect(html).toContain("Work Graph Viewer");
     expect(html).toContain("Standalone Artifact");
     expect(html).toContain("https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js");
-    expect(html).toContain("Diagnostics are preserved outside Cytoscape elements.");
+    expect(html).toContain("Overview");
     expect(html).toContain('for="graph-search"');
     expect(html).toContain("Search by stable id, label, or source file");
     expect(html).toContain('id="node-type-filters"');
@@ -270,6 +286,10 @@ describe("work graph visualization", () => {
     expect(html).toContain('id="inspection-panel"');
     expect(html).toContain("Select a node or edge to inspect its stable metadata.");
     expect(html).toContain("Diagnostics Context");
+    expect(html).toContain('edge[authority = "informational"]');
+    expect(html).toContain('"authority":"formal"');
+    expect(html).toContain('"sourceKey":"depends_on"');
+    expect(html).toContain('"resolvedTargetId":"wi:70002"');
     expect(html).toContain('"searchText":"wi:70001 work graph uac review main backlog/70001-work-graph-uac-main.md"');
     expect(html).toContain('"filePath":"backlog/70001-work-graph-uac-main.md"');
     expect(html).toContain('"id":"wi:70001"');

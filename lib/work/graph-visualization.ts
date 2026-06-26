@@ -4,6 +4,7 @@ import { TaskCommandError } from "../task/errors.js";
 import type { WorkGraphExportResult, WorkGraphSummary } from "./graph-explorer.js";
 import type {
   WorkGraphEdge,
+  WorkGraphEdgeAuthority,
   WorkGraphNode,
   WorkGraphProjectionDiagnostic,
 } from "./projection.js";
@@ -31,6 +32,10 @@ export interface WorkGraphCytoscapeEdgeElement {
     readonly label: string;
     readonly stableId: string;
     readonly edgeType: WorkGraphEdge["type"];
+    readonly authority: WorkGraphEdgeAuthority;
+    readonly sourceKey?: string;
+    readonly rawTarget?: string;
+    readonly resolvedTargetId?: string;
     readonly direction: WorkGraphEdge["direction"];
     readonly provenance: WorkGraphEdge["source"];
     readonly properties: WorkGraphEdge["properties"];
@@ -148,6 +153,18 @@ function adaptNodeElement(node: WorkGraphNode): WorkGraphCytoscapeNodeElement {
 
 function adaptEdgeElement(edge: WorkGraphEdge): WorkGraphCytoscapeEdgeElement {
   const filePath = provenanceFilePath(edge.source);
+  const properties =
+    typeof edge.properties === "object" && edge.properties !== null
+      ? edge.properties
+      : {};
+  const sourceKey =
+    typeof properties.sourceKey === "string" ? properties.sourceKey : undefined;
+  const rawTarget =
+    typeof properties.rawTarget === "string" ? properties.rawTarget : undefined;
+  const resolvedTargetId =
+    typeof properties.resolvedTargetId === "string"
+      ? properties.resolvedTargetId
+      : undefined;
   return {
     group: "edges",
     data: {
@@ -157,9 +174,13 @@ function adaptEdgeElement(edge: WorkGraphEdge): WorkGraphCytoscapeEdgeElement {
       label: edge.type,
       stableId: edge.id,
       edgeType: edge.type,
+      authority: edge.authority,
+      sourceKey,
+      rawTarget,
+      resolvedTargetId,
       direction: edge.direction,
       provenance: edge.source,
-      properties: edge.properties,
+      properties,
       filePath,
       searchText: searchText([edge.id, edge.type, filePath]),
     },
@@ -498,13 +519,20 @@ export function renderStandaloneWorkGraphViewer(
       .shell {
         min-height: 100vh;
         display: grid;
-        grid-template-columns: minmax(280px, 360px) 1fr;
+        grid-template-columns: minmax(280px, 340px) 1fr minmax(300px, 380px);
       }
-      .sidebar {
+      .sidebar,
+      .detailbar {
         padding: 24px;
-        border-right: 1px solid var(--line);
         background: var(--panel);
         backdrop-filter: blur(8px);
+      }
+      .sidebar {
+        border-right: 1px solid var(--line);
+      }
+      .detailbar {
+        border-left: 1px solid var(--line);
+        overflow-y: auto;
       }
       .eyebrow {
         margin: 0 0 12px;
@@ -518,7 +546,7 @@ export function renderStandaloneWorkGraphViewer(
         font-size: 2rem;
         line-height: 1;
       }
-      .summary, .diagnostics {
+      .summary {
         margin-top: 20px;
         padding: 16px;
         border: 1px solid var(--line);
@@ -532,11 +560,11 @@ export function renderStandaloneWorkGraphViewer(
         border-radius: 16px;
         background: rgba(255, 255, 255, 0.82);
       }
-      .summary p, .diagnostics p {
+      .summary p {
         margin: 0 0 12px;
         color: var(--muted);
       }
-      .summary ul, .diagnostics ul {
+      .summary ul {
         margin: 0;
         padding-left: 18px;
       }
@@ -668,7 +696,14 @@ export function renderStandaloneWorkGraphViewer(
       }
       @media (max-width: 900px) {
         .shell { grid-template-columns: 1fr; }
-        .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .detailbar {
+          border-left: 0;
+          border-top: 1px solid var(--line);
+        }
         .viewer { min-height: 70vh; }
       }
     </style>
@@ -679,23 +714,6 @@ export function renderStandaloneWorkGraphViewer(
         <p class="eyebrow">Standalone Artifact</p>
         <h1>${title}</h1>
         <p class="badge">${escapeHtml(graph.schemaVersion)}</p>
-        <section class="summary">
-          <p>${escapeHtml(summaryText)}</p>
-          <ul>
-            ${graph.summary.nodeTypes
-              .map(
-                (entry) =>
-                  `<li>node:${escapeHtml(entry.type)} = ${entry.count}</li>`,
-              )
-              .join("")}
-            ${graph.summary.edgeTypes
-              .map(
-                (entry) =>
-                  `<li>edge:${escapeHtml(entry.type)} = ${entry.count}</li>`,
-              )
-              .join("")}
-          </ul>
-        </section>
         <section class="controls">
           <h2>Review Controls</h2>
           <label for="graph-search">Search graph</label>
@@ -739,23 +757,6 @@ export function renderStandaloneWorkGraphViewer(
             <p id="path-results" class="results">No directed path found between the selected nodes.</p>
           </div>
         </section>
-        <section class="inspection">
-          <h2>Inspection</h2>
-          <div id="inspection-panel">
-            <p class="inspection-empty">Select a node or edge to inspect its stable metadata.</p>
-          </div>
-        </section>
-        <section class="diagnostics">
-          <p>Diagnostics are preserved outside Cytoscape elements.</p>
-          <ul>
-            ${graph.diagnostics
-              .map(
-                (entry) =>
-                  `<li>${escapeHtml(entry.relativePath)} (${escapeHtml(entry.reasonCode)})</li>`,
-              )
-              .join("") || "<li>none</li>"}
-          </ul>
-        </section>
       </aside>
       <main class="viewer">
         <div class="viewer-header">
@@ -764,6 +765,33 @@ export function renderStandaloneWorkGraphViewer(
         </div>
         <div id="graph" aria-label="Work graph visualization"></div>
       </main>
+      <aside class="detailbar">
+        <section class="summary">
+          <h2>Overview</h2>
+          <p>${escapeHtml(summaryText)}</p>
+          <ul>
+            ${graph.summary.nodeTypes
+              .map(
+                (entry) =>
+                  `<li>node:${escapeHtml(entry.type)} = ${entry.count}</li>`,
+              )
+              .join("")}
+            ${graph.summary.edgeTypes
+              .map(
+                (entry) =>
+                  `<li>edge:${escapeHtml(entry.type)} = ${entry.count}</li>`,
+              )
+              .join("")}
+            <li>diagnostics = ${graph.summary.diagnosticCount}</li>
+          </ul>
+        </section>
+        <section class="inspection">
+          <h2>Inspection</h2>
+          <div id="inspection-panel">
+            <p class="inspection-empty">Select a node or edge to inspect its stable metadata.</p>
+          </div>
+        </section>
+      </aside>
     </div>
     <script id="work-graph-data" type="application/json">${payload}</script>
     <script src="https://unpkg.com/cytoscape@3.33.1/dist/cytoscape.min.js"></script>
@@ -859,7 +887,15 @@ export function renderStandaloneWorkGraphViewer(
               "text-background-opacity": 1,
               "text-background-color": "#fffbeb",
               "text-background-padding": 2,
+              "line-style": "solid",
               "overlay-opacity": 0
+            }
+          },
+          {
+            selector: 'edge[authority = "informational"]',
+            style: {
+              "line-style": "dashed",
+              "target-arrow-shape": "vee"
             }
           },
           {
@@ -950,6 +986,10 @@ export function renderStandaloneWorkGraphViewer(
             ["id", entry.id],
             ["stable id", entry.stableId],
             ["edge type", entry.edgeType],
+            ["authority", entry.authority],
+            ["source key", entry.sourceKey || "none"],
+            ["raw target", entry.rawTarget || "none"],
+            ["resolved target id", entry.resolvedTargetId || "none"],
             ["direction", entry.direction],
             ["source", entry.source],
             ["target", entry.target],
