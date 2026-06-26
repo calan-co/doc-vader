@@ -4,13 +4,21 @@ export {
   createWorkProjectionPort,
   projectRepositoryGraph,
   projectWorkGraph,
+  type WorkGraphProjection,
   type ProjectWorkGraphOptions,
   type WorkGraphEdge,
   type WorkGraphEdgeType,
   type WorkGraphNode,
   type WorkGraphNodeType,
-  type WorkGraphProjection,
 } from "./projection.js";
+export {
+  WorkGraphVerificationError,
+  renewWorkClaimWithGraphVerification,
+  type RenewWorkClaimWithGraphVerificationOptions,
+  type RenewWorkClaimWithGraphVerificationResult,
+  type RenewWorkClaimWithGraphVerificationSuccess,
+  type WorkGraphVerificationDiagnostic,
+} from "./claim-verification.js";
 
 export {
   TaskCommandError as WorkCommandError,

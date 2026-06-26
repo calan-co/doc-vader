@@ -5,10 +5,11 @@ summary: Verify graph facts after scope-gated command mutations and fail closed 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60387-claim-lock-graph-projection]]'
@@ -46,14 +47,14 @@ WorkItem, Claim, Scope, or `locks` edge facts do not appear after mutation.
 
 ## Tasks
 
-- [ ] Choose the lowest-risk representative scope-gated mutation command.
-- [ ] Project current graph facts before command gating.
-- [ ] Gate the command using the authoritative claim-scope policy path.
-- [ ] Mutate the authoritative store through existing command infrastructure.
-- [ ] Reproject after mutation.
-- [ ] Verify expected graph facts and edge attributes after mutation.
-- [ ] Fail closed with deterministic diagnostics if verification fails.
-- [ ] Add tests for successful verification and projection mismatch failure.
+- [x] Choose the lowest-risk representative scope-gated mutation command.
+- [x] Project current graph facts before command gating.
+- [x] Gate the command using the authoritative claim-scope policy path.
+- [x] Mutate the authoritative store through existing command infrastructure.
+- [x] Reproject after mutation.
+- [x] Verify expected graph facts and edge attributes after mutation.
+- [x] Fail closed with deterministic diagnostics if verification fails.
+- [x] Add tests for successful verification and projection mismatch failure.
 
 ## Deliverables
 
@@ -63,14 +64,14 @@ WorkItem, Claim, Scope, or `locks` edge facts do not appear after mutation.
 
 ## Acceptance Criteria
 
-- [ ] A scope-gated command performs project, gate, mutate, reproject, and verify
+- [x] A scope-gated command performs project, gate, mutate, reproject, and verify
       steps.
-- [ ] The command does not rely on projection as the source of write authority.
-- [ ] The command fails closed when expected graph facts are missing or stale.
-- [ ] Verification diagnostics identify the missing node or edge facts.
-- [ ] Tests prove both success and mismatch failure behavior.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] The command does not rely on projection as the source of write authority.
+- [x] The command fails closed when expected graph facts are missing or stale.
+- [x] Verification diagnostics identify the missing node or edge facts.
+- [x] Tests prove both success and mismatch failure behavior.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
@@ -82,3 +83,7 @@ WorkItem, Claim, Scope, or `locks` edge facts do not appear after mutation.
 - `depends_on`: `[[60387-claim-lock-graph-projection]]`
 - `depends_on`: `[[60388-scope-gated-renewal]]`
 - `implements`: `[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]`
+
+## Status Notes
+
+- 2026-06-26: Completed on `sandcastle/issue-60389` by wrapping claim renewal with a project-gate-mutate-reproject-verify helper, adding success and mismatch tests, and re-running `pnpm run typecheck`, `pnpm run test`, `pnpm run docs:lint`, and `pnpm run backlog:validate`.
