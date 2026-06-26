@@ -70,6 +70,9 @@ describe("work graph UAC review fixture", () => {
 
     const nodes = runCli(rootDir, ["work", "graph", "nodes", "--format", "json"]);
     const edges = runCli(rootDir, ["work", "graph", "edges", "--format", "json"]);
+    const summary = runCli(rootDir, ["work", "graph", "summary"]);
+    const exportJson = runCli(rootDir, ["work", "graph", "export", "--format", "json"]);
+    const exportDot = runCli(rootDir, ["work", "graph", "export", "--format", "dot"]);
     const inspect = runCli(rootDir, [
       "work",
       "graph",
@@ -93,18 +96,48 @@ describe("work graph UAC review fixture", () => {
     expect(edges).toBe(
       await readFile(path.join(workGraphUacExpectedDir, "edges.json"), "utf8"),
     );
+    expect(summary).toBe(
+      [
+        "Work Graph Summary",
+        "Nodes\t4 scope, 2 work-item, 1 claim, 1 record",
+        "Edges\t3 records, 2 belongs_to, 2 locks, 1 depends_on, 1 implements",
+        "Diagnostics\t1",
+        "Totals\t8 nodes, 9 edges",
+        "",
+      ].join("\n"),
+    );
     expect(inspect).toBe(
       await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.json"), "utf8"),
     );
     expect(dot).toBe(
       await readFile(path.join(workGraphUacExpectedDir, "inspect-wi-70001.dot"), "utf8"),
     );
+    expect(exportDot.startsWith("digraph WorkGraph {\n")).toBe(true);
 
     const parsedNodes = JSON.parse(nodes) as {
       nodes: Array<{ type: string }>;
     };
     const parsedEdges = JSON.parse(edges) as {
       edges: Array<{ type: string }>;
+    };
+    const parsedExport = JSON.parse(exportJson) as {
+      schemaVersion: string;
+      command: string;
+      summary: {
+        nodeCount: number;
+        edgeCount: number;
+        diagnosticCount: number;
+        nodeTypes: Array<{ type: string; count: number }>;
+        edgeTypes: Array<{ type: string; count: number }>;
+      };
+      nodes: Array<{ id: string; type: string }>;
+      edges: Array<{ type: string }>;
+      diagnostics: Array<{
+        classification: string;
+        relativePath: string;
+        documentId: string;
+        reasonCode: string;
+      }>;
     };
 
     expect(new Set(parsedNodes.nodes.map((node) => node.type))).toEqual(
@@ -115,6 +148,42 @@ describe("work graph UAC review fixture", () => {
     );
     expect(parsedEdges.edges.some((edge) => edge.type === "blocks")).toBe(false);
     expect(parsedEdges.edges.some((edge) => edge.type === "relates_to")).toBe(false);
+    expect(parsedExport.schemaVersion).toBe("work-graph-explorer/v1");
+    expect(parsedExport.command).toBe("export");
+    expect(parsedExport.summary).toEqual({
+      nodeCount: 8,
+      edgeCount: 9,
+      diagnosticCount: 1,
+      nodeTypes: [
+        { type: "scope", count: 4 },
+        { type: "work-item", count: 2 },
+        { type: "claim", count: 1 },
+        { type: "record", count: 1 },
+      ],
+      edgeTypes: [
+        { type: "records", count: 3 },
+        { type: "belongs_to", count: 2 },
+        { type: "locks", count: 2 },
+        { type: "depends_on", count: 1 },
+        { type: "implements", count: 1 },
+      ],
+    });
+    expect(parsedExport.nodes).toHaveLength(8);
+    expect(parsedExport.edges).toHaveLength(9);
+    expect(parsedExport.diagnostics).toEqual([
+      {
+        classification: "unsupported",
+        relativePath: "backlog/AGENTS.md",
+        documentId: "backloga-2056",
+        reasonCode: "unsupported-document-type",
+      },
+    ]);
+    expect(parsedExport.nodes.some((node) => node.id === "backlog/AGENTS.md")).toBe(
+      false,
+    );
+    expect(exportDot).toContain(
+      '"record:work-graph-uac-review" -> "wi:70001" [label="records"]',
+    );
     expect(dot.startsWith("digraph WorkGraph {\n")).toBe(true);
 
     const after = await snapshotFiles(rootDir);

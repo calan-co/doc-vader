@@ -26,6 +26,21 @@ node --import tsx "$REPO_ROOT/scripts/work-graph-uac-review-fixture.ts" "$FIXTUR
 
 (
   cd "$FIXTURE_ROOT" && \
+    node --import "$TSX_IMPORT" "$REPO_ROOT/cli/doc-vader.ts" work graph summary
+)
+
+(
+  cd "$FIXTURE_ROOT" && \
+    node --import "$TSX_IMPORT" "$REPO_ROOT/cli/doc-vader.ts" work graph export --format json
+)
+
+(
+  cd "$FIXTURE_ROOT" && \
+    node --import "$TSX_IMPORT" "$REPO_ROOT/cli/doc-vader.ts" work graph export --format dot
+)
+
+(
+  cd "$FIXTURE_ROOT" && \
     node --import "$TSX_IMPORT" "$REPO_ROOT/cli/doc-vader.ts" work graph inspect wi:70001 --format json
 )
 
@@ -44,8 +59,15 @@ Compare the results with:
 
 Review checklist:
 
+- `summary` reports total nodes, edges, diagnostics, and stable type rollups.
+- `export --format json` uses the `work-graph-explorer/v1` schema and keeps
+  `summary`, `nodes`, `edges`, and `diagnostics` as separate top-level fields.
+- `export --format dot` renders the same canonical nodes and edges as a directed
+  Graphviz graph.
 - `nodes.json` includes WorkItem, Claim, Record, and Scope nodes.
 - `edges.json` includes `depends_on`, `belongs_to`, `implements`, `locks`, and
   `records`.
 - `edges.json` does not include canonical `blocks` or `relates_to` edges.
 - `inspect-wi-70001.dot` is a renderable directed graph.
+- The review commands are read-only and do not create new runtime or audit
+  artifacts after fixture staging.

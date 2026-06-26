@@ -16,19 +16,27 @@ export {
 } from "./projection.js";
 export {
   createWorkGraphOutputExtension,
+  exportWorkGraph,
   inspectWorkGraphNode,
   queryWorkGraphEdges,
   queryWorkGraphNodes,
+  summarizeWorkGraphProjection,
   type WorkGraphEdgesQuery,
   type WorkGraphEdgesResult,
   type WorkGraphExplorerCommand,
   type WorkGraphExplorerFormat,
+  type WorkGraphExportFormat,
+  type WorkGraphExportResult,
   type WorkGraphExplorerResult,
   type WorkGraphNeighborhood,
   type WorkGraphNodesQuery,
   type WorkGraphNodesResult,
   type WorkGraphOutputExtension,
   type WorkGraphInspectResult,
+  type WorkGraphSummary,
+  type WorkGraphSummaryCount,
+  type WorkGraphSummaryFormat,
+  type WorkGraphSummaryResult,
 } from "./graph-explorer.js";
 export {
   WorkGraphVerificationError,

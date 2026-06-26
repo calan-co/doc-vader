@@ -8,8 +8,15 @@ import type {
   WorkGraphProjectionDiagnostic,
 } from "./projection.js";
 
-export type WorkGraphExplorerFormat = "json" | "dot";
-export type WorkGraphExplorerCommand = "nodes" | "edges" | "inspect";
+export type WorkGraphExplorerFormat = "json" | "dot" | "table";
+export type WorkGraphSummaryFormat = "table" | "json";
+export type WorkGraphExportFormat = "json" | "dot";
+export type WorkGraphExplorerCommand =
+  | "nodes"
+  | "edges"
+  | "inspect"
+  | "summary"
+  | "export";
 const WORK_GRAPH_EXPLORER_SCHEMA_VERSION = "work-graph-explorer/v1";
 
 export interface WorkGraphNodesQuery {
@@ -27,6 +34,19 @@ export interface WorkGraphNeighborhood {
   readonly nodes: readonly WorkGraphNode[];
   readonly outgoingEdges: readonly WorkGraphEdge[];
   readonly incomingEdges: readonly WorkGraphEdge[];
+}
+
+export interface WorkGraphSummaryCount<T extends string> {
+  readonly type: T;
+  readonly count: number;
+}
+
+export interface WorkGraphSummary {
+  readonly nodeCount: number;
+  readonly edgeCount: number;
+  readonly diagnosticCount: number;
+  readonly nodeTypes: readonly WorkGraphSummaryCount<WorkGraphNodeType>[];
+  readonly edgeTypes: readonly WorkGraphSummaryCount<WorkGraphEdgeType>[];
 }
 
 export interface WorkGraphNodesResult {
@@ -61,10 +81,28 @@ export interface WorkGraphInspectResult {
   readonly diagnostics: readonly WorkGraphProjectionDiagnostic[];
 }
 
+export interface WorkGraphSummaryResult {
+  readonly schemaVersion: typeof WORK_GRAPH_EXPLORER_SCHEMA_VERSION;
+  readonly command: "summary";
+  readonly summary: WorkGraphSummary;
+  readonly diagnostics: readonly WorkGraphProjectionDiagnostic[];
+}
+
+export interface WorkGraphExportResult {
+  readonly schemaVersion: typeof WORK_GRAPH_EXPLORER_SCHEMA_VERSION;
+  readonly command: "export";
+  readonly summary: WorkGraphSummary;
+  readonly nodes: readonly WorkGraphNode[];
+  readonly edges: readonly WorkGraphEdge[];
+  readonly diagnostics: readonly WorkGraphProjectionDiagnostic[];
+}
+
 export type WorkGraphExplorerResult =
   | WorkGraphNodesResult
   | WorkGraphEdgesResult
-  | WorkGraphInspectResult;
+  | WorkGraphInspectResult
+  | WorkGraphSummaryResult
+  | WorkGraphExportResult;
 
 export interface WorkGraphOutputExtension {
   readonly format: WorkGraphExplorerFormat;
@@ -86,6 +124,21 @@ function stableEdges(edges: readonly WorkGraphEdge[]): WorkGraphEdge[] {
 
 function stableStrings(values: Iterable<string>): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+
+function stableCounts<T extends string>(
+  values: Iterable<T>,
+): WorkGraphSummaryCount<T>[] {
+  const counts = new Map<T, number>();
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(
+      ([leftType, leftCount], [rightType, rightCount]) =>
+        rightCount - leftCount || leftType.localeCompare(rightType),
+    )
+    .map(([type, count]) => ({ type, count }));
 }
 
 function stableNodeIds(values: readonly string[] | undefined): string[] {
@@ -154,6 +207,38 @@ class DotWorkGraphOutputExtension implements WorkGraphOutputExtension {
   }
 }
 
+class TableWorkGraphOutputExtension implements WorkGraphOutputExtension {
+  readonly format = "table" as const;
+
+  render(result: WorkGraphExplorerResult): string {
+    if (result.command !== "summary") {
+      throw new TaskCommandError(
+        "WORK_GRAPH_FORMAT_UNSUPPORTED",
+        "Work graph table output is only supported for summary.",
+        { command: result.command, format: this.format },
+      );
+    }
+
+    const formatCounts = <T extends string>(
+      counts: readonly WorkGraphSummaryCount<T>[],
+    ): string => {
+      if (counts.length === 0) {
+        return "0";
+      }
+      return counts.map(({ type, count }) => `${count} ${type}`).join(", ");
+    };
+
+    const lines = [
+      "Work Graph Summary",
+      `Nodes\t${formatCounts(result.summary.nodeTypes)}`,
+      `Edges\t${formatCounts(result.summary.edgeTypes)}`,
+      `Diagnostics\t${result.summary.diagnosticCount}`,
+      `Totals\t${result.summary.nodeCount} nodes, ${result.summary.edgeCount} edges`,
+    ];
+    return `${lines.join("\n")}\n`;
+  }
+}
+
 function collectInspectNodes(
   projection: WorkGraphProjection,
   node: WorkGraphNode,
@@ -195,6 +280,14 @@ function dotSelection(
           ...result.neighborhood.incomingEdges,
         ]),
       ];
+    case "export":
+      return [stableNodes(result.nodes), stableEdges(result.edges)];
+    case "summary":
+      throw new TaskCommandError(
+        "WORK_GRAPH_FORMAT_UNSUPPORTED",
+        "Work graph summary cannot be rendered as dot.",
+        { command: result.command, format: "dot" },
+      );
   }
 }
 
@@ -206,13 +299,27 @@ export function createWorkGraphOutputExtension(
       return new JsonWorkGraphOutputExtension();
     case "dot":
       return new DotWorkGraphOutputExtension();
+    case "table":
+      return new TableWorkGraphOutputExtension();
     default:
       throw new TaskCommandError(
         "WORK_GRAPH_FORMAT_UNSUPPORTED",
-        "Work graph explorer format must be json or dot.",
+        "Work graph explorer format must be json, dot, or table.",
         { format },
       );
   }
+}
+
+function summarizeWorkGraph(
+  projection: WorkGraphProjection,
+): WorkGraphSummary {
+  return {
+    nodeCount: projection.nodes.length,
+    edgeCount: projection.edges.length,
+    diagnosticCount: projection.diagnostics.length,
+    nodeTypes: stableCounts(projection.nodes.map((node) => node.type)),
+    edgeTypes: stableCounts(projection.edges.map((edge) => edge.type)),
+  };
 }
 
 export function queryWorkGraphNodes(
@@ -310,6 +417,30 @@ export function inspectWorkGraphNode(
       outgoingEdges,
       incomingEdges,
     },
+    diagnostics: projection.diagnostics,
+  };
+}
+
+export function summarizeWorkGraphProjection(
+  projection: WorkGraphProjection,
+): WorkGraphSummaryResult {
+  return {
+    schemaVersion: WORK_GRAPH_EXPLORER_SCHEMA_VERSION,
+    command: "summary",
+    summary: summarizeWorkGraph(projection),
+    diagnostics: projection.diagnostics,
+  };
+}
+
+export function exportWorkGraph(
+  projection: WorkGraphProjection,
+): WorkGraphExportResult {
+  return {
+    schemaVersion: WORK_GRAPH_EXPLORER_SCHEMA_VERSION,
+    command: "export",
+    summary: summarizeWorkGraph(projection),
+    nodes: stableNodes(projection.nodes),
+    edges: stableEdges(projection.edges),
     diagnostics: projection.diagnostics,
   };
 }

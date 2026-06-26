@@ -74,6 +74,7 @@ import {
   completeWorkClaim as completeTaskClaim,
   assertWorkClaimable as assertTaskClaimable,
   createWorkGraphOutputExtension,
+  exportWorkGraph,
   inspectWorkGraphNode,
   loadCanonicalWork as loadCanonicalTask,
   loadWorkShowModel as loadTaskShowModel,
@@ -90,6 +91,7 @@ import {
   formatReadyPorcelain,
   formatReadyText,
   selectReadyWorkItems as selectReadyTasks,
+  summarizeWorkGraphProjection,
   resolveWorkRoot as resolveGitRoot,
   resolveWorkAuthority as resolveTaskAuthority,
   collectWorkRecoveryGitState as collectTaskRecoveryGitState,
@@ -99,8 +101,10 @@ import {
   type WorkRecoveryGitState as TaskRecoveryGitState,
   type WorkGraphEdgeType,
   type WorkGraphExplorerResult,
+  type WorkGraphExportFormat,
   type WorkGraphExplorerFormat,
   type WorkGraphNodeType,
+  type WorkGraphSummaryFormat,
   WorkCommandError as TaskCommandError,
   toWorkErrorPayload as toTaskErrorPayload,
 } from "../lib/work/index.js";
@@ -222,10 +226,18 @@ const WORK_GRAPH_EDGE_TYPES = [
   "records",
 ] as const satisfies readonly WorkGraphEdgeType[];
 
-const WORK_GRAPH_FORMATS = [
+const WORK_GRAPH_QUERY_FORMATS = [
   "json",
   "dot",
 ] as const satisfies readonly WorkGraphExplorerFormat[];
+const WORK_GRAPH_SUMMARY_FORMATS = [
+  "table",
+  "json",
+] as const satisfies readonly WorkGraphSummaryFormat[];
+const WORK_GRAPH_EXPORT_FORMATS = [
+  "json",
+  "dot",
+] as const satisfies readonly WorkGraphExportFormat[];
 
 function parseGraphValues<T extends string>(
   values: string[] | undefined,
@@ -267,10 +279,13 @@ function parseGraphEdgeTypes(values: string[] = []): WorkGraphEdgeType[] {
   );
 }
 
-function createWorkGraphFormatOption(): Option {
+function createWorkGraphFormatOption<T extends string>(
+  formats: readonly T[],
+  defaultFormat: T,
+): Option {
   return new Option("--format <format>", "Output format")
-    .choices([...WORK_GRAPH_FORMATS])
-    .default("json");
+    .choices([...formats])
+    .default(defaultFormat);
 }
 
 async function writeProjectedWorkGraph(
@@ -1562,9 +1577,37 @@ function registerWorkCommandSurface(surface: Command): void {
     .description("Inspect the projected read-only Work graph");
 
   graph
+    .command("summary")
+    .description("Summarize the projected graph")
+    .addOption(createWorkGraphFormatOption(WORK_GRAPH_SUMMARY_FORMATS, "table"))
+    .action(
+      async (opts: {
+        format: WorkGraphSummaryFormat;
+      }) => {
+        await writeProjectedWorkGraph(opts.format, (projection) =>
+          summarizeWorkGraphProjection(projection),
+        );
+      },
+    );
+
+  graph
+    .command("export")
+    .description("Export the full projected graph")
+    .addOption(createWorkGraphFormatOption(WORK_GRAPH_EXPORT_FORMATS, "json"))
+    .action(
+      async (opts: {
+        format: WorkGraphExportFormat;
+      }) => {
+        await writeProjectedWorkGraph(opts.format, (projection) =>
+          exportWorkGraph(projection),
+        );
+      },
+    );
+
+  graph
     .command("nodes")
     .description("List projected graph nodes")
-    .addOption(createWorkGraphFormatOption())
+    .addOption(createWorkGraphFormatOption(WORK_GRAPH_QUERY_FORMATS, "json"))
     .option(
       "--node-type <type>",
       "Filter by projected node type; repeat or use comma-separated values",
@@ -1587,7 +1630,7 @@ function registerWorkCommandSurface(surface: Command): void {
   graph
     .command("edges")
     .description("List projected graph edges")
-    .addOption(createWorkGraphFormatOption())
+    .addOption(createWorkGraphFormatOption(WORK_GRAPH_QUERY_FORMATS, "json"))
     .option(
       "--edge-type <type>",
       "Filter by projected edge type; repeat or use comma-separated values",
@@ -1635,7 +1678,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .command("inspect")
     .description("Inspect one projected node and its one-node neighborhood")
     .argument("<node-id>", "Projected node id to inspect")
-    .addOption(createWorkGraphFormatOption())
+    .addOption(createWorkGraphFormatOption(WORK_GRAPH_QUERY_FORMATS, "json"))
     .action(
       async (
         nodeId: string,

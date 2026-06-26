@@ -869,6 +869,102 @@ Helper policy document that should stay diagnostic-only.
         );
         expect(inspect.neighborhood.incomingEdges).toEqual([]);
 
+        const summaryText = runCli(root, ["work", "graph", "summary"]);
+        expect(summaryText).toContain("Work Graph Summary");
+        expect(summaryText).toContain("Nodes\t3 scope, 2 work-item");
+        expect(summaryText).toContain("Edges\t1 depends_on, 1 implements");
+        expect(summaryText).toContain("Diagnostics\t1");
+
+        const summaryJson = runCliJson<{
+          schemaVersion: string;
+          command: string;
+          summary: {
+            nodeCount: number;
+            edgeCount: number;
+            diagnosticCount: number;
+            nodeTypes: Array<{ type: string; count: number }>;
+            edgeTypes: Array<{ type: string; count: number }>;
+          };
+        }>(root, ["wi", "graph", "summary", "--format", "json"]);
+        expect(summaryJson.schemaVersion).toBe("work-graph-explorer/v1");
+        expect(summaryJson.command).toBe("summary");
+        expect(summaryJson.summary).toEqual({
+          nodeCount: 5,
+          edgeCount: 2,
+          diagnosticCount: 1,
+          nodeTypes: [
+            { type: "scope", count: 3 },
+            { type: "work-item", count: 2 },
+          ],
+          edgeTypes: [
+            { type: "depends_on", count: 1 },
+            { type: "implements", count: 1 },
+          ],
+        });
+
+        const exported = runCliJson<{
+          schemaVersion: string;
+          command: string;
+          summary: {
+            nodeCount: number;
+            edgeCount: number;
+            diagnosticCount: number;
+          };
+          nodes: Array<{ id: string; type: string }>;
+          edges: Array<{ type: string; from: string; to: string }>;
+          diagnostics: Array<{ relativePath: string; reasonCode: string }>;
+        }>(root, ["work", "graph", "export"]);
+        expect(exported.schemaVersion).toBe("work-graph-explorer/v1");
+        expect(exported.command).toBe("export");
+        expect(exported.summary).toMatchObject({
+          nodeCount: 5,
+          edgeCount: 2,
+          diagnosticCount: 1,
+        });
+        expect(exported.nodes).toEqual(
+          expect.arrayContaining([
+          expect.objectContaining({ id: "scope:wi:60392" }),
+          expect.objectContaining({ id: "scope:wi:60393" }),
+          expect.objectContaining({ id: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd" }),
+          expect.objectContaining({ id: "wi:60392" }),
+          expect.objectContaining({ id: "wi:60393" }),
+          ]),
+        );
+        expect(exported.edges).toEqual(
+          expect.arrayContaining([
+          expect.objectContaining({
+            type: "depends_on",
+            from: "wi:60393",
+            to: "wi:60392",
+          }),
+          expect.objectContaining({
+            type: "implements",
+            from: "wi:60393",
+            to: "scope:plan:doc-vader-work-item-claim-scope-mvp-prd",
+          }),
+          ]),
+        );
+        expect(exported.diagnostics).toEqual([
+          expect.objectContaining({
+            relativePath: "backlog/AGENTS.md",
+            reasonCode: "unsupported-document-type",
+          }),
+        ]);
+        expect(exported.nodes.some((node) => node.id === "backlog/AGENTS.md")).toBe(false);
+
+        const exportDot = runCli(root, [
+          "work",
+          "graph",
+          "export",
+          "--format",
+          "dot",
+        ]);
+        expect(exportDot).toContain("digraph WorkGraph {");
+        expect(exportDot).toContain('"wi:60393" -> "wi:60392" [label="depends_on"]');
+        expect(exportDot).toContain(
+          '"wi:60393" -> "scope:plan:doc-vader-work-item-claim-scope-mvp-prd" [label="implements"]',
+        );
+
         const dot = runCli(root, [
           "work",
           "graph",
