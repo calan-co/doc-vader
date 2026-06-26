@@ -5,10 +5,11 @@ summary: Project record relationships into graph edges and expose claim, scope, 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60387-claim-lock-graph-projection]]'
@@ -50,16 +51,16 @@ projected lineage for scope-gated command records and Work Item evidence.
 
 ## Tasks
 
-- [ ] Define the `records` edge type and record-kind attributes.
-- [ ] Ensure `records` follows the canonical authored direction:
+- [x] Define the `records` edge type and record-kind attributes.
+- [x] Ensure `records` follows the canonical authored direction:
       `Record --records--> WorkItem|Claim|Scope`.
-- [ ] Project Record nodes from existing backlog/runtime records.
-- [ ] Project `Record --records--> WorkItem` edges for Work Item evidence where
+- [x] Project Record nodes from existing backlog/runtime records.
+- [x] Project `Record --records--> WorkItem` edges for Work Item evidence where
       references are available.
-- [ ] Project `Record --records--> Claim` and `Record --records--> Scope` edges
+- [x] Project `Record --records--> Claim` and `Record --records--> Scope` edges
       for claim-scope command records where references are available.
-- [ ] Extend audit output with deterministic record lineage.
-- [ ] Add tests for record edge projection and audit ordering.
+- [x] Extend audit output with deterministic record lineage.
+- [x] Add tests for record edge projection and audit ordering.
 
 ## Deliverables
 
@@ -70,16 +71,16 @@ projected lineage for scope-gated command records and Work Item evidence.
 
 ## Acceptance Criteria
 
-- [ ] Records project as graph nodes with stable identifiers.
-- [ ] Record relationships project as `Record --records--> target` edges.
-- [ ] `records` edges follow the assertion-owner-to-target direction.
-- [ ] Record edges include record-kind attributes.
-- [ ] Audit output can show claim, scope, and Work Item lineage for projected
+- [x] Records project as graph nodes with stable identifiers.
+- [x] Record relationships project as `Record --records--> target` edges.
+- [x] `records` edges follow the assertion-owner-to-target direction.
+- [x] Record edges include record-kind attributes.
+- [x] Audit output can show claim, scope, and Work Item lineage for projected
       records.
-- [ ] Projection remains deterministic across repeated runs.
-- [ ] Tests cover WorkItem, Claim, and Scope record targets.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Projection remains deterministic across repeated runs.
+- [x] Tests cover WorkItem, Claim, and Scope record targets.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
