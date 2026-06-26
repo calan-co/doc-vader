@@ -5,8 +5,9 @@ summary: Generate a read-only standalone HTML viewer from canonical full-graph e
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
+completed_date: '2026-06-26'
 priority: high
 estimated: 5
 links:
@@ -49,18 +50,18 @@ shapes do not become canonical graph contract shapes.
 
 ## Tasks
 
-- [ ] Define an adapter boundary from canonical export JSON to Cytoscape
+- [x] Define an adapter boundary from canonical export JSON to Cytoscape
       elements.
-- [ ] Preserve stable ids, labels, source/provenance metadata, and diagnostics
+- [x] Preserve stable ids, labels, source/provenance metadata, and diagnostics
       context through the adapter.
-- [ ] Add a read-only `dv work graph visualize` / `dv wi graph visualize`
+- [x] Add a read-only `dv work graph visualize` / `dv wi graph visualize`
       command that accepts canonical export JSON input and writes a standalone
       HTML artifact.
-- [ ] Keep the HTML artifact self-contained enough to open locally without a
+- [x] Keep the HTML artifact self-contained enough to open locally without a
       running app server.
-- [ ] Ensure the viewer artifact does not reproject the repository or mutate any
+- [x] Ensure the viewer artifact does not reproject the repository or mutate any
       runtime/governance state.
-- [ ] Add focused tests for adapter fidelity, artifact generation, and read-only
+- [x] Add focused tests for adapter fidelity, artifact generation, and read-only
       behavior.
 
 ## Deliverables
@@ -71,17 +72,17 @@ shapes do not become canonical graph contract shapes.
 
 ## Acceptance Criteria
 
-- [ ] Canonical export JSON can be translated into Cytoscape elements without
+- [x] Canonical export JSON can be translated into Cytoscape elements without
       losing stable ids or metadata.
-- [ ] `dv work graph visualize` can generate a standalone HTML artifact from
+- [x] `dv work graph visualize` can generate a standalone HTML artifact from
       export JSON.
-- [ ] The generated viewer opens locally without a dedicated app server.
-- [ ] Cytoscape-specific element shapes remain non-canonical and live behind the
+- [x] The generated viewer opens locally without a dedicated app server.
+- [x] Cytoscape-specific element shapes remain non-canonical and live behind the
       adapter seam.
-- [ ] Viewer generation is read-only and does not create claims, locks, records,
+- [x] Viewer generation is read-only and does not create claims, locks, records,
       audit files, or repository edits beyond the explicit output artifact.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
