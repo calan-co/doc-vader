@@ -354,17 +354,29 @@ function normalizeDependencyId(ref: string): string {
   return match ? `wi-${match[1]}` : stripped;
 }
 
+function dependencySatisfied(
+  status: string | undefined,
+  lifecycle: string | undefined,
+): boolean {
+  return (
+    status === "completed" ||
+    status === "closed" ||
+    lifecycle === "inactive"
+  );
+}
+
 function documentTaskId(document: ReadyDocument): string | undefined {
   return document.frontmatter ? asString(document.frontmatter.id) : undefined;
 }
 
-function documentKeys(document: ReadyDocument): string[] {
+function documentReferenceAliases(document: ReadyDocument): string[] {
   const basename = path.basename(document.filePath, ".md");
   const id = documentTaskId(document);
+  const numericPrefix = basename.match(/^(\d+)/)?.[1];
   return [
     ...(id ? [id, id.replace(/^wi-/, "")] : []),
     basename,
-    ...(basename.match(/^(\d+)/)?.[1] ? [basename.match(/^(\d+)/)?.[1] as string] : []),
+    ...(numericPrefix ? [numericPrefix] : []),
   ];
 }
 
@@ -376,7 +388,7 @@ function findDependencyDocument(
   const normalizedId = normalizeDependencyId(ref);
   const numeric = normalizedId.replace(/^wi-/, "");
   return documents.find((document) => {
-    const keys = documentKeys(document);
+    const keys = documentReferenceAliases(document);
     return (
       keys.includes(stripped) ||
       keys.includes(normalizedId) ||
@@ -403,30 +415,7 @@ function toDependency(
     ...(status ? { status } : {}),
     ...(lifecycle ? { lifecycle } : {}),
     ...(dependency ? { filePath: dependency.relativePath } : {}),
-    satisfied: status === "completed" || status === "closed" || lifecycle === "inactive",
-    stateKnown: Boolean(dependency && !dependency.parseError && status),
-  };
-}
-
-function toGovernanceDependency(
-  ref: string,
-  documents: ReadyDocument[],
-): WorkItemGovernanceDependency {
-  const dependency = findDependencyDocument(ref, documents);
-  const id = normalizeDependencyId(ref);
-  const status = dependency?.frontmatter
-    ? asString(dependency.frontmatter.status)
-    : undefined;
-  const lifecycle = dependency?.frontmatter
-    ? asString(dependency.frontmatter.lifecycle)
-    : undefined;
-  return {
-    id,
-    ref,
-    ...(status ? { status } : {}),
-    ...(lifecycle ? { lifecycle } : {}),
-    ...(dependency ? { filePath: dependency.relativePath } : {}),
-    satisfied: status === "completed" || status === "closed" || lifecycle === "inactive",
+    satisfied: dependencySatisfied(status, lifecycle),
     stateKnown: Boolean(dependency && !dependency.parseError && status),
   };
 }
@@ -470,14 +459,8 @@ function isProjectedBacklogWorkItem(
   );
 }
 
-function collectDocumentAliases(document: ReadyDocument): string[] {
-  const basename = path.basename(document.filePath, ".md");
-  const id = documentTaskId(document);
-  return [
-    ...(id ? [id, id.replace(/^wi-/, "")] : []),
-    basename,
-    ...(basename.match(/^(\d+)/)?.[1] ? [basename.match(/^(\d+)/)?.[1] as string] : []),
-  ].map((entry) => entry.trim().toLowerCase());
+function normalizedDocumentReferenceAliases(document: ReadyDocument): string[] {
+  return documentReferenceAliases(document).map((entry) => entry.trim().toLowerCase());
 }
 
 function dependencyMatchesRef(
@@ -493,8 +476,27 @@ function dependencyMatchesRef(
 
   const dependencyDocument = documentsById.get(dependency.id);
   return dependencyDocument
-    ? collectDocumentAliases(dependencyDocument).includes(stripped)
+    ? normalizedDocumentReferenceAliases(dependencyDocument).includes(stripped)
     : false;
+}
+
+function projectedNodeDependencyId(node: WorkGraphNode): string {
+  return typeof node.properties.frontmatterId === "string"
+    ? node.properties.frontmatterId
+    : node.id.replace(/^wi:/, "wi-");
+}
+
+function projectedNodeDependencyState(
+  node: WorkGraphNode,
+  dependencyDocument: ReadyDocument | undefined,
+): { status?: string; lifecycle?: string } {
+  const status = dependencyDocument?.frontmatter
+    ? asString(dependencyDocument.frontmatter.status)
+    : asString(node.properties.status);
+  const lifecycle = dependencyDocument?.frontmatter
+    ? asString(dependencyDocument.frontmatter.lifecycle)
+    : asString(node.properties.lifecycle);
+  return { ...(status ? { status } : {}), ...(lifecycle ? { lifecycle } : {}) };
 }
 
 function buildGraphReadyDependencies(options: {
@@ -519,28 +521,19 @@ function buildGraphReadyDependencies(options: {
     .map((edge) => options.projection.findNode(edge.to))
     .filter((node): node is WorkGraphNode => Boolean(node && node.type === "work-item"))
     .map((node) => {
-      const dependencyId = typeof node.properties.frontmatterId === "string"
-        ? node.properties.frontmatterId
-        : node.id.replace(/^wi:/, "wi-");
+      const dependencyId = projectedNodeDependencyId(node);
       const dependencyDocument = options.documentsById.get(dependencyId);
-      const status = dependencyDocument?.frontmatter
-        ? asString(dependencyDocument.frontmatter.status)
-        : typeof node.properties.status === "string"
-          ? node.properties.status
-          : undefined;
-      const lifecycle = dependencyDocument?.frontmatter
-        ? asString(dependencyDocument.frontmatter.lifecycle)
-        : typeof node.properties.lifecycle === "string"
-          ? node.properties.lifecycle
-          : undefined;
+      const { status, lifecycle } = projectedNodeDependencyState(
+        node,
+        dependencyDocument,
+      );
       return {
         id: dependencyId,
         ref: `[[${dependencyId}]]`,
         ...(status ? { status } : {}),
         ...(lifecycle ? { lifecycle } : {}),
         ...(dependencyDocument ? { filePath: dependencyDocument.relativePath } : {}),
-        satisfied:
-          status === "completed" || status === "closed" || lifecycle === "inactive",
+        satisfied: dependencySatisfied(status, lifecycle),
         stateKnown: Boolean(status),
       } satisfies ReadyTaskDependency;
     });
