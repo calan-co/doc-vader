@@ -5,10 +5,11 @@ summary: Make live repository Work graph projection skip or classify non-project
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 3
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60386-projection-port-tracer]]'
@@ -50,16 +51,16 @@ artifacts as part of projection.
 
 ## Tasks
 
-- [ ] Find the live repository projection path used by Work graph queries.
-- [ ] Add a deterministic non-projectable document classification result.
-- [ ] Include diagnostic fields for path, document id when available, and
+- [x] Find the live repository projection path used by Work graph queries.
+- [x] Add a deterministic non-projectable document classification result.
+- [x] Include diagnostic fields for path, document id when available, and
       reason code.
-- [ ] Ensure valid WorkItem, Claim, Record, and Scope facts still project.
-- [ ] Ensure helper documents such as `backlog/AGENTS.md` do not crash
+- [x] Ensure valid WorkItem, Claim, Record, and Scope facts still project.
+- [x] Ensure helper documents such as `backlog/AGENTS.md` do not crash
       projection.
-- [ ] Add focused tests for non-projectable documents and live repository
+- [x] Add focused tests for non-projectable documents and live repository
       projection behavior.
-- [ ] Document any intentionally skipped document classes in code comments or
+- [x] Document any intentionally skipped document classes in code comments or
       test names.
 
 ## Deliverables
@@ -70,18 +71,18 @@ artifacts as part of projection.
 
 ## Acceptance Criteria
 
-- [ ] A live projection over `backlog` and `docs` succeeds when
+- [x] A live projection over `backlog` and `docs` succeeds when
       `backlog/AGENTS.md` is present.
-- [ ] Non-projectable documents are reported with stable path, id when known,
+- [x] Non-projectable documents are reported with stable path, id when known,
       and reason code.
-- [ ] Projectable WorkItem, Claim, Record, and Scope nodes and edges are still
+- [x] Projectable WorkItem, Claim, Record, and Scope nodes and edges are still
       emitted with existing provenance.
-- [ ] Projection remains read-only and does not write runtime or repository
+- [x] Projection remains read-only and does not write runtime or repository
       artifacts.
-- [ ] Tests cover at least one valid generic document whose id is not a
+- [x] Tests cover at least one valid generic document whose id is not a
       canonical ScopeRef.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
