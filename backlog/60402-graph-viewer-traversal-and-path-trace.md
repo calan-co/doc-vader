@@ -5,8 +5,9 @@ summary: Add one-hop traversal and path tracing to the standalone graph viewer s
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
+completed_date: '2026-06-26'
 priority: high
 estimated: 5
 links:
@@ -46,12 +47,12 @@ two selected nodes with clear handling when no path exists.
 
 ## Tasks
 
-- [ ] Add one-hop incoming and outgoing neighbor expansion from a selected node.
-- [ ] Add a focused neighborhood view for selected traversal context.
-- [ ] Add path tracing between two selected nodes.
-- [ ] Highlight traced paths clearly and return a clear no-path state when
+- [x] Add one-hop incoming and outgoing neighbor expansion from a selected node.
+- [x] Add a focused neighborhood view for selected traversal context.
+- [x] Add path tracing between two selected nodes.
+- [x] Highlight traced paths clearly and return a clear no-path state when
       appropriate.
-- [ ] Add focused tests or fixture assertions for traversal and path trace
+- [x] Add focused tests or fixture assertions for traversal and path trace
       behavior.
 
 ## Deliverables
@@ -62,14 +63,14 @@ two selected nodes with clear handling when no path exists.
 
 ## Acceptance Criteria
 
-- [ ] A reviewer can expand incoming and outgoing neighbors from a selected node.
-- [ ] A reviewer can focus the graph on a selected one-hop neighborhood.
-- [ ] A reviewer can request a path between two selected nodes when one exists.
-- [ ] The viewer reports a clear no-path state when the selected nodes are not
+- [x] A reviewer can expand incoming and outgoing neighbors from a selected node.
+- [x] A reviewer can focus the graph on a selected one-hop neighborhood.
+- [x] A reviewer can request a path between two selected nodes when one exists.
+- [x] The viewer reports a clear no-path state when the selected nodes are not
       connected.
-- [ ] Traversal does not mutate the underlying graph facts.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Traversal does not mutate the underlying graph facts.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
