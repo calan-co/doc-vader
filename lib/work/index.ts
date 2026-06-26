@@ -65,6 +65,16 @@ export {
   type TaskModelErrorCode as WorkModelErrorCode,
 } from "../task/canonical.js";
 export {
+  loadTaskShowModel as loadWorkShowModel,
+  renderHumanTaskShow as renderHumanWorkShow,
+  type LoadTaskShowOptions as LoadWorkShowOptions,
+  type RenderTaskShowOptions as RenderHumanWorkShowOptions,
+  type TaskShowActiveLock as WorkShowActiveLock,
+  type TaskShowModel as WorkShowModel,
+  type TaskShowRecordRelationship as WorkShowRecordRelationship,
+  type TaskShowRelationship as WorkShowRelationship,
+} from "../task/show.js";
+export {
   collectTaskRecoveryGitState as collectWorkRecoveryGitState,
   isRecoverableReadyRuntimeState,
   type TaskRecoveryGitState as WorkRecoveryGitState,

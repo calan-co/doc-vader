@@ -76,6 +76,7 @@ import {
   createWorkGraphOutputExtension,
   inspectWorkGraphNode,
   loadCanonicalWork as loadCanonicalTask,
+  loadWorkShowModel as loadTaskShowModel,
   loadWorkModel as loadTaskModel,
   listWorkModels as listTaskModels,
   projectWorkGraph,
@@ -84,7 +85,7 @@ import {
   readWorkRecordPayload as readRecordPayload,
   recoverWorkClaim as recoverTaskClaim,
   recordWorkEvidence as recordTaskEvidence,
-  renderHumanWork as renderHumanTask,
+  renderHumanWorkShow as renderHumanTaskShow,
   renderSandcastleWorkPrompt as renderSandcastlePrompt,
   formatReadyPorcelain,
   formatReadyText,
@@ -1764,7 +1765,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .action(
       async (taskId: string, opts: { json?: boolean; backlogDir?: string }) => {
         try {
-          const model = await loadCanonicalTask({
+          const model = await loadTaskShowModel({
             taskId,
             backlogDir: opts.backlogDir,
           });
@@ -1772,7 +1773,7 @@ function registerWorkCommandSurface(surface: Command): void {
             printTaskJson(model);
             return;
           }
-          console.log(await renderHumanTask({ task: model }));
+          console.log(await renderHumanTaskShow({ task: model }));
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
