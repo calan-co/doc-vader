@@ -5,10 +5,11 @@ summary: Migrate dv work list and dv wi list to read Work Items from graph proje
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60393-read-only-work-graph-explorer-cli]]'
@@ -45,16 +46,16 @@ compatibility test that makes the change explicit.
 
 ## Tasks
 
-- [ ] Locate the current `dv task list`, `dv work list`, or `dv wi list`
+- [x] Locate the current `dv task list`, `dv work list`, or `dv wi list`
       implementation path.
-- [ ] Add a graph-backed WorkItem node query for list selection.
-- [ ] Preserve existing filters, ordering, and output fields.
-- [ ] Keep deprecated `dv task list` compatibility behavior working during the
+- [x] Add a graph-backed WorkItem node query for list selection.
+- [x] Preserve existing filters, ordering, and output fields.
+- [x] Keep deprecated `dv task list` compatibility behavior working during the
       migration window.
-- [ ] Ensure non-projectable documents do not affect list output.
-- [ ] Add regression tests comparing legacy list expectations to graph-backed
+- [x] Ensure non-projectable documents do not affect list output.
+- [x] Add regression tests comparing legacy list expectations to graph-backed
       results.
-- [ ] Avoid migrating unrelated Work commands in this slice.
+- [x] Avoid migrating unrelated Work commands in this slice.
 
 ## Deliverables
 
@@ -64,17 +65,17 @@ compatibility test that makes the change explicit.
 
 ## Acceptance Criteria
 
-- [ ] `dv wi list` selects Work Items from projected WorkItem nodes.
-- [ ] `dv work list` has equivalent behavior to `dv wi list`.
-- [ ] Existing list text output remains stable.
-- [ ] Existing list JSON output remains stable or any intentional difference is
+- [x] `dv wi list` selects Work Items from projected WorkItem nodes.
+- [x] `dv work list` has equivalent behavior to `dv wi list`.
+- [x] Existing list text output remains stable.
+- [x] Existing list JSON output remains stable or any intentional difference is
       documented and tested.
-- [ ] Deprecated `dv task list` compatibility remains intact if it currently
+- [x] Deprecated `dv task list` compatibility remains intact if it currently
       exists.
-- [ ] `dv wi list` is not affected by valid non-projectable documents.
-- [ ] No mutation or runtime claim behavior is introduced.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] `dv wi list` is not affected by valid non-projectable documents.
+- [x] No mutation or runtime claim behavior is introduced.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
