@@ -5,8 +5,9 @@ summary: Extend the graph review fixture path so summary, export, visualization,
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: completed
+status_reason: completed
+completed_date: '2026-06-26'
 priority: medium
 estimated: 4
 links:
@@ -53,18 +54,18 @@ scenario.
 
 ## Tasks
 
-- [ ] Expand the existing Work graph UAC fixture or add a dedicated
+- [x] Expand the existing Work graph UAC fixture or add a dedicated
       visualization fixture with stable expected outputs for summary and full
       export.
-- [ ] Add fixture-backed review coverage for standalone viewer artifact
+- [x] Add fixture-backed review coverage for standalone viewer artifact
       generation.
-- [ ] Add a deterministic reviewer checklist that maps each UAT scenario to one
+- [x] Add a deterministic reviewer checklist that maps each UAT scenario to one
       or more commands or review actions.
-- [ ] Add automated tests or snapshot assertions where practical for summary,
+- [x] Add automated tests or snapshot assertions where practical for summary,
       export, adapter fidelity, artifact generation, and read-only behavior.
-- [ ] Document any viewer interactions that remain manual review rather than
+- [x] Document any viewer interactions that remain manual review rather than
       automated assertions.
-- [ ] Ensure the UAT flow remains read-only except for explicit output artifacts
+- [x] Ensure the UAT flow remains read-only except for explicit output artifacts
       such as exported JSON, DOT, or generated HTML.
 
 ## Deliverables
@@ -77,17 +78,17 @@ scenario.
 
 ## Acceptance Criteria
 
-- [ ] A reviewer can run one documented fixture-backed flow to validate summary,
+- [x] A reviewer can run one documented fixture-backed flow to validate summary,
       export, and visualization behavior.
-- [ ] The review path maps every accepted UAT scenario to explicit evidence.
-- [ ] Fixture outputs prove read-only behavior for graph review commands and
+- [x] The review path maps every accepted UAT scenario to explicit evidence.
+- [x] Fixture outputs prove read-only behavior for graph review commands and
       viewer generation.
-- [ ] Automated assertions exist for every stable artifact contract that can be
+- [x] Automated assertions exist for every stable artifact contract that can be
       checked non-interactively.
-- [ ] Any manual-only viewer interactions are explicitly documented rather than
+- [x] Any manual-only viewer interactions are explicitly documented rather than
       implied.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `pnpm run backlog:validate`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `pnpm run backlog:validate`.
 
 ## Blocked by
 
