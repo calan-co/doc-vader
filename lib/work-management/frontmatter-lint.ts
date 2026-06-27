@@ -274,6 +274,15 @@ function loadConsumerSeverityConfig(): ConsumerSeverityConfig {
   }
 }
 
+function shouldSkipArchiveValidation(
+  file: string,
+  consumerConfig: ConsumerSeverityConfig,
+): boolean {
+  const archiveSeverity =
+    consumerConfig.automation?.prePushValidation?.severity?.archive;
+  return file.startsWith("archive/") && archiveSeverity === "none";
+}
+
 function parseCliArgs(argv: string[]): { strict: boolean; fileArgs: string[] } {
   const fileArgs: string[] = [];
   let strict = false;
@@ -301,15 +310,6 @@ function resolveSchemaPath(schemaPath: string): string {
   }
 
   const schemaRelative = normalized.replace(/^schemas\//, "");
-  const rootCandidate = join(SCHEMAS_ROOT, schemaRelative);
-  if (existsSync(rootCandidate)) {
-    return rootCandidate;
-  }
-
-  if (!rootCandidate.endsWith(".json") && existsSync(`${rootCandidate}.json`)) {
-    return `${rootCandidate}.json`;
-  }
-
   const workspaceCandidate = join(process.cwd(), normalized);
   if (existsSync(workspaceCandidate)) {
     return workspaceCandidate;
@@ -319,12 +319,24 @@ function resolveSchemaPath(schemaPath: string): string {
     return `${workspaceCandidate}.json`;
   }
 
+  const rootCandidate = join(SCHEMAS_ROOT, schemaRelative);
+  if (existsSync(rootCandidate)) {
+    return rootCandidate;
+  }
+
+  if (!rootCandidate.endsWith(".json") && existsSync(`${rootCandidate}.json`)) {
+    return `${rootCandidate}.json`;
+  }
+
   const fallback = join(SCHEMA_DIR, schemaRelative);
   return fallback.endsWith(".json") ? fallback : `${fallback}.json`;
 }
 
 function collectSchemaFiles(dirPath: string): string[] {
   const files: string[] = [];
+  if (!existsSync(dirPath)) {
+    return files;
+  }
 
   for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
     const fullPath = join(dirPath, entry.name);
@@ -449,7 +461,15 @@ function loadSchemas() {
   const schemaMapPath = join(SCHEMA_DIR, "schema-map.json");
   const schemaMap = parseJsonFile<SchemaMap>(schemaMapPath);
   const supportedTypes = Object.keys(schemaMap.byType).sort();
+  const workspaceSchemaRoot = join(process.cwd(), "schemas");
+  const workspaceFrontmatterSchemaDir = join(workspaceSchemaRoot, "frontmatter");
+  const workspaceWorkManagementSchemaDir = join(
+    workspaceSchemaRoot,
+    "work-management",
+  );
   const schemaFiles = [
+    ...collectSchemaFiles(workspaceFrontmatterSchemaDir),
+    ...collectSchemaFiles(workspaceWorkManagementSchemaDir),
     ...collectSchemaFiles(SCHEMA_DIR),
     ...collectSchemaFiles(WORK_MANAGEMENT_SCHEMA_DIR),
   ].sort();
@@ -468,26 +488,44 @@ function loadSchemas() {
     const schema = parseJsonFile<Record<string, unknown>>(schemaFile);
     addSchemaIfMissing(ajv, schema);
     addSchemaIfMissing(workManagementAjv, schema);
-    if (schemaFile.startsWith(WORK_MANAGEMENT_SCHEMA_DIR)) {
+    if (
+      schemaFile.startsWith(WORK_MANAGEMENT_SCHEMA_DIR) ||
+      schemaFile.startsWith(workspaceWorkManagementSchemaDir)
+    ) {
       workManagementSchemas.push(schema);
     }
   }
 
+  const workspaceTransitionProfilePath = join(
+    workspaceWorkManagementSchemaDir,
+    "workflows",
+    "default",
+    "transition-profile.json",
+  );
+  const workspaceTransitionProfileSchemaPath = join(
+    workspaceWorkManagementSchemaDir,
+    "support",
+    "transition-profile.schema.json",
+  );
   const transitionProfile = compileTransitionProfile(
     parseJsonFile<Record<string, unknown>>(
-      join(
-        WORK_MANAGEMENT_SCHEMA_DIR,
-        "workflows",
-        "default",
-        "transition-profile.json",
-      ),
+      existsSync(workspaceTransitionProfilePath)
+        ? workspaceTransitionProfilePath
+        : join(
+            WORK_MANAGEMENT_SCHEMA_DIR,
+            "workflows",
+            "default",
+            "transition-profile.json",
+          ),
     ),
     parseJsonFile<Record<string, unknown>>(
-      join(
-        WORK_MANAGEMENT_SCHEMA_DIR,
-        "support",
-        "transition-profile.schema.json",
-      ),
+      existsSync(workspaceTransitionProfileSchemaPath)
+        ? workspaceTransitionProfileSchemaPath
+        : join(
+            WORK_MANAGEMENT_SCHEMA_DIR,
+            "support",
+            "transition-profile.schema.json",
+          ),
     ),
     workManagementSchemas,
   );
@@ -850,6 +888,10 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
 
   // Second pass: Validate each backlog frontmatter file
   for (const file of files) {
+    if (shouldSkipArchiveValidation(file, consumerConfig)) {
+      continue;
+    }
+
     try {
       const filePath = join(backlogDir, file);
       const content = readFileSync(filePath, "utf-8");
