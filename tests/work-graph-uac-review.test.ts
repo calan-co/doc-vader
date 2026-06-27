@@ -181,10 +181,17 @@ describe("work graph UAC review fixture", () => {
       new Set(["work-item", "claim", "record", "scope"]),
     );
     expect(new Set(parsedEdges.edges.map((edge) => edge.type))).toEqual(
-      new Set(["depends_on", "belongs_to", "implements", "locks", "records"]),
+      new Set([
+        "depends_on",
+        "belongs_to",
+        "implements",
+        "locks",
+        "records",
+        "references",
+      ]),
     );
     expect(new Set(parsedEdges.edges.map((edge) => edge.authority))).toEqual(
-      new Set(["formal"]),
+      new Set(["formal", "informational"]),
     );
     expect(parsedEdges.edges.some((edge) => edge.type === "blocks")).toBe(false);
     expect(parsedEdges.edges.some((edge) => edge.type === "relates_to")).toBe(false);
@@ -195,11 +202,20 @@ describe("work graph UAC review fixture", () => {
           edge.properties?.resolvedTargetId === "wi:70002",
       ),
     ).toBe(true);
+    expect(
+      parsedEdges.edges.some(
+        (edge) =>
+          edge.type === "references" &&
+          edge.authority === "informational" &&
+          edge.properties?.sourceKey === "reference" &&
+          edge.properties?.resolvedTargetId === "wi:70002",
+      ),
+    ).toBe(true);
     expect(parsedExport.schemaVersion).toBe("work-graph-explorer/v1");
     expect(parsedExport.command).toBe("export");
     expect(parsedExport.summary).toEqual({
       nodeCount: 8,
-      edgeCount: 9,
+      edgeCount: 10,
       diagnosticCount: 1,
       nodeTypes: [
         { type: "scope", count: 4 },
@@ -213,10 +229,11 @@ describe("work graph UAC review fixture", () => {
         { type: "locks", count: 2 },
         { type: "depends_on", count: 1 },
         { type: "implements", count: 1 },
+        { type: "references", count: 1 },
       ],
     });
     expect(parsedExport.nodes).toHaveLength(8);
-    expect(parsedExport.edges).toHaveLength(9);
+    expect(parsedExport.edges).toHaveLength(10);
     expect(parsedExport.diagnostics).toEqual([
       {
         classification: "unsupported",

@@ -254,6 +254,27 @@ describe("work graph visualization", () => {
         },
       },
     });
+
+    const referenceEdge = adapted.elements.find(
+      (element) =>
+        element.group === "edges" &&
+        element.data.id === "wi:70001::references::wi:70002",
+    );
+    expect(referenceEdge).toMatchObject({
+      group: "edges",
+      data: {
+        id: "wi:70001::references::wi:70002",
+        source: "wi:70001",
+        target: "wi:70002",
+        label: "references",
+        stableId: "wi:70001::references::wi:70002",
+        edgeType: "references",
+        authority: "informational",
+        sourceKey: "reference",
+        rawTarget: "[[70002-work-graph-uac-dependency]]",
+        resolvedTargetId: "wi:70002",
+      },
+    });
   });
 
   it("renders a standalone HTML artifact that embeds adapted graph data", async () => {

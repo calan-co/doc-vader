@@ -3,7 +3,7 @@
   "command": "export",
   "summary": {
     "nodeCount": 8,
-    "edgeCount": 9,
+    "edgeCount": 10,
     "diagnosticCount": 1,
     "nodeTypes": [
       {
@@ -42,6 +42,10 @@
       },
       {
         "type": "implements",
+        "count": 1
+      },
+      {
+        "type": "references",
         "count": 1
       }
     ]
@@ -366,6 +370,24 @@
         "subject": "[[70001-work-graph-uac-main]]",
         "recordKind": "evidence",
         "frontmatterId": "record:work-graph-uac-review"
+      }
+    },
+    {
+      "id": "wi:70001::references::wi:70002",
+      "type": "references",
+      "authority": "informational",
+      "from": "wi:70001",
+      "to": "wi:70002",
+      "direction": "authored",
+      "source": {
+        "kind": "frontmatter",
+        "filePath": "backlog/70001-work-graph-uac-main.md"
+      },
+      "properties": {
+        "sourceKey": "reference",
+        "rawTarget": "[[70002-work-graph-uac-dependency]]",
+        "resolvedTargetId": "wi:70002",
+        "frontmatterId": "wi-70001"
       }
     }
   ],

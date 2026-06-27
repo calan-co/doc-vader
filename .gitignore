@@ -37,6 +37,7 @@ coverage/
 .doc-vader/task-claims.json
 .doc-vader/runtime/
 .sandcastle_bk/
+.sandcastle/**/cache/
 
 # External repositories
 ## TGDP Templates https://gitlab.com/tgdp/templates

@@ -11,6 +11,8 @@ priority: medium
 links:
   depends_on:
     - '[[70002-work-graph-uac-dependency]]'
+  reference:
+    - '[[70002-work-graph-uac-dependency]]'
   evidence:
     - '[[records/record-work-graph-uac-review.md]]'
 ---
