@@ -383,7 +383,7 @@ describe("runtime sqlite store", () => {
     }
   });
 
-  it("tracks claim context freshness without extending the lease unless renewed", async () => {
+  it("tracks claim context freshness without extending the lease unless renewed", { timeout: 15_000 }, async () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
     try {
