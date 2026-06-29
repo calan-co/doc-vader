@@ -8,19 +8,19 @@ export interface WorkCommandInventoryNode {
   readonly children: readonly string[];
 }
 
-type MutableWorkCommandInventoryEntry = {
+type WorkCommandInventoryDefinition = {
   readonly name: string;
-  readonly children?: readonly MutableWorkCommandInventoryEntry[];
+  readonly children?: readonly WorkCommandInventoryDefinition[];
 };
 
-function freezeInventory(
-  entries: readonly MutableWorkCommandInventoryEntry[],
+function freezeWorkCommandInventory(
+  entries: readonly WorkCommandInventoryDefinition[],
 ): readonly WorkCommandInventoryEntry[] {
   return Object.freeze(
     entries.map((entry) =>
       Object.freeze({
         name: entry.name,
-        children: freezeInventory(entry.children ?? []),
+        children: freezeWorkCommandInventory(entry.children ?? []),
       }),
     ),
   );
@@ -46,11 +46,11 @@ const WORK_COMMAND_TREE = [
   { name: "claim" },
   { name: "recover" },
   { name: "record" },
-] as const satisfies readonly MutableWorkCommandInventoryEntry[];
+] as const satisfies readonly WorkCommandInventoryDefinition[];
 
 export const WORK_COMMAND_ALIASES = Object.freeze(["work", "wi", "task"] as const);
 
-export const WORK_COMMAND_INVENTORY = freezeInventory(WORK_COMMAND_TREE);
+export const WORK_COMMAND_INVENTORY = freezeWorkCommandInventory(WORK_COMMAND_TREE);
 
 export function* iterWorkCommandInventory(
   entries: readonly WorkCommandInventoryEntry[] = WORK_COMMAND_INVENTORY,

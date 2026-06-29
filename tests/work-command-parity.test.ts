@@ -7,6 +7,7 @@ import {
   WORK_COMMAND_ALIASES,
   WORK_COMMAND_INVENTORY,
   iterWorkCommandInventory,
+  type WorkCommandInventoryEntry,
 } from "../lib/work/command-inventory.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,17 +15,21 @@ const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const repoRoot = path.resolve(__dirname, "..");
 const cliPath = path.resolve(repoRoot, "cli/doc-vader.ts");
+const commandPathSeparator = "\u0000";
+const commandsSectionPattern = /\nCommands:\n([\s\S]*?)(?:\n\n|$)/u;
+const immediateCommandPattern = /^ {2}([a-z][a-z-]*)\b/gm;
+const rootCommandNames = WORK_COMMAND_INVENTORY.map((entry) => entry.name);
 const helpOutputCache = new Map<string, string>();
 
 function runHelp(commandPath: readonly string[]): string {
-  const cacheKey = commandPath.join("\u0000");
+  const cacheKey = commandPath.join(commandPathSeparator);
   const cached = helpOutputCache.get(cacheKey);
   if (cached !== undefined) {
     return cached;
   }
 
   const helpOutput = execFileSync(
-    "node",
+    process.execPath,
     ["--import", tsxImport, cliPath, ...commandPath, "--help"],
     {
       cwd: repoRoot,
@@ -40,12 +45,12 @@ function runHelp(commandPath: readonly string[]): string {
 }
 
 function parseImmediateCommandNames(helpOutput: string): string[] {
-  const commandsSection = /\nCommands:\n([\s\S]*?)(?:\n\n|$)/u.exec(helpOutput);
+  const commandsSection = commandsSectionPattern.exec(helpOutput);
   if (!commandsSection) {
     return [];
   }
 
-  return [...commandsSection[1].matchAll(/^ {2}([a-z][a-z-]*)\b/gm)]
+  return [...commandsSection[1].matchAll(immediateCommandPattern)]
     .map((match) => match[1])
     .filter((name) => name !== "help");
 }
@@ -54,13 +59,30 @@ function normalizeHelpOutput(helpOutput: string): string {
   return helpOutput.replace(/^Usage:.*$/mu, "Usage: <normalized>");
 }
 
+function expectFrozenInventory(
+  entries: readonly WorkCommandInventoryEntry[],
+): void {
+  expect(Object.isFrozen(entries)).toBe(true);
+  for (const entry of entries) {
+    expect(Object.isFrozen(entry)).toBe(true);
+    expect(Object.isFrozen(entry.children)).toBe(true);
+    expectFrozenInventory(entry.children);
+  }
+}
+
+function expectHelpSnapshot(
+  commandPath: readonly string[],
+  expectedCommandNames: readonly string[],
+): string {
+  const helpOutput = runHelp(commandPath);
+  expect(parseImmediateCommandNames(helpOutput)).toEqual(expectedCommandNames);
+  return normalizeHelpOutput(helpOutput);
+}
+
 describe.sequential("work command inventory parity", () => {
   it("freezes the work command inventory and alias list", () => {
     expect(Object.isFrozen(WORK_COMMAND_ALIASES)).toBe(true);
-    expect(Object.isFrozen(WORK_COMMAND_INVENTORY)).toBe(true);
-    expect(Object.isFrozen(WORK_COMMAND_INVENTORY[0])).toBe(true);
-    expect(Object.isFrozen(WORK_COMMAND_INVENTORY[0]?.children)).toBe(true);
-    expect(Object.isFrozen(WORK_COMMAND_INVENTORY[0]?.children[0])).toBe(true);
+    expectFrozenInventory(WORK_COMMAND_INVENTORY);
   });
 
   it(
@@ -68,30 +90,21 @@ describe.sequential("work command inventory parity", () => {
     { timeout: 90_000 },
     () => {
       const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
-      const rootHelp = runHelp([canonicalAlias]);
-      expect(parseImmediateCommandNames(rootHelp)).toEqual(
-        WORK_COMMAND_INVENTORY.map((entry) => entry.name),
-      );
+      const rootHelp = expectHelpSnapshot([canonicalAlias], rootCommandNames);
       for (const alias of compatibilityAliases) {
-        const aliasHelp = runHelp([alias]);
-        expect(normalizeHelpOutput(aliasHelp)).toBe(
-          normalizeHelpOutput(rootHelp),
-        );
-        expect(parseImmediateCommandNames(aliasHelp)).toEqual(
-          WORK_COMMAND_INVENTORY.map((entry) => entry.name),
-        );
+        expect(expectHelpSnapshot([alias], rootCommandNames)).toBe(rootHelp);
       }
 
       for (const entry of iterWorkCommandInventory()) {
-        const canonicalHelp = runHelp([canonicalAlias, ...entry.path]);
-        expect(parseImmediateCommandNames(canonicalHelp)).toEqual(entry.children);
+        const canonicalHelp = expectHelpSnapshot(
+          [canonicalAlias, ...entry.path],
+          entry.children,
+        );
 
         for (const alias of compatibilityAliases) {
-          const aliasHelp = runHelp([alias, ...entry.path]);
-          expect(normalizeHelpOutput(aliasHelp)).toBe(
-            normalizeHelpOutput(canonicalHelp),
+          expect(expectHelpSnapshot([alias, ...entry.path], entry.children)).toBe(
+            canonicalHelp,
           );
-          expect(parseImmediateCommandNames(aliasHelp)).toEqual(entry.children);
         }
       }
     },
