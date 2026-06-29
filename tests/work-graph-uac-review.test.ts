@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
+  copyFile,
   chmod,
   mkdir,
   mkdtemp,
@@ -18,6 +19,7 @@ import {
   stageWorkGraphUacFixture,
   workGraphUacExpectedDir,
 } from "./helpers/work-graph-uac-fixture";
+import { WORK_COMMAND_ALIASES } from "../lib/work/command-inventory.js";
 
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
@@ -65,6 +67,15 @@ const expectedUatIds = [
   "UAT-09",
   "UAT-10",
 ] as const;
+
+async function stagePromptTemplate(rootDir: string): Promise<void> {
+  const templateDir = path.join(rootDir, "templates", "reference", "task");
+  await mkdir(templateDir, { recursive: true });
+  await copyFile(
+    path.resolve(__dirname, "../templates/reference/task/sandcastle-prompt.md.tpl"),
+    path.join(templateDir, "sandcastle-prompt.md.tpl"),
+  );
+}
 
 async function createTempRoot(): Promise<string> {
   const rootDir = await mkdtemp(
@@ -133,6 +144,38 @@ afterEach(async () => {
 });
 
 describe("work graph UAC review fixture", () => {
+  it("renders graph-backed prompt context across work aliases without mutating runtime or documents", async () => {
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+    await stagePromptTemplate(rootDir);
+    const before = await snapshotFiles(rootDir);
+    const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
+    const canonicalPrompt = runCli(rootDir, [canonicalAlias, "prompt", "70001"]);
+
+    expect(canonicalPrompt).toContain("## Dependencies");
+    expect(canonicalPrompt).toContain("- `depends_on`: [[wi-70002]]");
+    expect(canonicalPrompt).toContain("## Relationships");
+    expect(canonicalPrompt).toContain(
+      "- `belongs_to`: [[project-work-graph-uac-review]]",
+    );
+    expect(canonicalPrompt).toContain(
+      "- `implements`: [[../docs/how-to/implementation-plans/work-graph-uac-review-prd.md]]",
+    );
+    expect(canonicalPrompt).not.toContain("### Relationships");
+    expect(canonicalPrompt).not.toContain("`blocks`");
+    expect(canonicalPrompt).not.toContain("`relates_to`");
+    expect(canonicalPrompt).not.toContain("`references`");
+
+    for (const alias of compatibilityAliases) {
+      expect(runCli(rootDir, [alias, "prompt", "70001"])).toBe(canonicalPrompt);
+    }
+
+    const after = await snapshotFiles(rootDir);
+    expect(after).toEqual(before);
+  }, 15000);
+
   it("stages the documented review fixture with stable JSON and DOT outputs", async () => {
     const rootDir = await createTempRoot();
     await mkdir(rootDir, { recursive: true });

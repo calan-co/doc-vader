@@ -562,9 +562,18 @@ Show output evidence.
         },
       ]);
 
+      expect(prompt).toContain("Keep the body content stable.");
+      expect(prompt).toContain("The body section text must still render.");
+      expect(prompt).toContain("## Dependencies");
+      expect(prompt).toContain("- `depends_on`: [[wi-60395]]");
       expect(prompt).toContain("## Relationships");
-      expect(prompt).toContain("- `blocks`: [[wi-99999]]");
-      expect(prompt).toContain("- `relates_to`: [[wi-88888]]");
+      expect(prompt).toContain("- `belongs_to`: [[project:graph-backed-show]]");
+      expect(prompt).toContain(
+        "- `implements`: [[../docs/how-to/implementation-plans/show-relationships-prd.md]]",
+      );
+      expect(prompt).not.toContain("### Relationships");
+      expect(prompt).not.toContain("`blocks`");
+      expect(prompt).not.toContain("`relates_to`");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

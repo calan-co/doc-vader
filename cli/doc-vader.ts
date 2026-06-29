@@ -80,7 +80,7 @@ import {
   createWorkGraphOutputExtension,
   exportWorkGraph,
   inspectWorkGraphNode,
-  loadCanonicalWork as loadCanonicalTask,
+  loadWorkPromptModel as loadTaskPromptModel,
   loadWorkShowModel as loadTaskShowModel,
   loadWorkModel as loadTaskModel,
   listWorkModels as listTaskModels,
@@ -2041,7 +2041,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
     .action(async (taskId: string, opts: { backlogDir?: string }) => {
       try {
-        const model = await loadCanonicalTask({
+        const model = await loadTaskPromptModel({
           taskId,
           backlogDir: opts.backlogDir,
         });

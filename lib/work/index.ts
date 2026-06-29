@@ -105,6 +105,11 @@ export {
   type TaskShowRelationship as WorkShowRelationship,
 } from "../task/show.js";
 export {
+  loadTaskPromptModel as loadWorkPromptModel,
+  type LoadTaskPromptOptions as LoadWorkPromptOptions,
+  type TaskPromptModel as WorkPromptModel,
+} from "../task/prompt.js";
+export {
   collectTaskRecoveryGitState as collectWorkRecoveryGitState,
   isRecoverableReadyRuntimeState,
   type TaskRecoveryGitState as WorkRecoveryGitState,

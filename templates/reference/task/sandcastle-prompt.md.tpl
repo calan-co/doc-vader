@@ -20,6 +20,14 @@ Initialization and registry mapping live in `docs/how-to/sandcastle-dogfood-task
 {% endfor %}
 {% endif %}
 
+{% if relationships %}
+## Relationships
+
+{% for relationship in relationships %}
+- `{{ relationship.type }}`: {{ relationship.target }}
+{% endfor %}
+{% endif %}
+
 ## Acceptance Criteria
 
 {% for criterion in acceptanceCriteria %}
