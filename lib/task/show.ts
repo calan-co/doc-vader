@@ -1,8 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { renderTempljsTemplate } from "../template/render.js";
-import type { CanonicalTaskBodySection, CanonicalTaskModel } from "./canonical.js";
+import type { CanonicalTaskModel } from "./canonical.js";
 import { loadCanonicalTask } from "./canonical.js";
+import { omitRelationshipBodySections } from "./body-sections.js";
 import { projectWorkGraph, type WorkGraphEdge } from "../work/projection.js";
 import { canonicalizeWorkItemScopeRef } from "../work/scope-ref.js";
 
@@ -42,7 +43,6 @@ export interface RenderTaskShowOptions {
 
 const DEFAULT_BACKLOG_DIR = "backlog";
 const HUMAN_TEMPLATE_PATH = "templates/reference/task/show.md.tpl";
-const RELATIONSHIP_SECTION_TITLE = "relationships";
 
 function resolveRoot(rootDir?: string): string {
   return path.resolve(rootDir ?? process.cwd());
@@ -96,14 +96,6 @@ function stableUniqueLocks(values: TaskShowActiveLock[]): TaskShowActiveLock[] {
       left.claimToken.localeCompare(right.claimToken) ||
       left.scopeRef.localeCompare(right.scopeRef) ||
       left.lockMode.localeCompare(right.lockMode),
-  );
-}
-
-function visibleBodySections(
-  sections: CanonicalTaskBodySection[],
-): CanonicalTaskBodySection[] {
-  return sections.filter(
-    (section) => section.title.trim().toLowerCase() !== RELATIONSHIP_SECTION_TITLE,
   );
 }
 
@@ -193,7 +185,7 @@ export async function renderHumanTaskShow(
     task: options.task,
     body: {
       ...options.task.body,
-      sections: visibleBodySections(options.task.body.sections),
+      sections: omitRelationshipBodySections(options.task.body.sections),
     },
   });
 }

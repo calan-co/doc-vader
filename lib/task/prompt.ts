@@ -1,33 +1,23 @@
-import type { CanonicalTaskBodySection } from "./canonical.js";
+import { omitRelationshipBodySections } from "./body-sections.js";
 import {
   loadTaskShowModel,
   type LoadTaskShowOptions,
   type TaskShowModel,
 } from "./show.js";
 
-export interface TaskPromptModel extends TaskShowModel {}
+export type TaskPromptModel = TaskShowModel;
 
-export interface LoadTaskPromptOptions extends LoadTaskShowOptions {}
-
-const RELATIONSHIP_SECTION_TITLE = "relationships";
-
-function visibleBodySections(
-  sections: CanonicalTaskBodySection[],
-): CanonicalTaskBodySection[] {
-  return sections.filter(
-    (section) => section.title.trim().toLowerCase() !== RELATIONSHIP_SECTION_TITLE,
-  );
-}
+export type LoadTaskPromptOptions = LoadTaskShowOptions;
 
 export async function loadTaskPromptModel(
   options: LoadTaskPromptOptions,
 ): Promise<TaskPromptModel> {
-  const task = await loadTaskShowModel(options);
+  const showModel = await loadTaskShowModel(options);
   return {
-    ...task,
+    ...showModel,
     body: {
-      ...task.body,
-      sections: visibleBodySections(task.body.sections),
+      ...showModel.body,
+      sections: omitRelationshipBodySections(showModel.body.sections),
     },
   };
 }
