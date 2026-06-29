@@ -5,10 +5,11 @@ summary: Move prompt relationship context to graph facts while preserving execut
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-06-29'
 links:
   depends_on:
     - "[[60406-immutable-work-command-inventory-and-parity-harness]]"
@@ -48,13 +49,13 @@ tests.
 
 ## Tasks
 
-- [ ] Reuse the parity harness from `wi-60406`.
-- [ ] Locate prompt model loading and rendering paths.
-- [ ] Source governed relationship context from projected graph edges.
-- [ ] Preserve canonical Work Item body sections and execution instructions.
-- [ ] Ensure informational edges remain review or diagnostic metadata only.
-- [ ] Add CLI parity coverage for `task`, `work`, and `wi` aliases.
-- [ ] Add tests proving prompt execution does not mutate runtime, claims, locks,
+- [x] Reuse the parity harness from `wi-60406`.
+- [x] Locate prompt model loading and rendering paths.
+- [x] Source governed relationship context from projected graph edges.
+- [x] Preserve canonical Work Item body sections and execution instructions.
+- [x] Ensure informational edges remain review or diagnostic metadata only.
+- [x] Add CLI parity coverage for `task`, `work`, and `wi` aliases.
+- [x] Add tests proving prompt execution does not mutate runtime, claims, locks,
       records, or documents.
 
 ## Deliverables
@@ -65,18 +66,18 @@ tests.
 
 ## Acceptance Criteria
 
-- [ ] Prompt relationship context uses projected formal graph facts where
+- [x] Prompt relationship context uses projected formal graph facts where
       relationship facts are rendered.
-- [ ] Prompt body content, tasks, acceptance criteria, and execution
+- [x] Prompt body content, tasks, acceptance criteria, and execution
       instructions remain canonical-document backed.
-- [ ] Informational `references` edges do not become execution blockers or
+- [x] Informational `references` edges do not become execution blockers or
       governed prompt relationships.
-- [ ] Existing prompt output remains stable except for documented,
+- [x] Existing prompt output remains stable except for documented,
       test-covered relationship-context changes.
-- [ ] `task`, `work`, and `wi` aliases remain aligned.
-- [ ] No mutation or runtime claim behavior is introduced.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] `task`, `work`, and `wi` aliases remain aligned.
+- [x] No mutation or runtime claim behavior is introduced.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 
