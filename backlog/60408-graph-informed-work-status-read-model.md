@@ -5,10 +5,11 @@ summary: Enrich Work status output with graph facts and diagnostics while preser
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-29'
 links:
   depends_on:
     - "[[60406-immutable-work-command-inventory-and-parity-harness]]"
@@ -49,16 +50,16 @@ authoritative.
 
 ## Tasks
 
-- [ ] Reuse the parity harness from `wi-60406`.
-- [ ] Locate status model loading, runtime readiness, and recovery diagnostic
+- [x] Reuse the parity harness from `wi-60406`.
+- [x] Locate status model loading, runtime readiness, and recovery diagnostic
       paths.
-- [ ] Add graph-derived formal relationship facts to status output where useful.
-- [ ] Add projection diagnostics without changing runtime readiness decisions.
-- [ ] Prove informational edges do not affect operational status, recovery, or
+- [x] Add graph-derived formal relationship facts to status output where useful.
+- [x] Add projection diagnostics without changing runtime readiness decisions.
+- [x] Prove informational edges do not affect operational status, recovery, or
       claimability.
-- [ ] Preserve JSON schema version and existing output fields unless an
+- [x] Preserve JSON schema version and existing output fields unless an
       intentional addition is documented and tested.
-- [ ] Add read-only safety coverage for status execution.
+- [x] Add read-only safety coverage for status execution.
 
 ## Deliverables
 
@@ -68,18 +69,18 @@ authoritative.
 
 ## Acceptance Criteria
 
-- [ ] Status output can include graph-derived formal relationship facts.
-- [ ] Projection diagnostics are visible in a deterministic location if added.
-- [ ] Runtime readiness remains sourced from runtime sqlite and execution logs.
-- [ ] Git worktree and recovery diagnostics remain sourced from git/runtime
+- [x] Status output can include graph-derived formal relationship facts.
+- [x] Projection diagnostics are visible in a deterministic location if added.
+- [x] Runtime readiness remains sourced from runtime sqlite and execution logs.
+- [x] Git worktree and recovery diagnostics remain sourced from git/runtime
       state.
-- [ ] Informational edges do not affect readiness, recovery, claimability, or
+- [x] Informational edges do not affect readiness, recovery, claimability, or
       lifecycle interpretation.
-- [ ] Existing status output remains stable except for documented, test-covered
+- [x] Existing status output remains stable except for documented, test-covered
       additions.
-- [ ] No mutation or runtime claim behavior is introduced.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] No mutation or runtime claim behavior is introduced.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 

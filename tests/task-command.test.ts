@@ -29,6 +29,8 @@ import {
   openRuntimeSqliteStore,
   RUNTIME_SCHEMA_VERSION,
 } from "../lib/runtime/sqlite-store.js";
+import { WORK_COMMAND_ALIASES } from "../lib/work/command-inventory.js";
+import { stageWorkGraphUacFixture } from "./helpers/work-graph-uac-fixture";
 
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 const require = createRequire(import.meta.url);
@@ -223,6 +225,26 @@ async function writeTask(
     `---\n${frontmatter.trim()}\n---\n\n${body}`,
     "utf8",
   );
+}
+
+async function snapshotFiles(rootDir: string): Promise<Map<string, string>> {
+  const snapshot = new Map<string, string>();
+
+  async function walk(currentDir: string): Promise<void> {
+    const entries = await fs.readdir(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(entryPath);
+        continue;
+      }
+      const relativePath = path.relative(rootDir, entryPath);
+      snapshot.set(relativePath, (await fs.readFile(entryPath)).toString("base64"));
+    }
+  }
+
+  await walk(rootDir);
+  return snapshot;
 }
 
 function runCli(
@@ -2212,6 +2234,298 @@ tags:
       await fs.rm(root, { recursive: true, force: true });
     }
   });
+
+  it("reports graph-informed status facts while keeping informational references diagnostic-only", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "108-graph-status.md",
+        `id: wi-108
+title: Graph Status
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[wi-109]]'
+  reference:
+    - '[[wi-110]]'`,
+        `## Goal
+
+Inspect graph-informed task status.
+
+## Relationships
+
+- \`part_of\`: [[project:graph-status]]
+- \`implements\`: [[../docs/how-to/implementation-plans/graph-status-prd.md]]
+`,
+      );
+      await writeTask(
+        root,
+        "109-graph-dependency.md",
+        `id: wi-109
+title: Graph Dependency
+type: work-item
+lifecycle: active
+status: completed
+status_reason: completed
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "110-graph-reference.md",
+        `id: wi-110
+title: Graph Reference
+type: work-item
+lifecycle: active
+status: blocked
+tags:
+  - afk`,
+      );
+      await fs.mkdir(
+        path.join(root, "docs", "how-to", "implementation-plans"),
+        { recursive: true },
+      );
+      await fs.writeFile(
+        path.join(root, "docs", "project-graph-status.md"),
+        `---
+id: project:graph-status
+title: Graph Status Project
+type: project
+subtype: initiative
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Anchor the status relationship graph.
+`,
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(
+          root,
+          "docs",
+          "how-to",
+          "implementation-plans",
+          "graph-status-prd.md",
+        ),
+        `---
+id: graph-status-prd
+title: Graph Status PRD
+type: plan
+subtype: x-prd
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Trigger a projection diagnostic for status.
+`,
+        "utf8",
+      );
+
+      const status = runCliJson<{
+        schemaVersion: string;
+        id: string;
+        runtime: {
+          markdownReady: boolean;
+          executionReady: boolean;
+          ready: boolean;
+        };
+        recovery: {
+          state: string;
+          forceRequired: boolean;
+          blockedReasons: string[];
+          forceReasons: string[];
+        };
+        graph: {
+          relationships: Array<{ type: string; target: string }>;
+          diagnostics: {
+            projection: Array<{
+              scope: string;
+              sourceKey: string;
+              target: string;
+              classification: string;
+              reasonCode: string;
+              relativePath?: string;
+              documentId?: string;
+            }>;
+            informationalReferences: Array<{
+              type: string;
+              sourceKey: string;
+              target: string;
+              resolvedTargetId: string;
+            }>;
+          };
+        };
+      }>(root, ["task", "status", "108", "--json"]);
+      const statusText = runCli(root, ["task", "status", "108"]);
+
+      expect(status).toMatchObject({
+        schemaVersion: "task-status/v1",
+        id: "wi-108",
+        runtime: {
+          markdownReady: true,
+          executionReady: true,
+          ready: true,
+        },
+        recovery: {
+          state: "ready",
+          forceRequired: false,
+          blockedReasons: [],
+          forceReasons: [],
+        },
+      });
+      expect(status.graph.relationships).toEqual([
+        {
+          type: "belongs_to",
+          target: "[[project:graph-status]]",
+        },
+        {
+          type: "depends_on",
+          target: "[[wi-109]]",
+        },
+      ]);
+      expect(status.graph.diagnostics.projection).toEqual([
+        {
+          scope: "formal",
+          sourceKey: "implements",
+          target: "[[../docs/how-to/implementation-plans/graph-status-prd.md]]",
+          classification: "unsupported",
+          reasonCode: "non-canonical-document-id",
+          relativePath: "docs/how-to/implementation-plans/graph-status-prd.md",
+          documentId: "graph-status-prd",
+        },
+      ]);
+      expect(status.graph.diagnostics.informationalReferences).toEqual([
+        {
+          type: "references",
+          sourceKey: "reference",
+          target: "[[wi-110]]",
+          resolvedTargetId: "wi:110",
+        },
+      ]);
+      expect(statusText).toContain("Graph");
+      expect(statusText).toContain(
+        "- relationships: belongs_to=[[project:graph-status]], depends_on=[[wi-109]]",
+      );
+      expect(statusText).toContain(
+        "- informational references: reference=[[wi-110]]",
+      );
+      expect(statusText).toContain(
+        "- projection diagnostics: implements=[[../docs/how-to/implementation-plans/graph-status-prd.md]] (non-canonical-document-id)",
+      );
+
+      const claimed = JSON.parse(
+        runCli(root, [
+          "task",
+          "claim",
+          "108",
+          "--holder",
+          "agent-a",
+          "--json",
+        ]),
+      ) as {
+        outcome: string;
+        executionLogEntry: {
+          state: string;
+          reason: string;
+        };
+      };
+      expect(claimed).toMatchObject({
+        outcome: "acquired",
+        executionLogEntry: {
+          state: "running",
+          reason: "started",
+        },
+      });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it(
+    "keeps work, wi, and task status output aligned without mutating graph or runtime state",
+    { timeout: 15_000 },
+    async () => {
+    const root = await mkTmpRoot();
+    try {
+      await stageWorkGraphUacFixture(root);
+      const before = await snapshotFiles(root);
+
+      const statusJsonByAlias = new Map(
+        WORK_COMMAND_ALIASES.map((alias) => [
+          alias,
+          runCliJson<{
+            graph: {
+              relationships: Array<{ type: string; target: string }>;
+              diagnostics: {
+                projection: Array<{ reasonCode: string }>;
+                informationalReferences: Array<{
+                  type: string;
+                  sourceKey: string;
+                  target: string;
+                  resolvedTargetId: string;
+                }>;
+              };
+            };
+          }>(root, [alias, "status", "70001", "--json"]),
+        ]),
+      );
+      const statusTextByAlias = new Map(
+        WORK_COMMAND_ALIASES.map((alias) => [
+          alias,
+          runCli(root, [alias, "status", "70001"]),
+        ]),
+      );
+
+      const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
+      const canonicalJson = statusJsonByAlias.get(canonicalAlias);
+      const canonicalText = statusTextByAlias.get(canonicalAlias);
+      expect(canonicalJson?.graph.relationships).toEqual([
+        {
+          type: "belongs_to",
+          target: "[[project-work-graph-uac-review]]",
+        },
+        {
+          type: "depends_on",
+          target: "[[wi-70002]]",
+        },
+        {
+          type: "implements",
+          target: "[[../docs/how-to/implementation-plans/work-graph-uac-review-prd.md]]",
+        },
+      ]);
+      expect(canonicalJson?.graph.diagnostics.projection).toEqual([]);
+      expect(canonicalJson?.graph.diagnostics.informationalReferences).toEqual([
+        {
+          type: "references",
+          sourceKey: "reference",
+          target: "[[70002-work-graph-uac-dependency]]",
+          resolvedTargetId: "wi:70002",
+        },
+      ]);
+      expect(canonicalText).toContain("Graph");
+
+      for (const alias of compatibilityAliases) {
+        expect(statusJsonByAlias.get(alias)).toEqual(canonicalJson);
+        expect(statusTextByAlias.get(alias)).toBe(canonicalText);
+      }
+
+      const after = await snapshotFiles(root);
+      expect(after).toEqual(before);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+    },
+  );
 
   it("resolves task status from an unambiguous sandcastle branch worktree", async () => {
     const root = await mkTmpRoot();
