@@ -43,6 +43,7 @@ export interface RenderTaskShowOptions {
 
 const DEFAULT_BACKLOG_DIR = "backlog";
 const HUMAN_TEMPLATE_PATH = "templates/reference/task/show.md.tpl";
+type TaskShowRelationshipEdgeType = Exclude<TaskShowRelationship["type"], "depends_on">;
 
 function resolveRoot(rootDir?: string): string {
   return path.resolve(rootDir ?? process.cwd());
@@ -68,6 +69,30 @@ function displayTarget(edge: WorkGraphEdge, fallback: string): string {
     return subject;
   }
   return fallback;
+}
+
+function isFormalEdge(edge: WorkGraphEdge): boolean {
+  return edge.authority === "formal";
+}
+
+function isTaskShowRelationshipEdgeType(
+  type: WorkGraphEdge["type"],
+): type is TaskShowRelationshipEdgeType {
+  return type === "belongs_to" || type === "implements";
+}
+
+function toActiveLock(edge: WorkGraphEdge): TaskShowActiveLock | null {
+  const claimToken = asString(edge.properties.claimToken);
+  const scopeRef = asString(edge.properties.scopeRef);
+  const lockMode = asString(edge.properties.lockMode);
+  if (!claimToken || !scopeRef || !lockMode) {
+    return null;
+  }
+  return {
+    claimToken,
+    scopeRef,
+    lockMode,
+  };
 }
 
 function stableUniqueByTypeAndTarget<T extends { type: string; target: string }>(
@@ -111,59 +136,48 @@ export async function loadTaskShowModel(
   const workItemNodeId = canonicalizeWorkItemScopeRef(task.id);
   const scopeNodeId = `scope:${workItemNodeId}`;
 
-  const dependencyEdges = projection
-    .getOutgoingEdges(workItemNodeId)
-    .filter((edge) => edge.authority === "formal" && edge.type === "depends_on");
-  const relationshipEdges = projection
-    .getOutgoingEdges(workItemNodeId)
-    .filter(
-      (edge) =>
-        edge.authority === "formal" &&
-        (edge.type === "belongs_to" || edge.type === "implements"),
-    );
-  const recordEdges = projection
+  const formalOutgoingEdges = projection.getOutgoingEdges(workItemNodeId).filter(isFormalEdge);
+  const formalWorkItemIncomingEdges = projection
     .getIncomingEdges(workItemNodeId)
-    .filter((edge) => edge.authority === "formal" && edge.type === "records");
-  const lockEdges = projection
+    .filter(isFormalEdge);
+  const formalScopeIncomingEdges = projection
     .getIncomingEdges(scopeNodeId)
-    .filter((edge) => edge.authority === "formal" && edge.type === "locks");
+    .filter(isFormalEdge);
 
   const dependencies = stableUniqueByTypeAndTarget(
-    dependencyEdges.map((edge) => ({
-      type: "depends_on" as const,
-      target: displayTarget(edge, edge.to),
-    })),
+    formalOutgoingEdges
+      .filter((edge) => edge.type === "depends_on")
+      .map((edge) => ({
+        type: "depends_on" as const,
+        target: displayTarget(edge, edge.to),
+      })),
   );
   const relationships = stableUniqueByTypeAndTarget(
-    relationshipEdges.map((edge) => ({
-      type:
-        edge.type === "belongs_to"
-          ? ("belongs_to" as const)
-          : ("implements" as const),
-      target: displayTarget(edge, edge.to),
-    })),
+    formalOutgoingEdges
+      .filter(
+        (
+          edge,
+        ): edge is WorkGraphEdge & {
+          type: TaskShowRelationshipEdgeType;
+        } => isTaskShowRelationshipEdgeType(edge.type),
+      )
+      .map((edge) => ({
+        type: edge.type,
+        target: displayTarget(edge, edge.to),
+      })),
   );
   const records = stableUniqueByTypeAndTarget(
-    recordEdges.map((edge) => ({
-      type: "records" as const,
-      target: displayTarget(edge, edge.from),
-    })),
+    formalWorkItemIncomingEdges
+      .filter((edge) => edge.type === "records")
+      .map((edge) => ({
+        type: "records" as const,
+        target: displayTarget(edge, edge.from),
+      })),
   );
   const activeLocks = stableUniqueLocks(
-    lockEdges
-      .map((edge) => {
-        const claimToken = asString(edge.properties.claimToken);
-        const scopeRef = asString(edge.properties.scopeRef);
-        const lockMode = asString(edge.properties.lockMode);
-        if (!claimToken || !scopeRef || !lockMode) {
-          return null;
-        }
-        return {
-          claimToken,
-          scopeRef,
-          lockMode,
-        };
-      })
+    formalScopeIncomingEdges
+      .filter((edge) => edge.type === "locks")
+      .map(toActiveLock)
       .filter((entry): entry is TaskShowActiveLock => entry !== null),
   );
 

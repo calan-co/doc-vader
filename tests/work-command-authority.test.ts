@@ -58,6 +58,15 @@ async function writeTask(
   );
 }
 
+async function withTmpRoot(run: (rootDir: string) => Promise<void>): Promise<void> {
+  const rootDir = await mkTmpRoot();
+  try {
+    await run(rootDir);
+  } finally {
+    await fs.rm(rootDir, { recursive: true, force: true });
+  }
+}
+
 function createProjection(options: {
   nodes: readonly WorkGraphNode[];
   edges: readonly WorkGraphEdge[];
@@ -90,14 +99,52 @@ function createProjection(options: {
   };
 }
 
+function createWorkItemNode(options: {
+  taskNumber: string;
+  fileName: string;
+  title: string;
+  status: string;
+}): WorkGraphNode {
+  const { taskNumber, fileName, title, status } = options;
+  return {
+    id: `wi:${taskNumber}`,
+    type: "work-item",
+    stableId: `wi:${taskNumber}`,
+    label: title,
+    source: {
+      kind: "work-item",
+      filePath: `backlog/${fileName}`,
+    },
+    properties: {
+      frontmatterId: `wi-${taskNumber}`,
+      status,
+      lifecycle: "active",
+    },
+  };
+}
+
+function createInformationalEdge(options: {
+  id: string;
+  type: WorkGraphEdge["type"];
+  from: string;
+  to: string;
+  source: WorkGraphEdge["source"];
+  properties: WorkGraphEdge["properties"];
+}): WorkGraphEdge {
+  return {
+    ...options,
+    authority: "informational",
+    direction: "authored",
+  };
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 describe("immutable work command authority gate", () => {
   it("ignores informational governance-like edges for show, prompt, and ready", async () => {
-    const rootDir = await mkTmpRoot();
-    try {
+    await withTmpRoot(async (rootDir) => {
       await writeTask(
         rootDir,
         "300-authority-source.md",
@@ -121,46 +168,27 @@ tags:
   - afk`,
       );
 
-      const sourceNode: WorkGraphNode = {
-        id: "wi:300",
-        type: "work-item",
-        stableId: "wi:300",
-        label: "Authority Source",
-        source: {
-          kind: "work-item",
-          filePath: "backlog/300-authority-source.md",
-        },
-        properties: {
-          frontmatterId: "wi-300",
-          status: "ready",
-          lifecycle: "active",
-        },
-      };
-      const targetNode: WorkGraphNode = {
-        id: "wi:301",
-        type: "work-item",
-        stableId: "wi:301",
-        label: "Authority Target",
-        source: {
-          kind: "work-item",
-          filePath: "backlog/301-authority-target.md",
-        },
-        properties: {
-          frontmatterId: "wi-301",
-          status: "blocked",
-          lifecycle: "active",
-        },
-      };
       const projection = createProjection({
-        nodes: [sourceNode, targetNode],
+        nodes: [
+          createWorkItemNode({
+            taskNumber: "300",
+            fileName: "300-authority-source.md",
+            title: "Authority Source",
+            status: "ready",
+          }),
+          createWorkItemNode({
+            taskNumber: "301",
+            fileName: "301-authority-target.md",
+            title: "Authority Target",
+            status: "blocked",
+          }),
+        ],
         edges: [
-          {
+          createInformationalEdge({
             id: "wi:300::depends_on::wi:301",
             type: "depends_on",
-            authority: "informational",
             from: "wi:300",
             to: "wi:301",
-            direction: "authored",
             source: {
               kind: "relationships",
               filePath: "backlog/300-authority-source.md",
@@ -170,14 +198,12 @@ tags:
               rawTarget: "[[wi-301]]",
               resolvedTargetId: "wi:301",
             },
-          },
-          {
+          }),
+          createInformationalEdge({
             id: "wi:300::belongs_to::scope:project:shadow",
             type: "belongs_to",
-            authority: "informational",
             from: "wi:300",
             to: "scope:project:shadow",
-            direction: "authored",
             source: {
               kind: "relationships",
               filePath: "backlog/300-authority-source.md",
@@ -187,14 +213,12 @@ tags:
               rawTarget: "[[project:shadow]]",
               resolvedTargetId: "scope:project:shadow",
             },
-          },
-          {
+          }),
+          createInformationalEdge({
             id: "wi:300::implements::scope:plan:shadow-prd",
             type: "implements",
-            authority: "informational",
             from: "wi:300",
             to: "scope:plan:shadow-prd",
-            direction: "authored",
             source: {
               kind: "relationships",
               filePath: "backlog/300-authority-source.md",
@@ -204,14 +228,12 @@ tags:
               rawTarget: "[[../docs/how-to/implementation-plans/shadow-prd.md]]",
               resolvedTargetId: "scope:plan:shadow-prd",
             },
-          },
-          {
+          }),
+          createInformationalEdge({
             id: "record:shadow::records::wi:300",
             type: "records",
-            authority: "informational",
             from: "record:shadow",
             to: "wi:300",
-            direction: "authored",
             source: {
               kind: "runtime",
             },
@@ -220,14 +242,12 @@ tags:
               rawTarget: "[[records/shadow]]",
               resolvedTargetId: "record:shadow",
             },
-          },
-          {
+          }),
+          createInformationalEdge({
             id: "claim:shadow::locks::scope:wi:300",
             type: "locks",
-            authority: "informational",
             from: "claim:shadow",
             to: "scope:wi:300",
-            direction: "authored",
             source: {
               kind: "runtime",
               claimToken: "claim:shadow",
@@ -237,7 +257,7 @@ tags:
               scopeRef: "wi:300",
               lockMode: "execute",
             },
-          },
+          }),
         ],
       });
 
@@ -272,14 +292,11 @@ tags:
           codes: entry.reasons.map((reason) => reason.code),
         })),
       ).toEqual([{ id: "wi-301", codes: ["blocked", "not_ready"] }]);
-    } finally {
-      await fs.rm(rootDir, { recursive: true, force: true });
-    }
+    });
   });
 
   it("keeps lifecycle transitions on canonical document state without projecting the work graph", async () => {
-    const rootDir = await mkTmpRoot();
-    try {
+    await withTmpRoot(async (rootDir) => {
       await writeTask(
         rootDir,
         "302-transition-source.md",
@@ -321,8 +338,6 @@ tags:
           "utf8",
         ),
       ).toContain("status: running");
-    } finally {
-      await fs.rm(rootDir, { recursive: true, force: true });
-    }
+    });
   });
 });

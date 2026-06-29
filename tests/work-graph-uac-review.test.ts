@@ -55,6 +55,14 @@ type WorkGraphExportPayload = {
   }>;
 };
 
+type WorkAliasReadModelOutputs = {
+  list: string;
+  show: string;
+  ready: string;
+  prompt: string;
+  status: string;
+};
+
 const expectedUatIds = [
   "UAT-01",
   "UAT-02",
@@ -121,6 +129,19 @@ function runCli(
   });
 }
 
+function runAliasReadModelCommands(
+  rootDir: string,
+  alias: string,
+): WorkAliasReadModelOutputs {
+  return {
+    list: runCli(rootDir, [alias, "list", "--json"]),
+    show: runCli(rootDir, [alias, "show", "70001", "--json"]),
+    ready: runCli(rootDir, [alias, "ready", "--json"]),
+    prompt: runCli(rootDir, [alias, "prompt", "70001"]),
+    status: runCli(rootDir, [alias, "status", "70001", "--json"]),
+  };
+}
+
 function normalizeFixtureText(value: string): string {
   return value.replace(/\r\n/g, "\n").trimEnd();
 }
@@ -184,13 +205,7 @@ describe("work graph UAC review fixture", () => {
     await stagePromptTemplate(rootDir);
     const before = await snapshotFiles(rootDir);
     const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
-    const canonicalOutputs = {
-      list: runCli(rootDir, [canonicalAlias, "list", "--json"]),
-      show: runCli(rootDir, [canonicalAlias, "show", "70001", "--json"]),
-      ready: runCli(rootDir, [canonicalAlias, "ready", "--json"]),
-      prompt: runCli(rootDir, [canonicalAlias, "prompt", "70001"]),
-      status: runCli(rootDir, [canonicalAlias, "status", "70001", "--json"]),
-    };
+    const canonicalOutputs = runAliasReadModelCommands(rootDir, canonicalAlias);
 
     expect(canonicalOutputs.list).toContain('"id": "wi-70001"');
     expect(canonicalOutputs.show).toContain('"id": "wi-70001"');
@@ -199,19 +214,7 @@ describe("work graph UAC review fixture", () => {
     expect(canonicalOutputs.status).toContain('"id": "wi-70001"');
 
     for (const alias of compatibilityAliases) {
-      expect(runCli(rootDir, [alias, "list", "--json"])).toBe(canonicalOutputs.list);
-      expect(runCli(rootDir, [alias, "show", "70001", "--json"])).toBe(
-        canonicalOutputs.show,
-      );
-      expect(runCli(rootDir, [alias, "ready", "--json"])).toBe(
-        canonicalOutputs.ready,
-      );
-      expect(runCli(rootDir, [alias, "prompt", "70001"])).toBe(
-        canonicalOutputs.prompt,
-      );
-      expect(runCli(rootDir, [alias, "status", "70001", "--json"])).toBe(
-        canonicalOutputs.status,
-      );
+      expect(runAliasReadModelCommands(rootDir, alias)).toEqual(canonicalOutputs);
     }
 
     const after = await snapshotFiles(rootDir);
