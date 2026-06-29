@@ -110,6 +110,16 @@ export {
   type TaskPromptModel as WorkPromptModel,
 } from "../task/prompt.js";
 export {
+  buildTaskStatusReport as buildWorkStatusReport,
+  formatTaskStatusText as formatWorkStatusText,
+  type BuildTaskStatusReportOptions as BuildWorkStatusReportOptions,
+  type TaskStatusGraphFacts as WorkStatusGraphFacts,
+  type TaskStatusGraphInformationalReference as WorkStatusGraphInformationalReference,
+  type TaskStatusGraphProjectionDiagnostic as WorkStatusGraphProjectionDiagnostic,
+  type TaskStatusGraphRelationship as WorkStatusGraphRelationship,
+  type TaskStatusReport as WorkStatusReport,
+} from "../task/status.js";
+export {
   collectTaskRecoveryGitState as collectWorkRecoveryGitState,
   isRecoverableReadyRuntimeState,
   type TaskRecoveryGitState as WorkRecoveryGitState,

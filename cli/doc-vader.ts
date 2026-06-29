@@ -83,6 +83,8 @@ import {
   loadWorkPromptModel as loadTaskPromptModel,
   loadWorkShowModel as loadTaskShowModel,
   loadWorkModel as loadTaskModel,
+  buildWorkStatusReport as buildTaskStatusReport,
+  formatWorkStatusText as formatTaskStatusText,
   listWorkModels as listTaskModels,
   projectWorkGraph,
   queryWorkGraphEdges,
@@ -100,11 +102,8 @@ import {
   summarizeWorkGraphProjection,
   resolveWorkRoot as resolveGitRoot,
   resolveWorkAuthority as resolveTaskAuthority,
-  collectWorkRecoveryGitState as collectTaskRecoveryGitState,
-  isRecoverableReadyRuntimeState,
   type WorkRecoveryForceMode as TaskRecoveryForceMode,
   type WorkModel as TaskModel,
-  type WorkRecoveryGitState as TaskRecoveryGitState,
   type WorkGraphEdgeType,
   type WorkGraphExplorerResult,
   type WorkGraphExportResult,
@@ -112,6 +111,7 @@ import {
   type WorkGraphExplorerFormat,
   type WorkGraphNodeType,
   type WorkGraphSummaryFormat,
+  type WorkStatusReport as TaskStatusReport,
   WorkCommandError as TaskCommandError,
   toWorkErrorPayload as toTaskErrorPayload,
 } from "../lib/work/index.js";
@@ -552,37 +552,6 @@ function formatRuntimeClaimListText(claims: RuntimeClaimRecord[]): string {
 
 type TaskListEntry = Awaited<ReturnType<typeof listTaskModels>>[number];
 
-interface TaskStatusReport {
-  schemaVersion: "task-status/v1";
-  id: string;
-  title: string;
-  filePath: string;
-  status: string;
-  statusReason?: string;
-  lifecycle: string;
-  validation: TaskModel["validation"];
-  runtime?: TaskModel["runtime"];
-  recovery: {
-    state:
-      | "ready"
-      | "not-needed"
-      | "recoverable"
-      | "force-required"
-      | "blocked"
-      | "not-recoverable";
-    forceRequired: boolean;
-    forceReasons: string[];
-    blockedReasons: string[];
-    warnings: string[];
-    gitState: TaskRecoveryGitState;
-    forceModes?: {
-      reset: string;
-      reconcile: string;
-    };
-    recommendation?: string;
-  };
-}
-
 function formatTaskListText(tasks: TaskListEntry[]): string {
   if (tasks.length === 0) {
     return "No open tasks.";
@@ -651,90 +620,6 @@ function resolveTaskStatusWorktree(
   return uniqueWorktrees.length === 1 ? uniqueWorktrees[0] : undefined;
 }
 
-function buildTaskStatusReport(
-  task: TaskModel,
-  options: {
-    rootDir?: string;
-    worktree?: string;
-  } = {}
-): TaskStatusReport {
-  const rootDir = path.resolve(
-    options.rootDir ?? options.worktree ?? process.cwd()
-  );
-  const gitState = collectTaskRecoveryGitState({
-    rootDir,
-    taskFilePath: task.filePath,
-    expectedBranch: task.runtime?.latestExecutionLog?.branch,
-    expectedWorktree:
-      options.worktree ?? task.runtime?.latestExecutionLog?.worktree,
-  });
-  const recoverable = isRecoverableReadyRuntimeState({
-    status: task.status,
-    runtime: task.runtime,
-    gitState,
-  });
-  const recoverableWithForce = isRecoverableReadyRuntimeState({
-    status: task.status,
-    runtime: task.runtime,
-    gitState,
-    allowUncertainLineage: true,
-  });
-  const blockedReasons = [
-    ...gitState.resumeBlockedReasons,
-    ...(task.runtime?.latestExecutionLog?.claimState === "active"
-      ? ["claim-active"]
-      : []),
-    ...((task.runtime?.latestExecutionLog?.lockCount ?? 0) > 0
-      ? ["locks-active"]
-      : []),
-  ];
-  const forceReasons =
-    !recoverable && recoverableWithForce ? [...gitState.resumeWarnings] : [];
-  const state: TaskStatusReport["recovery"]["state"] = task.runtime?.ready
-    ? "ready"
-    : !task.runtime?.latestExecutionLog
-    ? "not-needed"
-    : recoverable
-    ? "recoverable"
-    : recoverableWithForce
-    ? "force-required"
-    : blockedReasons.length > 0
-    ? "blocked"
-    : "not-recoverable";
-
-  return {
-    schemaVersion: "task-status/v1",
-    id: task.id,
-    title: task.title,
-    filePath: task.filePath,
-    status: task.status,
-    ...(task.statusReason ? { statusReason: task.statusReason } : {}),
-    lifecycle: task.lifecycle,
-    validation: task.validation,
-    ...(task.runtime ? { runtime: task.runtime } : {}),
-    recovery: {
-      state,
-      forceRequired: state === "force-required",
-      forceReasons,
-      blockedReasons,
-      warnings: gitState.resumeWarnings,
-      gitState,
-      ...(state === "force-required"
-        ? {
-            forceModes: {
-              reset:
-                "Discard recoverable dirty paths before marking the task ready again.",
-              reconcile:
-                "Save a recovery checkpoint before discarding recoverable dirty paths.",
-            },
-            recommendation:
-              "Inspect the current branch and dirty paths first. Pass --worktree when you can identify the intended recovery checkout. Use --force reset only when this checkout is the intended task branch and task-local dirty paths can be discarded; use --force reconcile when you want a checkpoint first.",
-          }
-        : {}),
-    },
-  };
-}
-
 function isRecoveryActionable(
   state: TaskStatusReport["recovery"]["state"]
 ): boolean {
@@ -757,8 +642,10 @@ async function resolveTaskRecoveryRootDir(
     rootDir: commandRootDir,
     backlogDir: options.backlogDir,
   });
-  const currentReport = buildTaskStatusReport(currentModel, {
+  const currentReport = await buildTaskStatusReport(currentModel, {
     rootDir: commandRootDir,
+    backlogDir: options.backlogDir,
+    includeGraph: false,
   });
   if (isRecoveryActionable(currentReport.recovery.state)) {
     return undefined;
@@ -776,9 +663,11 @@ async function resolveTaskRecoveryRootDir(
     rootDir: resolvedWorktree,
     backlogDir: options.backlogDir,
   });
-  const worktreeReport = buildTaskStatusReport(worktreeModel, {
+  const worktreeReport = await buildTaskStatusReport(worktreeModel, {
     rootDir: resolvedWorktree,
     worktree: resolvedWorktree,
+    backlogDir: options.backlogDir,
+    includeGraph: false,
   });
 
   return isRecoveryActionable(worktreeReport.recovery.state)
@@ -835,76 +724,6 @@ async function recoverTaskIfSafelyRecoverable(
     rootDir,
     backlogDir: options.backlogDir,
   });
-}
-
-function yesNo(value: boolean): string {
-  return value ? "yes" : "no";
-}
-
-function formatTaskStatusText(report: TaskStatusReport): string {
-  const latest = report.runtime?.latestExecutionLog;
-  const lines = [
-    `${report.id} | ${report.status} | ${report.title}`,
-    `Path: ${report.filePath}`,
-    "",
-    "Readiness",
-    `- markdown: ${report.runtime?.markdownReady ? "ready" : "not ready"}`,
-    `- execution: ${report.runtime?.executionReady ? "ready" : "not ready"}`,
-    `- effective: ${report.runtime?.ready ? "ready" : "not ready"}`,
-    `- source disagreement: ${yesNo(
-      report.runtime?.sourceDisagreement ?? false
-    )}`,
-  ];
-  if (latest) {
-    lines.push(
-      `- latest execution: ${latest.state}/${latest.reason} claim=${
-        latest.claimState ?? "unknown"
-      } locks=${latest.lockCount ?? "unknown"}`
-    );
-  }
-  lines.push(
-    "",
-    "Recovery",
-    `- state: ${report.recovery.state}`,
-    `- force required: ${yesNo(report.recovery.forceRequired)}`
-  );
-  if (report.recovery.forceReasons.length > 0) {
-    lines.push(`- force reasons: ${report.recovery.forceReasons.join(", ")}`);
-  }
-  if (report.recovery.blockedReasons.length > 0) {
-    lines.push(
-      `- blocked reasons: ${report.recovery.blockedReasons.join(", ")}`
-    );
-  }
-  if (report.recovery.recommendation) {
-    lines.push(`- recommendation: ${report.recovery.recommendation}`);
-  }
-  lines.push(
-    "",
-    "Git",
-    `- current branch: ${report.recovery.gitState.currentBranch ?? "unknown"}`,
-    `- expected branch: ${
-      report.recovery.gitState.expectedBranch ?? "unknown"
-    }`,
-    `- current worktree: ${report.recovery.gitState.currentWorktree}`,
-    `- expected worktree: ${
-      report.recovery.gitState.expectedWorktree ?? "unknown"
-    }`,
-    `- lineage known: ${yesNo(report.recovery.gitState.lineageKnown)}`,
-    `- branch lineage known: ${yesNo(
-      report.recovery.gitState.branchLineageKnown
-    )}`,
-    `- worktree lineage known: ${yesNo(
-      report.recovery.gitState.worktreeLineageKnown
-    )}`,
-    `- merge/rebase in progress: ${yesNo(
-      report.recovery.gitState.mergeInProgress ||
-        report.recovery.gitState.rebaseInProgress
-    )}`,
-    `- dirty paths: ${report.recovery.gitState.dirtyPaths.length}`,
-    `- task path dirty: ${yesNo(report.recovery.gitState.taskPathDirty)}`
-  );
-  return lines.join("\n");
 }
 
 function formatRuntimeExecutionTerminalText(
@@ -2014,9 +1833,10 @@ function registerWorkCommandSurface(surface: Command): void {
             rootDir,
             backlogDir: opts.backlogDir,
           });
-          const report = buildTaskStatusReport(model, {
+          const report = await buildTaskStatusReport(model, {
             rootDir,
             worktree: resolvedWorktree,
+            backlogDir: opts.backlogDir,
           });
           if (opts.json) {
             printTaskJson(report);
