@@ -108,6 +108,43 @@ function addSchemaIfMissing(
   ajv.addSchema(schema);
 }
 
+function addSchemasWithDeferredReferences(
+  ajv: AjvLike,
+  schemas: readonly Record<string, unknown>[],
+): void {
+  const pending = [...schemas];
+  const failures = new Map<Record<string, unknown>, unknown>();
+
+  while (pending.length > 0) {
+    let addedCount = 0;
+
+    for (let index = 0; index < pending.length; ) {
+      const schema = pending[index];
+      try {
+        addSchemaIfMissing(ajv, schema);
+        pending.splice(index, 1);
+        failures.delete(schema);
+        addedCount += 1;
+      } catch (error) {
+        failures.set(schema, error);
+        index += 1;
+      }
+    }
+
+    if (addedCount === 0) {
+      const schema = pending[0];
+      const schemaId = typeof schema.$id === "string" ? schema.$id : "<unknown>";
+      const failure = failures.get(schema);
+      throw new Error(
+        `Failed to register schema '${schemaId}': ${
+          failure instanceof Error ? failure.message : String(failure)
+        }`,
+        { cause: failure },
+      );
+    }
+  }
+}
+
 function normalizeSeverity(value: unknown): Severity | null {
   return value === "error" || value === "warn" || value === "info"
     ? value
@@ -274,6 +311,15 @@ function loadConsumerSeverityConfig(): ConsumerSeverityConfig {
   }
 }
 
+function shouldSkipArchiveValidation(
+  file: string,
+  consumerConfig: ConsumerSeverityConfig,
+): boolean {
+  const archiveSeverity =
+    consumerConfig.automation?.prePushValidation?.severity?.archive;
+  return file.startsWith("archive/") && archiveSeverity === "none";
+}
+
 function parseCliArgs(argv: string[]): { strict: boolean; fileArgs: string[] } {
   const fileArgs: string[] = [];
   let strict = false;
@@ -301,15 +347,6 @@ function resolveSchemaPath(schemaPath: string): string {
   }
 
   const schemaRelative = normalized.replace(/^schemas\//, "");
-  const rootCandidate = join(SCHEMAS_ROOT, schemaRelative);
-  if (existsSync(rootCandidate)) {
-    return rootCandidate;
-  }
-
-  if (!rootCandidate.endsWith(".json") && existsSync(`${rootCandidate}.json`)) {
-    return `${rootCandidate}.json`;
-  }
-
   const workspaceCandidate = join(process.cwd(), normalized);
   if (existsSync(workspaceCandidate)) {
     return workspaceCandidate;
@@ -319,12 +356,24 @@ function resolveSchemaPath(schemaPath: string): string {
     return `${workspaceCandidate}.json`;
   }
 
+  const rootCandidate = join(SCHEMAS_ROOT, schemaRelative);
+  if (existsSync(rootCandidate)) {
+    return rootCandidate;
+  }
+
+  if (!rootCandidate.endsWith(".json") && existsSync(`${rootCandidate}.json`)) {
+    return `${rootCandidate}.json`;
+  }
+
   const fallback = join(SCHEMA_DIR, schemaRelative);
   return fallback.endsWith(".json") ? fallback : `${fallback}.json`;
 }
 
 function collectSchemaFiles(dirPath: string): string[] {
   const files: string[] = [];
+  if (!existsSync(dirPath)) {
+    return files;
+  }
 
   for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
     const fullPath = join(dirPath, entry.name);
@@ -449,10 +498,21 @@ function loadSchemas() {
   const schemaMapPath = join(SCHEMA_DIR, "schema-map.json");
   const schemaMap = parseJsonFile<SchemaMap>(schemaMapPath);
   const supportedTypes = Object.keys(schemaMap.byType).sort();
+  const workspaceSchemaRoot = join(process.cwd(), "schemas");
+  const workspaceFrontmatterSchemaDir = join(workspaceSchemaRoot, "frontmatter");
+  const workspaceWorkManagementSchemaDir = join(
+    workspaceSchemaRoot,
+    "work-management",
+  );
   const schemaFiles = [
-    ...collectSchemaFiles(SCHEMA_DIR),
-    ...collectSchemaFiles(WORK_MANAGEMENT_SCHEMA_DIR),
+    ...new Set([
+      ...collectSchemaFiles(workspaceFrontmatterSchemaDir),
+      ...collectSchemaFiles(workspaceWorkManagementSchemaDir),
+      ...collectSchemaFiles(SCHEMA_DIR),
+      ...collectSchemaFiles(WORK_MANAGEMENT_SCHEMA_DIR),
+    ]),
   ].sort();
+  const schemasToRegister: Record<string, unknown>[] = [];
   const workManagementSchemas: Record<string, unknown>[] = [];
 
   for (const schemaFile of schemaFiles) {
@@ -466,28 +526,48 @@ function loadSchemas() {
     }
 
     const schema = parseJsonFile<Record<string, unknown>>(schemaFile);
-    addSchemaIfMissing(ajv, schema);
-    addSchemaIfMissing(workManagementAjv, schema);
-    if (schemaFile.startsWith(WORK_MANAGEMENT_SCHEMA_DIR)) {
+    schemasToRegister.push(schema);
+    if (
+      schemaFile.startsWith(WORK_MANAGEMENT_SCHEMA_DIR) ||
+      schemaFile.startsWith(workspaceWorkManagementSchemaDir)
+    ) {
       workManagementSchemas.push(schema);
     }
   }
 
+  addSchemasWithDeferredReferences(ajv, schemasToRegister);
+  addSchemasWithDeferredReferences(workManagementAjv, schemasToRegister);
+
+  const workspaceTransitionProfilePath = join(
+    workspaceWorkManagementSchemaDir,
+    "workflows",
+    "default",
+    "transition-profile.json",
+  );
+  const workspaceTransitionProfileSchemaPath = join(
+    workspaceWorkManagementSchemaDir,
+    "support",
+    "transition-profile.schema.json",
+  );
   const transitionProfile = compileTransitionProfile(
     parseJsonFile<Record<string, unknown>>(
-      join(
-        WORK_MANAGEMENT_SCHEMA_DIR,
-        "workflows",
-        "default",
-        "transition-profile.json",
-      ),
+      existsSync(workspaceTransitionProfilePath)
+        ? workspaceTransitionProfilePath
+        : join(
+            WORK_MANAGEMENT_SCHEMA_DIR,
+            "workflows",
+            "default",
+            "transition-profile.json",
+          ),
     ),
     parseJsonFile<Record<string, unknown>>(
-      join(
-        WORK_MANAGEMENT_SCHEMA_DIR,
-        "support",
-        "transition-profile.schema.json",
-      ),
+      existsSync(workspaceTransitionProfileSchemaPath)
+        ? workspaceTransitionProfileSchemaPath
+        : join(
+            WORK_MANAGEMENT_SCHEMA_DIR,
+            "support",
+            "transition-profile.schema.json",
+          ),
     ),
     workManagementSchemas,
   );
@@ -850,6 +930,10 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
 
   // Second pass: Validate each backlog frontmatter file
   for (const file of files) {
+    if (shouldSkipArchiveValidation(file, consumerConfig)) {
+      continue;
+    }
+
     try {
       const filePath = join(backlogDir, file);
       const content = readFileSync(filePath, "utf-8");

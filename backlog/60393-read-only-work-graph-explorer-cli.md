@@ -7,15 +7,17 @@ subtype: task
 lifecycle: active
 status: completed
 status_reason: completed
-completed_date: '2026-06-26'
 priority: high
 estimated: 5
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60392-live-repository-graph-projection-robustness]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
+  evidence:
+    - '[[record-20260701-032943-60393]]'
 tags:
   - afk
   - cli

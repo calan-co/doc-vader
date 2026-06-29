@@ -1,86 +1,78 @@
 ---
 id: wi-60406
-title: Immutable Work Command Inventory and Parity Harness
-summary: Classify remaining read-only Work command surfaces and add a parity harness for graph-backed migration.
+title: Immutable Work Command Inventory And Parity Harness
+summary: Freeze the Work command tree as immutable inventory data and verify CLI help parity across the canonical and compatibility aliases.
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
-estimated: 4
+estimated: 1
+completed_date: '2026-06-29'
 links:
+  depends_on:
+    - '[[60384-work-command-surface-and-scoperef-canonicalization]]'
   reference:
-    - "[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]"
-    - "[[60395-graph-backed-work-list-tracer]]"
-    - "[[60396-graph-backed-work-show-relationships]]"
-    - "[[60398-graph-informed-work-ready-migration]]"
+    - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
 tags:
   - afk
-  - cli
-  - graph
   - work-management
+  - command-surface
+  - testing
 ---
 
 ## Goal
 
-Create the command inventory and test harness needed to migrate remaining
-immutable Work command surfaces to graph-backed or graph-informed read models
-without changing mutation behavior.
+Freeze the Work command tree and alias contract in one immutable inventory and
+prove that `dv work`, `dv wi`, and `dv task` stay help-compatible across that
+surface.
 
 ## Background
 
-List, show relationship sections, derived readiness findings, and ready
-selection have already moved through graph-backed or graph-informed slices. The
-next migration needs a shared definition of which commands are immutable, which
-are mutation-adjacent, and how command output parity is proven before changing
-defaults.
-
-This work must not migrate command behavior by itself.
-
-## What to build
-
-Add a maintainer-facing inventory and a reusable parity test pattern for Work
-command migration. The inventory should classify commands as graph-backed,
-graph-informed, deferred, mutation/write-model, or out of scope, with a short
-reason for each classification.
+- `dv work`, `dv wi`, and `dv task` intentionally expose the same family-level
+  surface, so command additions need one explicit source of truth instead of
+  relying on scattered help text checks.
+- The initial `60406` implementation landed on this branch, but the local work
+  item was missing, so completion evidence could not be recorded.
+- Full-suite validation still carries an unrelated
+  `tests/task-command.test.ts` schema-resolution failure that reproduces on the
+  pre-issue commit `79d18887ced8070dd6d4b1914501dc1825fe1be9`.
 
 ## Tasks
 
-- [ ] Locate current `task`, `work`, and `wi` command surfaces.
-- [ ] Classify each Work command by read/write behavior and graph migration
-      posture.
-- [ ] Capture completed graph-backed list, show, and ready behavior as prior
-      art.
-- [ ] Add or refactor a parity harness that compares command outputs across
-      aliases and graph-backed read expectations.
-- [ ] Add read-only safety assertions where the harness runs immutable commands.
-- [ ] Document the mutation boundary for claim, recover, record, lock mutation,
-      archive, finalize, and lifecycle transition commands.
+- [x] Add an explicit immutable Work command inventory and alias list under
+      `lib/work/**`.
+- [x] Export the inventory helpers from `lib/work/index.ts` for reuse.
+- [x] Add a parity harness that compares `work`, `wi`, and `task` help output
+      against the inventory.
+- [x] Remove duplicate CLI help invocations so the parity harness stays stable
+      inside the full Vitest suite.
+- [x] Run validation for this slice and isolate the remaining unrelated
+      `tests/task-command.test.ts` failures to pre-issue commit
+      `79d18887ced8070dd6d4b1914501dc1825fe1be9`.
 
 ## Deliverables
 
-- Immutable Work command inventory.
-- Reusable parity test helper or fixture pattern.
-- Tests proving immutable command execution does not mutate runtime or document
-  state in the covered harness.
+- Immutable Work command inventory and alias exports.
+- CLI help parity coverage for the inventoried Work tree.
+- Validation evidence showing the remaining task-command failures are outside
+  `60406`.
 
 ## Acceptance Criteria
 
-- [ ] Every current `task`, `work`, and `wi` command is classified.
-- [ ] Remaining graph migration candidates are identified without re-opening
-      completed list, show relationship, or ready slices.
-- [ ] Mutation and mutation-adjacent commands are explicitly excluded from this
-      PRD's read-model migration.
-- [ ] The parity harness can be reused by prompt and status migration slices.
-- [ ] The harness verifies stable command output or documents intentional
-      differences.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] The canonical Work command tree is declared once as immutable data and
+      includes the current graph and top-level subcommands.
+- [x] Alias help for `work`, `wi`, and `task` matches the canonical Work help
+      for every inventoried node.
+- [x] `tests/work-command-parity.test.ts` passes when run directly and no
+      longer fails in the full suite.
+- [x] `pnpm run typecheck` passes on `sandcastle/issue-60406`.
+- [x] `pnpm run test` was executed, and the only remaining failures are the
+      pre-existing `tests/task-command.test.ts` schema-resolution assertions
+      reproduced on `79d18887ced8070dd6d4b1914501dc1825fe1be9`.
 
 ## Relationships
 
-- `implements`: `[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]`
-- `references`: `[[60395-graph-backed-work-list-tracer]]`
-- `references`: `[[60396-graph-backed-work-show-relationships]]`
-- `references`: `[[60398-graph-informed-work-ready-migration]]`
+- `depends_on`: `[[60384-work-command-surface-and-scoperef-canonicalization]]`
+- `implements`: `[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]`

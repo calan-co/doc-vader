@@ -7,9 +7,9 @@ subtype: task
 lifecycle: active
 status: completed
 status_reason: completed
-completed_date: '2026-06-26'
 priority: high
 estimated: 5
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60401-graph-viewer-filtering-search-and-metadata-inspection]]'
@@ -17,6 +17,8 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-graph-visualization-and-export-prd.md]]'
     - '[[60401-graph-viewer-filtering-search-and-metadata-inspection]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
+  evidence:
+    - '[[record-20260701-032943-60402]]'
 tags:
   - afk
   - graph

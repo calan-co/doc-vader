@@ -7,9 +7,9 @@ subtype: task
 lifecycle: active
 status: completed
 status_reason: completed
-completed_date: "2026-06-25"
 priority: high
 estimated: 4
+completed_date: '2026-06-25'
 links:
   depends_on:
     - '[[60385-flat-claim-scopes-and-lock-policies]]'
@@ -17,6 +17,8 @@ links:
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
+  evidence:
+    - '[[record-20260701-032943-60387]]'
 tags:
   - afk
   - projection

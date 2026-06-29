@@ -16,4 +16,5 @@ digraph WorkGraph {
   "record:work-graph-uac-review" -> "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2" [label="records"];
   "record:work-graph-uac-review" -> "scope:wi:70001" [label="records"];
   "record:work-graph-uac-review" -> "wi:70001" [label="records"];
+  "wi:70001" -> "wi:70002" [label="references"];
 }

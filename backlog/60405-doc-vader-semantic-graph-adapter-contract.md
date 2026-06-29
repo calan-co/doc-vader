@@ -17,6 +17,8 @@ links:
     - '[[../docs/architecture/decisions/adr-005-entity-governance-primitive-model.md]]'
     - '[[../docs/architecture/decisions/adr-009-storage-and-format-seams.md]]'
     - '[[../docs/architecture/decisions/adr-010-composable-evaluation-primitives.md]]'
+  evidence:
+    - '[[record-20260701-032943-60405]]'
 tags:
   - doc-vader
   - architecture

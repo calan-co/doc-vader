@@ -18,7 +18,8 @@ export type WorkGraphEdgeType =
   | "belongs_to"
   | "implements"
   | "locks"
-  | "records";
+  | "records"
+  | "references";
 
 export type WorkGraphEdgeAuthority = "formal" | "informational";
 
@@ -158,9 +159,35 @@ function asArray(value: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+function asLinkTarget(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim();
+  }
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const ref = asString(record.ref);
+  if (ref) {
+    return ref;
+  }
+  return asString(record.link);
+}
+
+function asLinkArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => asLinkTarget(entry))
+    .filter((entry): entry is string => Boolean(entry));
+}
+
 function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
+
+const FORMAL_FRONTMATTER_LINK_KEYS = new Set(["depends_on", "evidence"]);
 
 function stripWikiLink(value: string): string {
   const trimmed = value.trim();
@@ -1060,7 +1087,7 @@ function projectRelationshipEdges(options: {
   nodes: WorkGraphNode[];
 }): void {
   const links = getFrontmatterLinks(options.document.frontmatter);
-  const frontmatterDependsOn = asArray(links.depends_on);
+  const frontmatterDependsOn = asLinkArray(links.depends_on);
   for (const target of frontmatterDependsOn) {
     const resolved = resolveDocument(target, options.documents, options.aliases);
     if (!resolved) {
@@ -1145,6 +1172,66 @@ function projectRelationshipEdges(options: {
   }
 }
 
+function projectInformationalFrontmatterLinkEdges(options: {
+  document: MarkdownDocument;
+  sourceNode: WorkGraphNode;
+  documents: MarkdownDocument[];
+  aliases: Map<string, ResolvedDocument>;
+  nodesById: Map<string, WorkGraphNode>;
+  edges: WorkGraphEdge[];
+  scopeNodeIds: Set<string>;
+  nodes: WorkGraphNode[];
+}): void {
+  const links = getFrontmatterLinks(options.document.frontmatter);
+
+  for (const [sourceKey, rawValue] of Object.entries(links)) {
+    if (FORMAL_FRONTMATTER_LINK_KEYS.has(sourceKey)) {
+      continue;
+    }
+
+    for (const rawTarget of asLinkArray(rawValue)) {
+      const resolved = resolveDocument(
+        rawTarget,
+        options.documents,
+        options.aliases,
+      );
+      if (!resolved) {
+        continue;
+      }
+
+      const targetNode = createResolvedTargetNode(resolved, options.nodesById);
+      if (!targetNode) {
+        continue;
+      }
+
+      ensureScopeNode(
+        targetNode,
+        options.nodes,
+        options.nodesById,
+        options.scopeNodeIds,
+      );
+      options.edges.push(
+        createEdge(
+          options.sourceNode,
+          targetNode,
+          "references",
+          "informational",
+          {
+            kind: "frontmatter",
+            filePath: options.document.relativePath,
+          },
+          {
+            sourceKey,
+            rawTarget,
+            resolvedTargetId: targetNode.id,
+            frontmatterId: asString(options.document.frontmatter.id),
+          },
+        ),
+      );
+    }
+  }
+}
+
 function projectWorkItemEvidenceEdges(options: {
   document: MarkdownDocument;
   sourceNode: WorkGraphNode;
@@ -1154,7 +1241,7 @@ function projectWorkItemEvidenceEdges(options: {
   edges: WorkGraphEdge[];
 }): void {
   const links = getFrontmatterLinks(options.document.frontmatter);
-  const evidenceRefs = asArray(links.evidence);
+  const evidenceRefs = asLinkArray(links.evidence);
 
   for (const evidenceRef of evidenceRefs) {
     const resolved = resolveDocument(
@@ -1397,6 +1484,16 @@ export async function projectWorkGraph(
     if (!sourceNode) {
       continue;
     }
+    projectInformationalFrontmatterLinkEdges({
+      document,
+      sourceNode,
+      documents,
+      aliases,
+      nodesById,
+      edges,
+      scopeNodeIds,
+      nodes,
+    });
     if (sourceNode.type === "work-item") {
       projectWorkItemEvidenceEdges({
         document,

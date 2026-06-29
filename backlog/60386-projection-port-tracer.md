@@ -9,13 +9,15 @@ status: completed
 status_reason: completed
 priority: high
 estimated: 4
-completed_date: "2026-06-25"
+completed_date: '2026-06-25'
 links:
   depends_on:
     - '[[60384-work-command-surface-and-scoperef-canonicalization]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
+  evidence:
+    - '[[record-20260701-032943-60386]]'
 tags:
   - afk
   - projection

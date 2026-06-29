@@ -430,6 +430,9 @@
         "pull_requests": {
           "$ref": "#/$defs/uriRefList"
         },
+        "depends_on": {
+          "$ref": "#/$defs/supportingRefList"
+        },
         "evidence": {
           "$ref": "#/$defs/supportingRefList"
         },
