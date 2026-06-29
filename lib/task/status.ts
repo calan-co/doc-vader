@@ -9,12 +9,14 @@ import {
 import {
   projectWorkGraph,
   type WorkGraphEdge,
+  type WorkGraphNode,
   type WorkGraphProjectionDiagnostic,
 } from "../work/projection.js";
 import { canonicalizeWorkItemScopeRef } from "../work/scope-ref.js";
 
 type StatusRelationshipType = "belongs_to" | "depends_on" | "implements";
 type StatusDiagnosticScope = "formal" | "informational";
+type TaskStatusRecoveryState = TaskStatusReport["recovery"]["state"];
 
 interface AuthoredStatusReference {
   scope: StatusDiagnosticScope;
@@ -91,11 +93,13 @@ export interface BuildTaskStatusReportOptions {
   includeGraph?: boolean;
 }
 
-const FORMAL_RELATIONSHIP_TYPES = new Set<StatusRelationshipType>([
-  "belongs_to",
-  "depends_on",
-  "implements",
-]);
+const FORCE_MODE_DESCRIPTIONS = {
+  reset: "Discard recoverable dirty paths before marking the task ready again.",
+  reconcile:
+    "Save a recovery checkpoint before discarding recoverable dirty paths.",
+} as const;
+const FORCE_REQUIRED_RECOMMENDATION =
+  "Inspect the current branch and dirty paths first. Pass --worktree when you can identify the intended recovery checkout. Use --force reset only when this checkout is the intended task branch and task-local dirty paths can be discarded; use --force reconcile when you want a checkpoint first.";
 const NON_INFORMATIONAL_LINK_KEYS = new Set(["depends_on", "evidence"]);
 
 function asString(value: unknown): string | undefined {
@@ -134,6 +138,19 @@ function stripMarkdownExtension(value: string): string {
 
 function normalizeToken(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function isStatusRelationshipType(
+  value: WorkGraphEdge["type"],
+): value is StatusRelationshipType {
+  switch (value) {
+    case "belongs_to":
+    case "depends_on":
+    case "implements":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function parseRelationshipReferences(
@@ -303,11 +320,9 @@ function referenceTokens(taskFilePath: string, target: string): Set<string> {
   return tokens;
 }
 
-function nodeReferenceTokens(node: {
-  id: string;
-  source: { filePath?: string };
-  properties: Record<string, unknown>;
-}): Set<string> {
+function nodeReferenceTokens(
+  node: Pick<WorkGraphNode, "id" | "source" | "properties">,
+): Set<string> {
   const tokens = new Set<string>();
   tokens.add(normalizeToken(node.id));
 
@@ -326,15 +341,46 @@ function nodeReferenceTokens(node: {
   return tokens;
 }
 
+function edgeReferenceTokens(
+  edge: WorkGraphEdge,
+  targetNode?: Pick<WorkGraphNode, "id" | "source" | "properties">,
+): Set<string> {
+  const tokens = new Set<string>();
+  const rawTarget = displayTarget(edge);
+  if (rawTarget) {
+    tokens.add(normalizeToken(rawTarget));
+  }
+
+  const resolvedTargetId = asString(edge.properties.resolvedTargetId) ?? edge.to;
+  tokens.add(normalizeToken(resolvedTargetId));
+  tokens.add(normalizeToken(edge.to));
+
+  if (targetNode) {
+    for (const token of nodeReferenceTokens(targetNode)) {
+      tokens.add(token);
+    }
+  }
+
+  return tokens;
+}
+
+function setsIntersect(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
+  for (const value of right) {
+    if (left.has(value)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function referenceMatchesEdge(options: {
   authored: AuthoredStatusReference;
   taskFilePath: string;
   edge: WorkGraphEdge;
-  targetNode?: {
-    id: string;
-    source: { filePath?: string };
-    properties: Record<string, unknown>;
-  };
+  targetNode?: Pick<WorkGraphNode, "id" | "source" | "properties">;
 }): boolean {
   const sourceKey = asString(options.edge.properties.sourceKey);
   if (sourceKey !== options.authored.sourceKey) {
@@ -345,30 +391,10 @@ function referenceMatchesEdge(options: {
     options.taskFilePath,
     options.authored.target,
   );
-  const edgeTokens = new Set<string>();
-  const rawTarget = displayTarget(options.edge);
-  if (rawTarget) {
-    edgeTokens.add(normalizeToken(rawTarget));
-  }
-
-  const resolvedTargetId =
-    asString(options.edge.properties.resolvedTargetId) ?? options.edge.to;
-  edgeTokens.add(normalizeToken(resolvedTargetId));
-  edgeTokens.add(normalizeToken(options.edge.to));
-
-  if (options.targetNode) {
-    for (const token of nodeReferenceTokens(options.targetNode)) {
-      edgeTokens.add(token);
-    }
-  }
-
-  for (const token of edgeTokens) {
-    if (authoredTokens.has(token)) {
-      return true;
-    }
-  }
-
-  return false;
+  return setsIntersect(
+    authoredTokens,
+    edgeReferenceTokens(options.edge, options.targetNode),
+  );
 }
 
 function matchProjectionDiagnostic(
@@ -408,8 +434,7 @@ async function collectTaskStatusGraphFacts(options: {
   const outgoingEdges = projection.getOutgoingEdges(taskNodeId);
   const formalEdges = outgoingEdges.filter(
     (edge): edge is WorkGraphEdge =>
-      edge.authority === "formal" &&
-      FORMAL_RELATIONSHIP_TYPES.has(edge.type as StatusRelationshipType),
+      edge.authority === "formal" && isStatusRelationshipType(edge.type),
   );
   const informationalEdges = outgoingEdges.filter(
     (edge): edge is WorkGraphEdge =>
@@ -424,7 +449,7 @@ async function collectTaskStatusGraphFacts(options: {
           return null;
         }
         return {
-          type: edge.type as StatusRelationshipType,
+          type: edge.type,
           target,
         };
       })
@@ -453,7 +478,7 @@ async function collectTaskStatusGraphFacts(options: {
 
   const authoredReferences = collectAuthoredStatusReferences({
     dependencies: canonicalTask.dependencies,
-    links: canonicalTask.validation.links as Record<string, unknown>,
+    links: canonicalTask.validation.links,
     bodySections: canonicalTask.body.sections,
   });
   const projectionDiagnostics = stableUniqueProjectionDiagnostics(
@@ -510,6 +535,134 @@ function yesNo(value: boolean): string {
   return value ? "yes" : "no";
 }
 
+function collectBlockedReasons(
+  task: TaskModel,
+  gitState: TaskRecoveryGitState,
+): string[] {
+  const latestExecution = task.runtime?.latestExecutionLog;
+  return [
+    ...gitState.resumeBlockedReasons,
+    ...(latestExecution?.claimState === "active" ? ["claim-active"] : []),
+    ...((latestExecution?.lockCount ?? 0) > 0 ? ["locks-active"] : []),
+  ];
+}
+
+function resolveRecoveryState(options: {
+  task: TaskModel;
+  recoverable: boolean;
+  recoverableWithForce: boolean;
+  blockedReasons: string[];
+}): TaskStatusRecoveryState {
+  if (options.task.runtime?.ready) {
+    return "ready";
+  }
+  if (!options.task.runtime?.latestExecutionLog) {
+    return "not-needed";
+  }
+  if (options.recoverable) {
+    return "recoverable";
+  }
+  if (options.recoverableWithForce) {
+    return "force-required";
+  }
+  if (options.blockedReasons.length > 0) {
+    return "blocked";
+  }
+  return "not-recoverable";
+}
+
+function buildTaskRecoveryReport(
+  task: TaskModel,
+  gitState: TaskRecoveryGitState,
+): TaskStatusReport["recovery"] {
+  const recoverable = isRecoverableReadyRuntimeState({
+    status: task.status,
+    runtime: task.runtime,
+    gitState,
+  });
+  const recoverableWithForce = isRecoverableReadyRuntimeState({
+    status: task.status,
+    runtime: task.runtime,
+    gitState,
+    allowUncertainLineage: true,
+  });
+  const blockedReasons = collectBlockedReasons(task, gitState);
+  const forceReasons =
+    !recoverable && recoverableWithForce ? [...gitState.resumeWarnings] : [];
+  const state = resolveRecoveryState({
+    task,
+    recoverable,
+    recoverableWithForce,
+    blockedReasons,
+  });
+
+  return {
+    state,
+    forceRequired: state === "force-required",
+    forceReasons,
+    blockedReasons,
+    warnings: gitState.resumeWarnings,
+    gitState,
+    ...(state === "force-required"
+      ? {
+          forceModes: { ...FORCE_MODE_DESCRIPTIONS },
+          recommendation: FORCE_REQUIRED_RECOMMENDATION,
+        }
+      : {}),
+  };
+}
+
+function hasGraphFacts(
+  graph: TaskStatusGraphFacts | undefined,
+): graph is TaskStatusGraphFacts {
+  return Boolean(
+    graph &&
+      (graph.relationships.length > 0 ||
+        graph.diagnostics.informationalReferences.length > 0 ||
+        graph.diagnostics.projection.length > 0),
+  );
+}
+
+function pushGraphStatusLine<T>(
+  lines: string[],
+  label: string,
+  values: readonly T[],
+  formatValue: (value: T) => string,
+): void {
+  if (values.length === 0) {
+    return;
+  }
+  lines.push(`- ${label}: ${values.map(formatValue).join(", ")}`);
+}
+
+function formatGraphStatusText(graph: TaskStatusGraphFacts | undefined): string[] {
+  if (!hasGraphFacts(graph)) {
+    return [];
+  }
+
+  const lines = ["", "Graph"];
+  pushGraphStatusLine(
+    lines,
+    "relationships",
+    graph.relationships,
+    (relationship) => `${relationship.type}=${relationship.target}`,
+  );
+  pushGraphStatusLine(
+    lines,
+    "informational references",
+    graph.diagnostics.informationalReferences,
+    (reference) => `${reference.sourceKey}=${reference.target}`,
+  );
+  pushGraphStatusLine(
+    lines,
+    "projection diagnostics",
+    graph.diagnostics.projection,
+    (diagnostic) =>
+      `${diagnostic.sourceKey}=${diagnostic.target} (${diagnostic.reasonCode})`,
+  );
+  return lines;
+}
+
 export async function buildTaskStatusReport(
   task: TaskModel,
   options: BuildTaskStatusReportOptions = {},
@@ -524,39 +677,6 @@ export async function buildTaskStatusReport(
     expectedWorktree:
       options.worktree ?? task.runtime?.latestExecutionLog?.worktree,
   });
-  const recoverable = isRecoverableReadyRuntimeState({
-    status: task.status,
-    runtime: task.runtime,
-    gitState,
-  });
-  const recoverableWithForce = isRecoverableReadyRuntimeState({
-    status: task.status,
-    runtime: task.runtime,
-    gitState,
-    allowUncertainLineage: true,
-  });
-  const blockedReasons = [
-    ...gitState.resumeBlockedReasons,
-    ...(task.runtime?.latestExecutionLog?.claimState === "active"
-      ? ["claim-active"]
-      : []),
-    ...((task.runtime?.latestExecutionLog?.lockCount ?? 0) > 0
-      ? ["locks-active"]
-      : []),
-  ];
-  const forceReasons =
-    !recoverable && recoverableWithForce ? [...gitState.resumeWarnings] : [];
-  const state: TaskStatusReport["recovery"]["state"] = task.runtime?.ready
-    ? "ready"
-    : !task.runtime?.latestExecutionLog
-    ? "not-needed"
-    : recoverable
-    ? "recoverable"
-    : recoverableWithForce
-    ? "force-required"
-    : blockedReasons.length > 0
-    ? "blocked"
-    : "not-recoverable";
 
   const report: TaskStatusReport = {
     schemaVersion: "task-status/v1",
@@ -568,26 +688,7 @@ export async function buildTaskStatusReport(
     lifecycle: task.lifecycle,
     validation: task.validation,
     ...(task.runtime ? { runtime: task.runtime } : {}),
-    recovery: {
-      state,
-      forceRequired: state === "force-required",
-      forceReasons,
-      blockedReasons,
-      warnings: gitState.resumeWarnings,
-      gitState,
-      ...(state === "force-required"
-        ? {
-            forceModes: {
-              reset:
-                "Discard recoverable dirty paths before marking the task ready again.",
-              reconcile:
-                "Save a recovery checkpoint before discarding recoverable dirty paths.",
-            },
-            recommendation:
-              "Inspect the current branch and dirty paths first. Pass --worktree when you can identify the intended recovery checkout. Use --force reset only when this checkout is the intended task branch and task-local dirty paths can be discarded; use --force reconcile when you want a checkpoint first.",
-          }
-        : {}),
-    },
+    recovery: buildTaskRecoveryReport(task, gitState),
   };
 
   if (options.includeGraph === false) {
@@ -625,39 +726,7 @@ export function formatTaskStatusText(report: TaskStatusReport): string {
       } locks=${latest.lockCount ?? "unknown"}`,
     );
   }
-
-  if (
-    report.graph &&
-    (report.graph.relationships.length > 0 ||
-      report.graph.diagnostics.informationalReferences.length > 0 ||
-      report.graph.diagnostics.projection.length > 0)
-  ) {
-    lines.push("", "Graph");
-    if (report.graph.relationships.length > 0) {
-      lines.push(
-        `- relationships: ${report.graph.relationships
-          .map((relationship) => `${relationship.type}=${relationship.target}`)
-          .join(", ")}`,
-      );
-    }
-    if (report.graph.diagnostics.informationalReferences.length > 0) {
-      lines.push(
-        `- informational references: ${report.graph.diagnostics.informationalReferences
-          .map((reference) => `${reference.sourceKey}=${reference.target}`)
-          .join(", ")}`,
-      );
-    }
-    if (report.graph.diagnostics.projection.length > 0) {
-      lines.push(
-        `- projection diagnostics: ${report.graph.diagnostics.projection
-          .map(
-            (diagnostic) =>
-              `${diagnostic.sourceKey}=${diagnostic.target} (${diagnostic.reasonCode})`,
-          )
-          .join(", ")}`,
-      );
-    }
-  }
+  lines.push(...formatGraphStatusText(report.graph));
 
   lines.push(
     "",
