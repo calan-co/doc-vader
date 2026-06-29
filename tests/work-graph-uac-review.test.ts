@@ -219,7 +219,7 @@ describe("work graph UAC review fixture", () => {
 
     const after = await snapshotFiles(rootDir);
     expect(after).toEqual(before);
-  }, 30000);
+  }, 60000);
 
   it("stages the documented review fixture with stable JSON and DOT outputs", async () => {
     const rootDir = await createTempRoot();

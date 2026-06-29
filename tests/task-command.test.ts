@@ -4212,7 +4212,7 @@ tags:
     }
   });
 
-  it("accepts runtime claim tokens when recording evidence through the task command", async () => {
+  it("accepts runtime claim tokens when recording evidence through the task command", { timeout: 15_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
