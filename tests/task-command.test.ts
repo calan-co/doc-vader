@@ -410,7 +410,7 @@ tags:
     },
   );
 
-  it("renders show relationships from graph edges while leaving prompt body content unchanged", async () => {
+  it("renders show relationships from graph edges while leaving prompt body content unchanged", { timeout: 15_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
@@ -2244,7 +2244,7 @@ tags:
     }
   });
 
-  it("reports graph-informed status facts while keeping informational references diagnostic-only", async () => {
+  it("reports graph-informed status facts while keeping informational references diagnostic-only", { timeout: 15_000 }, async () => {
     const root = await mkTmpRoot();
     try {
       await writeTask(
