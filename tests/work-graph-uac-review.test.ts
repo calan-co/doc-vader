@@ -176,6 +176,48 @@ describe("work graph UAC review fixture", () => {
     expect(after).toEqual(before);
   }, 15000);
 
+  it("keeps list, show, ready, prompt, and status alias outputs aligned without mutating the fixture", async () => {
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+    await stagePromptTemplate(rootDir);
+    const before = await snapshotFiles(rootDir);
+    const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
+    const canonicalOutputs = {
+      list: runCli(rootDir, [canonicalAlias, "list", "--json"]),
+      show: runCli(rootDir, [canonicalAlias, "show", "70001", "--json"]),
+      ready: runCli(rootDir, [canonicalAlias, "ready", "--json"]),
+      prompt: runCli(rootDir, [canonicalAlias, "prompt", "70001"]),
+      status: runCli(rootDir, [canonicalAlias, "status", "70001", "--json"]),
+    };
+
+    expect(canonicalOutputs.list).toContain('"id": "wi-70001"');
+    expect(canonicalOutputs.show).toContain('"id": "wi-70001"');
+    expect(canonicalOutputs.ready).toContain('"schemaVersion": "task-ready/v1"');
+    expect(canonicalOutputs.prompt).toContain("# Sandcastle Work Item: wi-70001");
+    expect(canonicalOutputs.status).toContain('"id": "wi-70001"');
+
+    for (const alias of compatibilityAliases) {
+      expect(runCli(rootDir, [alias, "list", "--json"])).toBe(canonicalOutputs.list);
+      expect(runCli(rootDir, [alias, "show", "70001", "--json"])).toBe(
+        canonicalOutputs.show,
+      );
+      expect(runCli(rootDir, [alias, "ready", "--json"])).toBe(
+        canonicalOutputs.ready,
+      );
+      expect(runCli(rootDir, [alias, "prompt", "70001"])).toBe(
+        canonicalOutputs.prompt,
+      );
+      expect(runCli(rootDir, [alias, "status", "70001", "--json"])).toBe(
+        canonicalOutputs.status,
+      );
+    }
+
+    const after = await snapshotFiles(rootDir);
+    expect(after).toEqual(before);
+  }, 30000);
+
   it("stages the documented review fixture with stable JSON and DOT outputs", async () => {
     const rootDir = await createTempRoot();
     await mkdir(rootDir, { recursive: true });

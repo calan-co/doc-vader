@@ -517,7 +517,10 @@ function buildGraphReadyDependencies(options: {
 
   const knownDependencies = options.projection
     .getOutgoingEdges(sourceNode.id)
-    .filter((edge): edge is WorkGraphEdge => edge.type === "depends_on")
+    .filter(
+      (edge): edge is WorkGraphEdge =>
+        edge.authority === "formal" && edge.type === "depends_on",
+    )
     .map((edge) => options.projection.findNode(edge.to))
     .filter((node): node is WorkGraphNode => Boolean(node && node.type === "work-item"))
     .map((node) => {

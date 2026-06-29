@@ -113,16 +113,20 @@ export async function loadTaskShowModel(
 
   const dependencyEdges = projection
     .getOutgoingEdges(workItemNodeId)
-    .filter((edge) => edge.type === "depends_on");
+    .filter((edge) => edge.authority === "formal" && edge.type === "depends_on");
   const relationshipEdges = projection
     .getOutgoingEdges(workItemNodeId)
-    .filter((edge) => edge.type === "belongs_to" || edge.type === "implements");
+    .filter(
+      (edge) =>
+        edge.authority === "formal" &&
+        (edge.type === "belongs_to" || edge.type === "implements"),
+    );
   const recordEdges = projection
     .getIncomingEdges(workItemNodeId)
-    .filter((edge) => edge.type === "records");
+    .filter((edge) => edge.authority === "formal" && edge.type === "records");
   const lockEdges = projection
     .getIncomingEdges(scopeNodeId)
-    .filter((edge) => edge.type === "locks");
+    .filter((edge) => edge.authority === "formal" && edge.type === "locks");
 
   const dependencies = stableUniqueByTypeAndTarget(
     dependencyEdges.map((edge) => ({

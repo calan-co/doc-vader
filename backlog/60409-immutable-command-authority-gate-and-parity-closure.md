@@ -5,16 +5,17 @@ summary: Close the immutable command migration lane with formal-only authority c
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: auto
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-06-29'
 links:
   depends_on:
-    - "[[60407-graph-backed-work-prompt-relationship-context]]"
-    - "[[60408-graph-informed-work-status-read-model]]"
+    - '[[60407-graph-backed-work-prompt-relationship-context]]'
+    - '[[60408-graph-informed-work-status-read-model]]'
   reference:
-    - "[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]"
+    - '[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]'
 tags:
   - afk
   - cli
@@ -47,15 +48,15 @@ surfaces.
 
 ## Tasks
 
-- [ ] Review completed immutable command migration work against the PRD.
-- [ ] Add cross-command tests for formal-only governance behavior.
-- [ ] Add cross-command tests for informational diagnostic visibility.
-- [ ] Prove mutation commands still use canonical document/runtime write
+- [x] Review completed immutable command migration work against the PRD.
+- [x] Add cross-command tests for formal-only governance behavior.
+- [x] Add cross-command tests for informational diagnostic visibility.
+- [x] Prove mutation commands still use canonical document/runtime write
       models.
-- [ ] Record parity evidence for list, show, ready, prompt, and status.
-- [ ] Update maintainer-facing notes or implementation-plan references if the
+- [x] Record parity evidence for list, show, ready, prompt, and status.
+- [x] Update maintainer-facing notes or implementation-plan references if the
       command inventory changed during implementation.
-- [ ] Run documentation and backlog validation gates.
+- [x] Run documentation and backlog validation gates.
 
 ## Deliverables
 
@@ -66,19 +67,25 @@ surfaces.
 
 ## Acceptance Criteria
 
-- [ ] Formal edges are the only projected graph facts that can influence
+- [x] Formal edges are the only projected graph facts that can influence
       governance-sensitive command interpretation.
-- [ ] Informational edges are visible only as diagnostics, metadata, or review
+- [x] Informational edges are visible only as diagnostics, metadata, or review
       facts.
-- [ ] Mutation and mutation-adjacent commands continue to use document/runtime
+- [x] Mutation and mutation-adjacent commands continue to use document/runtime
       write models.
-- [ ] List, show, ready, prompt, and status parity evidence is recorded in tests
+- [x] List, show, ready, prompt, and status parity evidence is recorded in tests
       or documentation.
-- [ ] No claim, recover, record, lock mutation, archive, finalize, or lifecycle
+- [x] No claim, recover, record, lock mutation, archive, finalize, or lifecycle
       transition behavior is changed.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
-- [ ] Validation passes with `pnpm run backlog:validate:ci`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Validation passes with `pnpm run backlog:validate:ci`.
+
+## Implementation Notes
+
+- Immutable command inventory is unchanged; `wi-60406` remains the
+  authoritative command inventory and this slice did not require PRD reference
+  updates.
 
 ## Blocked by
 
