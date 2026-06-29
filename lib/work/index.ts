@@ -1,5 +1,12 @@
 export { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
 export {
+  WORK_COMMAND_ALIASES,
+  WORK_COMMAND_INVENTORY,
+  iterWorkCommandInventory,
+  type WorkCommandInventoryEntry,
+  type WorkCommandInventoryNode,
+} from "./command-inventory.js";
+export {
   createProjectionPort,
   createWorkProjectionPort,
   projectRepositoryGraph,
