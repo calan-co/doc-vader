@@ -8,6 +8,7 @@ import {
   formatClaimReleaseMessage,
   formatGenericClaimReleaseMessage,
 } from "./claim-release.js";
+import { loadSandcastlePlanningListPayload } from "../../lib/sandcastle/planning-list.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -676,31 +677,9 @@ async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
   switch (command) {
     case "list": {
-      const holder = process.env.SANDCASTLE_CLAIM_HOLDER ?? "sandcastle:manual";
-      const recovered = recoverReadyClaims(holder);
-      const ready = json<{ candidates: Array<{ id: string }> }>([
-        "task",
-        "ready",
-        "--json",
-        "--candidates-only",
-      ]);
-      const recoveredIds = new Set(recovered.map((task) => task.id));
-      const tasks = [
-        ...recovered,
-        ...ready.candidates
-          .filter((candidate) => !recoveredIds.has(taskNumber(candidate.id)))
-          .map((candidate) => {
-            const id = taskNumber(candidate.id);
-            return toPlannerTask(
-              json<JsonRecord>(["task", "show", candidate.id, "--json"]),
-              {
-                mode: "fresh",
-                branch: `sandcastle/issue-${id}`,
-              },
-            );
-          }),
-      ];
-      console.log(JSON.stringify(tasks, null, 2));
+      console.log(
+        JSON.stringify(await loadSandcastlePlanningListPayload(), null, 2),
+      );
       return;
     }
     case "view": {
