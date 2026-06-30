@@ -23,6 +23,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const adapterPath = path.resolve(__dirname, "../scripts/sandcastle/dv-adapter.ts");
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
+const inspectionTemplateNames = [
+  "show.md.tpl",
+  "sandcastle-prompt.md.tpl",
+] as const;
 
 const tempDirs: string[] = [];
 type RuntimeClaimCommandResult = { outcome: string; claimToken: string };
@@ -117,14 +121,12 @@ async function writeTask(
 async function stageInspectionTemplates(rootDir: string): Promise<void> {
   const templateDir = path.join(rootDir, "templates", "reference", "task");
   await mkdir(templateDir, { recursive: true });
-  await copyFile(
-    path.resolve(__dirname, "../templates/reference/task/show.md.tpl"),
-    path.join(templateDir, "show.md.tpl"),
-  );
-  await copyFile(
-    path.resolve(__dirname, "../templates/reference/task/sandcastle-prompt.md.tpl"),
-    path.join(templateDir, "sandcastle-prompt.md.tpl"),
-  );
+  for (const templateName of inspectionTemplateNames) {
+    await copyFile(
+      path.resolve(__dirname, "../templates/reference/task", templateName),
+      path.join(templateDir, templateName),
+    );
+  }
 }
 
 function runAdapter(rootDir: string, args: string[]): string {
@@ -204,7 +206,12 @@ async function createCommittedTaskRepo(
   commitRepoState(rootDir, "chore: base");
 }
 
-async function snapshotFiles(rootDir: string): Promise<Map<string, string>> {
+async function hashFile(filePath: string): Promise<string> {
+  const content = await readFile(filePath);
+  return createHash("sha256").update(content).digest("hex");
+}
+
+async function snapshotFileHashes(rootDir: string): Promise<Map<string, string>> {
   const snapshot = new Map<string, string>();
 
   async function walk(currentDir: string): Promise<void> {
@@ -216,11 +223,7 @@ async function snapshotFiles(rootDir: string): Promise<Map<string, string>> {
         continue;
       }
       const relativePath = path.relative(rootDir, entryPath);
-      const content = await readFile(entryPath);
-      snapshot.set(
-        relativePath,
-        createHash("sha256").update(content).digest("hex"),
-      );
+      snapshot.set(relativePath, await hashFile(entryPath));
     }
   }
 
@@ -373,7 +376,10 @@ tags:
       withRuntimeStore(rootDir, (store) => {
         const claimToken = store.listClaims()[0]?.claim_token;
         expect(claimToken).toBeTruthy();
-        const lockResult = store.acquireRuntimeScopeLocks(claimToken!, [
+        if (!claimToken) {
+          throw new Error("Expected staged fixture claim.");
+        }
+        const lockResult = store.acquireRuntimeScopeLocks(claimToken, [
           {
             scopeRef: "wi:70001",
             lockMode: "read",
@@ -382,7 +388,7 @@ tags:
         expect(lockResult.outcome).toBe("acquired");
       });
 
-      const before = await snapshotFiles(rootDir);
+      const before = await snapshotFileHashes(rootDir);
       const canonicalShowText = runCli(rootDir, ["work", "show", "70001"]);
       const canonicalShowJson = runCliJson<CanonicalShowResult>(rootDir, [
         "work",
@@ -413,7 +419,7 @@ tags:
       expect(view.canonicalTask).toEqual(canonicalShowJson as Record<string, unknown>);
       expect(prompt).toBe(canonicalPrompt);
 
-      const after = await snapshotFiles(rootDir);
+      const after = await snapshotFileHashes(rootDir);
       expect(after).toEqual(before);
     },
   );

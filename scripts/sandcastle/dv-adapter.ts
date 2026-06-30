@@ -125,7 +125,11 @@ function recordValue(value: unknown): JsonRecord | undefined {
 }
 
 function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+  return hasText(value) ? value.trim() : undefined;
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function recordArray(value: unknown): JsonRecord[] {
@@ -158,14 +162,18 @@ function taskBodySections(task: JsonRecord): Array<{ heading: string; content: s
     });
 }
 
+function taskValidation(task: JsonRecord): JsonRecord | undefined {
+  return recordValue(task.validation);
+}
+
 function taskReferences(task: JsonRecord): string[] {
-  const validation = recordValue(task.validation);
+  const validation = taskValidation(task);
   const links = recordValue(validation?.links);
   return stringArray(links?.reference);
 }
 
 function taskFrontmatter(task: JsonRecord): JsonRecord {
-  const validation = recordValue(task.validation);
+  const validation = taskValidation(task);
   const frontmatter: JsonRecord = {
     id: task.id,
     title: task.title,
@@ -194,6 +202,10 @@ function taskFrontmatter(task: JsonRecord): JsonRecord {
   return frontmatter;
 }
 
+function taskState(status: string): AdapterTask["state"] {
+  return status === "completed" || status === "aborted" ? "closed" : "open";
+}
+
 function isoDateOnly(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
@@ -216,6 +228,10 @@ function toAdapterTask(task: JsonRecord, showText: string): AdapterTask {
     fail("dv task show returned a task without an id.");
   }
   const status = String(task.status ?? "unknown");
+  const validation = taskValidation(task);
+  const summary = task.summary;
+  const lifecycle = task.lifecycle;
+  const priority = validation?.priority;
   const dependencies = recordArray(task.dependencies);
   const relationships = recordArray(task.relationships);
   const records = recordArray(task.records);
@@ -224,14 +240,12 @@ function toAdapterTask(task: JsonRecord, showText: string): AdapterTask {
     id: taskNumber(id),
     number: taskNumber(id),
     title: String(task.title ?? id),
-    ...(stringValue(task.summary) ? { summary: String(task.summary) } : {}),
+    ...(hasText(summary) ? { summary } : {}),
     body: showText,
     status,
-    ...(stringValue(task.lifecycle) ? { lifecycle: String(task.lifecycle) } : {}),
-    state: status === "completed" || status === "aborted" ? "closed" : "open",
-    ...(recordValue(task.validation) && stringValue(recordValue(task.validation)?.priority)
-      ? { priority: String(recordValue(task.validation)?.priority) }
-      : {}),
+    ...(hasText(lifecycle) ? { lifecycle } : {}),
+    state: taskState(status),
+    ...(hasText(priority) ? { priority } : {}),
     tags: stringArray(task.tags),
     references: taskReferences(task),
     dependencies,
