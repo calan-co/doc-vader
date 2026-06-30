@@ -5,9 +5,11 @@ summary: Regenerate Sandcastle prompt and tool wiring from InitService template 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-30'
 links:
   depends_on:
     - '[[60410-sandcastle-planning-list-surface]]'
@@ -43,17 +45,17 @@ edits or stale helper scripts.
 
 ## Tasks
 
-- [ ] Update Sandcastle initialization data to provide `dv4sandcastle` command
+- [x] Update Sandcastle initialization data to provide `dv4sandcastle` command
       template arguments.
-- [ ] Regenerate or update generated prompt artifacts from those template
+- [x] Regenerate or update generated prompt artifacts from those template
       arguments.
-- [ ] Replace stale ad hoc list, view, or close helper script references.
-- [ ] Ensure plan prompts use the planning list surface.
-- [ ] Ensure implementation prompts use inspection, claim, recovery, and close
+- [x] Replace stale ad hoc list, view, or close helper script references.
+- [x] Ensure plan prompts use the planning list surface.
+- [x] Ensure implementation prompts use inspection, claim, recovery, and close
       adapter guidance.
-- [ ] Add tests or fixtures proving generated artifacts use the adapter
+- [x] Add tests or fixtures proving generated artifacts use the adapter
       contract.
-- [ ] Keep prompt instructions aligned with repository-script transition
+- [x] Keep prompt instructions aligned with repository-script transition
       behavior.
 
 ## Deliverables
@@ -64,17 +66,17 @@ edits or stale helper scripts.
 
 ## Acceptance Criteria
 
-- [ ] Generated Sandcastle plan artifacts call the adapter-backed list surface.
-- [ ] Generated Sandcastle implementation artifacts call adapter-backed view,
+- [x] Generated Sandcastle plan artifacts call the adapter-backed list surface.
+- [x] Generated Sandcastle implementation artifacts call adapter-backed view,
       prompt, claim, recover, and close guidance.
-- [ ] Stale ad hoc helper-script references are removed from generated
+- [x] Stale ad hoc helper-script references are removed from generated
       Sandcastle artifacts.
-- [ ] Prompt artifacts are regenerated from template arguments, not maintained
+- [x] Prompt artifacts are regenerated from template arguments, not maintained
       as separate command truth.
-- [ ] Direct backlog state edits are not presented as the normal Sandcastle
+- [x] Direct backlog state edits are not presented as the normal Sandcastle
       completion path.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 
