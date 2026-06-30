@@ -30,11 +30,21 @@ interface AdapterTask {
   id: string;
   number: string;
   title: string;
+  summary?: string;
   body: string;
   status: string;
+  lifecycle?: string;
   state: "open" | "closed";
+  priority?: string;
   tags: string[];
+  references: string[];
+  dependencies: JsonRecord[];
+  relationships?: JsonRecord[];
+  records?: JsonRecord[];
+  activeLocks?: JsonRecord[];
   file: string;
+  bodySections: Array<{ heading: string; content: string }>;
+  frontmatter: JsonRecord;
   canonicalTask: JsonRecord;
 }
 
@@ -87,28 +97,6 @@ function taskNumber(taskId: string): string {
   return taskId.replace(/^wi-/, "");
 }
 
-function taskBody(task: JsonRecord): string {
-  const body = recordValue(task.body);
-  const sections = Array.isArray(task.bodySections)
-    ? task.bodySections
-    : body?.sections;
-  if (!Array.isArray(sections)) {
-    return "";
-  }
-  return sections
-    .map((section) => {
-      const record = recordValue(section);
-      const heading = stringValue(record?.heading) ?? stringValue(record?.title);
-      const bodyText = stringValue(record?.body) ?? stringValue(record?.content);
-      return heading && bodyText ? { heading, body: bodyText } : undefined;
-    })
-    .filter((section): section is { heading: string; body: string } => {
-      return section !== undefined;
-    })
-    .map((section) => `## ${section.heading}\n\n${section.body}`.trim())
-    .join("\n\n");
-}
-
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -140,6 +128,72 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function recordArray(value: unknown): JsonRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((entry) => {
+    const record = recordValue(entry);
+    return record ? [record] : [];
+  });
+}
+
+function taskBodySections(task: JsonRecord): Array<{ heading: string; content: string }> {
+  const body = recordValue(task.body);
+  const sections = Array.isArray(task.bodySections)
+    ? task.bodySections
+    : body?.sections;
+  if (!Array.isArray(sections)) {
+    return [];
+  }
+  return sections
+    .map((section) => {
+      const record = recordValue(section);
+      const heading = stringValue(record?.heading) ?? stringValue(record?.title);
+      const content = stringValue(record?.body) ?? stringValue(record?.content);
+      return heading && content ? { heading, content } : undefined;
+    })
+    .filter((section): section is { heading: string; content: string } => {
+      return section !== undefined;
+    });
+}
+
+function taskReferences(task: JsonRecord): string[] {
+  const validation = recordValue(task.validation);
+  const links = recordValue(validation?.links);
+  return stringArray(links?.reference);
+}
+
+function taskFrontmatter(task: JsonRecord): JsonRecord {
+  const validation = recordValue(task.validation);
+  const frontmatter: JsonRecord = {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    lifecycle: task.lifecycle,
+    type: validation?.type,
+  };
+  const optionalEntries: Array<[string, unknown]> = [
+    ["summary", task.summary],
+    ["subtype", validation?.subtype],
+    ["priority", validation?.priority],
+    ["estimated", task.estimated],
+    ["actual", task.actual],
+    ["status_reason", validation?.statusReason],
+    ["$schema", validation?.schema],
+    ["$content_schema", validation?.contentSchema],
+    ["$template", validation?.template],
+    ["links", validation?.links],
+    ["tags", task.tags],
+  ];
+  for (const [key, value] of optionalEntries) {
+    if (value !== undefined) {
+      frontmatter[key] = value;
+    }
+  }
+  return frontmatter;
+}
+
 function isoDateOnly(date = new Date()): string {
   return date.toISOString().slice(0, 10);
 }
@@ -156,21 +210,37 @@ function git(args: string[]): string | undefined {
   }
 }
 
-function toAdapterTask(task: JsonRecord): AdapterTask {
+function toAdapterTask(task: JsonRecord, showText: string): AdapterTask {
   const id = String(task.id ?? "");
   if (!id) {
     fail("dv task show returned a task without an id.");
   }
   const status = String(task.status ?? "unknown");
+  const dependencies = recordArray(task.dependencies);
+  const relationships = recordArray(task.relationships);
+  const records = recordArray(task.records);
+  const activeLocks = recordArray(task.activeLocks);
   return {
     id: taskNumber(id),
     number: taskNumber(id),
     title: String(task.title ?? id),
-    body: taskBody(task),
+    ...(stringValue(task.summary) ? { summary: String(task.summary) } : {}),
+    body: showText,
     status,
+    ...(stringValue(task.lifecycle) ? { lifecycle: String(task.lifecycle) } : {}),
     state: status === "completed" || status === "aborted" ? "closed" : "open",
+    ...(recordValue(task.validation) && stringValue(recordValue(task.validation)?.priority)
+      ? { priority: String(recordValue(task.validation)?.priority) }
+      : {}),
     tags: stringArray(task.tags),
+    references: taskReferences(task),
+    dependencies,
+    ...(relationships.length > 0 ? { relationships } : {}),
+    ...(records.length > 0 ? { records } : {}),
+    ...(activeLocks.length > 0 ? { activeLocks } : {}),
     file: String(task.filePath ?? ""),
+    bodySections: taskBodySections(task),
+    frontmatter: taskFrontmatter(task),
     canonicalTask: task,
   };
 }
@@ -484,9 +554,13 @@ async function main(): Promise<void> {
     }
     case "view": {
       const taskId = args[0] ?? fail("Usage: dv-adapter.ts view <task-id>");
+      const showText = runDv(["work", "show", taskId]);
       console.log(
         JSON.stringify(
-          toAdapterTask(json<JsonRecord>(["work", "show", taskId, "--json"])),
+          toAdapterTask(
+            json<JsonRecord>(["work", "show", taskId, "--json"]),
+            showText,
+          ),
           null,
           2,
         ),

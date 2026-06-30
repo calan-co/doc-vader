@@ -1,13 +1,22 @@
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { openRuntimeSqliteStore } from "../lib/runtime/sqlite-store.js";
 import { writeBacklogConsumerConfig } from "./helpers/backlog-consumer-config.js";
+import { stageWorkGraphUacFixture } from "./helpers/work-graph-uac-fixture.js";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,6 +46,35 @@ type RuntimeRecoverResult = {
       status_reason: string;
     };
   };
+};
+type AdapterViewResult = {
+  id: string;
+  number: string;
+  title: string;
+  body: string;
+  file: string;
+  references?: string[];
+  dependencies?: Array<{ type: string; target: string }>;
+  relationships?: Array<{ type: string; target: string }>;
+  records?: Array<{ type: string; target: string }>;
+  activeLocks?: Array<{ claimToken: string; scopeRef: string; lockMode: string }>;
+  bodySections?: Array<{ heading: string; content: string }>;
+  canonicalTask: Record<string, unknown>;
+};
+type CanonicalShowResult = {
+  filePath: string;
+  body: {
+    sections: Array<{ title: string; content: string }>;
+  };
+  validation: {
+    links?: {
+      reference?: string[];
+    };
+  };
+  dependencies?: Array<{ type: string; target: string }>;
+  relationships?: Array<{ type: string; target: string }>;
+  records?: Array<{ type: string; target: string }>;
+  activeLocks?: Array<{ claimToken: string; scopeRef: string; lockMode: string }>;
 };
 
 async function createTempRepo(): Promise<string> {
@@ -73,6 +111,19 @@ async function writeTask(
     path.join(rootDir, "backlog", fileName),
     `---\n${frontmatter.trim()}\n---\n\n${body}`,
     "utf8",
+  );
+}
+
+async function stageInspectionTemplates(rootDir: string): Promise<void> {
+  const templateDir = path.join(rootDir, "templates", "reference", "task");
+  await mkdir(templateDir, { recursive: true });
+  await copyFile(
+    path.resolve(__dirname, "../templates/reference/task/show.md.tpl"),
+    path.join(templateDir, "show.md.tpl"),
+  );
+  await copyFile(
+    path.resolve(__dirname, "../templates/reference/task/sandcastle-prompt.md.tpl"),
+    path.join(templateDir, "sandcastle-prompt.md.tpl"),
   );
 }
 
@@ -151,6 +202,30 @@ async function createCommittedTaskRepo(
   await initGitRepo(rootDir);
   await writeTask(rootDir, fileName, frontmatter);
   commitRepoState(rootDir, "chore: base");
+}
+
+async function snapshotFiles(rootDir: string): Promise<Map<string, string>> {
+  const snapshot = new Map<string, string>();
+
+  async function walk(currentDir: string): Promise<void> {
+    const entries = await readdir(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(entryPath);
+        continue;
+      }
+      const relativePath = path.relative(rootDir, entryPath);
+      const content = await readFile(entryPath);
+      snapshot.set(
+        relativePath,
+        createHash("sha256").update(content).digest("hex"),
+      );
+    }
+  }
+
+  await walk(rootDir);
+  return snapshot;
 }
 
 afterEach(async () => {
@@ -286,6 +361,62 @@ tags:
       });
     });
   });
+
+  it(
+    "backs view and prompt with canonical work inspection output without mutating state",
+    { timeout: 20_000 },
+    async () => {
+      const rootDir = await createTempRepo();
+      await stageWorkGraphUacFixture(rootDir);
+      await stageInspectionTemplates(rootDir);
+
+      withRuntimeStore(rootDir, (store) => {
+        const claimToken = store.listClaims()[0]?.claim_token;
+        expect(claimToken).toBeTruthy();
+        const lockResult = store.acquireRuntimeScopeLocks(claimToken!, [
+          {
+            scopeRef: "wi:70001",
+            lockMode: "read",
+          },
+        ]);
+        expect(lockResult.outcome).toBe("acquired");
+      });
+
+      const before = await snapshotFiles(rootDir);
+      const canonicalShowText = runCli(rootDir, ["work", "show", "70001"]);
+      const canonicalShowJson = runCliJson<CanonicalShowResult>(rootDir, [
+        "work",
+        "show",
+        "70001",
+        "--json",
+      ]);
+      const canonicalPrompt = runCli(rootDir, ["work", "prompt", "70001"]);
+
+      const view = runAdapterJson<AdapterViewResult>(rootDir, ["view", "70001"]);
+      const prompt = runAdapter(rootDir, ["prompt", "70001"]);
+
+      expect(view.body.trimEnd()).toBe(canonicalShowText.trimEnd());
+      expect(view.file).toBe(canonicalShowJson.filePath);
+      expect(view.references).toEqual(
+        canonicalShowJson.validation.links?.reference ?? [],
+      );
+      expect(view.dependencies).toEqual(canonicalShowJson.dependencies);
+      expect(view.relationships).toEqual(canonicalShowJson.relationships);
+      expect(view.records).toEqual(canonicalShowJson.records);
+      expect(view.activeLocks).toEqual(canonicalShowJson.activeLocks);
+      expect(view.bodySections).toEqual(
+        canonicalShowJson.body.sections.map((section) => ({
+          heading: section.title,
+          content: section.content,
+        })),
+      );
+      expect(view.canonicalTask).toEqual(canonicalShowJson as Record<string, unknown>);
+      expect(prompt).toBe(canonicalPrompt);
+
+      const after = await snapshotFiles(rootDir);
+      expect(after).toEqual(before);
+    },
+  );
 
   it(
     "verifies locks, releases through runtime authority, and recovers halted work",
