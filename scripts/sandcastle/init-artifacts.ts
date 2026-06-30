@@ -22,6 +22,7 @@ export const sandcastleInitTemplateArgs = {
 } as const;
 
 type SandcastleInitTemplateArg = keyof typeof sandcastleInitTemplateArgs;
+type SandcastleInitArtifactDefinition = Omit<SandcastleInitArtifact, "content">;
 
 export interface SandcastleInitArtifact {
   outputRelativePath: string;
@@ -34,7 +35,7 @@ export interface RenderSandcastleInitArtifactsOptions {
   write?: boolean;
 }
 
-const sandcastleInitArtifactMappings = [
+const sandcastleInitArtifactDefinitions: readonly SandcastleInitArtifactDefinition[] = [
   {
     templateRelativePath: "scripts/sandcastle/templates/plan-prompt.md.tpl",
     outputRelativePath: ".sandcastle/plan-prompt.md",
@@ -49,14 +50,37 @@ const sandcastleInitArtifactMappings = [
   },
 ] as const;
 
+function isSandcastleInitTemplateArg(value: string): value is SandcastleInitTemplateArg {
+  return Object.hasOwn(sandcastleInitTemplateArgs, value);
+}
+
 export function substituteSandcastleInitTemplateArgs(template: string): string {
-  let content = template;
-  for (const [key, value] of Object.entries(sandcastleInitTemplateArgs) as Array<
-    [SandcastleInitTemplateArg, string]
-  >) {
-    content = content.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
-  }
-  return content;
+  return template.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key: string) => {
+    return isSandcastleInitTemplateArg(key) ? sandcastleInitTemplateArgs[key] : match;
+  });
+}
+
+async function renderSandcastleInitArtifact(
+  rootDir: string,
+  definition: SandcastleInitArtifactDefinition,
+): Promise<SandcastleInitArtifact> {
+  const templatePath = path.join(rootDir, definition.templateRelativePath);
+  const content = substituteSandcastleInitTemplateArgs(
+    await readFile(templatePath, "utf8"),
+  );
+  return {
+    ...definition,
+    content,
+  };
+}
+
+async function writeSandcastleInitArtifact(
+  rootDir: string,
+  artifact: SandcastleInitArtifact,
+): Promise<void> {
+  const outputPath = path.join(rootDir, artifact.outputRelativePath);
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, artifact.content, "utf8");
 }
 
 export async function renderSandcastleInitArtifacts(
@@ -64,23 +88,14 @@ export async function renderSandcastleInitArtifacts(
 ): Promise<SandcastleInitArtifact[]> {
   const rootDir = path.resolve(options.rootDir ?? defaultRootDir);
   const artifacts = await Promise.all(
-    sandcastleInitArtifactMappings.map(async (artifact) => {
-      const templatePath = path.join(rootDir, artifact.templateRelativePath);
-      const content = substituteSandcastleInitTemplateArgs(
-        await readFile(templatePath, "utf8"),
-      );
-      return {
-        ...artifact,
-        content,
-      };
-    }),
+    sandcastleInitArtifactDefinitions.map((definition) =>
+      renderSandcastleInitArtifact(rootDir, definition),
+    ),
   );
 
   if (options.write) {
     for (const artifact of artifacts) {
-      const outputPath = path.join(rootDir, artifact.outputRelativePath);
-      await mkdir(path.dirname(outputPath), { recursive: true });
-      await writeFile(outputPath, artifact.content, "utf8");
+      await writeSandcastleInitArtifact(rootDir, artifact);
     }
   }
 

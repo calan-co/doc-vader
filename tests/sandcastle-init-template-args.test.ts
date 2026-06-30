@@ -1,15 +1,36 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   renderSandcastleInitArtifacts,
   sandcastleInitTemplateArgs,
 } from "../scripts/sandcastle/init-artifacts.js";
 
-const repoRoot = process.cwd();
+const testDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(testDir, "..");
+const artifactPaths = {
+  planPrompt: ".sandcastle/plan-prompt.md",
+  implementPrompt: ".sandcastle/implement-prompt.md",
+  setupDoc: ".sandcastle/SETUP_ISSUE_TRACKER.md",
+} as const;
+const sandcastleInitPlaceholderPattern = new RegExp(
+  `\\{\\{(?:${Object.keys(sandcastleInitTemplateArgs).join("|")})\\}\\}`,
+);
 
 function outputPath(relativePath: string): string {
   return path.join(repoRoot, relativePath);
+}
+
+function requireRenderedArtifact(
+  renderedByPath: Map<string, string>,
+  relativePath: string,
+): string {
+  const content = renderedByPath.get(relativePath);
+  if (content === undefined) {
+    throw new Error(`Missing rendered artifact: ${relativePath}`);
+  }
+  return content;
 }
 
 describe("sandcastle init template args wiring", () => {
@@ -19,9 +40,12 @@ describe("sandcastle init template args wiring", () => {
       rendered.map((artifact) => [artifact.outputRelativePath, artifact.content]),
     );
 
-    const planPrompt = renderedByPath.get(".sandcastle/plan-prompt.md");
-    const implementPrompt = renderedByPath.get(".sandcastle/implement-prompt.md");
-    const setupDoc = renderedByPath.get(".sandcastle/SETUP_ISSUE_TRACKER.md");
+    const planPrompt = requireRenderedArtifact(renderedByPath, artifactPaths.planPrompt);
+    const implementPrompt = requireRenderedArtifact(
+      renderedByPath,
+      artifactPaths.implementPrompt,
+    );
+    const setupDoc = requireRenderedArtifact(renderedByPath, artifactPaths.setupDoc);
 
     expect(planPrompt).toContain(`!\`${sandcastleInitTemplateArgs.LIST_TASKS_COMMAND}\``);
     expect(planPrompt).not.toContain(".sandcastle/list-ready-issues.mjs");
@@ -57,8 +81,14 @@ describe("sandcastle init template args wiring", () => {
       "Do not edit `.sandcastle/plan-prompt.md` or `.sandcastle/implement-prompt.md` directly.",
     );
 
-    for (const [relativePath, content] of renderedByPath) {
-      expect(await readFile(outputPath(relativePath), "utf8")).toBe(content);
+    for (const content of renderedByPath.values()) {
+      expect(content).not.toMatch(sandcastleInitPlaceholderPattern);
     }
+
+    await Promise.all(
+      [...renderedByPath.entries()].map(async ([relativePath, content]) => {
+        expect(await readFile(outputPath(relativePath), "utf8")).toBe(content);
+      }),
+    );
   });
 });
