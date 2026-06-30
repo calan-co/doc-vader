@@ -5,9 +5,11 @@ summary: Deliver dv4sandcastle list as the Sandcastle planning entrypoint over a
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 6
+completed_date: '2026-06-30'
 links:
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
@@ -42,16 +44,16 @@ context for planning quality.
 
 ## Tasks
 
-- [ ] Add or update the `dv4sandcastle list` command surface.
-- [ ] Back list selection with authoritative `dv work` filtering rather than
+- [x] Add or update the `dv4sandcastle list` command surface.
+- [x] Back list selection with authoritative `dv work` filtering rather than
       Markdown-only parsing.
-- [ ] Return selectable candidates separately from horizon context.
-- [ ] Keep filter policy decoupled from rendering format.
-- [ ] Ensure blocked, HITL, claimed, halted, or otherwise unsafe work is not
+- [x] Return selectable candidates separately from horizon context.
+- [x] Keep filter policy decoupled from rendering format.
+- [x] Ensure blocked, HITL, claimed, halted, or otherwise unsafe work is not
       selectable.
-- [ ] Remove public reliance on the legacy `dv task` compatibility surface for
+- [x] Remove public reliance on the legacy `dv task` compatibility surface for
       this planning path.
-- [ ] Add CLI or integration coverage for the Sandcastle planning list
+- [x] Add CLI or integration coverage for the Sandcastle planning list
       contract.
 
 ## Deliverables
@@ -63,16 +65,16 @@ context for planning quality.
 
 ## Acceptance Criteria
 
-- [ ] `dv4sandcastle list` can be used as Sandcastle's planning list command.
-- [ ] Selectable results are deterministic AFK-safe candidates.
-- [ ] Horizon context is present for planner reasoning but cannot be chosen as
+- [x] `dv4sandcastle list` can be used as Sandcastle's planning list command.
+- [x] Selectable results are deterministic AFK-safe candidates.
+- [x] Horizon context is present for planner reasoning but cannot be chosen as
       executable work.
-- [ ] Filtering policy is reusable with JSON output and not coupled to a single
+- [x] Filtering policy is reusable with JSON output and not coupled to a single
       renderer.
-- [ ] Public `dv task` compatibility is removed or unavailable from this
+- [x] Public `dv task` compatibility is removed or unavailable from this
       Sandcastle planning path.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 
