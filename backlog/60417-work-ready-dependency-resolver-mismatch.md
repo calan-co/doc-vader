@@ -11,10 +11,10 @@ priority: high
 estimated: 3
 links:
   blocks:
-    - '[[60415-authoritative-dv4sandcastle-documentation]]'
-    - '[[60416-end-to-end-sandcastle-smoke-and-recovery]]'
+    - "[[60415-authoritative-dv4sandcastle-documentation]]"
+    - "[[60416-end-to-end-sandcastle-smoke-and-recovery]]"
   reference:
-    - '[[../docs/reference/work-management/foundation.md]]'
+    - "[[../docs/reference/work-management/foundation.md]]"
 tags:
   - afk
   - bug
@@ -29,11 +29,13 @@ tags:
 The work graph correctly resolves dependencies, but `dv wi ready` reports dependency state as unknown, preventing work items with satisfied dependencies from being selectable.
 
 **Observed behavior:**
+
 - `dv work graph inspect wi:60415` shows wi-60415's dependency correctly resolved to wi:60414
 - `dv wi ready --json` reports the same dependency as `stateKnown: false`, `satisfied: false`
 - wi-60415 and dependent items remain excluded from ready candidates
 
 **Impact:**
+
 - AFK work items blocked on completed dependencies cannot be claimed for Sandcastle
 - Ready filter is unreliable for multi-item workflows
 
@@ -49,6 +51,7 @@ Both should use the same resolution strategy. The graph resolver is proven corre
 ## What to fix
 
 Update the ready filter's dependency evaluation to use the same resolver as the work graph. Ensure both resolvers handle:
+
 - Short-form references: `[[60414-sandcastle-init-templateargs-wiring]]`
 - Path-form references: `[[../backlog/60414-sandcastle-init-templateargs-wiring.md]]`
 - Graph node resolution consistency across all `dv` commands

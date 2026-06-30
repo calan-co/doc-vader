@@ -10,10 +10,11 @@ priority: high
 estimated: 6
 links:
   depends_on:
-    - '[[60414-sandcastle-init-templateargs-wiring]]'
-    - '[[60415-authoritative-dv4sandcastle-documentation]]'
+    - "[[60414-sandcastle-init-templateargs-wiring]]"
+    - "[[60415-authoritative-dv4sandcastle-documentation]]"
+    - "[[60417-work-ready-dependency-resolver-mismatch]]"
   reference:
-    - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+    - "[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]"
 tags:
   - afk
   - sandcastle
@@ -71,11 +72,6 @@ new execution proceeds.
 - [ ] Validation passes with `pnpm run docs:lint`.
 - [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 - [ ] Validation passes with `pnpm run backlog:validate:ci`.
-
-## Blocked by
-
-- [[60414-sandcastle-init-templateargs-wiring]]
-- [[60415-authoritative-dv4sandcastle-documentation]]
 
 ## Relationships
 

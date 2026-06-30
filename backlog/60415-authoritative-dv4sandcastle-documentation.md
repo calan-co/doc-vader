@@ -10,9 +10,9 @@ priority: medium
 estimated: 4
 links:
   depends_on:
-    - '[[60414-sandcastle-init-templateargs-wiring]]'
+    - "[[60414-sandcastle-init-templateargs-wiring]]"
   reference:
-    - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+    - "[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]"
 tags:
   - afk
   - sandcastle
