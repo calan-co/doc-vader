@@ -5,14 +5,19 @@ summary: Document the current dv work and dv4sandcastle contract so agents stop 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: medium
 estimated: 4
+completed_date: '2026-06-30'
 links:
   depends_on:
-    - "[[60414-sandcastle-init-templateargs-wiring]]"
+    - '[[60414-sandcastle-init-templateargs-wiring]]'
   reference:
-    - "[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]"
+    - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+  evidence:
+    - '[[task-record-preflight]]'
+    - '[[record-wi-60415-dv4sandcastle-docs]]'
 tags:
   - afk
   - sandcastle
