@@ -17,7 +17,7 @@ artifacts instead of hand-edited prompt text.
 - Claim work: `node --import tsx scripts/sandcastle/dv4sandcastle.ts claim-task <task-id> --holder <holder> --branch <branch> --json`
 - Inspect lock ownership: `node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json`
 - Recover halted work: `node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json`
-- Close through repository transition behavior: `node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>]`
+- Close through repository transition behavior: `node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`
 
 ## Durable Guidance
 

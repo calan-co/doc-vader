@@ -76,10 +76,15 @@ describe("sandcastle init template args wiring", () => {
       "Do not edit backlog status/checklists by hand as the normal completion path.",
     );
 
-    expect(setupDoc).toContain(sandcastleInitTemplateArgs.ISSUE_TRACKER_TOOLS);
-    expect(setupDoc).toContain(
+    for (const fragment of [
+      sandcastleInitTemplateArgs.ISSUE_TRACKER_TOOLS,
+      `${sandcastleInitTemplateArgs.CLOSE_TASK_COMMAND} <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`,
+      "[`docs/how-to/sandcastle-dogfood-task-flow.md`](../docs/how-to/sandcastle-dogfood-task-flow.md)",
+      "Treat completed backlog items as history only; the guide above plus these",
       "Do not edit `.sandcastle/plan-prompt.md` or `.sandcastle/implement-prompt.md` directly.",
-    );
+    ] as const) {
+      expect(setupDoc).toContain(fragment);
+    }
 
     for (const content of renderedByPath.values()) {
       expect(content).not.toMatch(sandcastleInitPlaceholderPattern);

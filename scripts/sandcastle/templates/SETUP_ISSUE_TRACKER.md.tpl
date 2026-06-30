@@ -17,7 +17,7 @@ artifacts instead of hand-edited prompt text.
 - Claim work: `{{CLAIM_TASK_COMMAND}} <task-id> --holder <holder> --branch <branch> --json`
 - Inspect lock ownership: `{{LOCK_STATUS_COMMAND}} --claim <claim-id> --json`
 - Recover halted work: `{{RECOVER_TASK_COMMAND}} <task-id> --branch <branch> --json`
-- Close through repository transition behavior: `{{CLOSE_TASK_COMMAND}} <task-id> --claim <claim-id> [--payload <json-file>]`
+- Close through repository transition behavior: `{{CLOSE_TASK_COMMAND}} <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`
 
 ## Durable Guidance
 
