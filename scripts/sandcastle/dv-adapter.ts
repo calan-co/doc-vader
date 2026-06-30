@@ -1,16 +1,25 @@
 #!/usr/bin/env tsx
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   type ClaimReleaseContext,
   formatClaimReleaseMessage,
   formatGenericClaimReleaseMessage,
 } from "./claim-release.js";
 import { loadSandcastlePlanningListPayload } from "../../lib/sandcastle/planning-list.js";
+import {
+  openRuntimeSqliteStore,
+  type RuntimeClaimRecord,
+} from "../../lib/runtime/index.js";
 
 type JsonRecord = Record<string, unknown>;
+const require = createRequire(import.meta.url);
+const tsxImport = pathToFileURL(require.resolve("tsx")).href;
+const adapterRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 interface AdapterTask {
   id: string;
@@ -31,28 +40,6 @@ interface ClaimStatus {
   claim?: JsonRecord;
 }
 
-interface StoredClaim {
-  id: string;
-  schemaVersion?: string;
-  taskId?: string;
-  holder?: string;
-  branch?: string;
-  sandbox?: string;
-  git?: JsonRecord;
-  recovery?: JsonRecord;
-  createdAt?: string;
-  updatedAt?: string;
-  expiresAt?: string;
-  releasedAt?: string;
-  abandonedAt?: string;
-}
-
-interface ClaimStore {
-  claims?: StoredClaim[];
-}
-
-const RECOVERY_TTL_MINUTES = 240;
-
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
@@ -63,11 +50,14 @@ function repoRoot(): string {
 }
 
 function dvArgs(args: string[]): [string, string[]] {
-  const distCli = path.resolve(repoRoot(), "dist/cli/doc-vader.js");
+  const distCli = path.resolve(adapterRootDir, "dist/cli/doc-vader.js");
   if (process.env.DOC_VADER_ADAPTER_USE_DIST === "true" && existsSync(distCli)) {
     return ["node", [distCli, ...args]];
   }
-  return ["node", ["--import", "tsx", "cli/doc-vader.ts", ...args]];
+  return [
+    "node",
+    ["--import", tsxImport, path.resolve(adapterRootDir, "cli/doc-vader.ts"), ...args],
+  ];
 }
 
 function runDv(args: string[], input?: string): string {
@@ -204,6 +194,26 @@ function optionValue(args: string[], name: string): string | undefined {
     : args[index + 1];
 }
 
+function stripOption(args: string[], name: string): string[] {
+  const stripped: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index]!;
+    if (token === name) {
+      index += 1;
+      continue;
+    }
+    if (token.startsWith(`${name}=`)) {
+      continue;
+    }
+    stripped.push(token);
+  }
+  return stripped;
+}
+
+function ensureOption(args: string[], name: string): string[] {
+  return hasOption(args, name) ? args : [...args, name];
+}
+
 function claimHolder(args: string[]): string {
   return (
     optionValue(args, "--holder") ??
@@ -213,54 +223,17 @@ function claimHolder(args: string[]): string {
 }
 
 function claimBranch(claim: JsonRecord | undefined): string | undefined {
-  const git = recordValue(claim?.git);
-  return stringValue(git?.branch) ?? stringValue(claim?.branch);
+  const metadata = recordValue(claim?.metadata);
+  const git = recordValue(claim?.git) ?? recordValue(metadata?.git);
+  return (
+    stringValue(metadata?.branch) ??
+    stringValue(git?.branch) ??
+    stringValue(claim?.branch)
+  );
 }
 
 function claimHolderValue(claim: JsonRecord | undefined): string | undefined {
   return stringValue(claim?.holder);
-}
-
-function claimStorePath(): string {
-  const configured = process.env.DOC_VADER_TASK_CLAIM_STORE;
-  return configured
-    ? path.resolve(repoRoot(), configured)
-    : path.resolve(repoRoot(), ".doc-vader/runtime/task-claims");
-}
-
-function readClaimStore(): ClaimStore {
-  const filePath = claimStorePath();
-  if (!existsSync(filePath)) {
-    return { claims: [] };
-  }
-  return JSON.parse(readFileSync(filePath, "utf8")) as ClaimStore;
-}
-
-function writeClaimStore(store: ClaimStore): void {
-  const filePath = claimStorePath();
-  mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(
-    filePath,
-    `${JSON.stringify({ ...store, claims: store.claims ?? [] }, null, 2)}\n`,
-    "utf8",
-  );
-}
-
-function storedClaimState(claim: StoredClaim, now = new Date()): string {
-  if (claim.releasedAt) {
-    return "released";
-  }
-  if (claim.abandonedAt) {
-    return "abandoned";
-  }
-  if (claim.expiresAt && new Date(claim.expiresAt).getTime() <= now.getTime()) {
-    return "expired";
-  }
-  return "active";
-}
-
-function isSandcastleHolder(holder: string | undefined): boolean {
-  return holder === "sandcastle" || (holder?.startsWith("sandcastle:") ?? false);
 }
 
 function branchExists(branch: string): boolean {
@@ -291,95 +264,122 @@ function describeClaimRelease(
   return formatClaimReleaseMessage(releaseDetails, context);
 }
 
-function claimIsAdoptable(status: ClaimStatus, branch: string): boolean {
-  return (
-    isSandcastleHolder(claimHolderValue(status.claim)) &&
-    branchExists(branch) &&
-    branchUniqueCommitCount(branch) > 0
+function normalizeTaskId(taskId: string): string {
+  return taskId.startsWith("wi-") ? taskId : `wi-${taskNumber(taskId)}`;
+}
+
+function withRuntimeStore<T>(
+  callback: (store: ReturnType<typeof openRuntimeSqliteStore>) => T,
+): T {
+  const store = openRuntimeSqliteStore({ rootDir: repoRoot() });
+  try {
+    return callback(store);
+  } finally {
+    store.close();
+  }
+}
+
+function runtimeClaimStatus(claim: RuntimeClaimRecord): ClaimStatus {
+  return {
+    claimId: claim.claim_token,
+    taskId: claim.target_id,
+    state: claim.state,
+    claim: claim as unknown as JsonRecord,
+  };
+}
+
+function activeRuntimeClaimsForTask(taskId: string, holder?: string): ClaimStatus[] {
+  const normalizedTaskId = normalizeTaskId(taskId);
+  return withRuntimeStore((store) =>
+    store
+      .listClaims()
+      .filter((claim) => {
+        return (
+          claim.target_type === "task" &&
+          claim.target_id === normalizedTaskId &&
+          claim.state === "active" &&
+          (!holder || claim.holder === holder)
+        );
+      })
+      .map(runtimeClaimStatus),
   );
 }
 
-function listClaims(): ClaimStatus[] {
-  return (readClaimStore().claims ?? []).map((claim) => ({
-    claimId: claim.id,
-    taskId: claim.taskId,
-    state: storedClaimState(claim),
-    claim: claim as unknown as JsonRecord,
-  }));
-}
-
-function releaseClaimById(claimId: string): ClaimStatus {
-  const store = readClaimStore();
-  const claims = store.claims ?? [];
-  const claim = claims.find((candidate) => candidate.id === claimId);
-  if (!claim) {
-    fail(`No claim found for ${claimId}.`);
-  }
-  const releasedAt = new Date().toISOString();
-  claim.releasedAt ??= releasedAt;
-  claim.updatedAt = releasedAt;
-  writeClaimStore({ ...store, claims });
-  return {
-    claimId: claim.id,
-    taskId: claim.taskId,
-    state: storedClaimState(claim),
-    claim: claim as unknown as JsonRecord,
-  };
-}
-
-function adoptClaimById(claimId: string, holder: string): ClaimStatus {
-  const store = readClaimStore();
-  const claims = store.claims ?? [];
-  const claim = claims.find((candidate) => candidate.id === claimId);
-  if (!claim) {
-    fail(`No claim found for ${claimId}.`);
-  }
-  const adoptedAt = new Date();
-  claim.holder = holder;
-  claim.updatedAt = adoptedAt.toISOString();
-  claim.expiresAt = new Date(
-    adoptedAt.getTime() + RECOVERY_TTL_MINUTES * 60 * 1000,
-  ).toISOString();
-  claim.recovery = {
-    ...(recordValue(claim.recovery) ?? {}),
-    adoptedAt: adoptedAt.toISOString(),
-  };
-  writeClaimStore({ ...store, claims });
-  return {
-    claimId: claim.id,
-    taskId: claim.taskId,
-    state: storedClaimState(claim),
-    claim: claim as unknown as JsonRecord,
-  };
-}
-
-function activeClaimsForTask(taskId: string, holder?: string): ClaimStatus[] {
-  const normalizedTaskId = `wi-${taskNumber(taskId)}`;
-  return listClaims().filter((status) => {
-    return (
-      status.taskId === normalizedTaskId &&
-      status.state === "active" &&
-      (!holder || claimHolderValue(status.claim) === holder)
-    );
+function completeRuntimeClaimById(claimId: string): ClaimStatus {
+  return withRuntimeStore((store) => {
+    const claim = store.getClaimByToken(claimId);
+    if (!claim || claim.target_type !== "task") {
+      fail(`No active runtime task claim found for ${claimId}.`);
+    }
+    store.completeRuntimeExecution(claimId);
+    return {
+      claimId: claim.claim_token,
+      taskId: claim.target_id,
+      state: "completed",
+      claim: claim as unknown as JsonRecord,
+    };
   });
 }
 
-function idempotentClaim(taskId: string, args: string[]): void {
+function failJson(
+  code: string,
+  message: string,
+  payload: Record<string, unknown>,
+): never {
+  console.error(
+    JSON.stringify(
+      {
+        ok: false,
+        error: {
+          code,
+          message,
+          ...payload,
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(1);
+}
+
+async function assertSandcastleSelectable(
+  taskId: string,
+  args: string[],
+): Promise<void> {
+  const payload = await loadSandcastlePlanningListPayload();
+  const normalizedTaskId = normalizeTaskId(taskId);
+  const selectedId = taskNumber(normalizedTaskId);
+  if (payload.selectable.some((entry) => entry.id === selectedId)) {
+    return;
+  }
+
+  const horizon = payload.horizon.find((entry) => entry.id === selectedId);
+  const reasonCodes = horizon?.reasonCodes ?? ["not_selectable"];
+  const message = `Task '${normalizedTaskId}' is not selectable for Sandcastle claim.`;
+  if (hasOption(args, "--json")) {
+    failJson("DV4SANDCASTLE_NOT_SELECTABLE", message, {
+      taskId: normalizedTaskId,
+      reasonCodes,
+    });
+  }
+  fail(`${message} Reasons: ${reasonCodes.join(", ")}.`);
+}
+
+async function claimTask(taskId: string, args: string[]): Promise<void> {
+  const normalizedTaskId = normalizeTaskId(taskId);
   const holder = claimHolder(args);
   const requestedBranch = optionValue(args, "--branch");
-  const existing = listClaims().find((status) => {
-    return (
-      status.taskId === `wi-${taskNumber(taskId)}` &&
-      status.state === "active" &&
-      claimHolderValue(status.claim) === holder &&
-      (!requestedBranch || claimBranch(status.claim) === requestedBranch)
-    );
-  });
+  const existing = activeRuntimeClaimsForTask(normalizedTaskId, holder).find(
+    (status) =>
+      !requestedBranch || claimBranch(status.claim) === requestedBranch,
+  );
   if (existing) {
     console.log(
       JSON.stringify(
         {
           claimId: existing.claimId,
+          claimToken: existing.claimId,
           taskId: existing.taskId,
           state: existing.state,
           claim: existing.claim,
@@ -392,63 +392,14 @@ function idempotentClaim(taskId: string, args: string[]): void {
     return;
   }
 
-  const adoptableActive = listClaims().find((status) => {
-    const branch = claimBranch(status.claim);
-    return (
-      status.taskId === `wi-${taskNumber(taskId)}` &&
-      status.state === "active" &&
-      (!requestedBranch || branch === requestedBranch) &&
-      Boolean(branch && claimIsAdoptable(status, branch))
-    );
-  });
-  if (adoptableActive) {
-    console.log(
-      JSON.stringify(
-        {
-          ...adoptClaimById(adoptableActive.claimId, holder),
-          adopted: true,
-        },
-        null,
-        2,
-      ),
-    );
-    return;
-  }
-
-  const expired = listClaims().find((status) => {
-    return (
-      status.taskId === `wi-${taskNumber(taskId)}` &&
-      status.state === "expired" &&
-      (!requestedBranch || claimBranch(status.claim) === requestedBranch)
-    );
-  });
-  if (expired) {
-    const branch = claimBranch(expired.claim);
-    if (branch && claimIsAdoptable(expired, branch)) {
-      console.log(
-        JSON.stringify(
-          {
-            ...adoptClaimById(expired.claimId, holder),
-            adopted: true,
-          },
-          null,
-          2,
-        ),
-      );
-      return;
-    }
-    fail(
-      `Claim ${expired.claimId} for wi-${taskNumber(taskId)} is expired and cannot be safely adopted; manual recovery is required before creating a new claim.`,
-    );
-  }
-
+  await assertSandcastleSelectable(normalizedTaskId, args);
   process.stdout.write(
-    runDv(["task", "claim", taskId, "--json", ...args.slice(1)]),
+    runDv(["work", "claim", normalizedTaskId, "--json", ...args.slice(1)]),
   );
 }
 
 function closeTask(taskId: string, args: string[]): void {
-  const normalizedTaskId = `wi-${taskNumber(taskId)}`;
+  const normalizedTaskId = normalizeTaskId(taskId);
   const actual = optionValue(args, "--actual");
   if (!actual) {
     fail("Usage: dv-adapter.ts close-task <task-id> --actual <hours>");
@@ -468,8 +419,8 @@ function closeTask(taskId: string, args: string[]): void {
     completedDate,
     ...closeArgs,
   ]);
-  const released = activeClaimsForTask(normalizedTaskId).map((claim) =>
-    releaseClaimById(claim.claimId),
+  const released = activeRuntimeClaimsForTask(normalizedTaskId).map((claim) =>
+    completeRuntimeClaimById(claim.claimId),
   );
   for (const claim of released) {
     console.error(describeClaimRelease(claim, "post-merge"));
@@ -487,17 +438,27 @@ function closeTask(taskId: string, args: string[]): void {
   );
 }
 
-function releaseTask(taskId: string): void {
+function releaseTask(taskId: string, args: string[]): void {
   const holder = process.env.SANDCASTLE_CLAIM_HOLDER;
-  const claims = activeClaimsForTask(taskId, holder);
-  const released = claims.map((claim) => releaseClaimById(claim.claimId));
+  const claims = activeRuntimeClaimsForTask(taskId, holder);
+  const forwardedArgs = ensureOption(
+    hasOption(args, "--outcome") ? args : ["--outcome", "cancelled", ...args],
+    "--json",
+  );
+  const released = claims.map((claim) => {
+    const output = runDv(["claim", "release", claim.claimId, ...forwardedArgs]);
+    return JSON.parse(output) as JsonRecord;
+  });
   for (const claim of released) {
-    console.error(describeClaimRelease(claim, "no-commit"));
+    const claimStatus = claims.find((status) => status.claimId === claim.claimToken);
+    if (claimStatus) {
+      console.error(describeClaimRelease(claimStatus, "no-commit"));
+    }
   }
   console.log(
     JSON.stringify(
       {
-        taskId: `wi-${taskNumber(taskId)}`,
+        taskId: normalizeTaskId(taskId),
         released,
       },
       null,
@@ -519,7 +480,7 @@ async function main(): Promise<void> {
       const taskId = args[0] ?? fail("Usage: dv-adapter.ts view <task-id>");
       console.log(
         JSON.stringify(
-          toAdapterTask(json<JsonRecord>(["task", "show", taskId, "--json"])),
+          toAdapterTask(json<JsonRecord>(["work", "show", taskId, "--json"])),
           null,
           2,
         ),
@@ -528,14 +489,14 @@ async function main(): Promise<void> {
     }
     case "prompt": {
       const taskId = args[0] ?? fail("Usage: dv-adapter.ts prompt <task-id>");
-      process.stdout.write(runDv(["task", "prompt", taskId]));
+      process.stdout.write(runDv(["work", "prompt", taskId]));
       return;
     }
     case "claim": {
       const taskId =
         args[0] ??
         fail("Usage: dv-adapter.ts claim <task-id> [dv claim flags]");
-      idempotentClaim(taskId, args);
+      await claimTask(taskId, args);
       return;
     }
     case "record": {
@@ -545,8 +506,25 @@ async function main(): Promise<void> {
       const input =
         !hasPayload || payloadValue === "-" ? readStdin() : undefined;
       process.stdout.write(
-        runDv(["task", "record", "--json", ...payloadArgs], input),
+        runDv(["work", "record", "--json", ...payloadArgs], input),
       );
+      return;
+    }
+    case "recover": {
+      const taskId = args[0] ?? fail("Usage: dv-adapter.ts recover <task-id>");
+      process.stdout.write(runDv(["work", "recover", taskId, ...args.slice(1)]));
+      return;
+    }
+    case "lock-status": {
+      const claimId =
+        optionValue(args, "--claim") ??
+        args[0] ??
+        fail("Usage: dv-adapter.ts lock-status --claim <claim-id>");
+      const forwardedArgs =
+        args[0] === claimId && !hasOption(args, "--claim")
+          ? args.slice(1)
+          : stripOption(args, "--claim");
+      process.stdout.write(runDv(["lock", "status", "--claim", claimId, ...forwardedArgs]));
       return;
     }
     case "transition": {
@@ -567,23 +545,36 @@ async function main(): Promise<void> {
     case "release-task": {
       const taskId =
         args[0] ?? fail("Usage: dv-adapter.ts release-task <task-id>");
-      releaseTask(taskId);
+      releaseTask(taskId, args.slice(1));
       return;
     }
     case "release": {
       const claimId =
         optionValue(args, "--claim") ??
         fail("Usage: dv-adapter.ts release --claim <claim-id>");
-      console.log(JSON.stringify(releaseClaimById(claimId), null, 2));
+      const forwardedArgs = ensureOption(stripOption(args, "--claim"), "--json");
+      process.stdout.write(runDv(["claim", "release", claimId, ...forwardedArgs]));
       return;
     }
     case "halt": {
-      process.stdout.write(runDv(["claim", "halt", ...args]));
+      const claimId =
+        optionValue(args, "--claim") ??
+        fail("Usage: dv-adapter.ts halt --claim <claim-id> --reason <reason>");
+      const reason =
+        optionValue(args, "--reason") ??
+        fail("Usage: dv-adapter.ts halt --claim <claim-id> --reason <reason>");
+      const forwardedArgs = ensureOption(
+        stripOption(stripOption(args, "--claim"), "--reason"),
+        "--json",
+      );
+      process.stdout.write(
+        runDv(["claim", "release", claimId, "--outcome", reason, ...forwardedArgs]),
+      );
       return;
     }
     default:
       fail(
-        "Usage: dv-adapter.ts <list|view|prompt|claim|record|transition|close|close-task|release-task|release|halt> ...",
+        "Usage: dv-adapter.ts <list|view|prompt|claim|record|recover|lock-status|transition|close|close-task|release-task|release|halt> ...",
       );
   }
 }
