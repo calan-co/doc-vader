@@ -5,9 +5,11 @@ summary: Deliver dv4sandcastle view and prompt over canonical dv work inspection
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 5
+completed_date: '2026-06-30'
 links:
   depends_on:
     - '[[60410-sandcastle-planning-list-surface]]'
@@ -41,15 +43,15 @@ rendering, and mutation authority.
 
 ## Tasks
 
-- [ ] Add or update `dv4sandcastle view` for canonical work item inspection.
-- [ ] Add or update `dv4sandcastle prompt` for implementation-agent prompt
+- [x] Add or update `dv4sandcastle view` for canonical work item inspection.
+- [x] Add or update `dv4sandcastle prompt` for implementation-agent prompt
       rendering.
-- [ ] Back inspection with `dv work show` and prompt rendering with
+- [x] Back inspection with `dv work show` and prompt rendering with
       `dv work prompt`.
-- [ ] Remove reliance on ad hoc Markdown parsing for Sandcastle inspection.
-- [ ] Preserve graph relationship and ScopeRef context visible to agents.
-- [ ] Keep inspection commands read-only.
-- [ ] Add CLI or integration coverage for view and prompt output.
+- [x] Remove reliance on ad hoc Markdown parsing for Sandcastle inspection.
+- [x] Preserve graph relationship and ScopeRef context visible to agents.
+- [x] Keep inspection commands read-only.
+- [x] Add CLI or integration coverage for view and prompt output.
 
 ## Deliverables
 
@@ -60,15 +62,15 @@ rendering, and mutation authority.
 
 ## Acceptance Criteria
 
-- [ ] `dv4sandcastle view` returns canonical work context for a selected item.
-- [ ] `dv4sandcastle prompt` returns implementation-ready prompt content for a
+- [x] `dv4sandcastle view` returns canonical work context for a selected item.
+- [x] `dv4sandcastle prompt` returns implementation-ready prompt content for a
       selected item.
-- [ ] Both commands are backed by `dv work` inspection surfaces.
-- [ ] No separate Markdown-only parser is required for Sandcastle inspection.
-- [ ] Inspection output includes relevant dependency, relationship, and scope
+- [x] Both commands are backed by `dv work` inspection surfaces.
+- [x] No separate Markdown-only parser is required for Sandcastle inspection.
+- [x] Inspection output includes relevant dependency, relationship, and scope
       context.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 
