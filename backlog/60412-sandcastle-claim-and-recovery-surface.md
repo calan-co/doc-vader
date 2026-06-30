@@ -5,9 +5,11 @@ summary: Deliver dv4sandcastle claim, release, lock guidance, and recover over d
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 6
+completed_date: '2026-06-30'
 links:
   depends_on:
     - '[[60410-sandcastle-planning-list-surface]]'
@@ -42,14 +44,14 @@ before execution starts.
 
 ## Tasks
 
-- [ ] Add or update `dv4sandcastle claim` over native runtime claim behavior.
-- [ ] Add or update release behavior over native runtime release semantics.
-- [ ] Surface lock guidance or verification through the adapter without owning
+- [x] Add or update `dv4sandcastle claim` over native runtime claim behavior.
+- [x] Add or update release behavior over native runtime release semantics.
+- [x] Surface lock guidance or verification through the adapter without owning
       lock state.
-- [ ] Add or update adapter recovery behavior over `dv work recover`.
-- [ ] Remove legacy adapter-local JSON claim-store behavior.
-- [ ] Revalidate selected work before claim acquisition.
-- [ ] Add integration coverage for claim conflicts, release, and recoverable
+- [x] Add or update adapter recovery behavior over `dv work recover`.
+- [x] Remove legacy adapter-local JSON claim-store behavior.
+- [x] Revalidate selected work before claim acquisition.
+- [x] Add integration coverage for claim conflicts, release, and recoverable
       partial state.
 
 ## Deliverables
@@ -60,13 +62,13 @@ before execution starts.
 
 ## Acceptance Criteria
 
-- [ ] Sandcastle can claim selected work through `dv4sandcastle claim`.
-- [ ] Claims and releases are persisted through Doc-Vader runtime authority.
-- [ ] Lock guidance or verification is derived from `dv` runtime state.
-- [ ] Recoverable interrupted work is routed through `dv work recover`.
-- [ ] The adapter no longer reads or writes legacy JSON claim-store state.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Sandcastle can claim selected work through `dv4sandcastle claim`.
+- [x] Claims and releases are persisted through Doc-Vader runtime authority.
+- [x] Lock guidance or verification is derived from `dv` runtime state.
+- [x] Recoverable interrupted work is routed through `dv work recover`.
+- [x] The adapter no longer reads or writes legacy JSON claim-store state.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 
