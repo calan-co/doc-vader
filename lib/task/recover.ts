@@ -17,7 +17,7 @@ import {
 import { TaskCommandError } from "./errors.js";
 import { loadTaskModel } from "./model.js";
 import {
-  collectChangedPaths,
+  collectBranchDiffPaths,
   collectTaskRecoveryGitState,
   isRecoverableReadyRuntimeState,
   type GitChangedPathEntry,
@@ -470,9 +470,11 @@ export async function recoverTaskClaim(
     );
   }
 
+  const branchPaths = collectBranchDiffPaths(rootDir);
   const initialLockPaths = [
     ...new Set([
       task.filePath,
+      ...branchPaths,
       ...(recoverableReadyRuntimeState && !options.force
         ? []
         : changedPaths.map((entry) => entry.path)),

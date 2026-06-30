@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -15,6 +15,10 @@ import {
   openRuntimeSqliteStore,
   type RuntimeClaimRecord,
 } from "../../lib/runtime/index.js";
+import {
+  collectBranchDiffPaths,
+  collectChangedPaths,
+} from "../../lib/task/recovery-state.js";
 
 type JsonRecord = Record<string, unknown>;
 type RuntimeStore = ReturnType<typeof openRuntimeSqliteStore>;
@@ -25,6 +29,9 @@ const adapterRootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
+const DEFAULT_CONSUMER_CONFIG_PATH = ".doc-vader/backlog-consumer.json";
+const DEFAULT_BACKLOG_DIR = "backlog";
+const DEFAULT_CLOSE_RECORD_TYPE = "test-result";
 
 interface AdapterTask {
   id: string;
@@ -53,6 +60,35 @@ interface ClaimStatus {
   taskId?: string;
   state: string;
   claim?: JsonRecord;
+}
+
+interface AdapterCloseRecordPreview {
+  type: string;
+  payloadRaw: string;
+  payload: JsonRecord;
+  preview: {
+    id: string;
+    filePath: string;
+  };
+  evidenceLink: string;
+  relativeFilePath: string;
+}
+
+interface TransitionScriptInvocationResult {
+  path: string;
+  lockPaths: string[];
+  output: JsonRecord;
+}
+
+interface CloseCommandSettings {
+  actual?: string;
+  completedDate: string;
+  consumerConfigPath: string;
+  backlogDir: string;
+  recordType: string;
+  payloadPath?: string;
+  passThroughArgs: string[];
+  taskContextArgs: string[];
 }
 
 function fail(message: string): never {
@@ -222,7 +258,23 @@ function git(args: string[]): string | undefined {
   }
 }
 
-function toAdapterTask(task: JsonRecord, showText: string): AdapterTask {
+function currentChangedPaths(): string[] {
+  const changed = new Set(
+    collectBranchDiffPaths(repoRoot()).map((entry) => asRelativeRepoPath(entry)),
+  );
+  for (const entry of collectChangedPaths(repoRoot())) {
+    changed.add(asRelativeRepoPath(entry.path));
+  }
+  return [...changed];
+}
+
+function taskBody(task: JsonRecord): string {
+  return taskBodySections(task)
+    .map((section) => `## ${section.heading}\n\n${section.content}`.trim())
+    .join("\n\n");
+}
+
+function toAdapterTask(task: JsonRecord, showText = taskBody(task)): AdapterTask {
   const id = String(task.id ?? "");
   if (!id) {
     fail("dv task show returned a task without an id.");
@@ -261,6 +313,10 @@ function toAdapterTask(task: JsonRecord, showText: string): AdapterTask {
 
 function readStdin(): string {
   return readFileSync(0, "utf8");
+}
+
+function readTextFile(filePath: string): string {
+  return readFileSync(filePath, "utf8");
 }
 
 function hasOption(args: string[], name: string): boolean {
@@ -306,6 +362,242 @@ function claimHolder(args: string[]): string {
     process.env.SANDCASTLE_CLAIM_HOLDER ??
     "sandcastle:manual"
   );
+}
+
+function asRelativeRepoPath(filePath: string): string {
+  const absolutePath = path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(repoRoot(), filePath);
+  const relativePath = path.relative(repoRoot(), absolutePath);
+  if (
+    relativePath.length === 0 ||
+    relativePath.startsWith("..") ||
+    path.isAbsolute(relativePath)
+  ) {
+    fail(`Path '${filePath}' must resolve inside the repository root.`);
+  }
+  return relativePath.split(path.sep).join("/");
+}
+
+function readJsonFile<T>(filePath: string): T {
+  return JSON.parse(readTextFile(filePath)) as T;
+}
+
+function parseJsonRecord(value: string, errorPrefix: string): JsonRecord {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    const record = recordValue(parsed);
+    if (!record) {
+      throw new Error("expected a JSON object");
+    }
+    return record;
+  } catch (error) {
+    fail(
+      `${errorPrefix}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+function closeCommandSettings(args: string[]): CloseCommandSettings {
+  const consumerConfigPath = optionValue(args, "--consumer-config");
+  const backlogDir = optionValue(args, "--backlog-dir");
+  const forwarded: string[] = [];
+  if (consumerConfigPath) {
+    forwarded.push("--consumer-config", consumerConfigPath);
+  }
+  if (backlogDir) {
+    forwarded.push("--backlog-dir", backlogDir);
+  }
+  return {
+    actual: optionValue(args, "--actual"),
+    completedDate: optionValue(args, "--completed-date") ?? isoDateOnly(),
+    consumerConfigPath: consumerConfigPath ?? DEFAULT_CONSUMER_CONFIG_PATH,
+    backlogDir: backlogDir ?? DEFAULT_BACKLOG_DIR,
+    recordType: optionValue(args, "--record-type") ?? DEFAULT_CLOSE_RECORD_TYPE,
+    payloadPath: optionValue(args, "--payload"),
+    passThroughArgs: forwarded,
+    taskContextArgs: backlogDir ? ["--backlog-dir", backlogDir] : [],
+  };
+}
+
+function resolveCloseClaim(taskId: string, args: string[]): ClaimStatus {
+  const explicitClaimId = optionValue(args, "--claim");
+  if (explicitClaimId) {
+    return withRuntimeStore((store) => {
+      const claim = store.getClaimByToken(explicitClaimId);
+      if (!claim || claim.target_type !== "task") {
+        fail(`No active runtime task claim found for ${explicitClaimId}.`);
+      }
+      if (claim.target_id !== taskId) {
+        fail(
+          `Runtime claim '${explicitClaimId}' does not belong to task '${taskId}'.`,
+        );
+      }
+      if (claim.state !== "active") {
+        fail(`Runtime claim '${explicitClaimId}' is not active.`);
+      }
+      return runtimeClaimStatus(claim);
+    });
+  }
+
+  const holder = claimHolder(args);
+  const claims = activeRuntimeClaimsForTask(taskId, holder);
+  if (claims.length === 1) {
+    return claims[0]!;
+  }
+  if (claims.length === 0) {
+    fail(
+      `Task '${taskId}' has no active runtime claim. Pass --claim or claim the task first.`,
+    );
+  }
+  fail(
+    `Task '${taskId}' has multiple active runtime claims. Pass --claim to choose one explicitly.`,
+  );
+}
+
+function resolveClosePayload(
+  settings: CloseCommandSettings,
+): AdapterCloseRecordPreview | undefined {
+  const { payloadPath } = settings;
+  if (!payloadPath) {
+    return undefined;
+  }
+  const payloadRaw =
+    payloadPath === "-"
+      ? readStdin()
+      : readTextFile(path.resolve(repoRoot(), payloadPath));
+  const payload = parseJsonRecord(
+    payloadRaw,
+    "Close record payload must be valid JSON",
+  );
+  const preview = json<JsonRecord>(
+    [
+      "record",
+      "create",
+      "--type",
+      settings.recordType,
+      "--payload",
+      "-",
+      "--dry-run",
+      "--json",
+      ...settings.passThroughArgs,
+    ],
+    payloadRaw,
+  );
+  const filePath = stringValue(preview.filePath);
+  const id = stringValue(preview.id);
+  if (!filePath || !id) {
+    fail("Record preview did not return a file path and id.");
+  }
+  return {
+    type: settings.recordType,
+    payloadRaw,
+    payload,
+    preview: {
+      id,
+      filePath,
+    },
+    evidenceLink: `[[${path.basename(filePath, ".md")}]]`,
+    relativeFilePath: asRelativeRepoPath(filePath),
+  };
+}
+
+function configuredTransitionScript(consumerConfigPath: string): string | undefined {
+  const resolvedConfigPath = path.resolve(repoRoot(), consumerConfigPath);
+  if (!existsSync(resolvedConfigPath)) {
+    return undefined;
+  }
+  const config = readJsonFile<JsonRecord>(resolvedConfigPath);
+  const automation = recordValue(config.automation);
+  const sandcastle = recordValue(automation?.sandcastle) ?? recordValue(config.sandcastle);
+  const close = recordValue(sandcastle?.close);
+  const direct = stringValue(close?.transitionScript);
+  if (direct) {
+    return direct;
+  }
+  const scriptRecord = recordValue(close?.transitionScript);
+  return stringValue(scriptRecord?.path);
+}
+
+function transitionScriptCommand(scriptPath: string): [string, string[]] {
+  const resolvedPath = path.resolve(repoRoot(), scriptPath);
+  if (!existsSync(resolvedPath)) {
+    fail(`Configured Sandcastle transition script not found: ${scriptPath}`);
+  }
+  if (/\.(cts|mts|ts)$/i.test(resolvedPath)) {
+    return ["node", ["--import", tsxImport, resolvedPath]];
+  }
+  return ["node", [resolvedPath]];
+}
+
+function runTransitionScript(options: {
+  scriptPath: string;
+  mode: "plan" | "apply";
+  task: AdapterTask;
+  claim: ClaimStatus;
+  settings: CloseCommandSettings;
+  record?: AdapterCloseRecordPreview;
+}): TransitionScriptInvocationResult {
+  const [command, commandArgs] = transitionScriptCommand(options.scriptPath);
+  const input = JSON.stringify(
+    {
+      mode: options.mode,
+      task: {
+        id: normalizeTaskId(options.task.id),
+        number: options.task.number,
+        title: options.task.title,
+        filePath: options.task.file,
+        status: options.task.status,
+      },
+      claim: {
+        claimToken: options.claim.claimId,
+        taskId: options.claim.taskId,
+        state: options.claim.state,
+        claim: options.claim.claim,
+      },
+      close: {
+        actual: options.settings.actual,
+        completedDate: options.settings.completedDate,
+        consumerConfig: options.settings.consumerConfigPath,
+        backlogDir: options.settings.backlogDir,
+      },
+      ...(options.record
+        ? {
+            record: {
+              type: options.record.type,
+              evidenceLink: options.record.evidenceLink,
+              payload: options.record.payload,
+              preview: {
+                id: options.record.preview.id,
+                filePath: options.record.relativeFilePath,
+              },
+            },
+          }
+        : {}),
+    },
+    null,
+    2,
+  );
+  const output = execFileSync(command, commandArgs, {
+    cwd: repoRoot(),
+    encoding: "utf8",
+    env: { ...process.env, CI: "true", TMPDIR: process.env.TMPDIR ?? "/tmp" },
+    input,
+    stdio: ["pipe", "pipe", "inherit"],
+  });
+  const parsed =
+    output.trim().length === 0
+      ? {}
+      : parseJsonRecord(output, "Transition script output must be valid JSON");
+  return {
+    path: asRelativeRepoPath(path.resolve(repoRoot(), options.scriptPath)),
+    lockPaths: uniquePaths(stringArray(parsed.lockPaths)),
+    output: parsed,
+  };
+}
+
+function uniquePaths(paths: string[]): string[] {
+  return [...new Set(paths.map((entry) => asRelativeRepoPath(entry)))];
 }
 
 function claimBranch(claim: JsonRecord | undefined): string | undefined {
@@ -385,22 +677,6 @@ function activeRuntimeClaimsForTask(taskId: string, holder?: string): ClaimStatu
       })
       .map(runtimeClaimStatus),
   );
-}
-
-function completeRuntimeClaimById(claimId: string): ClaimStatus {
-  return withRuntimeStore((store) => {
-    const claim = store.getClaimByToken(claimId);
-    if (!claim || claim.target_type !== "task") {
-      fail(`No active runtime task claim found for ${claimId}.`);
-    }
-    store.completeRuntimeExecution(claimId);
-    return {
-      claimId: claim.claim_token,
-      taskId: claim.target_id,
-      state: "completed",
-      claim: claim as unknown as JsonRecord,
-    };
-  });
 }
 
 function runClaimRelease(
@@ -487,44 +763,160 @@ async function claimTask(taskId: string, args: string[]): Promise<void> {
   );
 }
 
-function closeTask(taskId: string, args: string[]): void {
+async function closeTask(taskId: string, args: string[]): Promise<void> {
   const normalizedTaskId = normalizeTaskId(taskId);
-  const actual = optionValue(args, "--actual");
-  if (!actual) {
-    fail("Usage: dv-adapter.ts close-task <task-id> --actual <hours>");
-  }
-  const completedDate = optionValue(args, "--completed-date") ?? isoDateOnly();
-  const closeArgs = hasOption(args, "--reason")
-    ? args
-    : ["--reason", "completed", ...args];
-  const transitionOutput = runDv([
-    "work-item",
-    "transition",
-    "--id",
-    normalizedTaskId,
-    "--status",
-    "completed",
-    "--completed-date",
-    completedDate,
-    ...closeArgs,
+  const settings = closeCommandSettings(args);
+  const task = toAdapterTask(
+    json<JsonRecord>([
+      "work",
+      "show",
+      normalizedTaskId,
+      "--json",
+      ...settings.taskContextArgs,
+    ]),
+  );
+  const claim = resolveCloseClaim(normalizedTaskId, args);
+  const record = resolveClosePayload(settings);
+  const transitionScriptPath = configuredTransitionScript(
+    settings.consumerConfigPath,
+  );
+  const transitionPlan = transitionScriptPath
+    ? runTransitionScript({
+        scriptPath: transitionScriptPath,
+        mode: "plan",
+        task,
+        claim,
+        settings,
+        record,
+      })
+    : undefined;
+  const lockPaths = uniquePaths([
+    ...currentChangedPaths(),
+    task.file,
+    ...(record ? [record.relativeFilePath] : []),
+    ...(transitionPlan?.lockPaths ?? []),
   ]);
-  const released = activeRuntimeClaimsForTask(normalizedTaskId).map((claim) =>
-    completeRuntimeClaimById(claim.claimId),
-  );
-  for (const claim of released) {
+
+  let preReleaseTaskSnapshot: string | undefined;
+  try {
+    if (lockPaths.length > 0) {
+      runDv(["lock", "create", "--claim", claim.claimId, ...lockPaths, "--json"]);
+    }
+
+    const recorded = record
+      ? json<JsonRecord>(
+          [
+            "work",
+            "record",
+            "--claim",
+            claim.claimId,
+            "--type",
+            record.type,
+            "--payload",
+            "-",
+            "--json",
+            ...settings.passThroughArgs,
+          ],
+          record.payloadRaw,
+        )
+      : undefined;
+
+    const appliedScript = transitionScriptPath
+      ? runTransitionScript({
+          scriptPath: transitionScriptPath,
+          mode: "apply",
+          task,
+          claim,
+          settings,
+          record,
+        })
+      : undefined;
+
+    const validation = json<JsonRecord>(
+      [
+        "claim",
+        "release",
+        claim.claimId,
+        "--outcome",
+        "success",
+        "--dry-run",
+        "--json",
+        ...settings.passThroughArgs,
+      ],
+    );
+
+    if (task.file) {
+      preReleaseTaskSnapshot = readTextFile(path.resolve(repoRoot(), task.file));
+    }
+
+    const release = json<JsonRecord>(
+      [
+        "claim",
+        "release",
+        claim.claimId,
+        "--outcome",
+        "success",
+        "--json",
+        ...settings.passThroughArgs,
+      ],
+    );
+
     console.error(describeClaimRelease(claim, "post-merge"));
+    console.log(
+      JSON.stringify(
+        {
+          taskId: normalizedTaskId,
+          claimToken: claim.claimId,
+          lockPaths,
+          ...(recorded ? { record: recorded } : {}),
+          ...(transitionPlan
+            ? {
+                transitionScript: {
+                  path: transitionPlan.path,
+                  lockPaths: transitionPlan.lockPaths,
+                  ...(Object.keys(appliedScript?.output ?? {}).length > 0
+                    ? { output: appliedScript?.output }
+                    : {}),
+                },
+              }
+            : {}),
+          validation,
+          release,
+        },
+        null,
+        2,
+      ),
+    );
+  } catch (error) {
+    if (preReleaseTaskSnapshot && task.file) {
+      try {
+        writeFileSync(
+          path.resolve(repoRoot(), task.file),
+          preReleaseTaskSnapshot,
+          "utf8",
+        );
+      } catch {
+        // Best-effort task rollback only.
+      }
+    }
+    try {
+      runDv([
+        "claim",
+        "release",
+        claim.claimId,
+        "--outcome",
+        "invalid",
+        "--code",
+        "x-sandcastle-close-failed",
+        "--message",
+        error instanceof Error ? error.message : String(error),
+        "--json",
+      ]);
+    } catch {
+      // Best-effort runtime halt only.
+    }
+    throw error;
   }
-  console.log(
-    JSON.stringify(
-      {
-        taskId: normalizedTaskId,
-        transitionOutput,
-        released,
-      },
-      null,
-      2,
-    ),
-  );
 }
 
 function releaseTask(taskId: string, args: string[]): void {
@@ -561,9 +953,8 @@ async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
   switch (command) {
     case "list": {
-      console.log(
-        JSON.stringify(await loadSandcastlePlanningListPayload(), null, 2),
-      );
+      const payload = await loadSandcastlePlanningListPayload();
+      console.log(JSON.stringify(payload.selectable, null, 2));
       return;
     }
     case "view": {
@@ -628,14 +1019,17 @@ async function main(): Promise<void> {
       return;
     }
     case "close": {
-      closeTask(args[0] ?? fail("Usage: dv-adapter.ts close <task-id>"), args.slice(1));
+      await closeTask(
+        args[0] ?? fail("Usage: dv-adapter.ts close <task-id>"),
+        args.slice(1),
+      );
       return;
     }
     case "close-task": {
       const taskId =
         args[0] ??
         fail("Usage: dv-adapter.ts close-task <task-id> [dv close flags]");
-      closeTask(taskId, args.slice(1));
+      await closeTask(taskId, args.slice(1));
       return;
     }
     case "release-task": {
