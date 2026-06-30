@@ -5,16 +5,20 @@ summary: Resolve inconsistency between graph resolver and ready filter's depende
 type: work-item
 subtype: bug
 lifecycle: active
-status: ready
-status_reason: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 3
+completed_date: '2026-06-30'
 links:
   blocks:
     - "[[60415-authoritative-dv4sandcastle-documentation]]"
     - "[[60416-end-to-end-sandcastle-smoke-and-recovery]]"
   reference:
-    - "[[../docs/reference/work-management/foundation.md]]"
+    - '[[../docs/reference/work-management/foundation.md]]'
+  evidence:
+    - '[[task-record-preflight]]'
+    - '[[record-validation-passed-for-wi-60417-ready-dependency-resolver-fix]]'
 tags:
   - afk
   - bug
@@ -58,12 +62,12 @@ Update the ready filter's dependency evaluation to use the same resolver as the 
 
 ## Acceptance criteria
 
-- [ ] Graph resolver and ready filter use the same dependency resolution strategy
-- [ ] `dv wi ready --json` reports wi-60415 as a candidate after wi-60414 completion
-- [ ] Both reference formats (short-form and path-form) resolve correctly
-- [ ] Verified with: clear runtime cache (`rm -f .doc-vader/runtime/runtime.sqlite`) and retest
-- [ ] Add regression test: create a test work item with depends_on link and verify ready filter evaluates it correctly
-- [ ] No other work items' readiness evaluation is negatively affected
+- [x] Graph resolver and ready filter use the same dependency resolution strategy
+- [x] `dv wi ready --json` reports wi-60415 as a candidate after wi-60414 completion
+- [x] Both reference formats (short-form and path-form) resolve correctly
+- [x] Verified with: clear runtime cache (`rm -f .doc-vader/runtime/runtime.sqlite`) and retest
+- [x] Add regression test: create a test work item with depends_on link and verify ready filter evaluates it correctly
+- [x] No other work items' readiness evaluation is negatively affected
 
 ## Verification steps
 
