@@ -2,7 +2,7 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Pull in the issue using `node --import tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`.
+Pull in the issue using `{{VIEW_TASK_COMMAND}} {{TASK_ID}}`.
 If it has a parent PRD, pull that in too.
 
 Only work on the issue specified.
@@ -39,12 +39,12 @@ If applicable, use RGR to complete the task.
 Use the `dv4sandcastle` adapter surfaces instead of ad hoc helper scripts or
 manual completion edits.
 
-1. Inspect the canonical work item JSON with `node --import tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`.
-2. Render the authoritative implementation context with `node --import tsx scripts/sandcastle/dv-adapter.ts prompt {{TASK_ID}}`.
-3. Claim the task before editing with `node --import tsx scripts/sandcastle/dv-adapter.ts claim {{TASK_ID}} --holder <holder> --branch {{BRANCH}} --json`.
-4. Check or explain runtime lock ownership with `node --import tsx scripts/sandcastle/dv-adapter.ts lock-status --claim <claim-id> --json`, and recover interrupted work with `node --import tsx scripts/sandcastle/dv-adapter.ts recover {{TASK_ID}} --branch {{BRANCH}} --json`.
+1. Inspect the canonical work item JSON with `{{VIEW_TASK_COMMAND}} {{TASK_ID}}`.
+2. Render the authoritative implementation context with `{{PROMPT_TASK_COMMAND}} {{TASK_ID}}`.
+3. Claim the task before editing with `{{CLAIM_TASK_COMMAND}} {{TASK_ID}} --holder <holder> --branch {{BRANCH}} --json`.
+4. Check or explain runtime lock ownership with `{{LOCK_STATUS_COMMAND}} --claim <claim-id> --json`, and recover interrupted work with `{{RECOVER_TASK_COMMAND}} {{TASK_ID}} --branch {{BRANCH}} --json`.
 5. Update task and acceptance checkboxes only when concrete branch evidence satisfies them, but leave status/completion transitions and evidence-link creation to the adapter close flow.
-6. After validation passes, close through `node --import tsx scripts/sandcastle/dv-adapter.ts close {{TASK_ID}} --claim <claim-id> [--payload <json-file>] [--record-type <type>]` so repository-configured transition behavior, evidence recording, and runtime release stay aligned.
+6. After validation passes, close through `{{CLOSE_TASK_COMMAND}} {{TASK_ID}} --claim <claim-id> [--payload <json-file>] [--record-type <type>]` so repository-configured transition behavior, evidence recording, and runtime release stay aligned.
 7. When the close flow succeeds, keep the resulting backlog/status update as the final commit on the feature branch.
 8. Do not edit backlog status/checklists by hand as the normal completion path.
 
