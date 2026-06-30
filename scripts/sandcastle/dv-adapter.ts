@@ -17,9 +17,14 @@ import {
 } from "../../lib/runtime/index.js";
 
 type JsonRecord = Record<string, unknown>;
+type RuntimeStore = ReturnType<typeof openRuntimeSqliteStore>;
+type RuntimeClaimReleaseResult = JsonRecord & { claimToken: string };
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
-const adapterRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const adapterRootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 
 interface AdapterTask {
   id: string;
@@ -98,10 +103,7 @@ function taskBody(task: JsonRecord): string {
       return heading && bodyText ? { heading, body: bodyText } : undefined;
     })
     .filter((section): section is { heading: string; body: string } => {
-      return (
-        typeof section === "object" &&
-        section !== null
-      );
+      return section !== undefined;
     })
     .map((section) => `## ${section.heading}\n\n${section.body}`.trim())
     .join("\n\n");
@@ -232,10 +234,6 @@ function claimBranch(claim: JsonRecord | undefined): string | undefined {
   );
 }
 
-function claimHolderValue(claim: JsonRecord | undefined): string | undefined {
-  return stringValue(claim?.holder);
-}
-
 function branchExists(branch: string): boolean {
   return git(["rev-parse", "--verify", branch]) !== undefined;
 }
@@ -269,7 +267,7 @@ function normalizeTaskId(taskId: string): string {
 }
 
 function withRuntimeStore<T>(
-  callback: (store: ReturnType<typeof openRuntimeSqliteStore>) => T,
+  callback: (store: RuntimeStore) => T,
 ): T {
   const store = openRuntimeSqliteStore({ rootDir: repoRoot() });
   try {
@@ -319,6 +317,13 @@ function completeRuntimeClaimById(claimId: string): ClaimStatus {
       claim: claim as unknown as JsonRecord,
     };
   });
+}
+
+function runClaimRelease(
+  claimId: string,
+  args: string[],
+): string {
+  return runDv(["claim", "release", claimId, ...ensureOption(args, "--json")]);
 }
 
 function failJson(
@@ -441,16 +446,17 @@ function closeTask(taskId: string, args: string[]): void {
 function releaseTask(taskId: string, args: string[]): void {
   const holder = process.env.SANDCASTLE_CLAIM_HOLDER;
   const claims = activeRuntimeClaimsForTask(taskId, holder);
+  const claimById = new Map(claims.map((claim) => [claim.claimId, claim]));
   const forwardedArgs = ensureOption(
     hasOption(args, "--outcome") ? args : ["--outcome", "cancelled", ...args],
     "--json",
   );
   const released = claims.map((claim) => {
-    const output = runDv(["claim", "release", claim.claimId, ...forwardedArgs]);
-    return JSON.parse(output) as JsonRecord;
+    const output = runClaimRelease(claim.claimId, forwardedArgs);
+    return JSON.parse(output) as RuntimeClaimReleaseResult;
   });
   for (const claim of released) {
-    const claimStatus = claims.find((status) => status.claimId === claim.claimToken);
+    const claimStatus = claimById.get(claim.claimToken);
     if (claimStatus) {
       console.error(describeClaimRelease(claimStatus, "no-commit"));
     }
@@ -524,7 +530,9 @@ async function main(): Promise<void> {
         args[0] === claimId && !hasOption(args, "--claim")
           ? args.slice(1)
           : stripOption(args, "--claim");
-      process.stdout.write(runDv(["lock", "status", "--claim", claimId, ...forwardedArgs]));
+      process.stdout.write(
+        runDv(["lock", "status", "--claim", claimId, ...forwardedArgs]),
+      );
       return;
     }
     case "transition": {
@@ -552,8 +560,7 @@ async function main(): Promise<void> {
       const claimId =
         optionValue(args, "--claim") ??
         fail("Usage: dv-adapter.ts release --claim <claim-id>");
-      const forwardedArgs = ensureOption(stripOption(args, "--claim"), "--json");
-      process.stdout.write(runDv(["claim", "release", claimId, ...forwardedArgs]));
+      process.stdout.write(runClaimRelease(claimId, stripOption(args, "--claim")));
       return;
     }
     case "halt": {
@@ -568,7 +575,7 @@ async function main(): Promise<void> {
         "--json",
       );
       process.stdout.write(
-        runDv(["claim", "release", claimId, "--outcome", reason, ...forwardedArgs]),
+        runClaimRelease(claimId, ["--outcome", reason, ...forwardedArgs]),
       );
       return;
     }

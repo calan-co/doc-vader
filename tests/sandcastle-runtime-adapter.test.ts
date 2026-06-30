@@ -4,16 +4,40 @@ import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { openRuntimeSqliteStore } from "../lib/runtime/sqlite-store.js";
+import { writeBacklogConsumerConfig } from "./helpers/backlog-consumer-config.js";
 
 const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const adapterPath = path.resolve(__dirname, "../scripts/sandcastle/dv-adapter.ts");
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
 
 const tempDirs: string[] = [];
+type RuntimeClaimCommandResult = { outcome: string; claimToken: string };
+type RuntimeLockCreateResult = { outcome: string };
+type RuntimeLockStatusResult = {
+  claimToken: string;
+  state: string;
+  locks: Array<{ path: string; state: string }>;
+};
+type RuntimeReleaseResult = {
+  claimToken: string;
+  executionLogEntry: { state: string; reason: string };
+  locksRemoved: number;
+};
+type RuntimeRecoverResult = {
+  taskId: string;
+  executionLogEntry: { state: string; reason: string };
+  transition: {
+    frontmatter: {
+      status: string;
+      status_reason: string;
+    };
+  };
+};
 
 async function createTempRepo(): Promise<string> {
   const rootDir = await mkdtemp(
@@ -21,40 +45,21 @@ async function createTempRepo(): Promise<string> {
   );
   tempDirs.push(rootDir);
   await mkdir(path.join(rootDir, "backlog"), { recursive: true });
-  await mkdir(path.join(rootDir, ".doc-vader"), { recursive: true });
-  await writeFile(
-    path.join(rootDir, ".doc-vader", "backlog-consumer.json"),
-    JSON.stringify(
-      {
-        roots: {
-          backlog: "backlog",
-          active: "backlog",
-          archive: "backlog/archive",
-          records: "backlog/records",
-          audit: "backlog/audit",
-        },
-      },
-      null,
-      2,
-    ),
-    "utf8",
-  );
+  writeBacklogConsumerConfig(rootDir);
   return rootDir;
 }
 
+function runGit(rootDir: string, args: string[]): void {
+  execFileSync("git", args, {
+    cwd: rootDir,
+    stdio: "ignore",
+  });
+}
+
 async function initGitRepo(rootDir: string): Promise<void> {
-  execFileSync("git", ["init", "--initial-branch", "main"], {
-    cwd: rootDir,
-    stdio: "ignore",
-  });
-  execFileSync("git", ["config", "user.email", "agent@example.com"], {
-    cwd: rootDir,
-    stdio: "ignore",
-  });
-  execFileSync("git", ["config", "user.name", "Agent"], {
-    cwd: rootDir,
-    stdio: "ignore",
-  });
+  runGit(rootDir, ["init", "--initial-branch", "main"]);
+  runGit(rootDir, ["config", "user.email", "agent@example.com"]);
+  runGit(rootDir, ["config", "user.name", "Agent"]);
   await writeFile(path.join(rootDir, ".gitignore"), ".doc-vader/runtime/\n", "utf8");
 }
 
@@ -101,6 +106,31 @@ function runCli(rootDir: string, args: string[]): string {
   );
 }
 
+function runAdapterJson<T>(rootDir: string, args: string[]): T {
+  return JSON.parse(runAdapter(rootDir, args)) as T;
+}
+
+function runCliJson<T>(rootDir: string, args: string[]): T {
+  return JSON.parse(runCli(rootDir, args)) as T;
+}
+
+function commitRepoState(rootDir: string, message: string): void {
+  runGit(rootDir, ["add", "."]);
+  runGit(rootDir, ["commit", "-m", message]);
+}
+
+function withRuntimeStore<T>(
+  rootDir: string,
+  callback: (store: ReturnType<typeof openRuntimeSqliteStore>) => T,
+): T {
+  const store = openRuntimeSqliteStore({ rootDir });
+  try {
+    return callback(store);
+  } finally {
+    store.close();
+  }
+}
+
 function runAdapterFailure(rootDir: string, args: string[]): string {
   try {
     runAdapter(rootDir, args);
@@ -111,6 +141,16 @@ function runAdapterFailure(rootDir: string, args: string[]): string {
       .trim();
   }
   throw new Error("Expected adapter command to fail.");
+}
+
+async function createCommittedTaskRepo(
+  rootDir: string,
+  fileName: string,
+  frontmatter: string,
+): Promise<void> {
+  await initGitRepo(rootDir);
+  await writeTask(rootDir, fileName, frontmatter);
+  commitRepoState(rootDir, "chore: base");
 }
 
 afterEach(async () => {
@@ -124,8 +164,7 @@ afterEach(async () => {
 describe("sandcastle runtime adapter", () => {
   it("claims through runtime authority and ignores legacy JSON claim-store state", async () => {
     const rootDir = await createTempRepo();
-    await initGitRepo(rootDir);
-    await writeTask(
+    await createCommittedTaskRepo(
       rootDir,
       "200-runtime-claim.md",
       `id: wi-200
@@ -139,11 +178,6 @@ priority: high
 tags:
   - afk`,
     );
-    execFileSync("git", ["add", "."], { cwd: rootDir, stdio: "ignore" });
-    execFileSync("git", ["commit", "-m", "chore: base"], {
-      cwd: rootDir,
-      stdio: "ignore",
-    });
 
     const legacyClaimStorePath = path.join(
       rootDir,
@@ -171,28 +205,22 @@ tags:
     await mkdir(path.dirname(legacyClaimStorePath), { recursive: true });
     await writeFile(legacyClaimStorePath, legacyClaimStore, "utf8");
 
-    const claimed = JSON.parse(
-      runAdapter(rootDir, [
-        "claim",
-        "200",
-        "--holder",
-        "sandcastle:agent-a",
-        "--branch",
-        "sandcastle/issue-200",
-        "--json",
-      ]),
-    ) as {
-      outcome: string;
-      claimToken: string;
-    };
+    const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
+      "claim",
+      "200",
+      "--holder",
+      "sandcastle:agent-a",
+      "--branch",
+      "sandcastle/issue-200",
+      "--json",
+    ]);
 
     expect(claimed).toMatchObject({
       outcome: "acquired",
       claimToken: expect.any(String),
     });
 
-    const store = openRuntimeSqliteStore({ rootDir });
-    try {
+    withRuntimeStore(rootDir, (store) => {
       expect(store.listClaims()).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -203,17 +231,14 @@ tags:
           }),
         ]),
       );
-    } finally {
-      store.close();
-    }
+    });
 
     expect(await readFile(legacyClaimStorePath, "utf8")).toBe(legacyClaimStore);
   });
 
   it("revalidates selectable work before claim acquisition", async () => {
     const rootDir = await createTempRepo();
-    await initGitRepo(rootDir);
-    await writeTask(
+    await createCommittedTaskRepo(
       rootDir,
       "201-claimed-elsewhere.md",
       `id: wi-201
@@ -227,23 +252,16 @@ priority: medium
 tags:
   - afk`,
     );
-    execFileSync("git", ["add", "."], { cwd: rootDir, stdio: "ignore" });
-    execFileSync("git", ["commit", "-m", "chore: base"], {
-      cwd: rootDir,
-      stdio: "ignore",
-    });
 
-    const claimed = JSON.parse(
-      runAdapter(rootDir, [
-        "claim",
-        "201",
-        "--holder",
-        "sandcastle:agent-a",
-        "--branch",
-        "sandcastle/issue-201",
-        "--json",
-      ]),
-    ) as { outcome: string; claimToken: string };
+    const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
+      "claim",
+      "201",
+      "--holder",
+      "sandcastle:agent-a",
+      "--branch",
+      "sandcastle/issue-201",
+      "--json",
+    ]);
     expect(claimed.outcome).toBe("acquired");
 
     const failedOutput = runAdapterFailure(rootDir, [
@@ -259,29 +277,25 @@ tags:
     expect(failedOutput).toContain("DV4SANDCASTLE_NOT_SELECTABLE");
     expect(failedOutput).toContain("task_claim_active");
 
-    const store = openRuntimeSqliteStore({ rootDir });
-    try {
+    withRuntimeStore(rootDir, (store) => {
       expect(store.listClaims()).toHaveLength(1);
       expect(store.listClaims()[0]).toMatchObject({
         claim_token: claimed.claimToken,
         target_id: "wi-201",
         holder: "sandcastle:agent-a",
       });
-    } finally {
-      store.close();
-    }
+    });
   });
 
   it(
     "verifies locks, releases through runtime authority, and recovers halted work",
     { timeout: 20_000 },
     async () => {
-    const rootDir = await createTempRepo();
-    await initGitRepo(rootDir);
-    await writeTask(
-      rootDir,
-      "202-runtime-recover.md",
-      `id: wi-202
+      const rootDir = await createTempRepo();
+      await createCommittedTaskRepo(
+        rootDir,
+        "202-runtime-recover.md",
+        `id: wi-202
 title: Runtime Recover
 summary: Release and recover through runtime authority.
 type: work-item
@@ -291,19 +305,10 @@ status: ready
 priority: high
 tags:
   - afk`,
-    );
-    execFileSync("git", ["add", "."], { cwd: rootDir, stdio: "ignore" });
-    execFileSync("git", ["commit", "-m", "chore: base"], {
-      cwd: rootDir,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["switch", "-c", "sandcastle/issue-202"], {
-      cwd: rootDir,
-      stdio: "ignore",
-    });
+      );
+      runGit(rootDir, ["switch", "-c", "sandcastle/issue-202"]);
 
-    const claimed = JSON.parse(
-      runAdapter(rootDir, [
+      const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
         "claim",
         "202",
         "--holder",
@@ -311,47 +316,37 @@ tags:
         "--branch",
         "sandcastle/issue-202",
         "--json",
-      ]),
-    ) as { outcome: string; claimToken: string };
-    expect(claimed.outcome).toBe("acquired");
+      ]);
+      expect(claimed.outcome).toBe("acquired");
 
-    const lockCreated = JSON.parse(
-      runCli(rootDir, [
+      const lockCreated = runCliJson<RuntimeLockCreateResult>(rootDir, [
         "lock",
         "create",
         "--claim",
         claimed.claimToken,
         "backlog/202-runtime-recover.md",
         "--json",
-      ]),
-    ) as { outcome: string };
-    expect(lockCreated.outcome).toBe("acquired");
+      ]);
+      expect(lockCreated.outcome).toBe("acquired");
 
-    const lockStatus = JSON.parse(
-      runAdapter(rootDir, [
+      const lockStatus = runAdapterJson<RuntimeLockStatusResult>(rootDir, [
         "lock-status",
         "--claim",
         claimed.claimToken,
         "--json",
-      ]),
-    ) as {
-      claimToken: string;
-      state: string;
-      locks: Array<{ path: string; state: string }>;
-    };
-    expect(lockStatus).toMatchObject({
-      claimToken: claimed.claimToken,
-      state: "active",
-      locks: [
-        {
-          path: "backlog/202-runtime-recover.md",
-          state: "clean",
-        },
-      ],
-    });
+      ]);
+      expect(lockStatus).toMatchObject({
+        claimToken: claimed.claimToken,
+        state: "active",
+        locks: [
+          {
+            path: "backlog/202-runtime-recover.md",
+            state: "clean",
+          },
+        ],
+      });
 
-    const released = JSON.parse(
-      runAdapter(rootDir, [
+      const released = runAdapterJson<RuntimeReleaseResult>(rootDir, [
         "release",
         "--claim",
         claimed.claimToken,
@@ -362,79 +357,17 @@ tags:
         "--message",
         "Blocked by Sandcastle adapter.",
         "--json",
-      ]),
-    ) as {
-      claimToken: string;
-      executionLogEntry: { state: string; reason: string };
-      locksRemoved: number;
-    };
-    expect(released).toMatchObject({
-      claimToken: claimed.claimToken,
-      executionLogEntry: {
-        state: "halted",
-        reason: "blocked",
-      },
-      locksRemoved: 1,
-    });
-
-    const blockedClaimAttempt = runAdapterFailure(rootDir, [
-      "claim",
-      "202",
-      "--holder",
-      "sandcastle:agent-b",
-      "--branch",
-      "sandcastle/issue-202",
-      "--json",
-    ]);
-    expect(blockedClaimAttempt).toContain("DV4SANDCASTLE_NOT_SELECTABLE");
-    expect(blockedClaimAttempt).toContain("execution_not_ready");
-
-    const recovered = JSON.parse(
-      runAdapter(rootDir, [
-        "recover",
-        "202",
-        "--branch",
-        "sandcastle/issue-202",
-        "--json",
-      ]),
-    ) as {
-      taskId: string;
-      executionLogEntry: { state: string; reason: string };
-      transition: {
-        frontmatter: {
-          status: string;
-          status_reason: string;
-        };
-      };
-    };
-    expect(recovered).toMatchObject({
-      taskId: "wi-202",
-      executionLogEntry: {
-        state: "completed",
-        reason: "success",
-      },
-      transition: {
-        frontmatter: {
-          status: "ready",
-          status_reason: "recoverable",
+      ]);
+      expect(released).toMatchObject({
+        claimToken: claimed.claimToken,
+        executionLogEntry: {
+          state: "halted",
+          reason: "blocked",
         },
-      },
-    });
-
-    const store = openRuntimeSqliteStore({ rootDir });
-    try {
-      expect(store.listClaims()).toHaveLength(0);
-      expect(store.listExecutionLogEntries().at(-1)).toMatchObject({
-        target_id: "wi-202",
-        state: "completed",
-        reason: "success",
+        locksRemoved: 1,
       });
-    } finally {
-      store.close();
-    }
 
-    const reclaimed = JSON.parse(
-      runAdapter(rootDir, [
+      const blockedClaimAttempt = runAdapterFailure(rootDir, [
         "claim",
         "202",
         "--holder",
@@ -442,9 +375,50 @@ tags:
         "--branch",
         "sandcastle/issue-202",
         "--json",
-      ]),
-    ) as { outcome: string };
-    expect(reclaimed.outcome).toBe("acquired");
+      ]);
+      expect(blockedClaimAttempt).toContain("DV4SANDCASTLE_NOT_SELECTABLE");
+      expect(blockedClaimAttempt).toContain("execution_not_ready");
+
+      const recovered = runAdapterJson<RuntimeRecoverResult>(rootDir, [
+        "recover",
+        "202",
+        "--branch",
+        "sandcastle/issue-202",
+        "--json",
+      ]);
+      expect(recovered).toMatchObject({
+        taskId: "wi-202",
+        executionLogEntry: {
+          state: "completed",
+          reason: "success",
+        },
+        transition: {
+          frontmatter: {
+            status: "ready",
+            status_reason: "recoverable",
+          },
+        },
+      });
+
+      withRuntimeStore(rootDir, (store) => {
+        expect(store.listClaims()).toHaveLength(0);
+        expect(store.listExecutionLogEntries().at(-1)).toMatchObject({
+          target_id: "wi-202",
+          state: "completed",
+          reason: "success",
+        });
+      });
+
+      const reclaimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
+        "claim",
+        "202",
+        "--holder",
+        "sandcastle:agent-b",
+        "--branch",
+        "sandcastle/issue-202",
+        "--json",
+      ]);
+      expect(reclaimed.outcome).toBe("acquired");
     },
   );
 });
