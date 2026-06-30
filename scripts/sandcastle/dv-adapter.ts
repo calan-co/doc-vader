@@ -15,6 +15,10 @@ import {
   openRuntimeSqliteStore,
   type RuntimeClaimRecord,
 } from "../../lib/runtime/index.js";
+import {
+  collectBranchDiffPaths,
+  collectChangedPaths,
+} from "../../lib/task/recovery-state.js";
 
 type JsonRecord = Record<string, unknown>;
 type RuntimeStore = ReturnType<typeof openRuntimeSqliteStore>;
@@ -25,6 +29,9 @@ const adapterRootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
+const DEFAULT_CONSUMER_CONFIG_PATH = ".doc-vader/backlog-consumer.json";
+const DEFAULT_BACKLOG_DIR = "backlog";
+const DEFAULT_CLOSE_RECORD_TYPE = "test-result";
 
 interface AdapterTask {
   id: string;
@@ -61,6 +68,17 @@ interface TransitionScriptInvocationResult {
   path: string;
   lockPaths: string[];
   output: JsonRecord;
+}
+
+interface CloseCommandSettings {
+  actual?: string;
+  completedDate: string;
+  consumerConfigPath: string;
+  backlogDir: string;
+  recordType: string;
+  payloadPath?: string;
+  passThroughArgs: string[];
+  taskContextArgs: string[];
 }
 
 function fail(message: string): never {
@@ -174,48 +192,12 @@ function git(args: string[]): string | undefined {
   }
 }
 
-function defaultMergeTargetRef(): string {
-  for (const candidate of ["main", "master", "HEAD"]) {
-    if (git(["rev-parse", "--verify", "--quiet", candidate])?.trim()) {
-      return candidate;
-    }
-  }
-  return "HEAD";
-}
-
 function currentChangedPaths(): string[] {
-  const changed = new Set<string>();
-  const mergeTargetRef = defaultMergeTargetRef();
-  const diffOutput = git([
-    "diff",
-    "--name-only",
-    `${mergeTargetRef}...HEAD`,
-  ])?.trim();
-  if (diffOutput) {
-    for (const line of diffOutput.split("\n")) {
-      const normalized = line.trim();
-      if (normalized) {
-        changed.add(asRelativeRepoPath(normalized));
-      }
-    }
-  }
-
-  const statusOutput = git(["status", "--porcelain=v1", "-uall"])?.trim();
-  if (!statusOutput) {
-    return [...changed];
-  }
-  for (const line of statusOutput.split("\n")) {
-    const entry = line.trimEnd();
-    if (!entry) {
-      continue;
-    }
-    const rawPath = entry.slice(3).trim();
-    const pathValue = rawPath.includes(" -> ")
-      ? rawPath.split(" -> ").pop() ?? ""
-      : rawPath;
-    if (pathValue) {
-      changed.add(asRelativeRepoPath(pathValue));
-    }
+  const changed = new Set(
+    collectBranchDiffPaths(repoRoot()).map((entry) => asRelativeRepoPath(entry)),
+  );
+  for (const entry of collectChangedPaths(repoRoot())) {
+    changed.add(asRelativeRepoPath(entry.path));
   }
   return [...changed];
 }
@@ -326,15 +308,26 @@ function parseJsonRecord(value: string, errorPrefix: string): JsonRecord {
   }
 }
 
-function closePassThroughArgs(args: string[]): string[] {
+function closeCommandSettings(args: string[]): CloseCommandSettings {
+  const consumerConfigPath = optionValue(args, "--consumer-config");
+  const backlogDir = optionValue(args, "--backlog-dir");
   const forwarded: string[] = [];
-  for (const optionName of ["--consumer-config", "--backlog-dir"]) {
-    const value = optionValue(args, optionName);
-    if (value) {
-      forwarded.push(optionName, value);
-    }
+  if (consumerConfigPath) {
+    forwarded.push("--consumer-config", consumerConfigPath);
   }
-  return forwarded;
+  if (backlogDir) {
+    forwarded.push("--backlog-dir", backlogDir);
+  }
+  return {
+    actual: optionValue(args, "--actual"),
+    completedDate: optionValue(args, "--completed-date") ?? isoDateOnly(),
+    consumerConfigPath: consumerConfigPath ?? DEFAULT_CONSUMER_CONFIG_PATH,
+    backlogDir: backlogDir ?? DEFAULT_BACKLOG_DIR,
+    recordType: optionValue(args, "--record-type") ?? DEFAULT_CLOSE_RECORD_TYPE,
+    payloadPath: optionValue(args, "--payload"),
+    passThroughArgs: forwarded,
+    taskContextArgs: backlogDir ? ["--backlog-dir", backlogDir] : [],
+  };
 }
 
 function resolveCloseClaim(taskId: string, args: string[]): ClaimStatus {
@@ -372,29 +365,32 @@ function resolveCloseClaim(taskId: string, args: string[]): ClaimStatus {
   );
 }
 
-function resolveClosePayload(args: string[]): AdapterCloseRecordPreview | undefined {
-  const payloadPath = optionValue(args, "--payload");
+function resolveClosePayload(
+  settings: CloseCommandSettings,
+): AdapterCloseRecordPreview | undefined {
+  const { payloadPath } = settings;
   if (!payloadPath) {
     return undefined;
   }
   const payloadRaw =
-    payloadPath === "-" ? readStdin() : readTextFile(path.resolve(repoRoot(), payloadPath));
+    payloadPath === "-"
+      ? readStdin()
+      : readTextFile(path.resolve(repoRoot(), payloadPath));
   const payload = parseJsonRecord(
     payloadRaw,
     "Close record payload must be valid JSON",
   );
-  const recordType = optionValue(args, "--record-type") ?? "test-result";
   const preview = json<JsonRecord>(
     [
       "record",
       "create",
       "--type",
-      recordType,
+      settings.recordType,
       "--payload",
       "-",
       "--dry-run",
       "--json",
-      ...closePassThroughArgs(args),
+      ...settings.passThroughArgs,
     ],
     payloadRaw,
   );
@@ -404,7 +400,7 @@ function resolveClosePayload(args: string[]): AdapterCloseRecordPreview | undefi
     fail("Record preview did not return a file path and id.");
   }
   return {
-    type: recordType,
+    type: settings.recordType,
     payloadRaw,
     payload,
     preview: {
@@ -416,12 +412,8 @@ function resolveClosePayload(args: string[]): AdapterCloseRecordPreview | undefi
   };
 }
 
-function configuredTransitionScript(
-  args: string[],
-): string | undefined {
-  const configPath =
-    optionValue(args, "--consumer-config") ?? ".doc-vader/backlog-consumer.json";
-  const resolvedConfigPath = path.resolve(repoRoot(), configPath);
+function configuredTransitionScript(consumerConfigPath: string): string | undefined {
+  const resolvedConfigPath = path.resolve(repoRoot(), consumerConfigPath);
   if (!existsSync(resolvedConfigPath)) {
     return undefined;
   }
@@ -453,7 +445,7 @@ function runTransitionScript(options: {
   mode: "plan" | "apply";
   task: AdapterTask;
   claim: ClaimStatus;
-  args: string[];
+  settings: CloseCommandSettings;
   record?: AdapterCloseRecordPreview;
 }): TransitionScriptInvocationResult {
   const [command, commandArgs] = transitionScriptCommand(options.scriptPath);
@@ -474,12 +466,10 @@ function runTransitionScript(options: {
         claim: options.claim.claim,
       },
       close: {
-        actual: optionValue(options.args, "--actual"),
-        completedDate: optionValue(options.args, "--completed-date") ?? isoDateOnly(),
-        consumerConfig:
-          optionValue(options.args, "--consumer-config") ??
-          ".doc-vader/backlog-consumer.json",
-        backlogDir: optionValue(options.args, "--backlog-dir") ?? "backlog",
+        actual: options.settings.actual,
+        completedDate: options.settings.completedDate,
+        consumerConfig: options.settings.consumerConfigPath,
+        backlogDir: options.settings.backlogDir,
       },
       ...(options.record
         ? {
@@ -518,15 +508,6 @@ function runTransitionScript(options: {
 
 function uniquePaths(paths: string[]): string[] {
   return [...new Set(paths.map((entry) => asRelativeRepoPath(entry)))];
-}
-
-function taskContextArgs(args: string[]): string[] {
-  const forwarded: string[] = [];
-  const backlogDir = optionValue(args, "--backlog-dir");
-  if (backlogDir) {
-    forwarded.push("--backlog-dir", backlogDir);
-  }
-  return forwarded;
 }
 
 function claimBranch(claim: JsonRecord | undefined): string | undefined {
@@ -694,25 +675,28 @@ async function claimTask(taskId: string, args: string[]): Promise<void> {
 
 async function closeTask(taskId: string, args: string[]): Promise<void> {
   const normalizedTaskId = normalizeTaskId(taskId);
+  const settings = closeCommandSettings(args);
   const task = toAdapterTask(
     json<JsonRecord>([
       "work",
       "show",
       normalizedTaskId,
       "--json",
-      ...taskContextArgs(args),
+      ...settings.taskContextArgs,
     ]),
   );
   const claim = resolveCloseClaim(normalizedTaskId, args);
-  const record = resolveClosePayload(args);
-  const transitionScriptPath = configuredTransitionScript(args);
+  const record = resolveClosePayload(settings);
+  const transitionScriptPath = configuredTransitionScript(
+    settings.consumerConfigPath,
+  );
   const transitionPlan = transitionScriptPath
     ? runTransitionScript({
         scriptPath: transitionScriptPath,
         mode: "plan",
         task,
         claim,
-        args,
+        settings,
         record,
       })
     : undefined;
@@ -741,7 +725,7 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
             "--payload",
             "-",
             "--json",
-            ...closePassThroughArgs(args),
+            ...settings.passThroughArgs,
           ],
           record.payloadRaw,
         )
@@ -753,7 +737,7 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
           mode: "apply",
           task,
           claim,
-          args,
+          settings,
           record,
         })
       : undefined;
@@ -767,7 +751,7 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
         "success",
         "--dry-run",
         "--json",
-        ...closePassThroughArgs(args),
+        ...settings.passThroughArgs,
       ],
     );
 
@@ -783,7 +767,7 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
         "--outcome",
         "success",
         "--json",
-        ...closePassThroughArgs(args),
+        ...settings.passThroughArgs,
       ],
     );
 

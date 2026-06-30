@@ -27,6 +27,8 @@ export interface TaskRecoveryGitState {
   resumeWarnings: string[];
 }
 
+const DEFAULT_MERGE_TARGET_CANDIDATES = ["main", "master", "HEAD"] as const;
+
 function gitOutput(rootDir: string, args: string[]): string {
   return execFileSync("git", args, {
     cwd: rootDir,
@@ -64,6 +66,25 @@ function normalizeWorktreePath(value: string, baseDir = process.cwd()): string {
   }
 }
 
+function defaultMergeTargetRef(rootDir: string): string {
+  for (const candidate of DEFAULT_MERGE_TARGET_CANDIDATES) {
+    try {
+      const output = gitOutput(rootDir, [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        candidate,
+      ]);
+      if (output) {
+        return candidate;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return "HEAD";
+}
+
 export function collectChangedPaths(rootDir: string): GitChangedPathEntry[] {
   let output: string;
   try {
@@ -95,6 +116,28 @@ export function collectChangedPaths(rootDir: string): GitChangedPathEntry[] {
     });
   }
   return entries;
+}
+
+export function collectBranchDiffPaths(rootDir: string): string[] {
+  const mergeTargetRef = defaultMergeTargetRef(rootDir);
+  let output: string;
+  try {
+    output = gitOutput(rootDir, [
+      "diff",
+      "--name-only",
+      `${mergeTargetRef}...HEAD`,
+    ]);
+  } catch {
+    return [];
+  }
+  if (!output) {
+    return [];
+  }
+
+  return output
+    .split("\n")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }
 
 function isUnmergedStatus(status: string): boolean {

@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -64,9 +64,11 @@ type SandcastleCloseResult = {
     claimId: string;
     taskId: string;
     transition: {
-      frontmatter: {
-        status: string;
-        status_reason: string;
+      workItem: {
+        frontmatter: {
+          status: string;
+          status_reason: string;
+        };
       };
     };
     execution: {
@@ -791,9 +793,11 @@ throw new Error("Transition script failed after evidence recording.");
       );
       expect(recoveredTaskDocument).not.toContain("[[record-wi-204-close]]");
       expect(recoveredTaskDocument).toContain("status_reason: recoverable");
-      expect(fs.existsSync(path.join(rootDir, "backlog", "records", "record-wi-204-close.md"))).toBe(
-        false,
-      );
+      expect(
+        existsSync(
+          path.join(rootDir, "backlog", "records", "record-wi-204-close.md"),
+        ),
+      ).toBe(false);
     },
   );
 });
