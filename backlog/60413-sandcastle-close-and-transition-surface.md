@@ -5,9 +5,11 @@ summary: Deliver dv4sandcastle close through configurable repository transition 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 6
+completed_date: '2026-06-30'
 links:
   depends_on:
     - '[[60412-sandcastle-claim-and-recovery-surface]]'
@@ -41,15 +43,15 @@ not hard-code repo-specific lifecycle commands into core `dv`.
 
 ## Tasks
 
-- [ ] Add or update `dv4sandcastle close` terminal handling.
-- [ ] Route repository-specific transition or checklist behavior through
+- [x] Add or update `dv4sandcastle close` terminal handling.
+- [x] Route repository-specific transition or checklist behavior through
       configurable scripts.
-- [ ] Validate terminal movement against the repository transition profile or
+- [x] Validate terminal movement against the repository transition profile or
       script contract.
-- [ ] Preserve Doc-Vader evidence recording before terminal transition.
-- [ ] Release runtime claims and locks through native runtime semantics.
-- [ ] Ensure failed close attempts leave recoverable runtime state.
-- [ ] Add integration coverage for success, script failure, and recovery paths.
+- [x] Preserve Doc-Vader evidence recording before terminal transition.
+- [x] Release runtime claims and locks through native runtime semantics.
+- [x] Ensure failed close attempts leave recoverable runtime state.
+- [x] Add integration coverage for success, script failure, and recovery paths.
 
 ## Deliverables
 
@@ -60,15 +62,15 @@ not hard-code repo-specific lifecycle commands into core `dv`.
 
 ## Acceptance Criteria
 
-- [ ] `dv4sandcastle close` can complete a claimed work item through repository
+- [x] `dv4sandcastle close` can complete a claimed work item through repository
       transition behavior.
-- [ ] Repository transition behavior is configurable without core `dv` code
+- [x] Repository transition behavior is configurable without core `dv` code
       changes.
-- [ ] Evidence is recorded through Doc-Vader before terminal release.
-- [ ] Runtime claims and locks are released through native runtime authority.
-- [ ] Failed transition or release leaves state recoverable.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Evidence is recorded through Doc-Vader before terminal release.
+- [x] Runtime claims and locks are released through native runtime authority.
+- [x] Failed transition or release leaves state recoverable.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 
