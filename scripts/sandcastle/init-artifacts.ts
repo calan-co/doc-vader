@@ -35,28 +35,35 @@ export interface RenderSandcastleInitArtifactsOptions {
   write?: boolean;
 }
 
-const sandcastleInitArtifactDefinitions: readonly SandcastleInitArtifactDefinition[] = [
-  {
-    templateRelativePath: "scripts/sandcastle/templates/plan-prompt.md.tpl",
-    outputRelativePath: ".sandcastle/plan-prompt.md",
-  },
-  {
-    templateRelativePath: "scripts/sandcastle/templates/implement-prompt.md.tpl",
-    outputRelativePath: ".sandcastle/implement-prompt.md",
-  },
-  {
-    templateRelativePath: "scripts/sandcastle/templates/SETUP_ISSUE_TRACKER.md.tpl",
-    outputRelativePath: ".sandcastle/SETUP_ISSUE_TRACKER.md",
-  },
-] as const;
+const sandcastleInitArtifactDefinitions: readonly SandcastleInitArtifactDefinition[] =
+  [
+    {
+      templateRelativePath: "scripts/sandcastle/templates/plan-prompt.md.tpl",
+      outputRelativePath: ".sandcastle/plan-prompt.md",
+    },
+    {
+      templateRelativePath:
+        "scripts/sandcastle/templates/implement-prompt.md.tpl",
+      outputRelativePath: ".sandcastle/implement-prompt.md",
+    },
+    {
+      templateRelativePath:
+        "scripts/sandcastle/templates/SETUP_ISSUE_TRACKER.md.tpl",
+      outputRelativePath: ".sandcastle/SETUP_ISSUE_TRACKER.md",
+    },
+  ] as const;
 
-function isSandcastleInitTemplateArg(value: string): value is SandcastleInitTemplateArg {
+function isSandcastleInitTemplateArg(
+  value: string,
+): value is SandcastleInitTemplateArg {
   return Object.hasOwn(sandcastleInitTemplateArgs, value);
 }
 
 export function substituteSandcastleInitTemplateArgs(template: string): string {
   return template.replace(/\{\{([A-Z0-9_]+)\}\}/g, (match, key: string) => {
-    return isSandcastleInitTemplateArg(key) ? sandcastleInitTemplateArgs[key] : match;
+    return isSandcastleInitTemplateArg(key)
+      ? sandcastleInitTemplateArgs[key]
+      : match;
   });
 }
 
@@ -109,7 +116,10 @@ async function main(): Promise<void> {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

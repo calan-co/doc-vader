@@ -72,6 +72,14 @@ function runSandcastleAdapter(args: string[], input?: string): string {
   return runTsScript(sandcastleAdapterPath, args, input);
 }
 
+async function loadSandcastleListPayload() {
+  const payload = await loadSandcastlePlanningListPayload();
+  return {
+    ...payload,
+    horizon: [],
+  };
+}
+
 async function main() {
   const [command, ...args] = process.argv.slice(2);
 
@@ -82,7 +90,7 @@ async function main() {
   try {
     switch (command) {
       case "list": {
-        const payload = await loadSandcastlePlanningListPayload();
+        const payload = await loadSandcastleListPayload();
         console.log(JSON.stringify(payload, null, 2));
         break;
       }

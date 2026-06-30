@@ -55,14 +55,15 @@ Use these commands for the current Sandcastle-facing contract:
 
 ## Planning Context
 
-`dv4sandcastle list` is a Sandcastle-specific planning view over `dv work
-ready --json`.
+`dv4sandcastle list` is a Sandcastle-specific, filtered planning view over
+`dv work ready --json`.
 
 - `selectable` entries are the only candidates Sandcastle should claim.
-- `horizon` entries are context for sequencing and diagnosis, not executable
-  choices.
-- `horizon` reason codes explain why an item is not currently selectable, such
-  as dependency blockers, active claims, HITL flags, or halted execution state.
+- Non-selectable horizon entries are intentionally withheld from the list
+  output so the planner cannot choose dependency-blocked, claimed, HITL, or
+  halted work.
+- Claim and recovery commands still revalidate runtime state and can explain
+  why a specific item is not selectable.
 - The adapter can supply a branch name like `sandcastle/issue-60415`, but the
   source of truth for readiness still lives in `dv work`.
 

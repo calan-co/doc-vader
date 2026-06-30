@@ -9,16 +9,16 @@ status: completed
 status_reason: completed
 priority: high
 estimated: 3
-completed_date: '2026-06-30'
+completed_date: "2026-06-30"
 links:
   blocks:
     - "[[60415-authoritative-dv4sandcastle-documentation]]"
     - "[[60416-end-to-end-sandcastle-smoke-and-recovery]]"
   reference:
-    - '[[../docs/reference/work-management/foundation.md]]'
+    - "[[../docs/reference/work-management/foundation.md]]"
   evidence:
-    - '[[task-record-preflight]]'
-    - '[[record-validation-passed-for-wi-60417-ready-dependency-resolver-fix]]'
+    - "[[task-record-preflight]]"
+    - "[[record-validation-passed-for-wi-60417-ready-dependency-resolver-fix]]"
 tags:
   - afk
   - bug

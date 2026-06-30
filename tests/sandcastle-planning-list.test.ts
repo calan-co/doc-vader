@@ -132,7 +132,7 @@ afterEach(async () => {
 });
 
 describe("sandcastle planning list surface", () => {
-  it("returns selectable candidates separately from unsafe planning horizon context", async () => {
+  it("returns only selectable candidates to Sandcastle", async () => {
     const rootDir = await createTempRepo();
 
     await writeTask(
@@ -154,7 +154,7 @@ tags:
       "101-blocked.md",
       `id: wi-101
 title: Blocked
-summary: Blocked work should remain horizon-only.
+summary: Blocked work should not be listed for Sandcastle planning.
 type: work-item
 subtype: task
 lifecycle: active
@@ -182,7 +182,7 @@ tags:
       "103-hitl.md",
       `id: wi-103
 title: HITL
-summary: HITL work is planning context, not executable work.
+summary: HITL work should not be listed for Sandcastle planning.
 type: work-item
 subtype: task
 lifecycle: active
@@ -197,7 +197,7 @@ tags:
       "104-runtime-blocked.md",
       `id: wi-104
 title: Runtime Blocked
-summary: Halted work should remain horizon-only.
+summary: Halted work should not be listed for Sandcastle planning.
 type: work-item
 subtype: task
 lifecycle: active
@@ -223,25 +223,10 @@ tags:
       ],
     });
     expect(payload.selectable.map((entry) => entry.id)).toEqual(["100"]);
-    expect(payload.horizon).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "101",
-          reasonCodes: expect.arrayContaining(["blocked", "not_ready"]),
-        }),
-        expect.objectContaining({
-          id: "102",
-          reasonCodes: expect.arrayContaining(["task_claim_active"]),
-        }),
-        expect.objectContaining({
-          id: "103",
-          reasonCodes: expect.arrayContaining(["hitl"]),
-        }),
-        expect.objectContaining({
-          id: "104",
-          reasonCodes: expect.arrayContaining(["execution_not_ready"]),
-        }),
-      ]),
-    );
+    expect(payload.horizon).toEqual([]);
+    expect(JSON.stringify(payload)).not.toContain("101");
+    expect(JSON.stringify(payload)).not.toContain("102");
+    expect(JSON.stringify(payload)).not.toContain("103");
+    expect(JSON.stringify(payload)).not.toContain("104");
   });
 });
