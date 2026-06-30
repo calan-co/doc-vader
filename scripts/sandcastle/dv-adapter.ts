@@ -24,37 +24,11 @@ interface AdapterTask {
   canonicalTask: JsonRecord;
 }
 
-interface PlannerTask {
-  id: string;
-  number: string;
-  title: string;
-  summary: string;
-  status: string;
-  priority: string;
-  tags: string[];
-  dependencies: string[];
-  references: string[];
-  file: string;
-  bodySections: Array<{ heading: string; excerpt: string }>;
-  branch?: string;
-  mode: "fresh" | "recovered";
-  claimId?: string;
-  recovery?: RecoveryMetadata;
-}
-
 interface ClaimStatus {
   claimId: string;
   taskId?: string;
   state: string;
   claim?: JsonRecord;
-}
-
-interface RecoveryMetadata {
-  classification: string;
-  reasons: string[];
-  uniqueCommitCount?: number;
-  headSha?: string;
-  branchExists?: boolean;
 }
 
 interface StoredClaim {
@@ -77,7 +51,6 @@ interface ClaimStore {
   claims?: StoredClaim[];
 }
 
-const MAX_SECTION_EXCERPT_LENGTH = 420;
 const RECOVERY_TTL_MINUTES = 240;
 
 function fail(message: string): never {
@@ -191,37 +164,6 @@ function git(args: string[]): string | undefined {
   }
 }
 
-function bodySectionExcerpts(task: JsonRecord): PlannerTask["bodySections"] {
-  const body = recordValue(task.body);
-  const sections = Array.isArray(task.bodySections)
-    ? task.bodySections
-    : body?.sections;
-  if (!Array.isArray(sections)) {
-    return [];
-  }
-  return sections
-    .map((section) => {
-      const record = recordValue(section);
-      const heading = stringValue(record?.heading) ?? stringValue(record?.title);
-      const bodyText = stringValue(record?.body) ?? stringValue(record?.content);
-      return heading && bodyText ? { heading, body: bodyText } : undefined;
-    })
-    .filter((section): section is { heading: string; body: string } => {
-      return typeof section === "object" && section !== null;
-    })
-    .map((section) => {
-      const normalized = section.body.replace(/\s+/g, " ").trim();
-      const excerpt =
-        normalized.length > MAX_SECTION_EXCERPT_LENGTH
-          ? `${normalized.slice(0, MAX_SECTION_EXCERPT_LENGTH - 3)}...`
-          : normalized;
-      return {
-        heading: section.heading,
-        excerpt,
-      };
-    });
-}
-
 function toAdapterTask(task: JsonRecord): AdapterTask {
   const id = String(task.id ?? "");
   if (!id) {
@@ -238,38 +180,6 @@ function toAdapterTask(task: JsonRecord): AdapterTask {
     tags: stringArray(task.tags),
     file: String(task.filePath ?? ""),
     canonicalTask: task,
-  };
-}
-
-function toPlannerTask(
-  task: JsonRecord,
-  options: {
-    mode?: "fresh" | "recovered";
-    branch?: string;
-    claimId?: string;
-    recovery?: RecoveryMetadata;
-  } = {},
-): PlannerTask {
-  const id = String(task.id ?? "");
-  if (!id) {
-    fail("dv task show returned a task without an id.");
-  }
-  return {
-    id: taskNumber(id),
-    number: taskNumber(id),
-    title: String(task.title ?? id),
-    summary: String(task.summary ?? ""),
-    status: String(task.status ?? "unknown"),
-    priority: String(task.priority ?? "unknown"),
-    tags: stringArray(task.tags),
-    dependencies: stringArray(task.dependencies),
-    references: stringArray(task.references),
-    file: String(task.filePath ?? ""),
-    bodySections: bodySectionExcerpts(task),
-    mode: options.mode ?? "fresh",
-    ...(options.branch ? { branch: options.branch } : {}),
-    ...(options.claimId ? { claimId: options.claimId } : {}),
-    ...(options.recovery ? { recovery: options.recovery } : {}),
   };
 }
 
@@ -452,83 +362,6 @@ function activeClaimsForTask(taskId: string, holder?: string): ClaimStatus[] {
       (!holder || claimHolderValue(status.claim) === holder)
     );
   });
-}
-
-function recoverReadyClaims(holder: string): PlannerTask[] {
-  const recovered: PlannerTask[] = [];
-  for (const status of listClaims()) {
-    const branch = claimBranch(status.claim);
-    if (!status.taskId || !branch) {
-      continue;
-    }
-
-    if (status.state === "active") {
-      if (claimHolderValue(status.claim) !== holder) {
-        if (!claimIsAdoptable(status, branch)) {
-          continue;
-        }
-        const adopted = adoptClaimById(status.claimId, holder);
-        const task = json<JsonRecord>(["task", "show", status.taskId, "--json"]);
-        recovered.push(
-          toPlannerTask(task, {
-            mode: "recovered",
-            branch,
-            claimId: adopted.claimId,
-            recovery: {
-              classification: "adopted_active_sandcastle_claim",
-              reasons: ["previous_sandcastle_holder", "branch_has_commits"],
-              uniqueCommitCount: branchUniqueCommitCount(branch),
-            },
-          }),
-        );
-        console.error(
-          `Adopted active claim ${status.claimId} for ${status.taskId}.`,
-        );
-        continue;
-      }
-      const task = json<JsonRecord>(["task", "show", status.taskId, "--json"]);
-      recovered.push(
-        toPlannerTask(task, {
-          mode: "recovered",
-          branch,
-          claimId: status.claimId,
-          recovery: {
-            classification: "active_sandcastle_claim",
-            reasons: ["active_claim_matches_current_holder"],
-          },
-        }),
-      );
-      continue;
-    }
-
-    if (status.state !== "expired") {
-      continue;
-    }
-    if (claimIsAdoptable(status, branch)) {
-      const adopted = adoptClaimById(status.claimId, holder);
-      const task = json<JsonRecord>(["task", "show", status.taskId, "--json"]);
-      recovered.push(
-        toPlannerTask(task, {
-          mode: "recovered",
-          branch,
-          claimId: adopted.claimId,
-          recovery: {
-            classification: "adopted_expired_sandcastle_claim",
-            reasons: ["previous_sandcastle_holder", "branch_has_commits"],
-            uniqueCommitCount: branchUniqueCommitCount(branch),
-          },
-        }),
-      );
-      console.error(
-        `Adopted expired claim ${status.claimId} for ${status.taskId}.`,
-      );
-      continue;
-    }
-    console.error(
-      `Skipped expired claim ${status.claimId} for ${status.taskId}; expired claim adoption is intentionally deferred until doc-vader exposes recovery commands.`,
-    );
-  }
-  return recovered;
 }
 
 function idempotentClaim(taskId: string, args: string[]): void {

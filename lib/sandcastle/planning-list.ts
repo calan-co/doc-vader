@@ -70,6 +70,8 @@ export interface LoadSandcastlePlanningListOptions {
   backlogDir?: string;
 }
 
+type SortablePlanningEntry = Pick<SandcastlePlanningEntry, "filePath" | "priority">;
+
 function taskNumber(taskId: string): string {
   return taskId.replace(/^wi-/, "");
 }
@@ -79,14 +81,18 @@ function priorityRank(priority: string | undefined): number {
 }
 
 function comparePlanningEntries(
-  left: { priority?: string; filePath: string },
-  right: { priority?: string; filePath: string },
+  left: SortablePlanningEntry,
+  right: SortablePlanningEntry,
 ): number {
   const priorityDelta = priorityRank(left.priority) - priorityRank(right.priority);
   if (priorityDelta !== 0) {
     return priorityDelta;
   }
   return left.filePath.localeCompare(right.filePath);
+}
+
+function sortPlanningEntries<T extends SortablePlanningEntry>(items: T[]): T[] {
+  return [...items].sort(comparePlanningEntries);
 }
 
 function toBodySectionExcerpts(
@@ -110,10 +116,11 @@ function toBranch(task: { numericId?: string }): string | undefined {
 }
 
 function toPlanningEntry(task: WorkModel): SandcastlePlanningEntry {
+  const number = taskNumber(task.id);
   const branch = toBranch(task);
   return {
-    id: taskNumber(task.id),
-    number: taskNumber(task.id),
+    id: number,
+    number,
     title: task.title,
     ...(task.summary ? { summary: task.summary } : {}),
     status: task.status,
@@ -139,20 +146,53 @@ function toPlanningEntry(task: WorkModel): SandcastlePlanningEntry {
 function exclusionMap(
   selection: ReadyTaskSelection,
 ): Map<string, ReadyTaskExclusion> {
-  return new Map(
-    selection.exclusions
-      .map((entry) => [entry.id, entry] as const)
-      .filter((entry): entry is readonly [string, ReadyTaskExclusion] => Boolean(entry[0])),
-  );
+  const exclusions = new Map<string, ReadyTaskExclusion>();
+  for (const entry of selection.exclusions) {
+    if (!entry.id) {
+      continue;
+    }
+    exclusions.set(entry.id, entry);
+  }
+  return exclusions;
+}
+
+function reasonCodesForExclusion(
+  exclusion: ReadyTaskExclusion | undefined,
+): string[] {
+  if (!exclusion) {
+    return ["not_selectable"];
+  }
+  return [...new Set(exclusion.reasons.map((reason) => reason.code))];
+}
+
+function toSelectablePlanningEntry(
+  item: WorkModel,
+): SandcastleSelectablePlanningEntry {
+  return {
+    ...toPlanningEntry(item),
+    lane: "selectable",
+  };
+}
+
+function toHorizonPlanningEntry(
+  item: WorkModel,
+  exclusion: ReadyTaskExclusion | undefined,
+): SandcastleHorizonPlanningEntry {
+  return {
+    ...toPlanningEntry(item),
+    lane: "horizon",
+    reasonCodes: reasonCodesForExclusion(exclusion),
+    reasons: exclusion?.reasons ?? [],
+    findings: exclusion?.findings ?? [],
+  };
 }
 
 export function buildSandcastlePlanningListPayload(options: {
   workItems: WorkModel[];
   readySelection: ReadyTaskSelection;
 }): SandcastlePlanningListPayload {
-  const workById = new Map(
-    options.workItems.map((item) => [item.id, item] as const),
-  );
+  const sortedWorkItems = sortPlanningEntries(options.workItems);
+  const workById = new Map(sortedWorkItems.map((item) => [item.id, item] as const));
   const selectableIds = new Set(
     options.readySelection.candidates.map((candidate) => candidate.id),
   );
@@ -161,27 +201,11 @@ export function buildSandcastlePlanningListPayload(options: {
   const selectable = options.readySelection.candidates
     .map((candidate) => workById.get(candidate.id))
     .filter((item): item is WorkModel => Boolean(item))
-    .map((item) => ({
-      ...toPlanningEntry(item),
-      lane: "selectable" as const,
-    }));
+    .map(toSelectablePlanningEntry);
 
-  const horizon = options.workItems
+  const horizon = sortedWorkItems
     .filter((item) => !selectableIds.has(item.id))
-    .map((item) => {
-      const exclusion = exclusionsById.get(item.id);
-      const reasonCodes = [
-        ...new Set(exclusion?.reasons.map((reason) => reason.code) ?? ["not_selectable"]),
-      ];
-      return {
-        ...toPlanningEntry(item),
-        lane: "horizon" as const,
-        reasonCodes,
-        reasons: exclusion?.reasons ?? [],
-        findings: exclusion?.findings ?? [],
-      };
-    })
-    .sort(comparePlanningEntries);
+    .map((item) => toHorizonPlanningEntry(item, exclusionsById.get(item.id)));
 
   return {
     schemaVersion: "dv4sandcastle-list/v1",
@@ -200,7 +224,7 @@ export async function loadSandcastlePlanningListPayload(
     selectReadyWorkItems({ rootDir, backlogDir }),
   ]);
   return buildSandcastlePlanningListPayload({
-    workItems: workItems.sort(comparePlanningEntries),
+    workItems,
     readySelection,
   });
 }
