@@ -341,17 +341,33 @@ function parseRelationshipDependencyRefs(body: string): string[] {
     .filter(
       (entry) => entry.relationship === "depends_on" && entry.target.length > 0,
     )
-    .map((entry) => entry.target);
+    .map((entry) => unwrapInlineCode(entry.target));
+}
+
+function unwrapInlineCode(value: string): string {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(`+)([\s\S]*?)\1$/u);
+  return match ? (match[2] ?? "").trim() : trimmed;
 }
 
 function stripWikiLink(value: string): string {
-  return value.replace(/^\[\[/, "").replace(/\]\]$/, "").trim();
+  const trimmed = unwrapInlineCode(value);
+  const withoutBrackets = trimmed.replace(/^\[\[/u, "").replace(/\]\]$/u, "");
+  return withoutBrackets.split("|", 1)[0]?.split("#", 1)[0]?.trim() ?? "";
 }
 
 function normalizeDependencyId(ref: string): string {
   const stripped = stripWikiLink(ref);
   const match = stripped.match(/^(?:wi-)?(\d+)/);
   return match ? `wi-${match[1]}` : stripped;
+}
+
+function stripMarkdownExtension(value: string): string {
+  return value.replace(/\.md$/iu, "");
+}
+
+function normalizeReferenceToken(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 function dependencySatisfied(
@@ -460,24 +476,88 @@ function isProjectedBacklogWorkItem(
 }
 
 function normalizedDocumentReferenceAliases(document: ReadyDocument): string[] {
-  return documentReferenceAliases(document).map((entry) => entry.trim().toLowerCase());
+  return documentReferenceAliases(document).map((entry) => normalizeReferenceToken(entry));
+}
+
+function referenceTokens(taskFilePath: string, ref: string): Set<string> {
+  const stripped = stripWikiLink(ref);
+  const normalizedId = normalizeDependencyId(ref);
+  const tokens = new Set<string>([
+    normalizeReferenceToken(stripped),
+    normalizeReferenceToken(path.posix.basename(stripped)),
+    normalizeReferenceToken(stripMarkdownExtension(path.posix.basename(stripped))),
+    normalizeReferenceToken(normalizedId),
+    normalizeReferenceToken(normalizedId.replace(/^wi-/u, "")),
+  ]);
+
+  if (stripped.includes("/")) {
+    const resolvedPath = stripped.startsWith("/")
+      ? stripped.replace(/^\/+/u, "")
+      : path.posix.normalize(path.posix.join(path.posix.dirname(taskFilePath), stripped));
+    tokens.add(normalizeReferenceToken(resolvedPath));
+    tokens.add(normalizeReferenceToken(path.posix.basename(resolvedPath)));
+    tokens.add(
+      normalizeReferenceToken(
+        stripMarkdownExtension(path.posix.basename(resolvedPath)),
+      ),
+    );
+  }
+
+  return tokens;
+}
+
+function dependencyReferenceTokens(
+  dependency: ReadyTaskDependency,
+  dependencyDocument: ReadyDocument | undefined,
+): Set<string> {
+  const tokens = new Set<string>([
+    normalizeReferenceToken(dependency.id),
+    normalizeReferenceToken(dependency.id.replace(/^wi-/u, "")),
+  ]);
+
+  if (dependency.filePath) {
+    tokens.add(normalizeReferenceToken(dependency.filePath));
+    tokens.add(normalizeReferenceToken(path.posix.basename(dependency.filePath)));
+    tokens.add(
+      normalizeReferenceToken(
+        stripMarkdownExtension(path.posix.basename(dependency.filePath)),
+      ),
+    );
+  }
+
+  if (dependencyDocument) {
+    for (const alias of normalizedDocumentReferenceAliases(dependencyDocument)) {
+      tokens.add(alias);
+    }
+    tokens.add(normalizeReferenceToken(dependencyDocument.relativePath));
+  }
+
+  return tokens;
+}
+
+function setsIntersect(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
+  for (const value of right) {
+    if (left.has(value)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function dependencyMatchesRef(
   dependency: ReadyTaskDependency,
   ref: string,
   documentsById: Map<string, ReadyDocument>,
+  taskFilePath: string,
 ): boolean {
-  const stripped = stripWikiLink(ref).toLowerCase();
-  const normalizedId = normalizeDependencyId(ref).toLowerCase();
-  if (dependency.id.toLowerCase() === normalizedId) {
-    return true;
-  }
-
   const dependencyDocument = documentsById.get(dependency.id);
-  return dependencyDocument
-    ? normalizedDocumentReferenceAliases(dependencyDocument).includes(stripped)
-    : false;
+  return setsIntersect(
+    dependencyReferenceTokens(dependency, dependencyDocument),
+    referenceTokens(taskFilePath, ref),
+  );
 }
 
 function projectedNodeDependencyId(node: WorkGraphNode): string {
@@ -557,7 +637,12 @@ function buildGraphReadyDependencies(options: {
     const matched = knownDependencies.find(
       (dependency) =>
         !matchedDependencyIds.has(dependency.id) &&
-        dependencyMatchesRef(dependency, ref, options.documentsById),
+        dependencyMatchesRef(
+          dependency,
+          ref,
+          options.documentsById,
+          options.document.relativePath,
+        ),
     );
     if (matched) {
       matchedDependencyIds.add(matched.id);
@@ -565,6 +650,18 @@ function buildGraphReadyDependencies(options: {
         ...matched,
         ref,
       });
+      continue;
+    }
+
+    const duplicateKnownDependency = knownDependencies.some((dependency) =>
+      dependencyMatchesRef(
+        dependency,
+        ref,
+        options.documentsById,
+        options.document.relativePath,
+      ),
+    );
+    if (duplicateKnownDependency) {
       continue;
     }
 

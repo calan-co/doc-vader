@@ -3894,6 +3894,105 @@ tags:
     }
   });
 
+  it("deduplicates code-formatted authored dependency refs against projected dependencies", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "216-shared-dependency.md",
+        `id: wi-216
+title: Shared Dependency
+type: work-item
+lifecycle: active
+status: completed
+status_reason: completed
+completed_date: '2026-06-30'
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "217-short-form-dependent.md",
+        `id: wi-217
+title: Short Form Dependent
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[216-shared-dependency]]'`,
+        `## Relationships
+
+- \`depends_on\`: \`[[216-shared-dependency]]\`
+`,
+      );
+      await writeTask(
+        root,
+        "218-path-form-dependent.md",
+        `id: wi-218
+title: Path Form Dependent
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[../backlog/216-shared-dependency.md]]'`,
+        `## Relationships
+
+- \`depends_on\`: \`[[../backlog/216-shared-dependency.md]]\`
+`,
+      );
+
+      const report = await selectReadyTasks({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+      });
+
+      expect(report.candidates.map((entry) => entry.id)).toEqual([
+        "wi-217",
+        "wi-218",
+      ]);
+      expect(
+        report.candidates.map((candidate) => ({
+          id: candidate.id,
+          dependencies: candidate.dependencies,
+        })),
+      ).toEqual([
+        {
+          id: "wi-217",
+          dependencies: [
+            expect.objectContaining({
+              id: "wi-216",
+              satisfied: true,
+              stateKnown: true,
+            }),
+          ],
+        },
+        {
+          id: "wi-218",
+          dependencies: [
+            expect.objectContaining({
+              id: "wi-216",
+              satisfied: true,
+              stateKnown: true,
+            }),
+          ],
+        },
+      ]);
+      expect(
+        report.exclusions.filter((entry) =>
+          ["wi-217", "wi-218"].includes(entry.id ?? ""),
+        ),
+      ).toEqual([]);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("projects derived readiness findings separately from authored dependencies", async () => {
     const root = await mkTmpRoot();
     try {
