@@ -26,27 +26,41 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadSandcastlePlanningListPayload } from "../../lib/sandcastle/planning-list.js";
 
 const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(moduleDir, "../..");
+const repoRoot = path.resolve(__dirname, "../..");
 const cliPath = path.join(repoRoot, "cli", "doc-vader.ts");
-const legacyAdapterPath = path.join(repoRoot, "scripts", "sandcastle", "dv-adapter.ts");
+const sandcastleAdapterPath = path.join(
+  repoRoot,
+  "scripts",
+  "sandcastle",
+  "dv-adapter.ts",
+);
 
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
 }
 
+function requireTaskId(args: string[], usage: string): string {
+  return args[0] ?? fail(usage);
+}
+
+function optionalStdin(): string | undefined {
+  return process.stdin.isTTY ? undefined : readFileSync(0, "utf8");
+}
+
 function runTsScript(scriptPath: string, args: string[], input?: string): string {
+  const stdio: ["ignore", "pipe", "inherit"] | ["pipe", "pipe", "inherit"] =
+    input === undefined
+      ? ["ignore", "pipe", "inherit"]
+      : ["pipe", "pipe", "inherit"];
   return execFileSync(process.execPath, ["--import", tsxImport, scriptPath, ...args], {
     cwd: process.cwd(),
     encoding: "utf8",
     env: { ...process.env, CI: "true", TMPDIR: process.env.TMPDIR ?? "/tmp" },
-    ...(input !== undefined ? { input } : {}),
-    stdio:
-      input === undefined
-        ? ["ignore", "pipe", "inherit"]
-        : ["pipe", "pipe", "inherit"],
+    ...(input === undefined ? {} : { input }),
+    stdio,
   });
 }
 
@@ -54,12 +68,8 @@ function runDv(args: string[]): string {
   return runTsScript(cliPath, args);
 }
 
-function runLegacyAdapter(args: string[], input?: string): string {
-  return runTsScript(legacyAdapterPath, args, input);
-}
-
-function readStdin(): string {
-  return readFileSync(0, "utf8");
+function runSandcastleAdapter(args: string[], input?: string): string {
+  return runTsScript(sandcastleAdapterPath, args, input);
 }
 
 async function main() {
@@ -78,48 +88,56 @@ async function main() {
       }
 
       case "view": {
-        const taskId = args[0] ?? fail("Usage: dv4sandcastle view <task-id>");
+        const taskId = requireTaskId(args, "Usage: dv4sandcastle view <task-id>");
         process.stdout.write(runDv(["work", "show", taskId, "--json"]));
         break;
       }
 
       case "prompt": {
-        const taskId = args[0] ?? fail("Usage: dv4sandcastle prompt <task-id>");
+        const taskId = requireTaskId(args, "Usage: dv4sandcastle prompt <task-id>");
         process.stdout.write(runDv(["work", "prompt", taskId]));
         break;
       }
 
       case "claim-task": {
-        const taskId =
-          args[0] ?? fail("Usage: dv4sandcastle claim-task <task-id> [claim flags]");
-        process.stdout.write(runLegacyAdapter(["claim", taskId, ...args.slice(1)]));
+        const taskId = requireTaskId(
+          args,
+          "Usage: dv4sandcastle claim-task <task-id> [claim flags]",
+        );
+        process.stdout.write(runSandcastleAdapter(["claim", taskId, ...args.slice(1)]));
         break;
       }
 
       case "recover-task": {
-        const taskId =
-          args[0] ??
-          fail("Usage: dv4sandcastle recover-task <task-id> [recover flags]");
-        process.stdout.write(runLegacyAdapter(["recover", taskId, ...args.slice(1)]));
+        const taskId = requireTaskId(
+          args,
+          "Usage: dv4sandcastle recover-task <task-id> [recover flags]",
+        );
+        process.stdout.write(runSandcastleAdapter(["recover", taskId, ...args.slice(1)]));
         break;
       }
 
       case "record-task": {
-        const input = process.stdin.isTTY ? undefined : readStdin();
-        process.stdout.write(runLegacyAdapter(["record", ...args], input));
+        process.stdout.write(runSandcastleAdapter(["record", ...args], optionalStdin()));
         break;
       }
 
       case "close-task": {
-        const taskId =
-          args[0] ?? fail("Usage: dv4sandcastle close-task <task-id> [close flags]");
-        const input = process.stdin.isTTY ? undefined : readStdin();
-        process.stdout.write(runLegacyAdapter(["close-task", taskId, ...args.slice(1)], input));
+        const taskId = requireTaskId(
+          args,
+          "Usage: dv4sandcastle close-task <task-id> [close flags]",
+        );
+        process.stdout.write(
+          runSandcastleAdapter(
+            ["close-task", taskId, ...args.slice(1)],
+            optionalStdin(),
+          ),
+        );
         break;
       }
 
       case "lock-status": {
-        process.stdout.write(runLegacyAdapter(["lock-status", ...args]));
+        process.stdout.write(runSandcastleAdapter(["lock-status", ...args]));
         break;
       }
 

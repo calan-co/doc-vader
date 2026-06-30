@@ -4,14 +4,16 @@ import { createRequire } from "node:module";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   openRuntimeSqliteStore,
   RUNTIME_SCHEMA_VERSION,
 } from "../lib/runtime/sqlite-store.js";
+import type { SandcastlePlanningListPayload } from "../lib/sandcastle/planning-list.js";
 
 const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const adapterPath = path.resolve(
   __dirname,
@@ -19,19 +21,6 @@ const adapterPath = path.resolve(
 );
 
 const tempDirs: string[] = [];
-
-type PlanningListPayload = {
-  schemaVersion: string;
-  selectable: Array<{
-    id: string;
-    branch?: string;
-    priority?: string;
-  }>;
-  horizon: Array<{
-    id: string;
-    reasonCodes: string[];
-  }>;
-};
 
 async function createTempRepo(): Promise<string> {
   const rootDir = await mkdtemp(
