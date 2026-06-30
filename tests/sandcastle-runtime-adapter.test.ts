@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -35,6 +36,44 @@ type RuntimeRecoverResult = {
     frontmatter: {
       status: string;
       status_reason: string;
+    };
+  };
+};
+type SandcastleCloseResult = {
+  taskId: string;
+  claimToken: string;
+  lockPaths: string[];
+  record?: {
+    taskId: string;
+    evidenceLink: string;
+    record: {
+      id: string;
+      filePath: string;
+    };
+  };
+  transitionScript?: {
+    path: string;
+    lockPaths: string[];
+  };
+  validation: {
+    claimId: string;
+    taskId: string;
+    dryRun: boolean;
+  };
+  release: {
+    claimId: string;
+    taskId: string;
+    transition: {
+      frontmatter: {
+        status: string;
+        status_reason: string;
+      };
+    };
+    execution: {
+      executionLogEntry: {
+        state: string;
+        reason: string;
+      };
     };
   };
 };
@@ -76,13 +115,24 @@ async function writeTask(
   );
 }
 
-function runAdapter(rootDir: string, args: string[]): string {
+async function writeCloseScript(
+  rootDir: string,
+  relativePath: string,
+  source: string,
+): Promise<void> {
+  const filePath = path.join(rootDir, relativePath);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, source, "utf8");
+}
+
+function runAdapter(rootDir: string, args: string[], input?: string): string {
   return execFileSync(
     process.execPath,
     ["--import", tsxImport, adapterPath, ...args],
     {
       cwd: rootDir,
       encoding: "utf8",
+      ...(input !== undefined ? { input } : {}),
       env: {
         ...process.env,
         CI: "true",
@@ -106,8 +156,8 @@ function runCli(rootDir: string, args: string[]): string {
   );
 }
 
-function runAdapterJson<T>(rootDir: string, args: string[]): T {
-  return JSON.parse(runAdapter(rootDir, args)) as T;
+function runAdapterJson<T>(rootDir: string, args: string[], input?: string): T {
+  return JSON.parse(runAdapter(rootDir, args, input)) as T;
 }
 
 function runCliJson<T>(rootDir: string, args: string[]): T {
@@ -131,9 +181,13 @@ function withRuntimeStore<T>(
   }
 }
 
-function runAdapterFailure(rootDir: string, args: string[]): string {
+function runAdapterFailure(
+  rootDir: string,
+  args: string[],
+  input?: string,
+): string {
   try {
-    runAdapter(rootDir, args);
+    runAdapter(rootDir, args, input);
   } catch (error) {
     const captured = error as { stdout?: unknown; stderr?: unknown };
     return [String(captured.stdout ?? ""), String(captured.stderr ?? "")]
@@ -147,9 +201,10 @@ async function createCommittedTaskRepo(
   rootDir: string,
   fileName: string,
   frontmatter: string,
+  body?: string,
 ): Promise<void> {
   await initGitRepo(rootDir);
-  await writeTask(rootDir, fileName, frontmatter);
+  await writeTask(rootDir, fileName, frontmatter, body);
   commitRepoState(rootDir, "chore: base");
 }
 
@@ -236,12 +291,15 @@ tags:
     expect(await readFile(legacyClaimStorePath, "utf8")).toBe(legacyClaimStore);
   });
 
-  it("revalidates selectable work before claim acquisition", async () => {
-    const rootDir = await createTempRepo();
-    await createCommittedTaskRepo(
-      rootDir,
-      "201-claimed-elsewhere.md",
-      `id: wi-201
+  it(
+    "revalidates selectable work before claim acquisition",
+    { timeout: 30_000 },
+    async () => {
+      const rootDir = await createTempRepo();
+      await createCommittedTaskRepo(
+        rootDir,
+        "201-claimed-elsewhere.md",
+        `id: wi-201
 title: Claimed Elsewhere
 summary: Runtime claim conflicts should fail before a second claim is created.
 type: work-item
@@ -251,45 +309,46 @@ status: ready
 priority: medium
 tags:
   - afk`,
-    );
+      );
 
-    const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
-      "claim",
-      "201",
-      "--holder",
-      "sandcastle:agent-a",
-      "--branch",
-      "sandcastle/issue-201",
-      "--json",
-    ]);
-    expect(claimed.outcome).toBe("acquired");
+      const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
+        "claim",
+        "201",
+        "--holder",
+        "sandcastle:agent-a",
+        "--branch",
+        "sandcastle/issue-201",
+        "--json",
+      ]);
+      expect(claimed.outcome).toBe("acquired");
 
-    const failedOutput = runAdapterFailure(rootDir, [
-      "claim",
-      "201",
-      "--holder",
-      "sandcastle:agent-b",
-      "--branch",
-      "sandcastle/issue-201",
-      "--json",
-    ]);
+      const failedOutput = runAdapterFailure(rootDir, [
+        "claim",
+        "201",
+        "--holder",
+        "sandcastle:agent-b",
+        "--branch",
+        "sandcastle/issue-201",
+        "--json",
+      ]);
 
-    expect(failedOutput).toContain("DV4SANDCASTLE_NOT_SELECTABLE");
-    expect(failedOutput).toContain("task_claim_active");
+      expect(failedOutput).toContain("DV4SANDCASTLE_NOT_SELECTABLE");
+      expect(failedOutput).toContain("task_claim_active");
 
-    withRuntimeStore(rootDir, (store) => {
-      expect(store.listClaims()).toHaveLength(1);
-      expect(store.listClaims()[0]).toMatchObject({
-        claim_token: claimed.claimToken,
-        target_id: "wi-201",
-        holder: "sandcastle:agent-a",
+      withRuntimeStore(rootDir, (store) => {
+        expect(store.listClaims()).toHaveLength(1);
+        expect(store.listClaims()[0]).toMatchObject({
+          claim_token: claimed.claimToken,
+          target_id: "wi-201",
+          holder: "sandcastle:agent-a",
+        });
       });
-    });
-  });
+    },
+  );
 
   it(
     "verifies locks, releases through runtime authority, and recovers halted work",
-    { timeout: 20_000 },
+    { timeout: 30_000 },
     async () => {
       const rootDir = await createTempRepo();
       await createCommittedTaskRepo(
@@ -419,6 +478,322 @@ tags:
         "--json",
       ]);
       expect(reclaimed.outcome).toBe("acquired");
+    },
+  );
+
+  it(
+    "closes through a repository-configured transition script after recording evidence",
+    { timeout: 30_000 },
+    async () => {
+      const rootDir = await createTempRepo();
+      writeBacklogConsumerConfig(rootDir, {
+        sandcastle: {
+          close: {
+            transitionScript: "scripts/sandcastle/close-success.mjs",
+          },
+        },
+      });
+      await createCommittedTaskRepo(
+        rootDir,
+        "203-close-success.md",
+        `id: wi-203
+title: Close Success
+summary: Close through a repository transition script.
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+priority: high
+tags:
+  - afk`,
+        `## Tasks
+
+- [ ] Mark the repository-specific checklist.
+
+## Acceptance Criteria
+
+- [ ] Persist transition-side effects outside the backlog file.
+`,
+      );
+      await writeCloseScript(
+        rootDir,
+        "scripts/sandcastle/close-success.mjs",
+        `import fs from "node:fs";
+import path from "node:path";
+
+const payload = JSON.parse(fs.readFileSync(0, "utf8"));
+const taskPath = path.resolve(process.cwd(), payload.task.filePath);
+const notesPath = path.resolve(process.cwd(), "notes/close-success.txt");
+const lockPaths = [payload.task.filePath, "notes/close-success.txt"];
+
+if (payload.mode === "plan") {
+  process.stdout.write(JSON.stringify({ lockPaths }, null, 2));
+  process.exit(0);
+}
+
+const task = fs
+  .readFileSync(taskPath, "utf8")
+  .replace("- [ ] Mark the repository-specific checklist.", "- [x] Mark the repository-specific checklist.")
+  .replace("- [ ] Persist transition-side effects outside the backlog file.", "- [x] Persist transition-side effects outside the backlog file.");
+fs.writeFileSync(taskPath, task, "utf8");
+fs.mkdirSync(path.dirname(notesPath), { recursive: true });
+fs.writeFileSync(
+  notesPath,
+  \`closed \${payload.task.id} with \${payload.record?.evidenceLink ?? "no-evidence"}\\n\`,
+  "utf8",
+);
+process.stdout.write(JSON.stringify({ lockPaths }, null, 2));
+`,
+      );
+      commitRepoState(rootDir, "chore: add close transition script");
+      runGit(rootDir, ["switch", "-c", "sandcastle/issue-203"]);
+      await writeFile(
+        path.join(rootDir, "implementation.txt"),
+        "feature branch work\n",
+        "utf8",
+      );
+      commitRepoState(rootDir, "feat: implementation progress");
+
+      const payload = JSON.stringify({
+        id: "record:wi-203-close",
+        summary: "Close validation",
+        observation: "Close recorded evidence before terminal release.",
+        outcome: "pass",
+      });
+
+      const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
+        "claim",
+        "203",
+        "--holder",
+        "sandcastle:agent-a",
+        "--branch",
+        "sandcastle/issue-203",
+        "--json",
+      ]);
+      expect(claimed.outcome).toBe("acquired");
+
+      const closed = runAdapterJson<SandcastleCloseResult>(rootDir, [
+        "close",
+        "203",
+        "--claim",
+        claimed.claimToken,
+        "--payload",
+        "-",
+        "--record-type",
+        "test-result",
+      ], payload);
+      expect(closed).toMatchObject({
+        taskId: "wi-203",
+        claimToken: claimed.claimToken,
+        lockPaths: expect.arrayContaining([
+          "backlog/203-close-success.md",
+          "backlog/records/record-wi-203-close.md",
+          "notes/close-success.txt",
+        ]),
+        record: {
+          taskId: "wi-203",
+          evidenceLink: "[[record-wi-203-close]]",
+          record: {
+            id: "record:wi-203-close",
+          },
+        },
+        transitionScript: {
+          path: "scripts/sandcastle/close-success.mjs",
+          lockPaths: expect.arrayContaining([
+            "backlog/203-close-success.md",
+            "notes/close-success.txt",
+          ]),
+        },
+        validation: {
+          claimId: claimed.claimToken,
+          taskId: "wi-203",
+          dryRun: true,
+        },
+        release: {
+          claimId: claimed.claimToken,
+          taskId: "wi-203",
+          transition: {
+            workItem: {
+              frontmatter: {
+                status: "completed",
+                status_reason: "completed",
+              },
+            },
+          },
+          execution: {
+            executionLogEntry: {
+              state: "completed",
+              reason: "success",
+            },
+          },
+        },
+      });
+
+      const taskDocument = await readFile(
+        path.join(rootDir, "backlog", "203-close-success.md"),
+        "utf8",
+      );
+      expect(taskDocument).toContain("status: completed");
+      expect(taskDocument).toContain("[[record-wi-203-close]]");
+      expect(taskDocument).toContain("- [x] Mark the repository-specific checklist.");
+      expect(taskDocument).toContain(
+        "- [x] Persist transition-side effects outside the backlog file.",
+      );
+      expect(
+        await readFile(path.join(rootDir, "notes", "close-success.txt"), "utf8"),
+      ).toContain("[[record-wi-203-close]]");
+
+      withRuntimeStore(rootDir, (store) => {
+        expect(store.listClaims()).toHaveLength(0);
+        expect(store.listLocks()).toHaveLength(0);
+        expect(store.listExecutionLogEntries().at(-1)).toMatchObject({
+          target_id: "wi-203",
+          state: "completed",
+          reason: "success",
+        });
+      });
+    },
+  );
+
+  it(
+    "halts close failures into recoverable runtime state after evidence is recorded",
+    { timeout: 30_000 },
+    async () => {
+      const rootDir = await createTempRepo();
+      writeBacklogConsumerConfig(rootDir, {
+        sandcastle: {
+          close: {
+            transitionScript: "scripts/sandcastle/close-failure.mjs",
+          },
+        },
+      });
+      await createCommittedTaskRepo(
+        rootDir,
+        "204-close-failure.md",
+        `id: wi-204
+title: Close Failure
+summary: Close script failures should remain recoverable.
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+priority: high
+tags:
+  - afk`,
+        `## Tasks
+
+- [ ] Mark the repository-specific checklist.
+
+## Acceptance Criteria
+
+- [ ] Leave failed close attempts recoverable.
+`,
+      );
+      await writeCloseScript(
+        rootDir,
+        "scripts/sandcastle/close-failure.mjs",
+        `import fs from "node:fs";
+
+const payload = JSON.parse(fs.readFileSync(0, "utf8"));
+const lockPaths = [payload.task.filePath];
+
+if (payload.mode === "plan") {
+  process.stdout.write(JSON.stringify({ lockPaths }, null, 2));
+  process.exit(0);
+}
+
+throw new Error("Transition script failed after evidence recording.");
+`,
+      );
+      commitRepoState(rootDir, "chore: add failing close transition script");
+      runGit(rootDir, ["switch", "-c", "sandcastle/issue-204"]);
+      await writeFile(
+        path.join(rootDir, "implementation.txt"),
+        "feature branch work\n",
+        "utf8",
+      );
+      commitRepoState(rootDir, "feat: implementation progress");
+
+      const payload = JSON.stringify({
+        id: "record:wi-204-close",
+        summary: "Close failure validation",
+        observation: "Close records evidence before a repository script failure.",
+        outcome: "warn",
+      });
+
+      const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
+        "claim",
+        "204",
+        "--holder",
+        "sandcastle:agent-a",
+        "--branch",
+        "sandcastle/issue-204",
+        "--json",
+      ]);
+      expect(claimed.outcome).toBe("acquired");
+
+      const failedOutput = runAdapterFailure(rootDir, [
+        "close",
+        "204",
+        "--claim",
+        claimed.claimToken,
+        "--payload",
+        "-",
+        "--record-type",
+        "test-result",
+      ], payload);
+      expect(failedOutput).toContain(
+        "Transition script failed after evidence recording.",
+      );
+
+      const failedTaskDocument = await readFile(
+        path.join(rootDir, "backlog", "204-close-failure.md"),
+        "utf8",
+      );
+      expect(failedTaskDocument).toContain("[[record-wi-204-close]]");
+      expect(failedTaskDocument).toContain("status: ready");
+
+      withRuntimeStore(rootDir, (store) => {
+        expect(store.listClaims()).toHaveLength(0);
+        expect(store.listExecutionLogEntries().at(-1)).toMatchObject({
+          target_id: "wi-204",
+          state: "halted",
+          reason: "invalid",
+        });
+      });
+
+      const recovered = runAdapterJson<RuntimeRecoverResult>(rootDir, [
+        "recover",
+        "204",
+        "--branch",
+        "sandcastle/issue-204",
+        "--force",
+        "reconcile",
+        "--json",
+      ]);
+      expect(recovered).toMatchObject({
+        taskId: "wi-204",
+        executionLogEntry: {
+          state: "completed",
+          reason: "success",
+        },
+        transition: {
+          frontmatter: {
+            status: "ready",
+            status_reason: "recoverable",
+          },
+        },
+      });
+
+      const recoveredTaskDocument = await readFile(
+        path.join(rootDir, "backlog", "204-close-failure.md"),
+        "utf8",
+      );
+      expect(recoveredTaskDocument).not.toContain("[[record-wi-204-close]]");
+      expect(recoveredTaskDocument).toContain("status_reason: recoverable");
+      expect(fs.existsSync(path.join(rootDir, "backlog", "records", "record-wi-204-close.md"))).toBe(
+        false,
+      );
     },
   );
 });

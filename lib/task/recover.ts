@@ -17,7 +17,6 @@ import {
 import { TaskCommandError } from "./errors.js";
 import { loadTaskModel } from "./model.js";
 import {
-  collectChangedPaths,
   collectTaskRecoveryGitState,
   isRecoverableReadyRuntimeState,
   type GitChangedPathEntry,
@@ -70,6 +69,42 @@ interface RecoveryHaltedPathScope {
 
 const DEFAULT_TTL_MINUTES = 240;
 const RECOVERY_CHECKPOINT_DIR = ".doc-vader/runtime/recovery-checkpoints";
+
+function gitOutput(rootDir: string, args: string[]): string | undefined {
+  try {
+    return execFileSync("git", args, {
+      cwd: rootDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function defaultMergeTargetRef(rootDir: string): string {
+  for (const candidate of ["main", "master", "HEAD"]) {
+    if (gitOutput(rootDir, ["rev-parse", "--verify", "--quiet", candidate])) {
+      return candidate;
+    }
+  }
+  return "HEAD";
+}
+
+function collectRecoveryBranchPaths(rootDir: string): string[] {
+  const output = gitOutput(rootDir, [
+    "diff",
+    "--name-only",
+    `${defaultMergeTargetRef(rootDir)}...HEAD`,
+  ]);
+  if (!output) {
+    return [];
+  }
+  return output
+    .split("\n")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
 
 function normalizeHolder(holder: string | undefined): string {
   const value = holder?.trim();
@@ -470,9 +505,11 @@ export async function recoverTaskClaim(
     );
   }
 
+  const branchPaths = collectRecoveryBranchPaths(rootDir);
   const initialLockPaths = [
     ...new Set([
       task.filePath,
+      ...branchPaths,
       ...(recoverableReadyRuntimeState && !options.force
         ? []
         : changedPaths.map((entry) => entry.path)),
