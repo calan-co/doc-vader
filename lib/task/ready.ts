@@ -370,6 +370,34 @@ function normalizeReferenceToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function addReferenceToken(tokens: Set<string>, value: string): void {
+  tokens.add(normalizeReferenceToken(value));
+}
+
+function addPathReferenceTokens(tokens: Set<string>, filePath: string): void {
+  addReferenceToken(tokens, filePath);
+  const basename = path.posix.basename(filePath);
+  addReferenceToken(tokens, basename);
+  addReferenceToken(tokens, stripMarkdownExtension(basename));
+}
+
+function resolveReferencePath(
+  taskRelativePath: string,
+  referencePath: string,
+): string | undefined {
+  if (!referencePath.includes("/")) {
+    return undefined;
+  }
+
+  if (referencePath.startsWith("/")) {
+    return referencePath.replace(/^\/+/u, "");
+  }
+
+  return path.posix.normalize(
+    path.posix.join(path.posix.dirname(taskRelativePath), referencePath),
+  );
+}
+
 function dependencySatisfied(
   status: string | undefined,
   lifecycle: string | undefined,
@@ -476,31 +504,23 @@ function isProjectedBacklogWorkItem(
 }
 
 function normalizedDocumentReferenceAliases(document: ReadyDocument): string[] {
-  return documentReferenceAliases(document).map((entry) => normalizeReferenceToken(entry));
+  return documentReferenceAliases(document).map((entry) =>
+    normalizeReferenceToken(entry),
+  );
 }
 
-function referenceTokens(taskFilePath: string, ref: string): Set<string> {
+function referenceTokens(taskRelativePath: string, ref: string): Set<string> {
   const stripped = stripWikiLink(ref);
   const normalizedId = normalizeDependencyId(ref);
-  const tokens = new Set<string>([
-    normalizeReferenceToken(stripped),
-    normalizeReferenceToken(path.posix.basename(stripped)),
-    normalizeReferenceToken(stripMarkdownExtension(path.posix.basename(stripped))),
-    normalizeReferenceToken(normalizedId),
-    normalizeReferenceToken(normalizedId.replace(/^wi-/u, "")),
-  ]);
+  const tokens = new Set<string>();
 
-  if (stripped.includes("/")) {
-    const resolvedPath = stripped.startsWith("/")
-      ? stripped.replace(/^\/+/u, "")
-      : path.posix.normalize(path.posix.join(path.posix.dirname(taskFilePath), stripped));
-    tokens.add(normalizeReferenceToken(resolvedPath));
-    tokens.add(normalizeReferenceToken(path.posix.basename(resolvedPath)));
-    tokens.add(
-      normalizeReferenceToken(
-        stripMarkdownExtension(path.posix.basename(resolvedPath)),
-      ),
-    );
+  addPathReferenceTokens(tokens, stripped);
+  addReferenceToken(tokens, normalizedId);
+  addReferenceToken(tokens, normalizedId.replace(/^wi-/u, ""));
+
+  const resolvedPath = resolveReferencePath(taskRelativePath, stripped);
+  if (resolvedPath) {
+    addPathReferenceTokens(tokens, resolvedPath);
   }
 
   return tokens;
@@ -510,26 +530,20 @@ function dependencyReferenceTokens(
   dependency: ReadyTaskDependency,
   dependencyDocument: ReadyDocument | undefined,
 ): Set<string> {
-  const tokens = new Set<string>([
-    normalizeReferenceToken(dependency.id),
-    normalizeReferenceToken(dependency.id.replace(/^wi-/u, "")),
-  ]);
+  const tokens = new Set<string>();
+
+  addReferenceToken(tokens, dependency.id);
+  addReferenceToken(tokens, dependency.id.replace(/^wi-/u, ""));
 
   if (dependency.filePath) {
-    tokens.add(normalizeReferenceToken(dependency.filePath));
-    tokens.add(normalizeReferenceToken(path.posix.basename(dependency.filePath)));
-    tokens.add(
-      normalizeReferenceToken(
-        stripMarkdownExtension(path.posix.basename(dependency.filePath)),
-      ),
-    );
+    addPathReferenceTokens(tokens, dependency.filePath);
   }
 
   if (dependencyDocument) {
     for (const alias of normalizedDocumentReferenceAliases(dependencyDocument)) {
       tokens.add(alias);
     }
-    tokens.add(normalizeReferenceToken(dependencyDocument.relativePath));
+    addReferenceToken(tokens, dependencyDocument.relativePath);
   }
 
   return tokens;
@@ -545,19 +559,6 @@ function setsIntersect(
     }
   }
   return false;
-}
-
-function dependencyMatchesRef(
-  dependency: ReadyTaskDependency,
-  ref: string,
-  documentsById: Map<string, ReadyDocument>,
-  taskFilePath: string,
-): boolean {
-  const dependencyDocument = documentsById.get(dependency.id);
-  return setsIntersect(
-    dependencyReferenceTokens(dependency, dependencyDocument),
-    referenceTokens(taskFilePath, ref),
-  );
 }
 
 function projectedNodeDependencyId(node: WorkGraphNode): string {
@@ -620,6 +621,13 @@ function buildGraphReadyDependencies(options: {
         stateKnown: Boolean(status),
       } satisfies ReadyTaskDependency;
     });
+  const knownDependencyEntries = knownDependencies.map((dependency) => ({
+    dependency,
+    tokens: dependencyReferenceTokens(
+      dependency,
+      options.documentsById.get(dependency.id),
+    ),
+  }));
 
   const authoredRefs = [
     ...new Set([
@@ -634,34 +642,32 @@ function buildGraphReadyDependencies(options: {
   const orderedDependencies: ReadyTaskDependency[] = [];
   const matchedDependencyIds = new Set<string>();
   for (const ref of authoredRefs) {
-    const matched = knownDependencies.find(
-      (dependency) =>
-        !matchedDependencyIds.has(dependency.id) &&
-        dependencyMatchesRef(
-          dependency,
-          ref,
-          options.documentsById,
-          options.document.relativePath,
-        ),
-    );
-    if (matched) {
-      matchedDependencyIds.add(matched.id);
+    const refTokens = referenceTokens(options.document.relativePath, ref);
+    let matchedDependency: ReadyTaskDependency | undefined;
+    let matchesKnownDependency = false;
+
+    for (const entry of knownDependencyEntries) {
+      if (!setsIntersect(entry.tokens, refTokens)) {
+        continue;
+      }
+
+      matchesKnownDependency = true;
+      if (!matchedDependencyIds.has(entry.dependency.id)) {
+        matchedDependency = entry.dependency;
+        break;
+      }
+    }
+
+    if (matchedDependency) {
+      matchedDependencyIds.add(matchedDependency.id);
       orderedDependencies.push({
-        ...matched,
+        ...matchedDependency,
         ref,
       });
       continue;
     }
 
-    const duplicateKnownDependency = knownDependencies.some((dependency) =>
-      dependencyMatchesRef(
-        dependency,
-        ref,
-        options.documentsById,
-        options.document.relativePath,
-      ),
-    );
-    if (duplicateKnownDependency) {
+    if (matchesKnownDependency) {
       continue;
     }
 
