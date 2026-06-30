@@ -4,7 +4,7 @@ Here are the open issues in the repo:
 
 <issues-json>
 
-!`node --import tsx scripts/sandcastle/dv-adapter.ts list`
+!`node --import tsx scripts/sandcastle/dv4sandcastle.ts list`
 
 </issues-json>
 

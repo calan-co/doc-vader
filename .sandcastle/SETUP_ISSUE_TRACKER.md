@@ -11,13 +11,13 @@ artifacts instead of hand-edited prompt text.
 
 ## Generated Adapter Commands
 
-- List planning candidates: `node --import tsx scripts/sandcastle/dv-adapter.ts list`
-- View canonical work item state: `node --import tsx scripts/sandcastle/dv-adapter.ts view <task-id>`
-- Render implementation context: `node --import tsx scripts/sandcastle/dv-adapter.ts prompt <task-id>`
-- Claim work: `node --import tsx scripts/sandcastle/dv-adapter.ts claim <task-id> --holder <holder> --branch <branch> --json`
-- Inspect lock ownership: `node --import tsx scripts/sandcastle/dv-adapter.ts lock-status --claim <claim-id> --json`
-- Recover halted work: `node --import tsx scripts/sandcastle/dv-adapter.ts recover <task-id> --branch <branch> --json`
-- Close through repository transition behavior: `node --import tsx scripts/sandcastle/dv-adapter.ts close <task-id> --claim <claim-id> [--payload <json-file>]`
+- List planning candidates: `node --import tsx scripts/sandcastle/dv4sandcastle.ts list`
+- View canonical work item state: `node --import tsx scripts/sandcastle/dv4sandcastle.ts view <task-id>`
+- Render implementation context: `node --import tsx scripts/sandcastle/dv4sandcastle.ts prompt <task-id>`
+- Claim work: `node --import tsx scripts/sandcastle/dv4sandcastle.ts claim-task <task-id> --holder <holder> --branch <branch> --json`
+- Inspect lock ownership: `node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json`
+- Recover halted work: `node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json`
+- Close through repository transition behavior: `node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>]`
 
 ## Tracker Tools
 

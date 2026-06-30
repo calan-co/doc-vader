@@ -4,21 +4,21 @@ import { fileURLToPath } from "node:url";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRootDir = path.resolve(moduleDir, "../..");
-const adapterCommand = "node --import tsx scripts/sandcastle/dv-adapter.ts";
+const adapterCommand = "node --import tsx scripts/sandcastle/dv4sandcastle.ts";
 
 export const sandcastleInitTemplateArgs = {
   LIST_TASKS_COMMAND: `${adapterCommand} list`,
   VIEW_TASK_COMMAND: `${adapterCommand} view`,
-  CLOSE_TASK_COMMAND: `${adapterCommand} close`,
+  CLOSE_TASK_COMMAND: `${adapterCommand} close-task`,
   ISSUE_TRACKER_TOOLS: [
     "# Doc-Vader custom issue tracker: uses the repository checkout, Node.js, and tsx.",
     "# No external issue-tracker CLI install is required.",
   ].join("\n"),
   PROMPT_TASK_COMMAND: `${adapterCommand} prompt`,
-  CLAIM_TASK_COMMAND: `${adapterCommand} claim`,
+  CLAIM_TASK_COMMAND: `${adapterCommand} claim-task`,
   LOCK_STATUS_COMMAND: `${adapterCommand} lock-status`,
-  RECORD_TASK_COMMAND: `${adapterCommand} record`,
-  RECOVER_TASK_COMMAND: `${adapterCommand} recover`,
+  RECORD_TASK_COMMAND: `${adapterCommand} record-task`,
+  RECOVER_TASK_COMMAND: `${adapterCommand} recover-task`,
 } as const;
 
 type SandcastleInitTemplateArg = keyof typeof sandcastleInitTemplateArgs;
