@@ -13,7 +13,10 @@ import {
 
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
-const adapterPath = path.resolve(__dirname, "../scripts/sandcastle/dv-adapter.ts");
+const adapterPath = path.resolve(
+  __dirname,
+  "../scripts/sandcastle/dv4sandcastle.ts",
+);
 
 const tempDirs: string[] = [];
 
@@ -73,7 +76,7 @@ async function writeTask(
 function addActiveRuntimeClaim(rootDir: string, taskId: string, lockPath: string): void {
   const store = openRuntimeSqliteStore({ rootDir });
   try {
-    const createdAt = new Date("2026-06-30T12:00:00.000Z");
+    const createdAt = new Date();
     const expiresAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
     const acquisition = store.acquireRuntimeClaim(
       {

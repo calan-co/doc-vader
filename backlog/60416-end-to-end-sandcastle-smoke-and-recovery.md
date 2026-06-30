@@ -5,16 +5,21 @@ summary: Prove generated Sandcastle scaffold behavior across selection, claim, l
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 6
+completed_date: '2026-06-30'
 links:
   depends_on:
-    - "[[60414-sandcastle-init-templateargs-wiring]]"
-    - "[[60415-authoritative-dv4sandcastle-documentation]]"
-    - "[[60417-work-ready-dependency-resolver-mismatch]]"
+    - '[[60414-sandcastle-init-templateargs-wiring]]'
+    - '[[60415-authoritative-dv4sandcastle-documentation]]'
+    - '[[60417-work-ready-dependency-resolver-mismatch]]'
   reference:
-    - "[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]"
+    - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+  evidence:
+    - '[[task-record-preflight]]'
+    - '[[record-wi-60416-sandcastle-smoke]]'
 tags:
   - afk
   - sandcastle
@@ -43,13 +48,13 @@ new execution proceeds.
 
 ## Tasks
 
-- [ ] Add a generated-scaffold smoke for Sandcastle planning and inspection.
-- [ ] Exercise claim acquisition and lock guidance or verification.
-- [ ] Exercise evidence or record creation for a claimed work item.
-- [ ] Exercise close, transition, release, and terminal handling.
-- [ ] Simulate interrupted or dirty partial state.
-- [ ] Verify recovery classifies the partial state and makes safe progress.
-- [ ] Add the smoke to an appropriate validation command or document why it is
+- [x] Add a generated-scaffold smoke for Sandcastle planning and inspection.
+- [x] Exercise claim acquisition and lock guidance or verification.
+- [x] Exercise evidence or record creation for a claimed work item.
+- [x] Exercise close, transition, release, and terminal handling.
+- [x] Simulate interrupted or dirty partial state.
+- [x] Verify recovery classifies the partial state and makes safe progress.
+- [x] Add the smoke to an appropriate validation command or document why it is
       intentionally focused.
 
 ## Deliverables
@@ -60,18 +65,18 @@ new execution proceeds.
 
 ## Acceptance Criteria
 
-- [ ] The smoke covers planning list, inspection, claim, lock, record, close,
+- [x] The smoke covers planning list, inspection, claim, lock, record, close,
       release, and recovery behavior.
-- [ ] The smoke uses generated Sandcastle artifacts or the same contract they
+- [x] The smoke uses generated Sandcastle artifacts or the same contract they
       expose.
-- [ ] Interrupted or dirty partial state is recovered before new execution is
+- [x] Interrupted or dirty partial state is recovered before new execution is
       considered safe.
-- [ ] The smoke proves Sandcastle does not rely on the legacy JSON claim store.
-- [ ] The smoke proves Sandcastle does not use stale ad hoc list or view helper
+- [x] The smoke proves Sandcastle does not rely on the legacy JSON claim store.
+- [x] The smoke proves Sandcastle does not use stale ad hoc list or view helper
       scripts.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
-- [ ] Validation passes with `pnpm run backlog:validate:ci`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Validation passes with `pnpm run backlog:validate:ci`.
 
 ## Relationships
 
