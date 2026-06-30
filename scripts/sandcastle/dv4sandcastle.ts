@@ -54,6 +54,7 @@ async function main() {
               schemaVersion: "dv4sandcastle-list/v1",
               selectable: (payload.candidates || []).map((item: Record<string, unknown>) => ({
                 id: String(item.id || "").replace(/^wi-/, ""),
+                title: String(item.title || item.id || ""),
                 branch: `sandcastle/issue-${String(item.id || "").replace(/^wi-/, "")}`,
                 ...(item.priority ? { priority: item.priority } : {}),
               })),
