@@ -1,102 +1,103 @@
 ---
 id: howto-60358
-title: Sandcastle Dogfood Task Flow
+title: Sandcastle dv4sandcastle Work Flow
 type: document
 subtype: how-to
 lifecycle: active
 status: ready
 tags:
   - sandcastle
-  - dogfood
-  - task-cli
+  - dv4sandcastle
+  - work-management
 ---
 
-# Sandcastle Dogfood Task Flow
+# Sandcastle dv4sandcastle Work Flow
 
-Use this local MVP flow when Sandcastle dogfoods Doc-Vader work items through the entity-governance runtime.
+Use this guide as the current operator contract for Sandcastle planning and
+execution in this repository. Completed backlog items remain historical context, not authoritative current guidance.
 
 ## Initialization
 
-Install the repository toolchain and export the runtime variables before starting a task:
+Install the repository toolchain before starting work:
 
 - `pnpm install`
 - `export CI=true`
 - `export TMPDIR=/tmp`
-- `export SANDCASTLE_CLAIM_HOLDER="sandcastle:<agent-id>"`
-- `export SANDCASTLE_BRANCH="sandcastle/issue-<task-id>"`
 
-Keep `git`, `node`, `pnpm`, and the local runtime authority available. Do not use inline scripts or hand-edit backlog or record files during Sandcastle execution.
+Keep `git`, `node`, `pnpm`, and the local runtime authority available. The
+generated issue-tracker commands live in
+[`.sandcastle/SETUP_ISSUE_TRACKER.md`](../../.sandcastle/SETUP_ISSUE_TRACKER.md).
 
-## Registry Mapping
+## Authority Model
 
-Use these commands to map Sandcastle registry operations onto Doc-Vader:
+- `dv work` is the canonical public command surface.
+- `dv wi` is the shorthand alias.
+- `dv4sandcastle` is the generated Sandcastle adapter that translates issue
+  tracker operations into `dv work` and runtime commands.
+- `dv task` appears only in historical backlog or ADR context and is not current operator guidance.
+- Checklist, status, evidence, claim, and lock behavior remain authoritative in
+  repository state plus runtime state, not in prompt text.
 
-| Registry operation | Doc-Vader command |
-| --- | --- |
-| Select AFK-ready work | `dv task ready --json` |
-| Inspect a work item | `dv task show <task-id> --json` |
-| Claim a task | `dv task claim <task-id> --holder <agent-id> --branch <branch> --json` |
-| Acquire file locks | `dv lock create --claim <claim-token> <path...> --json` |
-| Release unchanged locks | `dv lock rm --claim <claim-token> <path...> --json` |
-| Record evidence | `dv task record --claim <claim-id> --payload <json-or-file> --json` |
-| Release a successful claim | `dv claim release <claim-token> --outcome success --json` |
-| Release a blocked claim | `dv claim release <claim-token> --outcome blocked --json` |
-| Recover a halted task | `dv task recover <task-id>` |
+## Sandcastle Adapter Contract
 
-## Flow
+Use these commands for the current Sandcastle-facing contract:
 
-1. Select work:
+| Operation | Command | Authority |
+| --- | --- | --- |
+| List planning candidates | `node --import tsx scripts/sandcastle/dv4sandcastle.ts list` | `dv work ready --json` |
+| View canonical work item JSON | `node --import tsx scripts/sandcastle/dv4sandcastle.ts view <task-id>` | `dv work show <task-id>` |
+| Render implementation prompt | `node --import tsx scripts/sandcastle/dv4sandcastle.ts prompt <task-id>` | `dv work prompt <task-id>` |
+| Claim work | `node --import tsx scripts/sandcastle/dv4sandcastle.ts claim-task <task-id> --holder <holder> --branch <branch> --json` | `dv work claim <task-id>` |
+| Inspect runtime state for the active claim | `node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json` | runtime claim and execution state |
+| Record evidence | `node --import tsx scripts/sandcastle/dv4sandcastle.ts record-task --claim <claim-id> --type <record-type> --payload <json-file|-> --json` | `dv work record` |
+| Recover halted work | `node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json` | `dv work recover <task-id>` |
+| Close after validation passes | `node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]` | repository-configured transition script plus successful claim release |
 
-   ```bash
-   dv task ready --json
-   ```
+## Planning Context
 
-2. Claim before implementation:
+`dv4sandcastle list` is a Sandcastle-specific planning view over `dv work
+ready --json`.
 
-   ```bash
-   dv task claim <task-id> --holder <agent-id> --branch <branch> --worktree <path> --json
-   ```
+- `selectable` entries are the only candidates Sandcastle should claim.
+- `horizon` entries are context for sequencing and diagnosis, not executable
+  choices.
+- `horizon` reason codes explain why an item is not currently selectable, such
+  as dependency blockers, active claims, HITL flags, or halted execution state.
+- The adapter can supply a branch name like `sandcastle/issue-60415`, but the
+  source of truth for readiness still lives in `dv work`.
 
-3. Lock files before editing:
+## Close and Recovery
 
-   ```bash
-   dv lock create --claim <claim-token> <path...> --json
-   ```
+Use the success path only after validation passes and the claim still reflects
+the current branch state.
 
-4. Inspect the authoritative model:
+- `close-task` is the terminal success path. Its behavioral authority comes
+  from the runtime claim release flow and any repository-configured transition
+  script, including checklist updates or side effects outside the backlog file.
+- A repository-configured transition script may plan lock requirements before it
+  mutates files. That script, not the prompt, owns repository-specific
+  checklist and transition behavior.
+- Explicit non-success exits stay on the runtime command surface:
+  `dv claim release <claim-token> --outcome <outcome> --json`.
+- If a close attempt fails after record creation or transition planning, treat
+  the work item as recoverable, inspect the active claim with
+  `node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json`,
+  and recover through
+  `node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json`.
 
-   ```bash
-   dv task show <task-id> --json
-   ```
+## Cross-References
 
-5. Render the implementation prompt from the same model:
-
-   ```bash
-   dv task prompt <task-id>
-   ```
-
-6. Implement and validate with repository-native commands.
-
-7. Record evidence through the active claim:
-
-   ```bash
-   dv task record --claim <claim-id> --payload payload.json --json
-   ```
-
-8. Release the runtime claim with the correct outcome:
-
-   ```bash
-   dv claim release <claim-token> --outcome success --json
-   ```
-
-   ```bash
-   dv claim release <claim-token> --outcome blocked --json
-   ```
+- Generated issue-tracker command strings:
+  [`.sandcastle/SETUP_ISSUE_TRACKER.md`](../../.sandcastle/SETUP_ISSUE_TRACKER.md)
+- Implementation PRD:
+  [doc-vader-sandcastle-ready-work-cli-prd.md](./implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md)
+- Validation gates:
+  [`.sandcastle/VALIDATION.md`](../../.sandcastle/VALIDATION.md)
 
 ## Safety Boundary
 
-Runtime claim release does not directly close or finalize the Work Item. A human or follow-on agent must review validation output, linked evidence, and existing closure gates before any Work Item lifecycle close/finalize action.
-
-This milestone intentionally defers full Work Graph or Decision Graph engines, scope graphs, nested artifact reservations, hosted authority, and automatic Work Item close/finalize.
-
-Hosted SaaS and published GitHub App concerns stay with [[60338-hosted-saas-github-app-architecture-adr]].
+Do not use inline helper scripts, completed backlog history, or hand-edited
+status/checklist changes as a substitute for the current `dv work` plus
+`dv4sandcastle` contract. Sandcastle should plan through `list`, inspect
+through `view` and `prompt`, mutate through claimed runtime commands, and rely
+on recovery plus repository-configured transition behavior when interrupted.

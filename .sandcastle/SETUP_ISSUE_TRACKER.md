@@ -19,6 +19,13 @@ artifacts instead of hand-edited prompt text.
 - Recover halted work: `node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json`
 - Close through repository transition behavior: `node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>]`
 
+## Durable Guidance
+
+- Current operator guidance:
+  [`docs/how-to/sandcastle-dogfood-task-flow.md`](../docs/how-to/sandcastle-dogfood-task-flow.md)
+- Treat completed backlog items as history only; the guide above plus these
+  generated artifacts are the current contract.
+
 ## Tracker Tools
 
 # Doc-Vader custom issue tracker: uses the repository checkout, Node.js, and tsx.

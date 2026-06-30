@@ -25,7 +25,7 @@ Doc-Vader is an entity-governance runtime for applying custom rigors to extensib
 ## Current MVP Objectives
 
 - Define canonical primitives for artifacts, entities, gates, records, storage adapters, and format adapters.
-- Keep Work Item as the canonical repository entity while exposing Task as the agent/Sandcastle command projection.
+- Keep Work Item as the canonical repository entity while exposing `dv work` as the public command surface, `dv wi` as shorthand, and `dv4sandcastle` as the generated Sandcastle adapter documented in [Sandcastle dv4sandcastle Work Flow](./how-to/sandcastle-dogfood-task-flow.md).
 - Provide a deterministic governance kernel for docs and backlog metadata.
 - Enforce closure-compatible backlog semantics (`status: closed` + `status_reason`).
 - Provide strict, CI-safe gate controls (`--fail-on`, `--format json`, `--profile`).

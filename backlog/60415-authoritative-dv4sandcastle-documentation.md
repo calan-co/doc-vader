@@ -43,15 +43,15 @@ historical completed items.
 
 ## Tasks
 
-- [ ] Identify the authoritative documentation home for the current
+- [x] Identify the authoritative documentation home for the current
       Sandcastle adapter contract.
-- [ ] Document `dv work`, `dv wi`, and removed legacy `dv task` expectations.
-- [ ] Document the `dv4sandcastle` list, view, prompt, claim, recover, close,
+- [x] Document `dv work`, `dv wi`, and removed legacy `dv task` expectations.
+- [x] Document the `dv4sandcastle` list, view, prompt, claim, recover, close,
       and release flow.
-- [ ] Document selectable versus horizon planning context.
-- [ ] Document repository-configured transition and checklist behavior.
-- [ ] Document partial-state recovery expectations.
-- [ ] Add cross-references from relevant Sandcastle or work-management docs.
+- [x] Document selectable versus horizon planning context.
+- [x] Document repository-configured transition and checklist behavior.
+- [x] Document partial-state recovery expectations.
+- [x] Add cross-references from relevant Sandcastle or work-management docs.
 
 ## Deliverables
 
@@ -62,15 +62,15 @@ historical completed items.
 
 ## Acceptance Criteria
 
-- [ ] Current docs describe Sandcastle integration through `dv4sandcastle`.
-- [ ] Docs identify `dv work` as canonical and `dv wi` as shorthand.
-- [ ] Docs describe legacy `dv task` only as removed compatibility, not current
+- [x] Current docs describe Sandcastle integration through `dv4sandcastle`.
+- [x] Docs identify `dv work` as canonical and `dv wi` as shorthand.
+- [x] Docs describe legacy `dv task` only as removed compatibility, not current
       command surface.
-- [ ] Docs explain repository-script transition behavior and recovery.
-- [ ] Completed backlog history is not edited or treated as authoritative
+- [x] Docs explain repository-script transition behavior and recovery.
+- [x] Completed backlog history is not edited or treated as authoritative
       current guidance.
-- [ ] Validation passes with `pnpm run docs:lint`.
-- [ ] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
+- [x] Validation passes with `pnpm run docs:lint`.
+- [x] Validation passes with `doc-vader backlog validate --dir backlog --fail-on error`.
 
 ## Blocked by
 

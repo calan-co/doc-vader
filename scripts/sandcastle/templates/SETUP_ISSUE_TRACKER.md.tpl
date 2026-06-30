@@ -19,6 +19,13 @@ artifacts instead of hand-edited prompt text.
 - Recover halted work: `{{RECOVER_TASK_COMMAND}} <task-id> --branch <branch> --json`
 - Close through repository transition behavior: `{{CLOSE_TASK_COMMAND}} <task-id> --claim <claim-id> [--payload <json-file>]`
 
+## Durable Guidance
+
+- Current operator guidance:
+  [`docs/how-to/sandcastle-dogfood-task-flow.md`](../docs/how-to/sandcastle-dogfood-task-flow.md)
+- Treat completed backlog items as history only; the guide above plus these
+  generated artifacts are the current contract.
+
 ## Tracker Tools
 
 {{ISSUE_TRACKER_TOOLS}}
