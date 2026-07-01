@@ -19,6 +19,8 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/74
+  evidence:
+    - '[[record-20260701-054535-60406]]'
 tags:
   - afk
   - work-management

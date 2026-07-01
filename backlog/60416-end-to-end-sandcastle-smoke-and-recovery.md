@@ -20,6 +20,7 @@ links:
   evidence:
     - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
     - '[[record-wi-60416-sandcastle-smoke|2026-06-30 smoke evidence]]'
+    - '[[record-wi-60416-sandcastle-smoke]]'
 tags:
   - afk
   - sandcastle
