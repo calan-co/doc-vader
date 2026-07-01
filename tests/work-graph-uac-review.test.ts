@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
+  copyFile,
   chmod,
   mkdir,
   mkdtemp,
@@ -18,6 +19,7 @@ import {
   stageWorkGraphUacFixture,
   workGraphUacExpectedDir,
 } from "./helpers/work-graph-uac-fixture";
+import { WORK_COMMAND_ALIASES } from "../lib/work/command-inventory.js";
 
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
@@ -53,6 +55,14 @@ type WorkGraphExportPayload = {
   }>;
 };
 
+type WorkAliasReadModelOutputs = {
+  list: string;
+  show: string;
+  ready: string;
+  prompt: string;
+  status: string;
+};
+
 const expectedUatIds = [
   "UAT-01",
   "UAT-02",
@@ -65,6 +75,15 @@ const expectedUatIds = [
   "UAT-09",
   "UAT-10",
 ] as const;
+
+async function stagePromptTemplate(rootDir: string): Promise<void> {
+  const templateDir = path.join(rootDir, "templates", "reference", "task");
+  await mkdir(templateDir, { recursive: true });
+  await copyFile(
+    path.resolve(__dirname, "../templates/reference/task/sandcastle-prompt.md.tpl"),
+    path.join(templateDir, "sandcastle-prompt.md.tpl"),
+  );
+}
 
 async function createTempRoot(): Promise<string> {
   const rootDir = await mkdtemp(
@@ -110,6 +129,19 @@ function runCli(
   });
 }
 
+function runAliasReadModelCommands(
+  rootDir: string,
+  alias: string,
+): WorkAliasReadModelOutputs {
+  return {
+    list: runCli(rootDir, [alias, "list", "--json"]),
+    show: runCli(rootDir, [alias, "show", "70001", "--json"]),
+    ready: runCli(rootDir, [alias, "ready", "--json"]),
+    prompt: runCli(rootDir, [alias, "prompt", "70001"]),
+    status: runCli(rootDir, [alias, "status", "70001", "--json"]),
+  };
+}
+
 function normalizeFixtureText(value: string): string {
   return value.replace(/\r\n/g, "\n").trimEnd();
 }
@@ -133,6 +165,62 @@ afterEach(async () => {
 });
 
 describe("work graph UAC review fixture", () => {
+  it("renders graph-backed prompt context across work aliases without mutating runtime or documents", async () => {
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+    await stagePromptTemplate(rootDir);
+    const before = await snapshotFiles(rootDir);
+    const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
+    const canonicalPrompt = runCli(rootDir, [canonicalAlias, "prompt", "70001"]);
+
+    expect(canonicalPrompt).toContain("## Dependencies");
+    expect(canonicalPrompt).toContain("- `depends_on`: [[wi-70002]]");
+    expect(canonicalPrompt).toContain("## Relationships");
+    expect(canonicalPrompt).toContain(
+      "- `belongs_to`: [[project-work-graph-uac-review]]",
+    );
+    expect(canonicalPrompt).toContain(
+      "- `implements`: [[../docs/how-to/implementation-plans/work-graph-uac-review-prd.md]]",
+    );
+    expect(canonicalPrompt).not.toContain("### Relationships");
+    expect(canonicalPrompt).not.toContain("`blocks`");
+    expect(canonicalPrompt).not.toContain("`relates_to`");
+    expect(canonicalPrompt).not.toContain("`references`");
+
+    for (const alias of compatibilityAliases) {
+      expect(runCli(rootDir, [alias, "prompt", "70001"])).toBe(canonicalPrompt);
+    }
+
+    const after = await snapshotFiles(rootDir);
+    expect(after).toEqual(before);
+  }, 15000);
+
+  it("keeps list, show, ready, prompt, and status alias outputs aligned without mutating the fixture", async () => {
+    const rootDir = await createTempRoot();
+    await mkdir(rootDir, { recursive: true });
+
+    await stageWorkGraphUacFixture(rootDir);
+    await stagePromptTemplate(rootDir);
+    const before = await snapshotFiles(rootDir);
+    const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
+    const canonicalOutputs = runAliasReadModelCommands(rootDir, canonicalAlias);
+
+    expect(canonicalOutputs.list).toContain('"id": "wi-70001"');
+    expect(canonicalOutputs.show).toContain('"id": "wi-70001"');
+    expect(canonicalOutputs.ready).toContain('"schemaVersion": "task-ready/v1"');
+    expect(canonicalOutputs.prompt).toContain("# Sandcastle Work Item: wi-70001");
+    expect(canonicalOutputs.status).toContain('"id": "wi-70001"');
+
+    for (const alias of compatibilityAliases) {
+      expect(runAliasReadModelCommands(rootDir, alias)).toEqual(canonicalOutputs);
+    }
+
+    const after = await snapshotFiles(rootDir);
+    expect(after).toEqual(before);
+  }, 60000);
+
   it("stages the documented review fixture with stable JSON and DOT outputs", async () => {
     const rootDir = await createTempRoot();
     await mkdir(rootDir, { recursive: true });
@@ -215,7 +303,7 @@ describe("work graph UAC review fixture", () => {
     expect(parsedExport.command).toBe("export");
     expect(parsedExport.summary).toEqual({
       nodeCount: 8,
-      edgeCount: 10,
+      edgeCount: 12,
       diagnosticCount: 1,
       nodeTypes: [
         { type: "scope", count: 4 },
@@ -224,16 +312,16 @@ describe("work graph UAC review fixture", () => {
         { type: "record", count: 1 },
       ],
       edgeTypes: [
-        { type: "records", count: 3 },
+        { type: "records", count: 4 },
         { type: "belongs_to", count: 2 },
+        { type: "depends_on", count: 2 },
         { type: "locks", count: 2 },
-        { type: "depends_on", count: 1 },
         { type: "implements", count: 1 },
         { type: "references", count: 1 },
       ],
     });
     expect(parsedExport.nodes).toHaveLength(8);
-    expect(parsedExport.edges).toHaveLength(10);
+    expect(parsedExport.edges).toHaveLength(12);
     expect(parsedExport.diagnostics).toEqual([
       {
         classification: "unsupported",

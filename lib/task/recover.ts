@@ -17,7 +17,7 @@ import {
 import { TaskCommandError } from "./errors.js";
 import { loadTaskModel } from "./model.js";
 import {
-  collectChangedPaths,
+  collectBranchDiffPaths,
   collectTaskRecoveryGitState,
   isRecoverableReadyRuntimeState,
   type GitChangedPathEntry,
@@ -101,6 +101,25 @@ function normalizeRecoveryWorktreeMetadata(
     return undefined;
   }
   return relative;
+}
+
+function asRelativeRepoPath(rootDir: string, filePath: string): string {
+  const absolutePath = path.isAbsolute(filePath)
+    ? path.resolve(filePath)
+    : path.resolve(rootDir, filePath);
+  const relativePath = path.relative(rootDir, absolutePath);
+  if (
+    relativePath.length === 0 ||
+    relativePath.startsWith("..") ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new TaskCommandError(
+      "TASK_RECOVERY_INVALID_LOCK_PATH",
+      `Task recovery lock path '${filePath}' must resolve inside the repository root.`,
+      { rootDir, filePath },
+    );
+  }
+  return relativePath.split(path.sep).join("/");
 }
 
 function asStringArray(value: unknown): string[] {
@@ -470,12 +489,18 @@ export async function recoverTaskClaim(
     );
   }
 
+  const branchPaths = collectBranchDiffPaths(rootDir).map((entry) =>
+    asRelativeRepoPath(rootDir, entry),
+  );
+  const dirtyLockPaths =
+    recoverableReadyRuntimeState && !options.force
+      ? []
+      : changedPaths.map((entry) => asRelativeRepoPath(rootDir, entry.path));
   const initialLockPaths = [
     ...new Set([
-      task.filePath,
-      ...(recoverableReadyRuntimeState && !options.force
-        ? []
-        : changedPaths.map((entry) => entry.path)),
+      asRelativeRepoPath(rootDir, task.filePath),
+      ...branchPaths,
+      ...dirtyLockPaths,
     ]),
   ];
 

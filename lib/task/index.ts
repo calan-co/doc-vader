@@ -11,5 +11,7 @@ export * from "./recover.js";
 export * from "./recovery-state.js";
 export * from "./render.js";
 export * from "./runtime.js";
+export * from "./prompt.js";
 export * from "./show.js";
+export * from "./status.js";
 export * from "./transition.js";

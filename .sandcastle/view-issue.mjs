@@ -93,11 +93,20 @@ const sections = (body) => {
   const headings = [...body.matchAll(/^##\s+(.+)$/gm)];
   return headings.map((match, index) => {
     const next = headings[index + 1];
+    const title = match[1].trim();
     return {
-      heading: match[1].trim(),
+      title,
+      heading: title,
       content: body.slice(match.index + match[0].length, next?.index).trim(),
     };
   });
+};
+
+const arrayFromLinkValue = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return value ? [value] : [];
 };
 
 const readIssue = (needle) => {
@@ -127,12 +136,8 @@ const readIssue = (needle) => {
         : "open",
       priority: clean(data.priority ?? ""),
       tags: Array.isArray(data.tags) ? data.tags : [],
-      dependencies: Array.isArray(data.links?.depends_on)
-        ? data.links.depends_on
-        : [],
-      references: Array.isArray(data.links?.reference)
-        ? data.links.reference
-        : [],
+      dependencies: arrayFromLinkValue(data.links?.depends_on),
+      references: arrayFromLinkValue(data.links?.reference),
       file: filePath,
       frontmatter: data,
       body,

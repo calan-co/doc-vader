@@ -2,7 +2,7 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Pull in the issue using `node .sandcastle/view-issue.mjs {{TASK_ID}}`.
+Pull in the issue using `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" view {{TASK_ID}}`.
 If it has a parent PRD, pull that in too.
 
 Only work on the issue specified.
@@ -34,22 +34,22 @@ If applicable, use RGR to complete the task.
 3. REPEAT until done
 4. REFACTOR the code
 
-# COMPLETION EVIDENCE
+# ADAPTER CONTRACT
 
-Before outputting `<promise>COMPLETE</promise>`, update the task file for
-`{{TASK_ID}}` on branch `{{BRANCH}}`:
+Use the `dv4sandcastle` adapter surfaces instead of ad hoc helper scripts or
+manual completion edits.
 
-1. Mark every completed item in `## Tasks` with `[x]`.
-2. Mark every satisfied item in `## Acceptance Criteria` with `[x]`.
-3. Set frontmatter `status: completed`.
-4. Set frontmatter `status_reason: completed`.
-5. Set `completed_date` to today's ISO date.
-6. Commit this backlog update as the final commit on the feature branch.
+1. Inspect the canonical work item JSON with `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" view {{TASK_ID}}`.
+2. Render the authoritative implementation context with `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" prompt {{TASK_ID}}`.
+3. Claim the task before editing with `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" claim-task {{TASK_ID}} --holder <holder> --branch {{BRANCH}} --json`.
+4. Check or explain runtime lock ownership with `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" lock-status --claim <claim-id> --json`, and recover interrupted work with `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" recover-task {{TASK_ID}} --branch {{BRANCH}} --json`.
+5. Update task and acceptance checkboxes only when concrete branch evidence satisfies them, but leave status/completion transitions and evidence-link creation to the adapter close flow.
+6. After validation passes, close through `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" close-task {{TASK_ID}} --claim <claim-id> [--payload <json-file>] [--record-type <type>]` so repository-configured transition behavior, evidence recording, and runtime release stay aligned.
+7. When the close flow succeeds, keep the resulting backlog/status update as the final commit on the feature branch.
+8. Do not edit backlog status/checklists by hand as the normal completion path.
 
-Do not mark the task complete unless every task and acceptance criterion is
-actually satisfied by the branch. If anything remains incomplete, leave it
-unchecked, leave the status non-completed, explain the blocker, and do not emit
-`<promise>COMPLETE</promise>`.
+If a close attempt fails after evidence or transition planning, treat the work
+item as recoverable and use the adapter recovery surface before retrying.
 
 # FEEDBACK LOOPS
 

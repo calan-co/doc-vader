@@ -31,6 +31,10 @@ tags:
 Make active claim scope locks visible in the projection graph as explicit
 relationships between claims and scopes.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 The graph model should expose relationship and interaction across entities, not

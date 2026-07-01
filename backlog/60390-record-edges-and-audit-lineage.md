@@ -31,6 +31,10 @@ tags:
 Make records first-class graph participants so audit output can explain how
 evidence, notes, and command results relate to Work Items, Claims, and Scopes.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 The MVP node list includes Record alongside WorkItem, Claim, and Scope. Records

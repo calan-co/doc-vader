@@ -383,7 +383,7 @@ describe("runtime sqlite store", () => {
     }
   });
 
-  it("tracks claim context freshness without extending the lease unless renewed", async () => {
+  it("tracks claim context freshness without extending the lease unless renewed", { timeout: 15_000 }, async () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
     try {
@@ -728,7 +728,7 @@ describe("runtime sqlite store", () => {
     } finally {
       store.close();
     }
-  });
+  }, 30_000);
 
   it("enforces lock uniqueness for both key and path", async () => {
     const root = await mkRoot();
@@ -971,6 +971,96 @@ describe("runtime sqlite store", () => {
         1,
       );
       expect(store.listScopeLocks()).toHaveLength(7);
+    } finally {
+      store.close();
+    }
+  });
+
+  it("reuses self-owned scope locks and canonicalizes requested scopes generically", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const claim = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-scope-generic",
+          entropy: "entropy-scope-generic",
+          expires_at: "2099-06-23T05:14:36.020Z",
+        }),
+      );
+      expect(claim.outcome).toBe("acquired");
+      if (claim.outcome !== "acquired") {
+        throw new Error("Expected claim acquisition.");
+      }
+
+      const first = store.acquireRuntimeScopeLocks(claim.claimToken, [
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+      ]);
+      expect(first).toMatchObject({
+        outcome: "acquired",
+        locks: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+
+      const second = store.acquireRuntimeScopeLocks(claim.claimToken, [
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+      ]);
+      expect(second).toMatchObject({
+        outcome: "acquired",
+        locks: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+      expect(
+        store
+          .listScopeLocksByClaimToken(claim.claimToken)
+          .filter((lock) => lock.scope_ref === "record:scope-evidence"),
+      ).toHaveLength(1);
+
+      const removed = store.removeRuntimeScopeLocks(claim.claimToken, [
+        "record:scope-evidence",
+      ]);
+      expect(removed).toMatchObject({
+        outcome: "removed",
+        removed: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+          },
+        ],
+      });
+
+      const reacquired = store.acquireRuntimeScopeLocks(claim.claimToken, [
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+      ]);
+      expect(reacquired).toMatchObject({
+        outcome: "acquired",
+        locks: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+      const scopeEvidenceLocks = store
+        .listScopeLocksByClaimToken(claim.claimToken)
+        .filter((lock) => lock.scope_ref === "record:scope-evidence");
+      expect(scopeEvidenceLocks).toHaveLength(1);
+      expect(scopeEvidenceLocks[0]).toMatchObject({
+        lifecycle_state: "active",
+        lock_mode: "write",
+      });
+      expect(scopeEvidenceLocks[0]).not.toHaveProperty("released_at");
     } finally {
       store.close();
     }

@@ -313,11 +313,16 @@ function loadConsumerSeverityConfig(): ConsumerSeverityConfig {
 
 function shouldSkipArchiveValidation(
   file: string,
+  backlogDir: string,
+  archiveDir: string,
   consumerConfig: ConsumerSeverityConfig,
 ): boolean {
   const archiveSeverity =
     consumerConfig.automation?.prePushValidation?.severity?.archive;
-  return file.startsWith("archive/") && archiveSeverity === "none";
+  return (
+    archiveSeverity === "none" &&
+    isWithinPath(join(backlogDir, file), archiveDir)
+  );
 }
 
 function parseCliArgs(argv: string[]): { strict: boolean; fileArgs: string[] } {
@@ -930,7 +935,7 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
 
   // Second pass: Validate each backlog frontmatter file
   for (const file of files) {
-    if (shouldSkipArchiveValidation(file, consumerConfig)) {
+    if (shouldSkipArchiveValidation(file, backlogDir, archiveDir, consumerConfig)) {
       continue;
     }
 

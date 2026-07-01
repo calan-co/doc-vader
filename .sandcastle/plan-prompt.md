@@ -4,7 +4,7 @@ Here are the open issues in the repo:
 
 <issues-json>
 
-!`node .sandcastle/list-ready-issues.mjs`
+!`node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" list`
 
 </issues-json>
 

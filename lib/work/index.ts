@@ -1,5 +1,12 @@
 export { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
 export {
+  WORK_COMMAND_ALIASES,
+  WORK_COMMAND_INVENTORY,
+  iterWorkCommandInventory,
+  type WorkCommandInventoryEntry,
+  type WorkCommandInventoryNode,
+} from "./command-inventory.js";
+export {
   createProjectionPort,
   createWorkProjectionPort,
   projectRepositoryGraph,
@@ -97,6 +104,21 @@ export {
   type TaskShowRecordRelationship as WorkShowRecordRelationship,
   type TaskShowRelationship as WorkShowRelationship,
 } from "../task/show.js";
+export {
+  loadTaskPromptModel as loadWorkPromptModel,
+  type LoadTaskPromptOptions as LoadWorkPromptOptions,
+  type TaskPromptModel as WorkPromptModel,
+} from "../task/prompt.js";
+export {
+  buildTaskStatusReport as buildWorkStatusReport,
+  formatTaskStatusText as formatWorkStatusText,
+  type BuildTaskStatusReportOptions as BuildWorkStatusReportOptions,
+  type TaskStatusGraphFacts as WorkStatusGraphFacts,
+  type TaskStatusGraphInformationalReference as WorkStatusGraphInformationalReference,
+  type TaskStatusGraphProjectionDiagnostic as WorkStatusGraphProjectionDiagnostic,
+  type TaskStatusGraphRelationship as WorkStatusGraphRelationship,
+  type TaskStatusReport as WorkStatusReport,
+} from "../task/status.js";
 export {
   collectTaskRecoveryGitState as collectWorkRecoveryGitState,
   isRecoverableReadyRuntimeState,

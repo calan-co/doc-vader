@@ -8,6 +8,7 @@ import {
   type RuntimeScopeLockRecord,
 } from "../runtime/index.js";
 import { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
+import { stripWikiLink } from "./wiki-link.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -81,6 +82,12 @@ export interface WorkGraphProjectionDiagnostic {
 export interface ProjectWorkGraphOptions {
   rootDir?: string;
   workspaceDirs?: string[];
+  runtimeState?: RuntimeProjectionState;
+}
+
+export interface RuntimeProjectionState {
+  claims: RuntimeClaimRecord[];
+  scopeLocks: RuntimeScopeLockRecord[];
 }
 
 interface MarkdownDocument {
@@ -188,12 +195,6 @@ function unique(values: string[]): string[] {
 }
 
 const FORMAL_FRONTMATTER_LINK_KEYS = new Set(["depends_on", "evidence"]);
-
-function stripWikiLink(value: string): string {
-  const trimmed = value.trim();
-  const withoutBrackets = trimmed.replace(/^\[\[/, "").replace(/\]\]$/, "");
-  return withoutBrackets.split("|", 1)[0]?.split("#", 1)[0]?.trim() ?? "";
-}
 
 function stripMarkdownExtension(value: string): string {
   return value.replace(/\.md$/i, "");
@@ -779,6 +780,49 @@ function createEdge(
   };
 }
 
+function edgeProvenanceSuffix(edge: WorkGraphEdge): string {
+  const sourceKey =
+    typeof edge.properties.sourceKey === "string"
+      ? edge.properties.sourceKey
+      : "edge";
+  const rawTarget =
+    typeof edge.properties.rawTarget === "string"
+      ? edge.properties.rawTarget
+      : edge.to;
+  const sourceFile =
+    typeof edge.source.filePath === "string"
+      ? edge.source.filePath
+      : edge.source.claimToken ?? edge.source.kind;
+  return `${edge.source.kind}::${sourceFile}::${sourceKey}::${rawTarget}`;
+}
+
+function disambiguateEdgeIds(edges: WorkGraphEdge[]): WorkGraphEdge[] {
+  const idCounts = new Map<string, number>();
+  const lastIndexById = new Map<string, number>();
+  edges.forEach((edge, index) => {
+    idCounts.set(edge.id, (idCounts.get(edge.id) ?? 0) + 1);
+    lastIndexById.set(edge.id, index);
+  });
+
+  const seen = new Map<string, number>();
+  return edges.map((edge, index) => {
+    if (
+      (idCounts.get(edge.id) ?? 0) === 1 ||
+      lastIndexById.get(edge.id) === index
+    ) {
+      return edge;
+    }
+
+    const suffix = edgeProvenanceSuffix(edge);
+    const duplicateKey = `${edge.id}::${suffix}`;
+    const duplicateIndex = seen.get(duplicateKey) ?? 0;
+    seen.set(duplicateKey, duplicateIndex + 1);
+    const uniqueId =
+      duplicateIndex === 0 ? duplicateKey : `${duplicateKey}::${duplicateIndex + 1}`;
+    return { ...edge, id: uniqueId };
+  });
+}
+
 function mapRelationshipType(sourceKey: string): WorkGraphEdgeType | undefined {
   const mappedParent = WORK_ITEM_PARENT_EDGE_TYPES.get(sourceKey);
   if (mappedParent) {
@@ -808,15 +852,11 @@ function buildGraphIndex(nodes: WorkGraphNode[], edges: WorkGraphEdge[]): GraphI
     left.id.localeCompare(right.id),
   );
 
-  const dedupedEdges = new Map<string, WorkGraphEdge>();
-  for (const edge of edges) {
-    dedupedEdges.set(edge.id, edge);
-  }
-
-  const sortedEdges = [...dedupedEdges.values()].sort((left, right) =>
+  const sortedEdges = disambiguateEdgeIds(edges).sort((left, right) =>
     left.type.localeCompare(right.type) ||
     left.from.localeCompare(right.from) ||
-    left.to.localeCompare(right.to),
+    left.to.localeCompare(right.to) ||
+    left.id.localeCompare(right.id),
   );
 
   for (const node of sortedNodes) {
@@ -952,10 +992,7 @@ function hasDatabaseObject(database: DatabaseSync, objectName: string): boolean 
   return Boolean(row);
 }
 
-function readRuntimeProjectionState(rootDir: string): {
-  claims: RuntimeClaimRecord[];
-  scopeLocks: RuntimeScopeLockRecord[];
-} {
+function readRuntimeProjectionState(rootDir: string): RuntimeProjectionState {
   const databasePath = path.join(rootDir, ".doc-vader", "runtime", "runtime.sqlite");
   if (!existsSync(databasePath)) {
     return { claims: [], scopeLocks: [] };
@@ -978,8 +1015,6 @@ function readRuntimeProjectionState(rootDir: string): {
           .map(toReadonlyRuntimeScopeLockRecord)
       : [];
     return { claims, scopeLocks };
-  } catch {
-    return { claims: [], scopeLocks: [] };
   } finally {
     database?.close();
   }
@@ -1433,7 +1468,7 @@ export async function projectWorkGraph(
     }
   }
 
-  const runtimeState = readRuntimeProjectionState(rootDir);
+  const runtimeState = options.runtimeState ?? readRuntimeProjectionState(rootDir);
   for (const claim of runtimeState.claims) {
     const claimNode = createClaimNode(claim);
     if (!nodesById.has(claimNode.id)) {

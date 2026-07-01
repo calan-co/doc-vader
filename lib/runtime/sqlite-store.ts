@@ -18,6 +18,7 @@ import {
 import {
   evaluateRuntimeScopeLockPolicy,
   canonicalizeClaimScopeRef,
+  canonicalizeRuntimeScopeRef,
   type RuntimeScopeLock,
   type RuntimeScopeLockConflict,
   type RuntimeScopeLockLifecycleState,
@@ -2170,11 +2171,7 @@ export class RuntimeSqliteStore {
       throw new Error(`Unknown runtime claim token: ${claimToken}`);
     }
     const normalizedScopeRefs = [
-      ...new Set(
-        scopeRefs.map((scopeRef) =>
-          canonicalizeClaimScopeRef(claim.target_type, scopeRef),
-        ),
-      ),
+      ...new Set(scopeRefs.map((scopeRef) => canonicalizeRuntimeScopeRef(scopeRef))),
     ];
 
     if (claim.state === "expired") {
@@ -2568,7 +2565,7 @@ export class RuntimeSqliteStore {
     locks: RuntimeScopeLockAcquisitionRequest[],
   ): RuntimeNormalizedScopeLockRequest[] {
     return locks.map((request) => ({
-      scopeRef: canonicalizeClaimScopeRef(claim.target_type, request.scopeRef),
+      scopeRef: canonicalizeRuntimeScopeRef(request.scopeRef),
       lockMode: request.lockMode,
       policyName:
         request.policyName ?? runtimeScopeLockPolicyNameForMode(request.lockMode),
@@ -2823,6 +2820,33 @@ export class RuntimeSqliteStore {
     )!;
   }
 
+  reactivateScopeLock(lock: RuntimeScopeLock): RuntimeScopeLockRecord {
+    assertRuntimeScopeLock(lock);
+    this.database.prepare(
+      `UPDATE claim_scope_locks
+       SET policy_name = ?,
+           acquired_at = ?,
+           updated_at = ?,
+           lifecycle_state = 'active',
+           released_at = NULL,
+           metadata = ?
+       WHERE claim_token = ? AND scope_ref = ? AND lock_mode = ?`,
+    ).run(
+      lock.policy_name,
+      lock.acquired_at,
+      lock.updated_at,
+      lock.metadata === undefined ? null : stringifyCanonicalJson(lock.metadata),
+      lock.claim_token,
+      lock.scope_ref,
+      lock.lock_mode,
+    );
+    return this.getScopeLockByClaimTokenAndScopeRef(
+      lock.claim_token,
+      lock.scope_ref,
+      lock.lock_mode,
+    )!;
+  }
+
   getScopeLockByClaimTokenAndScopeRef(
     claimToken: string,
     scopeRef: string,
@@ -2868,7 +2892,17 @@ export class RuntimeSqliteStore {
         } satisfies RuntimeScopeLockAcquisitionConflict;
       }
 
-      const conflicts = this.listScopeLockConflicts(normalizedRequests);
+      const uniqueRequests = [
+        ...new Map(
+          normalizedRequests.map((request) => [
+            `${request.scopeRef}\0${request.lockMode}`,
+            request,
+          ]),
+        ).values(),
+      ];
+      const conflicts = this.listScopeLockConflicts(uniqueRequests, {
+        excludeClaimToken: claimToken,
+      });
       if (conflicts.length > 0) {
         return {
           outcome: "conflict",
@@ -2877,18 +2911,29 @@ export class RuntimeSqliteStore {
         } satisfies RuntimeScopeLockAcquisitionConflict;
       }
 
-      const acquired = normalizedRequests.map((request) =>
-        this.insertScopeLock(
-          createScopeLockInsertPayload({
-            claimToken,
-            scopeRef: request.scopeRef,
-            lockMode: request.lockMode,
-            policyName: request.policyName,
-            acquiredAt: new Date().toISOString(),
-            ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
-          }),
-        ),
-      );
+      const acquired = uniqueRequests.map((request) => {
+        const lockPayload = createScopeLockInsertPayload({
+          claimToken,
+          scopeRef: request.scopeRef,
+          lockMode: request.lockMode,
+          policyName: request.policyName,
+          acquiredAt: new Date().toISOString(),
+          ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
+        });
+        const existing = this.getScopeLockByClaimTokenAndScopeRef(
+          claimToken,
+          request.scopeRef,
+          request.lockMode,
+        );
+        if (existing?.lifecycle_state === "active") {
+          return existing;
+        }
+        if (existing) {
+          return this.reactivateScopeLock(lockPayload);
+        }
+
+        return this.insertScopeLock(lockPayload);
+      });
 
       return {
         outcome: "acquired",

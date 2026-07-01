@@ -341,17 +341,61 @@ function parseRelationshipDependencyRefs(body: string): string[] {
     .filter(
       (entry) => entry.relationship === "depends_on" && entry.target.length > 0,
     )
-    .map((entry) => entry.target);
+    .map((entry) => unwrapInlineCode(entry.target));
+}
+
+function unwrapInlineCode(value: string): string {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(`+)([\s\S]*?)\1$/u);
+  return match ? (match[2] ?? "").trim() : trimmed;
 }
 
 function stripWikiLink(value: string): string {
-  return value.replace(/^\[\[/, "").replace(/\]\]$/, "").trim();
+  const trimmed = unwrapInlineCode(value);
+  const withoutBrackets = trimmed.replace(/^\[\[/u, "").replace(/\]\]$/u, "");
+  return withoutBrackets.split("|", 1)[0]?.split("#", 1)[0]?.trim() ?? "";
 }
 
 function normalizeDependencyId(ref: string): string {
   const stripped = stripWikiLink(ref);
   const match = stripped.match(/^(?:wi-)?(\d+)/);
   return match ? `wi-${match[1]}` : stripped;
+}
+
+function stripMarkdownExtension(value: string): string {
+  return value.replace(/\.md$/iu, "");
+}
+
+function normalizeReferenceToken(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function addReferenceToken(tokens: Set<string>, value: string): void {
+  tokens.add(normalizeReferenceToken(value));
+}
+
+function addPathReferenceTokens(tokens: Set<string>, filePath: string): void {
+  addReferenceToken(tokens, filePath);
+  const basename = path.posix.basename(filePath);
+  addReferenceToken(tokens, basename);
+  addReferenceToken(tokens, stripMarkdownExtension(basename));
+}
+
+function resolveReferencePath(
+  taskRelativePath: string,
+  referencePath: string,
+): string | undefined {
+  if (!referencePath.includes("/")) {
+    return undefined;
+  }
+
+  if (referencePath.startsWith("/")) {
+    return referencePath.replace(/^\/+/u, "");
+  }
+
+  return path.posix.normalize(
+    path.posix.join(path.posix.dirname(taskRelativePath), referencePath),
+  );
 }
 
 function dependencySatisfied(
@@ -460,24 +504,61 @@ function isProjectedBacklogWorkItem(
 }
 
 function normalizedDocumentReferenceAliases(document: ReadyDocument): string[] {
-  return documentReferenceAliases(document).map((entry) => entry.trim().toLowerCase());
+  return documentReferenceAliases(document).map((entry) =>
+    normalizeReferenceToken(entry),
+  );
 }
 
-function dependencyMatchesRef(
-  dependency: ReadyTaskDependency,
-  ref: string,
-  documentsById: Map<string, ReadyDocument>,
-): boolean {
-  const stripped = stripWikiLink(ref).toLowerCase();
-  const normalizedId = normalizeDependencyId(ref).toLowerCase();
-  if (dependency.id.toLowerCase() === normalizedId) {
-    return true;
+function referenceTokens(taskRelativePath: string, ref: string): Set<string> {
+  const stripped = stripWikiLink(ref);
+  const normalizedId = normalizeDependencyId(ref);
+  const tokens = new Set<string>();
+
+  addPathReferenceTokens(tokens, stripped);
+  addReferenceToken(tokens, normalizedId);
+  addReferenceToken(tokens, normalizedId.replace(/^wi-/u, ""));
+
+  const resolvedPath = resolveReferencePath(taskRelativePath, stripped);
+  if (resolvedPath) {
+    addPathReferenceTokens(tokens, resolvedPath);
   }
 
-  const dependencyDocument = documentsById.get(dependency.id);
-  return dependencyDocument
-    ? normalizedDocumentReferenceAliases(dependencyDocument).includes(stripped)
-    : false;
+  return tokens;
+}
+
+function dependencyReferenceTokens(
+  dependency: ReadyTaskDependency,
+  dependencyDocument: ReadyDocument | undefined,
+): Set<string> {
+  const tokens = new Set<string>();
+
+  addReferenceToken(tokens, dependency.id);
+  addReferenceToken(tokens, dependency.id.replace(/^wi-/u, ""));
+
+  if (dependency.filePath) {
+    addPathReferenceTokens(tokens, dependency.filePath);
+  }
+
+  if (dependencyDocument) {
+    for (const alias of normalizedDocumentReferenceAliases(dependencyDocument)) {
+      tokens.add(alias);
+    }
+    addReferenceToken(tokens, dependencyDocument.relativePath);
+  }
+
+  return tokens;
+}
+
+function setsIntersect(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
+  for (const value of right) {
+    if (left.has(value)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function projectedNodeDependencyId(node: WorkGraphNode): string {
@@ -517,7 +598,10 @@ function buildGraphReadyDependencies(options: {
 
   const knownDependencies = options.projection
     .getOutgoingEdges(sourceNode.id)
-    .filter((edge): edge is WorkGraphEdge => edge.type === "depends_on")
+    .filter(
+      (edge): edge is WorkGraphEdge =>
+        edge.authority === "formal" && edge.type === "depends_on",
+    )
     .map((edge) => options.projection.findNode(edge.to))
     .filter((node): node is WorkGraphNode => Boolean(node && node.type === "work-item"))
     .map((node) => {
@@ -537,6 +621,13 @@ function buildGraphReadyDependencies(options: {
         stateKnown: Boolean(status),
       } satisfies ReadyTaskDependency;
     });
+  const knownDependencyEntries = knownDependencies.map((dependency) => ({
+    dependency,
+    tokens: dependencyReferenceTokens(
+      dependency,
+      options.documentsById.get(dependency.id),
+    ),
+  }));
 
   const authoredRefs = [
     ...new Set([
@@ -551,17 +642,32 @@ function buildGraphReadyDependencies(options: {
   const orderedDependencies: ReadyTaskDependency[] = [];
   const matchedDependencyIds = new Set<string>();
   for (const ref of authoredRefs) {
-    const matched = knownDependencies.find(
-      (dependency) =>
-        !matchedDependencyIds.has(dependency.id) &&
-        dependencyMatchesRef(dependency, ref, options.documentsById),
-    );
-    if (matched) {
-      matchedDependencyIds.add(matched.id);
+    const refTokens = referenceTokens(options.document.relativePath, ref);
+    let matchedDependency: ReadyTaskDependency | undefined;
+    let matchesKnownDependency = false;
+
+    for (const entry of knownDependencyEntries) {
+      if (!setsIntersect(entry.tokens, refTokens)) {
+        continue;
+      }
+
+      matchesKnownDependency = true;
+      if (!matchedDependencyIds.has(entry.dependency.id)) {
+        matchedDependency = entry.dependency;
+        break;
+      }
+    }
+
+    if (matchedDependency) {
+      matchedDependencyIds.add(matchedDependency.id);
       orderedDependencies.push({
-        ...matched,
+        ...matchedDependency,
         ref,
       });
+      continue;
+    }
+
+    if (matchesKnownDependency) {
       continue;
     }
 
