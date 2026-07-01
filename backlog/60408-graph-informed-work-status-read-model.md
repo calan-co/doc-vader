@@ -12,12 +12,13 @@ estimated: 5
 completed_date: '2026-06-29'
 links:
   depends_on:
-    - "[[60406-immutable-work-command-inventory-and-parity-harness]]"
-    - "[[60398-graph-informed-work-ready-migration]]"
+    - '[[60406-immutable-work-command-inventory-and-parity-harness]]'
+    - '[[60398-graph-informed-work-ready-migration]]'
   reference:
-    - "[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]"
+    - '[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]'
   evidence:
     - '[[task-record-preflight|2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
+    - '[[record-20260701-054004-60408]]'
 tags:
   - afk
   - cli

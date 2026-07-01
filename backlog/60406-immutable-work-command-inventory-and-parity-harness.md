@@ -15,6 +15,8 @@ links:
     - '[[60384-work-command-surface-and-scoperef-canonicalization]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
+  evidence:
+    - '[[record-20260701-054004-60406]]'
 tags:
   - afk
   - work-management
