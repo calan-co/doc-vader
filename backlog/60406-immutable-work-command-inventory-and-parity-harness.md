@@ -28,6 +28,10 @@ Freeze the Work command tree and alias contract in one immutable inventory and
 prove that `dv work`, `dv wi`, and `dv task` stay help-compatible across that
 surface.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 - `dv work`, `dv wi`, and `dv task` intentionally expose the same family-level

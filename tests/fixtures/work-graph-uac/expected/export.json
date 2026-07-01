@@ -3,7 +3,7 @@
   "command": "export",
   "summary": {
     "nodeCount": 8,
-    "edgeCount": 10,
+    "edgeCount": 12,
     "diagnosticCount": 1,
     "nodeTypes": [
       {
@@ -26,19 +26,19 @@
     "edgeTypes": [
       {
         "type": "records",
-        "count": 3
+        "count": 4
       },
       {
         "type": "belongs_to",
         "count": 2
       },
       {
-        "type": "locks",
+        "type": "depends_on",
         "count": 2
       },
       {
-        "type": "depends_on",
-        "count": 1
+        "type": "locks",
+        "count": 2
       },
       {
         "type": "implements",
@@ -241,6 +241,24 @@
       }
     },
     {
+      "id": "wi:70001::depends_on::wi:70002::frontmatter::backlog/70001-work-graph-uac-main.md::depends_on::[[70002-work-graph-uac-dependency]]",
+      "type": "depends_on",
+      "authority": "formal",
+      "from": "wi:70001",
+      "to": "wi:70002",
+      "direction": "authored",
+      "source": {
+        "kind": "frontmatter",
+        "filePath": "backlog/70001-work-graph-uac-main.md"
+      },
+      "properties": {
+        "sourceKey": "depends_on",
+        "rawTarget": "[[70002-work-graph-uac-dependency]]",
+        "resolvedTargetId": "wi:70002",
+        "frontmatterId": "wi-70001"
+      }
+    },
+    {
       "id": "wi:70001::implements::scope:plan:work-graph-uac-review-prd",
       "type": "implements",
       "authority": "formal",
@@ -370,6 +388,26 @@
         "subject": "[[70001-work-graph-uac-main]]",
         "recordKind": "evidence",
         "frontmatterId": "record:work-graph-uac-review"
+      }
+    },
+    {
+      "id": "record:work-graph-uac-review::records::wi:70001::frontmatter::backlog/70001-work-graph-uac-main.md::evidence::[[records/record-work-graph-uac-review.md]]",
+      "type": "records",
+      "authority": "formal",
+      "from": "record:work-graph-uac-review",
+      "to": "wi:70001",
+      "direction": "authored",
+      "source": {
+        "kind": "frontmatter",
+        "filePath": "backlog/70001-work-graph-uac-main.md"
+      },
+      "properties": {
+        "sourceKey": "evidence",
+        "rawTarget": "[[records/record-work-graph-uac-review.md]]",
+        "resolvedTargetId": "record:work-graph-uac-review",
+        "subject": "[[records/record-work-graph-uac-review.md]]",
+        "recordKind": "evidence",
+        "frontmatterId": "wi-70001"
       }
     },
     {

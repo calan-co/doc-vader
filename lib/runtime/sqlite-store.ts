@@ -18,6 +18,7 @@ import {
 import {
   evaluateRuntimeScopeLockPolicy,
   canonicalizeClaimScopeRef,
+  canonicalizeRuntimeScopeRef,
   type RuntimeScopeLock,
   type RuntimeScopeLockConflict,
   type RuntimeScopeLockLifecycleState,
@@ -2170,11 +2171,7 @@ export class RuntimeSqliteStore {
       throw new Error(`Unknown runtime claim token: ${claimToken}`);
     }
     const normalizedScopeRefs = [
-      ...new Set(
-        scopeRefs.map((scopeRef) =>
-          canonicalizeClaimScopeRef(claim.target_type, scopeRef),
-        ),
-      ),
+      ...new Set(scopeRefs.map((scopeRef) => canonicalizeRuntimeScopeRef(scopeRef))),
     ];
 
     if (claim.state === "expired") {
@@ -2568,7 +2565,7 @@ export class RuntimeSqliteStore {
     locks: RuntimeScopeLockAcquisitionRequest[],
   ): RuntimeNormalizedScopeLockRequest[] {
     return locks.map((request) => ({
-      scopeRef: canonicalizeClaimScopeRef(claim.target_type, request.scopeRef),
+      scopeRef: canonicalizeRuntimeScopeRef(request.scopeRef),
       lockMode: request.lockMode,
       policyName:
         request.policyName ?? runtimeScopeLockPolicyNameForMode(request.lockMode),
@@ -2868,7 +2865,17 @@ export class RuntimeSqliteStore {
         } satisfies RuntimeScopeLockAcquisitionConflict;
       }
 
-      const conflicts = this.listScopeLockConflicts(normalizedRequests);
+      const uniqueRequests = [
+        ...new Map(
+          normalizedRequests.map((request) => [
+            `${request.scopeRef}\0${request.lockMode}`,
+            request,
+          ]),
+        ).values(),
+      ];
+      const conflicts = this.listScopeLockConflicts(uniqueRequests, {
+        excludeClaimToken: claimToken,
+      });
       if (conflicts.length > 0) {
         return {
           outcome: "conflict",
@@ -2877,8 +2884,17 @@ export class RuntimeSqliteStore {
         } satisfies RuntimeScopeLockAcquisitionConflict;
       }
 
-      const acquired = normalizedRequests.map((request) =>
-        this.insertScopeLock(
+      const acquired = uniqueRequests.map((request) => {
+        const existing = this.getScopeLockByClaimTokenAndScopeRef(
+          claimToken,
+          request.scopeRef,
+          request.lockMode,
+        );
+        if (existing) {
+          return existing;
+        }
+
+        return this.insertScopeLock(
           createScopeLockInsertPayload({
             claimToken,
             scopeRef: request.scopeRef,
@@ -2887,8 +2903,8 @@ export class RuntimeSqliteStore {
             acquiredAt: new Date().toISOString(),
             ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
           }),
-        ),
-      );
+        );
+      });
 
       return {
         outcome: "acquired",

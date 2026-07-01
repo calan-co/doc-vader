@@ -261,6 +261,39 @@ const branchExists = (branch) => {
   }
 };
 
+const gitOutput = (args) =>
+  execFileSync("git", args, { encoding: "utf8" }).trim();
+
+const readGitFile = (branch, file) =>
+  execFileSync("git", ["show", `${branch}:${file}`], { encoding: "utf8" });
+
+const backlogFilesInBranch = (branch) =>
+  gitOutput(["ls-tree", "-r", "--name-only", branch, BACKLOG_DIR])
+    .split("\n")
+    .map((file) => file.trim())
+    .filter(
+      (file) =>
+        file.startsWith(`${BACKLOG_DIR}/`) &&
+        !file.startsWith(`${ARCHIVE_DIR}/`) &&
+        file.endsWith(".md"),
+    );
+
+const readBranchIssueContent = (branch, id) => {
+  for (const file of backlogFilesInBranch(branch)) {
+    const content = readGitFile(branch, file);
+    const parsed = parseFrontmatter(content, `${branch}:${file}`);
+    const frontmatterId = normalizeRef(
+      parsed.frontmatter.id ?? path.basename(file, ".md"),
+    );
+
+    if (frontmatterId === id || path.basename(file).startsWith(`${id}-`)) {
+      return { file, parsed };
+    }
+  }
+
+  throw new Error(`No backlog issue ${id} found in ${branch}.`);
+};
+
 const readBranchItem = (item) => {
   const branch = `sandcastle/issue-${item.id}`;
   if (!branchExists(branch)) {
@@ -268,10 +301,7 @@ const readBranchItem = (item) => {
   }
 
   try {
-    const content = execFileSync("git", ["show", `${branch}:${item.file}`], {
-      encoding: "utf8",
-    });
-    const parsed = parseFrontmatter(content, `${branch}:${item.file}`);
+    const { parsed } = readBranchIssueContent(branch, item.id);
 
     return {
       branch,
@@ -298,6 +328,10 @@ const branchItems = new Map(
 const branchAllowsPlanning = (item) => {
   const branchItem = branchItems.get(item.id);
   if (!branchItem) {
+    return true;
+  }
+
+  if (dirtyWorktrees.has(item.id) && !isSatisfiedItem(item)) {
     return true;
   }
 

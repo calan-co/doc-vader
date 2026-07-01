@@ -394,7 +394,9 @@ const sandcastleIssueBranches = () =>
   ])
     .split("\n")
     .map((branch: string) => branch.trim())
-    .filter((branch: string) => /^sandcastle\/issue-\d+$/.test(branch));
+    .filter((branch: string) =>
+      /^sandcastle\/issue-\d+(?:\.\d+)*$/.test(branch),
+    );
 
 const completedUnmergedIssues = (): PlannedIssue[] => {
   const issues: PlannedIssue[] = [];
@@ -421,6 +423,21 @@ const completedUnmergedIssues = (): PlannedIssue[] => {
   return issues;
 };
 
+const dirtyFilesForBranchWorktree = (branch: string) => {
+  const worktreePath = worktreePathForBranch(branch);
+  if (!fs.existsSync(worktreePath)) {
+    return [];
+  }
+
+  return gitOutput(["-C", worktreePath, "status", "--porcelain=v1"])
+    .split("\n")
+    .map((line: string) => line.trim())
+    .filter(Boolean)
+    .map((line: string) => line.replace(/^.. /, ""))
+    .map((file: string) => file.split(" -> ").at(-1) ?? file)
+    .filter(Boolean);
+};
+
 const changedFilesForBranch = (branch: string) => {
   if (!branchExists(branch)) {
     return new Set<string>();
@@ -435,7 +452,7 @@ const changedFilesForBranch = (branch: string) => {
     .map((file: string) => file.trim())
     .filter(Boolean);
 
-  return new Set(files);
+  return new Set([...files, ...dirtyFilesForBranchWorktree(branch)]);
 };
 
 const selectNonOverlappingIssues = <T extends { id: string; branch: string }>(

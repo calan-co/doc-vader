@@ -976,6 +976,73 @@ describe("runtime sqlite store", () => {
     }
   });
 
+  it("reuses self-owned scope locks and canonicalizes requested scopes generically", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const claim = store.acquireRuntimeClaim(
+        makeClaimSeed({
+          target_id: "wi-scope-generic",
+          entropy: "entropy-scope-generic",
+          expires_at: "2099-06-23T05:14:36.020Z",
+        }),
+      );
+      expect(claim.outcome).toBe("acquired");
+      if (claim.outcome !== "acquired") {
+        throw new Error("Expected claim acquisition.");
+      }
+
+      const first = store.acquireRuntimeScopeLocks(claim.claimToken, [
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+      ]);
+      expect(first).toMatchObject({
+        outcome: "acquired",
+        locks: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+
+      const second = store.acquireRuntimeScopeLocks(claim.claimToken, [
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+      ]);
+      expect(second).toMatchObject({
+        outcome: "acquired",
+        locks: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+      expect(
+        store
+          .listScopeLocksByClaimToken(claim.claimToken)
+          .filter((lock) => lock.scope_ref === "record:scope-evidence"),
+      ).toHaveLength(1);
+
+      const removed = store.removeRuntimeScopeLocks(claim.claimToken, [
+        "record:scope-evidence",
+      ]);
+      expect(removed).toMatchObject({
+        outcome: "removed",
+        removed: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+          },
+        ],
+      });
+    } finally {
+      store.close();
+    }
+  });
+
   it("halts initial acquisition on lock conflict without leaking live state", async () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });

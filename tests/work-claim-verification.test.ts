@@ -240,6 +240,42 @@ Renewal audit stayed deterministic.
     });
   });
 
+  it("verifies renewal against the captured post-renewal runtime snapshot", async () => {
+    const rootDir = await createVerificationRepo();
+    const claimToken = seedClaim(rootDir, {
+      holder: "renew snapshot",
+      entropy: "claim-renew-snapshot",
+      scopeLocks: [{ scopeRef: "wi-60388", lockMode: "read" }],
+    });
+    const runtimeStates: unknown[] = [];
+
+    const renewed = await renewWorkClaimWithGraphVerification({
+      rootDir,
+      claimToken,
+      now: new Date("2099-06-26T00:10:00.000Z"),
+      ttlMilliseconds: 30 * 60_000,
+      project: async (options): Promise<WorkGraphProjection> => {
+        runtimeStates.push(options.runtimeState);
+        return projectWorkGraph(options);
+      },
+    });
+
+    expect(renewed.outcome).toBe("renewed");
+    expect(runtimeStates[0]).toBeUndefined();
+    expect(runtimeStates[1]).toMatchObject({
+      claims: expect.arrayContaining([
+        expect.objectContaining({ claim_token: claimToken }),
+      ]),
+      scopeLocks: expect.arrayContaining([
+        expect.objectContaining({
+          claim_token: claimToken,
+          scope_ref: "wi:60388",
+          lifecycle_state: "active",
+        }),
+      ]),
+    });
+  });
+
   it("fails closed with deterministic diagnostics when post-mutation graph facts are missing", async () => {
     const rootDir = await createVerificationRepo();
     const claimToken = seedClaim(rootDir, {

@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import {
   createRecord,
@@ -235,6 +235,16 @@ function resolveRuntimeRecordSubjects(options: {
   rootDir: string;
   claimToken: string;
 }): string[] {
+  const runtimeDatabasePath = path.resolve(
+    options.rootDir,
+    ".doc-vader",
+    "runtime",
+    "runtime.sqlite",
+  );
+  if (!existsSync(runtimeDatabasePath)) {
+    return [];
+  }
+
   const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
   try {
     const runtimeClaim = store.getClaimByToken(options.claimToken);

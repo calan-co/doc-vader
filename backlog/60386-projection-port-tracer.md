@@ -30,6 +30,10 @@ tags:
 Create the first graph-aligned projection port so Doc-Vader can expose a stable
 overlay graph without forcing commands to execute through the graph.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 The MVP distinction is projection versus command. The graph should make current

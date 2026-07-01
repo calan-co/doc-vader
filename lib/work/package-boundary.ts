@@ -15,6 +15,9 @@ export interface RelativeImportBoundaryCheckOptions {
 const MODULE_SPECIFIER_PATTERN =
   /\b(?:import|export)\s+(?:[^"'`]*?\s+from\s+)?["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)|\brequire\s*\(\s*["']([^"']+)["']\s*\)/g;
 
+const IGNORED_RANGE_PATTERN =
+  /\/\/[^\n\r]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g;
+
 function isRelativeModuleSpecifier(specifier: string): boolean {
   return specifier.startsWith(".");
 }
@@ -33,7 +36,17 @@ function resolvesOutsideRoot(rootDir: string, resolvedPath: string): boolean {
 }
 
 export function collectModuleSpecifiers(sourceText: string): string[] {
+  const ignoredRanges = [...sourceText.matchAll(IGNORED_RANGE_PATTERN)].map(
+    (match) => ({
+      start: match.index,
+      end: match.index + match[0].length,
+    }),
+  );
+  const startsInIgnoredRange = (index: number): boolean =>
+    ignoredRanges.some((range) => index >= range.start && index < range.end);
+
   return [...sourceText.matchAll(MODULE_SPECIFIER_PATTERN)]
+    .filter((match) => !startsInIgnoredRange(match.index))
     .map(getMatchedModuleSpecifier)
     .filter((specifier): specifier is string => specifier !== undefined);
 }

@@ -1,7 +1,7 @@
 import matter from "gray-matter";
 import yaml from "js-yaml";
 import { execFileSync } from "node:child_process";
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import * as path from "node:path";
 import type { SubjectResolverName } from "../backlog/scan-types.js";
 import {
@@ -341,6 +341,20 @@ export function runRuntimeClaimCoverageAudit(options: {
   requiredPaths: string[];
   mergeTargetRef?: string;
 }): RuntimeChangedFileAuditResult {
+  const runtimeDatabasePath = path.join(
+    options.rootDir,
+    ".doc-vader",
+    "runtime",
+    "runtime.sqlite",
+  );
+  if (!existsSync(runtimeDatabasePath)) {
+    throw new TaskCommandError(
+      "TASK_RUNTIME_CLAIM_MISSING",
+      `Task '${options.taskId}' has no active runtime claim.`,
+      { taskId: options.taskId },
+    );
+  }
+
   const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
   try {
     const claim = store.getClaimByTarget("task", options.taskId);

@@ -231,6 +231,7 @@ const WORK_GRAPH_EDGE_TYPES = [
   "implements",
   "locks",
   "records",
+  "references",
 ] as const satisfies readonly WorkGraphEdgeType[];
 
 const WORK_GRAPH_QUERY_FORMATS = [

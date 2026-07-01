@@ -303,7 +303,7 @@ describe("work graph UAC review fixture", () => {
     expect(parsedExport.command).toBe("export");
     expect(parsedExport.summary).toEqual({
       nodeCount: 8,
-      edgeCount: 10,
+      edgeCount: 12,
       diagnosticCount: 1,
       nodeTypes: [
         { type: "scope", count: 4 },
@@ -312,16 +312,16 @@ describe("work graph UAC review fixture", () => {
         { type: "record", count: 1 },
       ],
       edgeTypes: [
-        { type: "records", count: 3 },
+        { type: "records", count: 4 },
         { type: "belongs_to", count: 2 },
+        { type: "depends_on", count: 2 },
         { type: "locks", count: 2 },
-        { type: "depends_on", count: 1 },
         { type: "implements", count: 1 },
         { type: "references", count: 1 },
       ],
     });
     expect(parsedExport.nodes).toHaveLength(8);
-    expect(parsedExport.edges).toHaveLength(10);
+    expect(parsedExport.edges).toHaveLength(12);
     expect(parsedExport.diagnostics).toEqual([
       {
         classification: "unsupported",

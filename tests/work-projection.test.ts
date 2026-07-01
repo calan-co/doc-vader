@@ -313,13 +313,31 @@ Projection remains deterministic.
     const dependsOn = projection
       .getOutgoingEdges("wi:60386")
       .filter((edge) => edge.type === "depends_on");
-    expect(dependsOn).toHaveLength(1);
-    expect(dependsOn[0]?.from).toBe("wi:60386");
-    expect(dependsOn[0]?.to).toBe("wi:60384");
-    expect(dependsOn[0]?.direction).toBe("authored");
+    expect(dependsOn).toHaveLength(2);
+    expect(dependsOn).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "wi:60386::depends_on::wi:60384::frontmatter::backlog/60386-projection-port-tracer.md::depends_on::[[wi-60384]]",
+          from: "wi:60386",
+          to: "wi:60384",
+          direction: "authored",
+          source: expect.objectContaining({ kind: "frontmatter" }),
+        }),
+        expect.objectContaining({
+          id: "wi:60386::depends_on::wi:60384",
+          from: "wi:60386",
+          to: "wi:60384",
+          direction: "authored",
+          source: expect.objectContaining({ kind: "relationships" }),
+        }),
+      ]),
+    );
 
     const incomingToDependency = projection.getIncomingEdges("wi:60384");
-    expect(incomingToDependency.map((edge) => edge.type)).toEqual(["depends_on"]);
+    expect(incomingToDependency.map((edge) => edge.type)).toEqual([
+      "depends_on",
+      "depends_on",
+    ]);
 
     const belongsTo = projection
       .getOutgoingEdges("wi:60386")
@@ -359,6 +377,20 @@ Projection remains deterministic.
         }),
       }),
     ]);
+  });
+
+  it("surfaces runtime sqlite read failures when the runtime database exists", async () => {
+    const rootDir = await createTempRepo();
+    await mkdir(path.join(rootDir, ".doc-vader", "runtime"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(rootDir, ".doc-vader", "runtime", "runtime.sqlite"),
+      "not a sqlite database",
+      "utf8",
+    );
+
+    await expect(buildProjection(rootDir)).rejects.toThrow();
   });
 
   it("projects active claim scope locks as authored claim-to-scope lock edges", async () => {
@@ -592,51 +624,61 @@ Projected lineage stays queryable.
     const projection = await buildProjection(rootDir);
     const recordEdges = projection.getEdgesByType("records");
 
-    expect(recordEdges).toEqual([
-      expect.objectContaining({
-        id: `record:claim-scope-audit::records::claim:${claimToken}`,
-        type: "records",
-        from: "record:claim-scope-audit",
-        to: `claim:${claimToken}`,
-        direction: "authored",
-        properties: expect.objectContaining({
-          recordKind: "audit-note",
-          subject: `claim:${claimToken}`,
+    expect(recordEdges).toHaveLength(5);
+    expect(recordEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: `record:claim-scope-audit::records::claim:${claimToken}`,
+          type: "records",
+          from: "record:claim-scope-audit",
+          to: `claim:${claimToken}`,
+          direction: "authored",
+          properties: expect.objectContaining({
+            recordKind: "audit-note",
+            subject: `claim:${claimToken}`,
+          }),
         }),
-      }),
-      expect.objectContaining({
-        id: "record:claim-scope-audit::records::scope:wi:60390",
-        type: "records",
-        from: "record:claim-scope-audit",
-        to: "scope:wi:60390",
-        direction: "authored",
-        properties: expect.objectContaining({
-          recordKind: "audit-note",
-          subject: "wi:60390",
+        expect.objectContaining({
+          id: "record:claim-scope-audit::records::scope:wi:60390",
+          type: "records",
+          from: "record:claim-scope-audit",
+          to: "scope:wi:60390",
+          direction: "authored",
+          properties: expect.objectContaining({
+            recordKind: "audit-note",
+            subject: "wi:60390",
+          }),
         }),
-      }),
-      expect.objectContaining({
-        id: "record:claim-scope-audit::records::scope:wi:60391",
-        type: "records",
-        from: "record:claim-scope-audit",
-        to: "scope:wi:60391",
-        direction: "authored",
-        properties: expect.objectContaining({
-          recordKind: "audit-note",
-          subject: "wi:60391",
+        expect.objectContaining({
+          id: "record:claim-scope-audit::records::scope:wi:60391",
+          type: "records",
+          from: "record:claim-scope-audit",
+          to: "scope:wi:60391",
+          direction: "authored",
+          properties: expect.objectContaining({
+            recordKind: "audit-note",
+            subject: "wi:60391",
+          }),
         }),
-      }),
-      expect.objectContaining({
-        id: "record:claim-scope-audit::records::wi:60390",
-        type: "records",
-        from: "record:claim-scope-audit",
-        to: "wi:60390",
-        direction: "authored",
-        properties: expect.objectContaining({
-          recordKind: "audit-note",
-          subject: "[[60390-record-edges-and-audit-lineage]]",
+        expect.objectContaining({
+          type: "records",
+          from: "record:claim-scope-audit",
+          to: "wi:60390",
+          direction: "authored",
+          source: expect.objectContaining({ kind: "frontmatter" }),
         }),
-      }),
-    ]);
+        expect.objectContaining({
+          type: "records",
+          from: "record:claim-scope-audit",
+          to: "wi:60390",
+          direction: "authored",
+          source: expect.objectContaining({ kind: "relationships" }),
+          properties: expect.objectContaining({
+            recordKind: "audit-note",
+            subject: "[[60390-record-edges-and-audit-lineage]]",
+          }),
+        }),
+      ]),
+    );
   });
 });

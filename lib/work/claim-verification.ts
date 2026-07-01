@@ -12,6 +12,7 @@ import {
 import {
   projectWorkGraph,
   type ProjectWorkGraphOptions,
+  type RuntimeProjectionState,
   type WorkGraphEdge,
   type WorkGraphProjection,
 } from "./projection.js";
@@ -245,15 +246,22 @@ export async function renewWorkClaimWithGraphVerification(
   const store = openRuntimeSqliteStore({ rootDir });
   let renewal: RuntimeClaimRenewalResult;
   let activeScopeLocks: RuntimeScopeLockRecord[] = [];
+  let postRenewalRuntimeState: RuntimeProjectionState | undefined;
   try {
     renewal = store.renewRuntimeClaim(options.claimToken, {
       now: options.now,
       ttlMilliseconds: options.ttlMilliseconds,
     });
     if (renewal.outcome === "renewed") {
-      activeScopeLocks = store
-        .listScopeLocksByClaimToken(options.claimToken)
-        .filter((lock) => lock.lifecycle_state === "active");
+      postRenewalRuntimeState = {
+        claims: store.listClaims(),
+        scopeLocks: store.listScopeLocks(),
+      };
+      activeScopeLocks = postRenewalRuntimeState.scopeLocks.filter(
+        (lock) =>
+          lock.claim_token === options.claimToken &&
+          lock.lifecycle_state === "active",
+      );
     }
   } finally {
     store.close();
@@ -263,7 +271,11 @@ export async function renewWorkClaimWithGraphVerification(
     return renewal;
   }
 
-  const after = await project({ rootDir, workspaceDirs });
+  const after = await project({
+    rootDir,
+    workspaceDirs,
+    runtimeState: postRenewalRuntimeState,
+  });
   const diagnostics = collectVerificationDiagnostics({
     projection: after,
     claim: renewal.claim,

@@ -85,6 +85,19 @@ await import("../runtime/index.js");
     ]);
   });
 
+  it("ignores import-like text inside comments and string literals", () => {
+    expect(
+      collectModuleSpecifiers(`
+// import "../commented.js";
+/* export { x } from "../block-commented.js"; */
+const example = "require('../string-literal.js')";
+import "../real.js";
+await import("../dynamic.js");
+const actual = require("../actual-require.js");
+`),
+    ).toEqual(["../real.js", "../dynamic.js", "../actual-require.js"]);
+  });
+
   it("flags relative imports that resolve outside the repository root", async () => {
     const repoRoot = await createTempDir();
     const filePath = path.join(repoRoot, "lib", "work", "projection.ts");

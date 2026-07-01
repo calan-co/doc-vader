@@ -1079,6 +1079,59 @@ Helper policy document that should stay diagnostic-only.
     15000,
   );
 
+  it("allows filtering references edges from the work graph CLI", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "300-reference-source.md",
+        `id: wi-300
+title: Reference Source
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+priority: medium
+links:
+  reference:
+    - '[[301-reference-target]]'`,
+      );
+      await writeTask(
+        root,
+        "301-reference-target.md",
+        `id: wi-301
+title: Reference Target
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+priority: medium`,
+      );
+
+      const references = runCliJson<{
+        edges: Array<{ type: string; from: string; to: string }>;
+      }>(root, [
+        "work",
+        "graph",
+        "edges",
+        "--format",
+        "json",
+        "--edge-type",
+        "references",
+      ]);
+
+      expect(references.edges).toEqual([
+        expect.objectContaining({
+          type: "references",
+          from: "wi:300",
+          to: "wi:301",
+        }),
+      ]);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails closed for missing, ambiguous, and archived task ids", async () => {
     const root = await mkTmpRoot();
     try {
@@ -2615,6 +2668,10 @@ Trigger a projection diagnostic for status.
           {
             type: "belongs_to",
             target: "[[project-work-graph-uac-review]]",
+          },
+          {
+            type: "depends_on",
+            target: "[[70002-work-graph-uac-dependency]]",
           },
           {
             type: "depends_on",
@@ -4279,6 +4336,49 @@ tags:
           "utf8",
         ),
       ).resolves.toContain("Focused tests passed");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not create runtime sqlite while checking optional runtime subjects", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "205-record-no-runtime.md",
+        `id: wi-205-no-runtime
+title: Record Without Runtime
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      const claim = await claimTask("wi-205-no-runtime", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+
+      await expect(
+        recordTaskEvidence({
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          claimId: claim.claimId,
+          type: "test-result",
+          dryRun: true,
+          payload: validateTaskRecordPayload({
+            id: "record:wi-205-no-runtime-evidence",
+            summary: "Task validation passed",
+            observation: "No runtime DB should be initialized.",
+            outcome: "pass",
+          }),
+        }),
+      ).rejects.toMatchObject({ code: "TASK_RUNTIME_CLAIM_MISSING" });
+      await expect(
+        fs.stat(path.join(root, ".doc-vader", "runtime", "runtime.sqlite")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
