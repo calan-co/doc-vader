@@ -28,10 +28,10 @@ export interface TaskRecoveryGitState {
 }
 
 const DEFAULT_MERGE_TARGET_CANDIDATES = [
-  "main",
-  "master",
   "origin/main",
   "origin/master",
+  "main",
+  "master",
   "HEAD",
 ] as const;
 

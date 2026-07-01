@@ -13,6 +13,7 @@ import {
   type WorkGraphProjectionDiagnostic,
 } from "../work/projection.js";
 import { canonicalizeWorkItemScopeRef } from "../work/scope-ref.js";
+import { stripWikiLink } from "../work/wiki-link.js";
 
 type StatusRelationshipType = "belongs_to" | "depends_on" | "implements";
 type StatusDiagnosticScope = "formal" | "informational";
@@ -126,21 +127,6 @@ function asLinkArray(value: unknown): string[] {
   return value
     .map((entry) => asLinkTarget(entry))
     .filter((entry): entry is string => Boolean(entry));
-}
-
-function stripInlineCode(value: string): string {
-  const trimmed = value.trim();
-  return trimmed.startsWith("`") && trimmed.endsWith("`")
-    ? trimmed.slice(1, -1).trim()
-    : trimmed;
-}
-
-function stripWikiLink(value: string): string {
-  const target = value
-    .replace(/^\[\[/u, "")
-    .replace(/\]\]$/u, "")
-    .split("|", 1)[0]!;
-  return stripInlineCode(target).split("#", 1)[0]!.trim();
 }
 
 function stripMarkdownExtension(value: string): string {

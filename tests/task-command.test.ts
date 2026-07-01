@@ -2749,7 +2749,7 @@ Trigger a projection diagnostic for status.
     },
   );
 
-  it("uses remote default refs before HEAD for branch diff recovery paths", async () => {
+  it("prefers remote default refs over stale local branches for branch diff recovery paths", async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
@@ -2759,15 +2759,25 @@ Trigger a projection diagnostic for status.
         cwd: root,
         stdio: "ignore",
       });
+      execFileSync("git", ["switch", "-c", "remote-main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(
+        path.join(root, "remote-only.txt"),
+        "remote\n",
+        "utf8",
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: remote main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
       execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], {
         cwd: root,
         stdio: "ignore",
       });
       execFileSync("git", ["switch", "-c", "sandcastle/issue-remote-main"], {
-        cwd: root,
-        stdio: "ignore",
-      });
-      execFileSync("git", ["branch", "-D", "main"], {
         cwd: root,
         stdio: "ignore",
       });
@@ -2788,9 +2798,9 @@ tags:
         stdio: "ignore",
       });
 
-      expect(collectBranchDiffPaths(root)).toContain(
-        "backlog/106-remote-main-diff.md",
-      );
+      const branchDiffPaths = collectBranchDiffPaths(root);
+      expect(branchDiffPaths).toContain("backlog/106-remote-main-diff.md");
+      expect(branchDiffPaths).not.toContain("remote-only.txt");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

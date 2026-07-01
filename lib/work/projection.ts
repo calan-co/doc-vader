@@ -8,6 +8,7 @@ import {
   type RuntimeScopeLockRecord,
 } from "../runtime/index.js";
 import { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
+import { stripWikiLink } from "./wiki-link.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -194,20 +195,6 @@ function unique(values: string[]): string[] {
 }
 
 const FORMAL_FRONTMATTER_LINK_KEYS = new Set(["depends_on", "evidence"]);
-
-function stripInlineCode(value: string): string {
-  const trimmed = value.trim();
-  return trimmed.startsWith("`") && trimmed.endsWith("`")
-    ? trimmed.slice(1, -1).trim()
-    : trimmed;
-}
-
-function stripWikiLink(value: string): string {
-  const trimmed = value.trim();
-  const withoutBrackets = trimmed.replace(/^\[\[/, "").replace(/\]\]$/, "");
-  const target = withoutBrackets.split("|", 1)[0] ?? "";
-  return stripInlineCode(target).split("#", 1)[0]?.trim() ?? "";
-}
 
 function stripMarkdownExtension(value: string): string {
   return value.replace(/\.md$/i, "");
