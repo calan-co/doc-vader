@@ -16,6 +16,8 @@ links:
     - "[[60398-graph-informed-work-ready-migration]]"
   reference:
     - "[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]"
+  evidence:
+    - '[[task-record-preflight|2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
 tags:
   - afk
   - cli
@@ -28,6 +30,10 @@ tags:
 Make `dv work status`, `dv wi status`, and compatibility aliases graph-informed
 for relationship and projection diagnostics while keeping runtime sqlite and git
 state authoritative for operational status.
+
+## Notes
+
+- 2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 
 ## Background
 

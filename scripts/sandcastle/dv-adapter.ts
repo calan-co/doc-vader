@@ -797,7 +797,9 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
     ...(transitionPlan?.lockPaths ?? []),
   ]);
 
-  let preReleaseTaskSnapshot: string | undefined;
+  const preReleaseTaskSnapshot = task.file
+    ? readTextFile(path.resolve(repoRoot(), task.file))
+    : undefined;
   try {
     if (lockPaths.length > 0) {
       runDv(["lock", "create", "--claim", claim.claimId, ...lockPaths, "--json"]);
@@ -844,10 +846,6 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
         ...settings.passThroughArgs,
       ],
     );
-
-    if (task.file) {
-      preReleaseTaskSnapshot = readTextFile(path.resolve(repoRoot(), task.file));
-    }
 
     const release = json<JsonRecord>(
       [
@@ -920,11 +918,46 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
 }
 
 function releaseTask(taskId: string, args: string[]): void {
-  const holder = process.env.SANDCASTLE_CLAIM_HOLDER;
-  const claims = activeRuntimeClaimsForTask(taskId, holder);
+  const explicitClaimId = optionValue(args, "--claim");
+  const holder = optionValue(args, "--holder") ?? process.env.SANDCASTLE_CLAIM_HOLDER;
+  const claims = explicitClaimId
+    ? [
+        withRuntimeStore((store) => {
+          const claim = store.getClaimByToken(explicitClaimId);
+          if (!claim || claim.target_type !== "task") {
+            fail(`No active runtime task claim found for ${explicitClaimId}.`);
+          }
+          if (claim.target_id !== normalizeTaskId(taskId)) {
+            fail(
+              `Runtime claim '${explicitClaimId}' does not belong to task '${normalizeTaskId(taskId)}'.`,
+            );
+          }
+          if (claim.state !== "active") {
+            fail(`Runtime claim '${explicitClaimId}' is not active.`);
+          }
+          return runtimeClaimStatus(claim);
+        }),
+      ]
+    : activeRuntimeClaimsForTask(taskId, holder);
+  if (!holder && !explicitClaimId && claims.length > 1) {
+    fail(
+      `Task '${normalizeTaskId(taskId)}' has multiple active runtime claims. Pass --claim or --holder.`,
+    );
+  }
+  if (claims.length === 0) {
+    fail(
+      `Task '${normalizeTaskId(taskId)}' has no active runtime claim. Pass --claim or claim the task first.`,
+    );
+  }
   const claimById = new Map(claims.map((claim) => [claim.claimId, claim]));
   const forwardedArgs = ensureOption(
-    hasOption(args, "--outcome") ? args : ["--outcome", "cancelled", ...args],
+    hasOption(args, "--outcome")
+      ? stripOption(stripOption(args, "--claim"), "--holder")
+      : [
+          "--outcome",
+          "cancelled",
+          ...stripOption(stripOption(args, "--claim"), "--holder"),
+        ],
     "--json",
   );
   const released = claims.map((claim) => {

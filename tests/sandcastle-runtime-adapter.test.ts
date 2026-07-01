@@ -846,7 +846,7 @@ throw new Error("Transition script failed after evidence recording.");
         path.join(rootDir, "backlog", "204-close-failure.md"),
         "utf8",
       );
-      expect(failedTaskDocument).toContain("[[record-wi-204-close]]");
+      expect(failedTaskDocument).not.toContain("[[record-wi-204-close]]");
       expect(failedTaskDocument).toContain("status: ready");
 
       withRuntimeStore(rootDir, (store) => {

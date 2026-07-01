@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -82,6 +83,7 @@ describe("sandcastle init template args wiring", () => {
 
     for (const fragment of [
       sandcastleInitTemplateArgs.ISSUE_TRACKER_TOOLS,
+      `${sandcastleInitTemplateArgs.RECORD_TASK_COMMAND} --claim <claim-id> --type <record-type> --payload <json-file|-> --json`,
       `${sandcastleInitTemplateArgs.CLOSE_TASK_COMMAND} <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`,
       "[`docs/how-to/sandcastle-dogfood-task-flow.md`](../docs/how-to/sandcastle-dogfood-task-flow.md)",
       "Treat completed backlog items as history only; the guide above plus these",
@@ -101,5 +103,41 @@ describe("sandcastle init template args wiring", () => {
         ).toBe(normalizeLineEndings(content));
       }),
     );
+  });
+
+  it("writes rendered artifacts when requested", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "doc-vader-sandcastle-init-"));
+    try {
+      for (const relativePath of [
+        "scripts/sandcastle/templates/plan-prompt.md.tpl",
+        "scripts/sandcastle/templates/implement-prompt.md.tpl",
+        "scripts/sandcastle/templates/SETUP_ISSUE_TRACKER.md.tpl",
+      ] as const) {
+        const destination = path.join(rootDir, relativePath);
+        await mkdir(path.dirname(destination), { recursive: true });
+        await writeFile(
+          destination,
+          await readFile(path.join(repoRoot, relativePath), "utf8"),
+          "utf8",
+        );
+      }
+
+      const rendered = await renderSandcastleInitArtifacts({
+        rootDir,
+        write: true,
+      });
+
+      await Promise.all(
+        rendered.map(async (artifact) => {
+          expect(
+            normalizeLineEndings(
+              await readFile(path.join(rootDir, artifact.outputRelativePath), "utf8"),
+            ),
+          ).toBe(normalizeLineEndings(artifact.content));
+        }),
+      );
+    } finally {
+      await rm(rootDir, { recursive: true, force: true });
+    }
   });
 });

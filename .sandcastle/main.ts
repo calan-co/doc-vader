@@ -423,6 +423,25 @@ const completedUnmergedIssues = (): PlannedIssue[] => {
   return issues;
 };
 
+const dirtyPathsFromPorcelainLine = (line: string): string[] => {
+  const entry = line.trimEnd();
+  if (!entry.trim()) {
+    return [];
+  }
+
+  const status = entry.slice(0, 2);
+  const rawPath = entry.slice(3).trim();
+  if (!rawPath) {
+    return [];
+  }
+
+  if ((status.includes("R") || status.includes("C")) && rawPath.includes(" -> ")) {
+    return rawPath.split(" -> ").map((file) => file.trim()).filter(Boolean);
+  }
+
+  return [rawPath];
+};
+
 const dirtyFilesForBranchWorktree = (branch: string) => {
   const worktreePath = worktreePathForBranch(branch);
   if (!fs.existsSync(worktreePath)) {
@@ -431,10 +450,7 @@ const dirtyFilesForBranchWorktree = (branch: string) => {
 
   return gitOutput(["-C", worktreePath, "status", "--porcelain=v1"])
     .split("\n")
-    .map((line: string) => line.trim())
-    .filter(Boolean)
-    .map((line: string) => line.replace(/^.. /, ""))
-    .map((file: string) => file.split(" -> ").at(-1) ?? file)
+    .flatMap(dirtyPathsFromPorcelainLine)
     .filter(Boolean);
 };
 

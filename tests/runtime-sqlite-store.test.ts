@@ -1038,6 +1038,29 @@ describe("runtime sqlite store", () => {
           },
         ],
       });
+
+      const reacquired = store.acquireRuntimeScopeLocks(claim.claimToken, [
+        { scopeRef: "record:scope-evidence", lockMode: "write" },
+      ]);
+      expect(reacquired).toMatchObject({
+        outcome: "acquired",
+        locks: [
+          {
+            scope_ref: "record:scope-evidence",
+            lock_mode: "write",
+            lifecycle_state: "active",
+          },
+        ],
+      });
+      const scopeEvidenceLocks = store
+        .listScopeLocksByClaimToken(claim.claimToken)
+        .filter((lock) => lock.scope_ref === "record:scope-evidence");
+      expect(scopeEvidenceLocks).toHaveLength(1);
+      expect(scopeEvidenceLocks[0]).toMatchObject({
+        lifecycle_state: "active",
+        lock_mode: "write",
+      });
+      expect(scopeEvidenceLocks[0]).not.toHaveProperty("released_at");
     } finally {
       store.close();
     }

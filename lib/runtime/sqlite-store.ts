@@ -2820,6 +2820,33 @@ export class RuntimeSqliteStore {
     )!;
   }
 
+  reactivateScopeLock(lock: RuntimeScopeLock): RuntimeScopeLockRecord {
+    assertRuntimeScopeLock(lock);
+    this.database.prepare(
+      `UPDATE claim_scope_locks
+       SET policy_name = ?,
+           acquired_at = ?,
+           updated_at = ?,
+           lifecycle_state = 'active',
+           released_at = NULL,
+           metadata = ?
+       WHERE claim_token = ? AND scope_ref = ? AND lock_mode = ?`,
+    ).run(
+      lock.policy_name,
+      lock.acquired_at,
+      lock.updated_at,
+      lock.metadata === undefined ? null : stringifyCanonicalJson(lock.metadata),
+      lock.claim_token,
+      lock.scope_ref,
+      lock.lock_mode,
+    );
+    return this.getScopeLockByClaimTokenAndScopeRef(
+      lock.claim_token,
+      lock.scope_ref,
+      lock.lock_mode,
+    )!;
+  }
+
   getScopeLockByClaimTokenAndScopeRef(
     claimToken: string,
     scopeRef: string,
@@ -2885,25 +2912,27 @@ export class RuntimeSqliteStore {
       }
 
       const acquired = uniqueRequests.map((request) => {
+        const lockPayload = createScopeLockInsertPayload({
+          claimToken,
+          scopeRef: request.scopeRef,
+          lockMode: request.lockMode,
+          policyName: request.policyName,
+          acquiredAt: new Date().toISOString(),
+          ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
+        });
         const existing = this.getScopeLockByClaimTokenAndScopeRef(
           claimToken,
           request.scopeRef,
           request.lockMode,
         );
-        if (existing) {
+        if (existing?.lifecycle_state === "active") {
           return existing;
         }
+        if (existing) {
+          return this.reactivateScopeLock(lockPayload);
+        }
 
-        return this.insertScopeLock(
-          createScopeLockInsertPayload({
-            claimToken,
-            scopeRef: request.scopeRef,
-            lockMode: request.lockMode,
-            policyName: request.policyName,
-            acquiredAt: new Date().toISOString(),
-            ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
-          }),
-        );
+        return this.insertScopeLock(lockPayload);
       });
 
       return {

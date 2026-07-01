@@ -15,6 +15,8 @@ links:
     - '[[60410-sandcastle-planning-list-surface]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+  evidence:
+    - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
 tags:
   - afk
   - sandcastle
@@ -26,6 +28,10 @@ tags:
 
 Make Sandcastle claim, release, lock guidance, and recovery behavior flow
 through `dv` runtime authority instead of adapter-local claim state.
+
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 
 ## Background
 

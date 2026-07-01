@@ -27,7 +27,13 @@ export interface TaskRecoveryGitState {
   resumeWarnings: string[];
 }
 
-const DEFAULT_MERGE_TARGET_CANDIDATES = ["main", "master", "HEAD"] as const;
+const DEFAULT_MERGE_TARGET_CANDIDATES = [
+  "main",
+  "master",
+  "origin/main",
+  "origin/master",
+  "HEAD",
+] as const;
 
 function gitOutput(rootDir: string, args: string[]): string {
   return execFileSync("git", args, {

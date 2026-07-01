@@ -15,6 +15,8 @@ links:
     - '[[60412-sandcastle-claim-and-recovery-surface]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+  evidence:
+    - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
 tags:
   - afk
   - sandcastle
@@ -26,6 +28,10 @@ tags:
 
 Make Sandcastle completion use `dv4sandcastle close` over repository-configured
 transition behavior, Doc-Vader evidence, and runtime release semantics.
+
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 
 ## Background
 

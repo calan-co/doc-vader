@@ -11,13 +11,14 @@ artifacts instead of hand-edited prompt text.
 
 ## Generated Adapter Commands
 
-- List planning candidates: `node --import tsx scripts/sandcastle/dv4sandcastle.ts list`
-- View canonical work item state: `node --import tsx scripts/sandcastle/dv4sandcastle.ts view <task-id>`
-- Render implementation context: `node --import tsx scripts/sandcastle/dv4sandcastle.ts prompt <task-id>`
-- Claim work: `node --import tsx scripts/sandcastle/dv4sandcastle.ts claim-task <task-id> --holder <holder> --branch <branch> --json`
-- Inspect lock ownership: `node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json`
-- Recover halted work: `node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json`
-- Close through repository transition behavior: `node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`
+- List planning candidates: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" list`
+- View canonical work item state: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" view <task-id>`
+- Render implementation context: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" prompt <task-id>`
+- Claim work: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" claim-task <task-id> --holder <holder> --branch <branch> --json`
+- Inspect lock ownership: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" lock-status --claim <claim-id> --json`
+- Record evidence: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" record-task --claim <claim-id> --type <record-type> --payload <json-file|-> --json`
+- Recover halted work: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" recover-task <task-id> --branch <branch> --json`
+- Close through repository transition behavior: `node --import tsx "$(git rev-parse --show-toplevel)/scripts/sandcastle/dv4sandcastle.ts" close-task <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`
 
 ## Durable Guidance
 
@@ -28,8 +29,8 @@ artifacts instead of hand-edited prompt text.
 
 ## Tracker Tools
 
-# Doc-Vader custom issue tracker: uses the repository checkout, Node.js, and tsx.
-# No external issue-tracker CLI install is required.
+Doc-Vader custom issue tracker uses the repository checkout, Node.js, and tsx.
+No external issue-tracker CLI install is required.
 
 ## Update Flow
 

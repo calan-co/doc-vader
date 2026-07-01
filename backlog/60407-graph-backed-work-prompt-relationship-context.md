@@ -16,6 +16,8 @@ links:
     - "[[60396-graph-backed-work-show-relationships]]"
   reference:
     - "[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]"
+  evidence:
+    - '[[task-record-preflight|2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
 tags:
   - afk
   - cli
@@ -28,6 +30,10 @@ tags:
 Make `dv work prompt`, `dv wi prompt`, and compatibility aliases use graph
 facts for relationship context while preserving the canonical Work Item body and
 execution instructions.
+
+## Notes
+
+- 2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 
 ## Background
 

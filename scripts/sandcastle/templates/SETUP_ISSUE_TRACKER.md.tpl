@@ -16,6 +16,7 @@ artifacts instead of hand-edited prompt text.
 - Render implementation context: `{{PROMPT_TASK_COMMAND}} <task-id>`
 - Claim work: `{{CLAIM_TASK_COMMAND}} <task-id> --holder <holder> --branch <branch> --json`
 - Inspect lock ownership: `{{LOCK_STATUS_COMMAND}} --claim <claim-id> --json`
+- Record evidence: `{{RECORD_TASK_COMMAND}} --claim <claim-id> --type <record-type> --payload <json-file|-> --json`
 - Recover halted work: `{{RECOVER_TASK_COMMAND}} <task-id> --branch <branch> --json`
 - Close through repository transition behavior: `{{CLOSE_TASK_COMMAND}} <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`
 

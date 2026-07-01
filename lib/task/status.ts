@@ -128,8 +128,19 @@ function asLinkArray(value: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
+function stripInlineCode(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.startsWith("`") && trimmed.endsWith("`")
+    ? trimmed.slice(1, -1).trim()
+    : trimmed;
+}
+
 function stripWikiLink(value: string): string {
-  return value.replace(/^\[\[/u, "").replace(/\]\]$/u, "").split("|", 1)[0]!.trim();
+  const target = value
+    .replace(/^\[\[/u, "")
+    .replace(/\]\]$/u, "")
+    .split("|", 1)[0]!;
+  return stripInlineCode(target).split("#", 1)[0]!.trim();
 }
 
 function stripMarkdownExtension(value: string): string {

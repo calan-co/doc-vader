@@ -1900,12 +1900,15 @@ function registerWorkCommandSurface(surface: Command): void {
         try {
           const ttlMinutes =
             typeof opts.ttlMinutes === "string"
-              ? Number.parseInt(opts.ttlMinutes, 10)
+              ? Number(opts.ttlMinutes)
               : undefined;
-          if (ttlMinutes !== undefined && !Number.isFinite(ttlMinutes)) {
+          if (
+            ttlMinutes !== undefined &&
+            (!Number.isInteger(ttlMinutes) || ttlMinutes <= 0)
+          ) {
             throw new TaskCommandError(
               "TASK_CLAIM_INVALID_TTL",
-              "Claim TTL must be a finite number of minutes."
+              "Claim TTL must be a positive whole number of minutes."
             );
           }
           const initialRootDir = resolveGitRoot(opts.worktree);

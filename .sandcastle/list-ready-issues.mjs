@@ -267,6 +267,21 @@ const gitOutput = (args) =>
 const readGitFile = (branch, file) =>
   execFileSync("git", ["show", `${branch}:${file}`], { encoding: "utf8" });
 
+const tryReadGitFile = (branch, file) => {
+  try {
+    return readGitFile(branch, file);
+  } catch {
+    return undefined;
+  }
+};
+
+const issueContentMatchesId = (file, parsed, id) => {
+  const frontmatterId = normalizeRef(
+    parsed.frontmatter.id ?? path.basename(file, ".md"),
+  );
+  return frontmatterId === id || path.basename(file).startsWith(`${id}-`);
+};
+
 const backlogFilesInBranch = (branch) =>
   gitOutput(["ls-tree", "-r", "--name-only", branch, BACKLOG_DIR])
     .split("\n")
@@ -282,11 +297,8 @@ const readBranchIssueContent = (branch, id) => {
   for (const file of backlogFilesInBranch(branch)) {
     const content = readGitFile(branch, file);
     const parsed = parseFrontmatter(content, `${branch}:${file}`);
-    const frontmatterId = normalizeRef(
-      parsed.frontmatter.id ?? path.basename(file, ".md"),
-    );
 
-    if (frontmatterId === id || path.basename(file).startsWith(`${id}-`)) {
+    if (issueContentMatchesId(file, parsed, id)) {
       return { file, parsed };
     }
   }
@@ -301,7 +313,14 @@ const readBranchItem = (item) => {
   }
 
   try {
-    const { parsed } = readBranchIssueContent(branch, item.id);
+    const directContent = tryReadGitFile(branch, item.file);
+    const directParsed = directContent
+      ? parseFrontmatter(directContent, `${branch}:${item.file}`)
+      : undefined;
+    const { parsed } =
+      directParsed && issueContentMatchesId(item.file, directParsed, item.id)
+        ? { file: item.file, parsed: directParsed }
+        : readBranchIssueContent(branch, item.id);
 
     return {
       branch,

@@ -18,8 +18,8 @@ links:
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
   evidence:
-    - '[[task-record-preflight]]'
-    - '[[record-wi-60416-sandcastle-smoke]]'
+    - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
+    - '[[record-wi-60416-sandcastle-smoke|2026-06-30 smoke evidence]]'
 tags:
   - afk
   - sandcastle
@@ -31,6 +31,10 @@ tags:
 
 Prove Doc-Vader is Sandcastle-ready with an end-to-end smoke that exercises the
 generated scaffold and partial-state recovery path.
+
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 
 ## Background
 

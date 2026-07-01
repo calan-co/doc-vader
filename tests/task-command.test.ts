@@ -28,6 +28,7 @@ import {
   transitionTask,
   validateTaskTransitionPayload,
 } from "../lib/task/transition.js";
+import { collectBranchDiffPaths } from "../lib/task/recovery-state.js";
 import {
   openRuntimeSqliteStore,
   RUNTIME_SCHEMA_VERSION,
@@ -2319,6 +2320,45 @@ tags:
     }
   });
 
+  it("rejects partial or non-positive claim TTL values", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "105-ttl-claim.md",
+        `id: wi-105-ttl
+title: TTL Claim
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+
+      let output = "";
+      try {
+        runCli(root, [
+          "task",
+          "claim",
+          "105-ttl",
+          "--ttl-minutes",
+          "10abc",
+          "--json",
+        ]);
+      } catch (error) {
+        const processError = error as { stdout?: unknown; stderr?: unknown };
+        output = [processError.stdout, processError.stderr]
+          .map((value) => String(value ?? ""))
+          .join("\n");
+      }
+
+      expect(output).toContain("TASK_CLAIM_INVALID_TTL");
+      expect(output).toContain("positive whole number");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it(
     "reports execution disagreement in task show JSON and operational task status",
     { timeout: 30_000 },
@@ -2424,7 +2464,7 @@ links:
   depends_on:
     - '[[wi-109]]'
   reference:
-    - '[[wi-110]]'`,
+    - '[[\`wi-110#context\`]]'`,
           `## Goal
 
 Inspect graph-informed task status.
@@ -2582,7 +2622,7 @@ Trigger a projection diagnostic for status.
           {
             type: "references",
             sourceKey: "reference",
-            target: "[[wi-110]]",
+            target: "[[`wi-110#context`]]",
             resolvedTargetId: "wi:110",
           },
         ]);
@@ -2591,7 +2631,7 @@ Trigger a projection diagnostic for status.
           "- relationships: belongs_to=[[project:graph-status]], depends_on=[[wi-109]]",
         );
         expect(statusText).toContain(
-          "- informational references: reference=[[wi-110]]",
+          "- informational references: reference=[[`wi-110#context`]]",
         );
         expect(statusText).toContain(
           "- projection diagnostics: implements=[[../docs/how-to/implementation-plans/graph-status-prd.md]] (non-canonical-document-id)",
@@ -2708,6 +2748,53 @@ Trigger a projection diagnostic for status.
       }
     },
   );
+
+  it("uses remote default refs before HEAD for branch diff recovery paths", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-remote-main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["branch", "-D", "main"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await writeTask(
+        root,
+        "106-remote-main-diff.md",
+        `id: wi-106-remote-main-diff
+title: Remote Main Diff
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "feat: branch work"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+
+      expect(collectBranchDiffPaths(root)).toContain(
+        "backlog/106-remote-main-diff.md",
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
 
   it("resolves task status from an unambiguous sandcastle branch worktree", async () => {
     const root = await mkTmpRoot();

@@ -16,6 +16,8 @@ links:
     - '[[60408-graph-informed-work-status-read-model]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]'
+  evidence:
+    - '[[task-record-preflight|2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
 tags:
   - afk
   - cli
@@ -28,6 +30,10 @@ tags:
 Close the immutable Work command migration lane by enforcing formal-only
 authority checks, preserving informational diagnostics, and recording parity
 evidence for the migrated read-only command surfaces.
+
+## Notes
+
+- 2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 
 ## Background
 
