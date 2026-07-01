@@ -5046,7 +5046,7 @@ tags:
       "`node --import tsx scripts/sandcastle/dv4sandcastle.ts prompt <task-id>`",
       "`node --import tsx scripts/sandcastle/dv4sandcastle.ts claim-task <task-id> --holder <holder> --branch <branch> --json`",
       "`node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts record-task --claim <claim-id> --type <record-type> --payload <json-file|-> --json`",
+      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts record-task --claim <claim-id> --type <record-type> --payload <json-file\\|-> --json`",
       "`node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json`",
       "`node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`",
       "`selectable`",
