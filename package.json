@@ -18,7 +18,7 @@
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@11.7.0",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "build": "nx build doc-vader",
     "changeset": "changeset",
