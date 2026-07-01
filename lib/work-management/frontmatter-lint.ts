@@ -108,6 +108,43 @@ function addSchemaIfMissing(
   ajv.addSchema(schema);
 }
 
+function addSchemasWithDeferredReferences(
+  ajv: AjvLike,
+  schemas: readonly Record<string, unknown>[],
+): void {
+  const pending = [...schemas];
+  const failures = new Map<Record<string, unknown>, unknown>();
+
+  while (pending.length > 0) {
+    let addedCount = 0;
+
+    for (let index = 0; index < pending.length; ) {
+      const schema = pending[index];
+      try {
+        addSchemaIfMissing(ajv, schema);
+        pending.splice(index, 1);
+        failures.delete(schema);
+        addedCount += 1;
+      } catch (error) {
+        failures.set(schema, error);
+        index += 1;
+      }
+    }
+
+    if (addedCount === 0) {
+      const schema = pending[0];
+      const schemaId = typeof schema.$id === "string" ? schema.$id : "<unknown>";
+      const failure = failures.get(schema);
+      throw new Error(
+        `Failed to register schema '${schemaId}': ${
+          failure instanceof Error ? failure.message : String(failure)
+        }`,
+        { cause: failure },
+      );
+    }
+  }
+}
+
 function normalizeSeverity(value: unknown): Severity | null {
   return value === "error" || value === "warn" || value === "info"
     ? value
@@ -468,11 +505,14 @@ function loadSchemas() {
     "work-management",
   );
   const schemaFiles = [
-    ...collectSchemaFiles(workspaceFrontmatterSchemaDir),
-    ...collectSchemaFiles(workspaceWorkManagementSchemaDir),
-    ...collectSchemaFiles(SCHEMA_DIR),
-    ...collectSchemaFiles(WORK_MANAGEMENT_SCHEMA_DIR),
+    ...new Set([
+      ...collectSchemaFiles(workspaceFrontmatterSchemaDir),
+      ...collectSchemaFiles(workspaceWorkManagementSchemaDir),
+      ...collectSchemaFiles(SCHEMA_DIR),
+      ...collectSchemaFiles(WORK_MANAGEMENT_SCHEMA_DIR),
+    ]),
   ].sort();
+  const schemasToRegister: Record<string, unknown>[] = [];
   const workManagementSchemas: Record<string, unknown>[] = [];
 
   for (const schemaFile of schemaFiles) {
@@ -486,8 +526,7 @@ function loadSchemas() {
     }
 
     const schema = parseJsonFile<Record<string, unknown>>(schemaFile);
-    addSchemaIfMissing(ajv, schema);
-    addSchemaIfMissing(workManagementAjv, schema);
+    schemasToRegister.push(schema);
     if (
       schemaFile.startsWith(WORK_MANAGEMENT_SCHEMA_DIR) ||
       schemaFile.startsWith(workspaceWorkManagementSchemaDir)
@@ -495,6 +534,9 @@ function loadSchemas() {
       workManagementSchemas.push(schema);
     }
   }
+
+  addSchemasWithDeferredReferences(ajv, schemasToRegister);
+  addSchemasWithDeferredReferences(workManagementAjv, schemasToRegister);
 
   const workspaceTransitionProfilePath = join(
     workspaceWorkManagementSchemaDir,
