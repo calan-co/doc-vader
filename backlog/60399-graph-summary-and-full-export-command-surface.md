@@ -10,6 +10,8 @@ status_reason: completed
 priority: high
 estimated: 5
 completed_date: '2026-06-26'
+commits:
+  45c355eed796dd174f97fc52ef97225842da25f6: 'feat(work): merge sandcastle work graph updates'
 links:
   depends_on:
     - '[[60393-read-only-work-graph-explorer-cli]]'
@@ -20,6 +22,8 @@ links:
     - '[[../schemas/work-management/CONTEXT.md]]'
   evidence:
     - '[[record-20260701-032943-60399]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/74
 tags:
   - afk
   - cli

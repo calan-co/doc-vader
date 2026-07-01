@@ -10,14 +10,18 @@ status_reason: completed
 priority: high
 estimated: 5
 completed_date: '2026-06-29'
+commits:
+  45c355eed796dd174f97fc52ef97225842da25f6: 'feat(work): merge sandcastle work graph updates'
 links:
   depends_on:
-    - "[[60406-immutable-work-command-inventory-and-parity-harness]]"
-    - "[[60398-graph-informed-work-ready-migration]]"
+    - '[[60406-immutable-work-command-inventory-and-parity-harness]]'
+    - '[[60398-graph-informed-work-ready-migration]]'
   reference:
-    - "[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]"
+    - '[[../docs/how-to/implementation-plans/doc-vader-immutable-command-graph-migration-prd.md]]'
   evidence:
     - '[[task-record-preflight|2026-06-29: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/74
 tags:
   - afk
   - cli

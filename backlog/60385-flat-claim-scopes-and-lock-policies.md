@@ -10,6 +10,8 @@ status_reason: completed
 priority: high
 estimated: 5
 completed_date: '2026-06-25'
+commits:
+  45c355eed796dd174f97fc52ef97225842da25f6: 'feat(work): merge sandcastle work graph updates'
 links:
   depends_on:
     - '[[60384-work-command-surface-and-scoperef-canonicalization]]'
@@ -20,6 +22,8 @@ links:
     - '[[60374-lock-command-surface]]'
   evidence:
     - '[[record-20260701-032943-60385]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/74
 tags:
   - afk
   - claims

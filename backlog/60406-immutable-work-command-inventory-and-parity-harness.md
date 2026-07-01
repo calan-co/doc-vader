@@ -10,11 +10,15 @@ status_reason: completed
 priority: high
 estimated: 1
 completed_date: '2026-06-29'
+commits:
+  45c355eed796dd174f97fc52ef97225842da25f6: 'feat(work): merge sandcastle work graph updates'
 links:
   depends_on:
     - '[[60384-work-command-surface-and-scoperef-canonicalization]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/74
 tags:
   - afk
   - work-management
