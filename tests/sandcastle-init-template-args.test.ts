@@ -33,6 +33,10 @@ function requireRenderedArtifact(
   return content;
 }
 
+function normalizeLineEndings(content: string): string {
+  return content.replace(/\r\n/g, "\n");
+}
+
 describe("sandcastle init template args wiring", () => {
   it("renders committed prompt artifacts from dv4sandcastle template args", async () => {
     const rendered = await renderSandcastleInitArtifacts({ rootDir: repoRoot });
@@ -92,7 +96,9 @@ describe("sandcastle init template args wiring", () => {
 
     await Promise.all(
       [...renderedByPath.entries()].map(async ([relativePath, content]) => {
-        expect(await readFile(outputPath(relativePath), "utf8")).toBe(content);
+        expect(
+          normalizeLineEndings(await readFile(outputPath(relativePath), "utf8")),
+        ).toBe(normalizeLineEndings(content));
       }),
     );
   });
