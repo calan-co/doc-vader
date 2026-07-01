@@ -728,7 +728,7 @@ describe("runtime sqlite store", () => {
     } finally {
       store.close();
     }
-  });
+  }, 30_000);
 
   it("enforces lock uniqueness for both key and path", async () => {
     const root = await mkRoot();

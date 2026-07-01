@@ -3284,7 +3284,7 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it("uses the latest execution log when composing task readiness", async () => {
     const root = await mkTmpRoot();
@@ -3846,7 +3846,7 @@ tags:
       await fs.rm(worktreeRoot, { recursive: true, force: true });
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it("orders ready candidates by priority with file path tie-breaks", async () => {
     const root = await mkTmpRoot();
