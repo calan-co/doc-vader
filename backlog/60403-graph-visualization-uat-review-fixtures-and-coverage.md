@@ -7,9 +7,9 @@ subtype: task
 lifecycle: active
 status: completed
 status_reason: completed
-completed_date: '2026-06-26'
 priority: medium
 estimated: 4
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60399-graph-summary-and-full-export-command-surface]]'
@@ -20,6 +20,8 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-graph-visualization-and-export-prd.md]]'
     - '[[60394-work-graph-uac-review-fixtures]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
+  evidence:
+    - '[[record-20260701-032943-60403]]'
 tags:
   - afk
   - graph

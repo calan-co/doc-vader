@@ -15,6 +15,8 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
     - '[[../docs/architecture/decisions/adr-006-task-command-surface-work-item-canonical-model.md]]'
+  evidence:
+    - '[[record-20260701-032943-60384]]'
 tags:
   - afk
   - work-management

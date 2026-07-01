@@ -7,15 +7,17 @@ subtype: task
 lifecycle: active
 status: completed
 status_reason: completed
-completed_date: "2026-06-26"
 priority: high
 estimated: 4
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60393-read-only-work-graph-explorer-cli]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
+  evidence:
+    - '[[record-20260701-032943-60396]]'
 tags:
   - afk
   - cli

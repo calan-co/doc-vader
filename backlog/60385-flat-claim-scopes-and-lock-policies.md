@@ -18,6 +18,8 @@ links:
     - '[[../schemas/work-management/CONTEXT.md]]'
     - '[[60373-claim-command-surface]]'
     - '[[60374-lock-command-surface]]'
+  evidence:
+    - '[[record-20260701-032943-60385]]'
 tags:
   - afk
   - claims

@@ -1,15 +1,15 @@
 ---
 id: wi-60401
 title: Graph Viewer Filtering, Search, and Metadata Inspection
-summary: "Add the first maintainer-facing interactive review features to the standalone graph viewer: filtering, search, and metadata inspection."
+summary: 'Add the first maintainer-facing interactive review features to the standalone graph viewer: filtering, search, and metadata inspection.'
 type: work-item
 subtype: task
 lifecycle: active
 status: completed
 status_reason: completed
-completed_date: '2026-06-26'
 priority: high
 estimated: 5
+completed_date: '2026-06-26'
 links:
   depends_on:
     - '[[60400-cytoscape-adapter-and-standalone-graph-viewer-artifact]]'
@@ -17,6 +17,8 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-vader-work-graph-visualization-and-export-prd.md]]'
     - '[[60400-cytoscape-adapter-and-standalone-graph-viewer-artifact]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
+  evidence:
+    - '[[record-20260701-032943-60401]]'
 tags:
   - afk
   - graph
