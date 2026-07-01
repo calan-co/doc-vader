@@ -13,6 +13,8 @@ completed_date: '2026-06-30'
 links:
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+  evidence:
+    - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
 tags:
   - afk
   - sandcastle

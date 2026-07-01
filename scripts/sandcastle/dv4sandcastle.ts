@@ -156,9 +156,7 @@ async function main() {
       }
     }
   } catch (error) {
-    if (error instanceof Error) {
-      console.error(error.message);
-    }
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }

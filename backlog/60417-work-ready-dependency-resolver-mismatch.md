@@ -18,6 +18,7 @@ links:
     - "[[../docs/reference/work-management/foundation.md]]"
   evidence:
     - "[[task-record-preflight]]"
+    - "[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]"
     - "[[record-validation-passed-for-wi-60417-ready-dependency-resolver-fix]]"
 tags:
   - afk

@@ -17,6 +17,7 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
   evidence:
     - '[[task-record-preflight]]'
+    - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
     - '[[record-wi-60415-dv4sandcastle-docs]]'
 tags:
   - afk
