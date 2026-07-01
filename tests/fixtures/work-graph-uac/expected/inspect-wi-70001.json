@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "work-graph-explorer/v1",
+  "command": "inspect",
+  "node": {
+    "id": "wi:70001",
+    "type": "work-item",
+    "stableId": "wi:70001",
+    "label": "Work Graph UAC Review Main",
+    "source": {
+      "kind": "work-item",
+      "filePath": "backlog/70001-work-graph-uac-main.md"
+    },
+    "properties": {
+      "entityType": "work-item",
+      "frontmatterId": "wi-70001",
+      "status": "ready",
+      "lifecycle": "active",
+      "subtype": "task",
+      "summary": "Primary review node for the Work graph explorer UAC fixture."
+    }
+  },
+  "neighborhood": {
+    "nodes": [
+      {
+        "id": "record:work-graph-uac-review",
+        "type": "record",
+        "stableId": "record:work-graph-uac-review",
+        "label": "Work Graph UAC Review Evidence",
+        "source": {
+          "kind": "record",
+          "filePath": "backlog/records/record-work-graph-uac-review.md"
+        },
+        "properties": {
+          "entityType": "record",
+          "frontmatterId": "record:work-graph-uac-review",
+          "subtype": "evidence",
+          "summary": "Record fixture for Work graph review coverage."
+        }
+      },
+      {
+        "id": "scope:plan:work-graph-uac-review-prd",
+        "type": "scope",
+        "stableId": "plan:work-graph-uac-review-prd",
+        "label": "Work Graph UAC Review PRD",
+        "source": {
+          "kind": "scope",
+          "filePath": "docs/how-to/implementation-plans/work-graph-uac-review-prd.md"
+        },
+        "properties": {
+          "entityType": "scope",
+          "originType": "plan",
+          "frontmatterId": "plan:work-graph-uac-review-prd",
+          "summary": "Project-like scope target for the Work graph UAC fixture."
+        }
+      },
+      {
+        "id": "scope:project:work-graph-uac-review",
+        "type": "scope",
+        "stableId": "project:work-graph-uac-review",
+        "label": "Work Graph UAC Review Project",
+        "source": {
+          "kind": "scope",
+          "filePath": "docs/project-work-graph-uac-review.md"
+        },
+        "properties": {
+          "entityType": "scope",
+          "originType": "project",
+          "frontmatterId": "project:work-graph-uac-review",
+          "summary": "Project-like belongs_to scope target for the Work graph UAC fixture."
+        }
+      },
+      {
+        "id": "wi:70001",
+        "type": "work-item",
+        "stableId": "wi:70001",
+        "label": "Work Graph UAC Review Main",
+        "source": {
+          "kind": "work-item",
+          "filePath": "backlog/70001-work-graph-uac-main.md"
+        },
+        "properties": {
+          "entityType": "work-item",
+          "frontmatterId": "wi-70001",
+          "status": "ready",
+          "lifecycle": "active",
+          "subtype": "task",
+          "summary": "Primary review node for the Work graph explorer UAC fixture."
+        }
+      },
+      {
+        "id": "wi:70002",
+        "type": "work-item",
+        "stableId": "wi:70002",
+        "label": "Work Graph UAC Review Dependency",
+        "source": {
+          "kind": "work-item",
+          "filePath": "backlog/70002-work-graph-uac-dependency.md"
+        },
+        "properties": {
+          "entityType": "work-item",
+          "frontmatterId": "wi-70002",
+          "status": "completed",
+          "lifecycle": "active",
+          "subtype": "task"
+        }
+      }
+    ],
+    "outgoingEdges": [
+      {
+        "id": "wi:70001::belongs_to::scope:project:work-graph-uac-review",
+        "type": "belongs_to",
+        "authority": "formal",
+        "from": "wi:70001",
+        "to": "scope:project:work-graph-uac-review",
+        "direction": "authored",
+        "source": {
+          "kind": "relationships",
+          "filePath": "backlog/70001-work-graph-uac-main.md"
+        },
+        "properties": {
+          "sourceKey": "part_of",
+          "rawTarget": "[[project-work-graph-uac-review]]",
+          "resolvedTargetId": "scope:project:work-graph-uac-review",
+          "relationship": "part_of"
+        }
+      },
+      {
+        "id": "wi:70001::depends_on::wi:70002",
+        "type": "depends_on",
+        "authority": "formal",
+        "from": "wi:70001",
+        "to": "wi:70002",
+        "direction": "authored",
+        "source": {
+          "kind": "relationships",
+          "filePath": "backlog/70001-work-graph-uac-main.md"
+        },
+        "properties": {
+          "sourceKey": "depends_on",
+          "rawTarget": "[[wi-70002]]",
+          "resolvedTargetId": "wi:70002",
+          "relationship": "depends_on"
+        }
+      },
+      {
+        "id": "wi:70001::implements::scope:plan:work-graph-uac-review-prd",
+        "type": "implements",
+        "authority": "formal",
+        "from": "wi:70001",
+        "to": "scope:plan:work-graph-uac-review-prd",
+        "direction": "authored",
+        "source": {
+          "kind": "relationships",
+          "filePath": "backlog/70001-work-graph-uac-main.md"
+        },
+        "properties": {
+          "sourceKey": "implements",
+          "rawTarget": "[[../docs/how-to/implementation-plans/work-graph-uac-review-prd.md]]",
+          "resolvedTargetId": "scope:plan:work-graph-uac-review-prd",
+          "relationship": "implements"
+        }
+      },
+      {
+        "id": "wi:70001::references::wi:70002",
+        "type": "references",
+        "authority": "informational",
+        "from": "wi:70001",
+        "to": "wi:70002",
+        "direction": "authored",
+        "source": {
+          "kind": "frontmatter",
+          "filePath": "backlog/70001-work-graph-uac-main.md"
+        },
+        "properties": {
+          "sourceKey": "reference",
+          "rawTarget": "[[70002-work-graph-uac-dependency]]",
+          "resolvedTargetId": "wi:70002",
+          "frontmatterId": "wi-70001"
+        }
+      }
+    ],
+    "incomingEdges": [
+      {
+        "id": "record:work-graph-uac-review::records::wi:70001",
+        "type": "records",
+        "authority": "formal",
+        "from": "record:work-graph-uac-review",
+        "to": "wi:70001",
+        "direction": "authored",
+        "source": {
+          "kind": "relationships",
+          "filePath": "backlog/records/record-work-graph-uac-review.md"
+        },
+        "properties": {
+          "sourceKey": "subject_reference",
+          "rawTarget": "[[70001-work-graph-uac-main]]",
+          "resolvedTargetId": "wi:70001",
+          "subject": "[[70001-work-graph-uac-main]]",
+          "recordKind": "evidence",
+          "frontmatterId": "record:work-graph-uac-review"
+        }
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "classification": "unsupported",
+      "relativePath": "backlog/AGENTS.md",
+      "documentId": "backloga-2056",
+      "reasonCode": "unsupported-document-type"
+    }
+  ]
+}

@@ -260,6 +260,13 @@ async function preloadSchemaTree(
   relativeDir: string,
 ): Promise<void> {
   const schemaRoot = resolveLocalPath(rootDir, relativeDir);
+  try {
+    const stat = await fs.stat(schemaRoot);
+    if (!stat.isDirectory()) return;
+  } catch {
+    return;
+  }
+
   async function walk(dir: string): Promise<void> {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     for (const entry of entries) {

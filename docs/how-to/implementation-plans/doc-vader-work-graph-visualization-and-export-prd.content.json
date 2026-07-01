@@ -1,0 +1,305 @@
+{
+  "entityType": "plan",
+  "documentKind": "product-requirements",
+  "artifactStrategy": {
+    "sourceOfTruth": "json-payload",
+    "renderedViews": [
+      "markdown"
+    ],
+    "preservation": "Store the PRD content JSON sidecar alongside the rendered Markdown and treat JSON as canonical for automation, acceptance review, and future adapter consumers."
+  },
+  "contextGrounding": {
+    "codebaseContext": "doc-vader already exposes a read-only projected Work graph through `dv work graph` and `dv wi graph` commands for `nodes`, `edges`, and `inspect`, with JSON and DOT output produced through a context-graph-compatible output extension seam. Graph-backed list, show, readiness, and UAC fixture coverage now exist, but maintainers still lack a canonical whole-graph export contract, a human-readable summary surface, and a first-party visualization tool for filtering, metadata inspection, and traversal over the current projected graph.",
+    "domainVocabulary": [
+      "work graph",
+      "graph summary",
+      "full graph export",
+      "canonical graph json",
+      "output extension",
+      "cytoscape adapter",
+      "read-only visualization",
+      "stable id",
+      "diagnostics",
+      "node type",
+      "edge type",
+      "provenance",
+      "standalone html viewer",
+      "path trace",
+      "one-hop neighborhood"
+    ],
+    "adrAlignment": "This PRD follows the entity-governance ADR set: adr-005, adr-006, adr-007, adr-008, adr-009, and adr-010. It also follows the existing Work graph MVP decisions: projection stays read-only, JSON remains the automation contract, DOT remains the renderable graph format, diagnostics stay separate from canonical nodes and edges, and package/core migration is deferred until export and viewer work creates a real pivot signal.",
+    "sourceContext": [
+      "Conversation-approved AFK direction: maintainer-facing, read-only, canonical full-graph JSON export, Cytoscape first, Graphology deferred behind the adapter seam.",
+      "backlog/60393-read-only-work-graph-explorer-cli.md",
+      "backlog/60394-work-graph-uac-review-fixtures.md",
+      "backlog/60395-graph-backed-work-list-tracer.md",
+      "backlog/60396-graph-backed-work-show-relationships.md",
+      "backlog/60397-derived-readiness-findings-projection.md",
+      "backlog/60398-graph-informed-work-ready-migration.md",
+      "lib/work/graph-explorer.ts",
+      "tests/work-graph-uac-review.test.ts"
+    ]
+  },
+  "problemStatement": "Maintainers can currently inspect graph nodes, graph edges, and a single-node neighborhood, but they still cannot export the whole projected graph through one stable contract or open a first-party visualization that supports filtering, metadata inspection, and traversal without awkward intermediate file choreography. That gap slows review, makes acceptance testing rely on inferred command output, and prevents direct exploration of graph relationships and diagnostics as the graph-backed command surface expands.",
+  "solution": "Add a read-only graph review lane with three complementary surfaces: `summary` for fast human orientation, `export` for canonical full-graph JSON and DOT, and `visualize` for a standalone Cytoscape-backed HTML viewer. `visualize` should default to the current projected Work graph and open a temporary artifact locally, while still accepting canonical export JSON from stdin, inline payloads, or files and writing HTML to stdout or explicit files when requested. Keep the export JSON as the source-of-truth contract, keep viewer-specific shapes behind an adapter seam, and defer Graphology or native core replacement until visualization/export work proves that a richer in-memory graph model is worth the dependency and migration cost.",
+  "coverageModel": {
+    "actors": [
+      "repository maintainer",
+      "human reviewer",
+      "implementation agent",
+      "automation consumer"
+    ],
+    "journeyStages": [
+      "summary inspection",
+      "full graph export",
+      "viewer artifact generation",
+      "filtering and search",
+      "relationship traversal",
+      "acceptance review"
+    ],
+    "concerns": [
+      "read-only safety",
+      "export contract stability",
+      "metadata fidelity",
+      "diagnostics visibility",
+      "low-friction local usage",
+      "maintainable adapter boundaries"
+    ],
+    "notes": [
+      "Coverage is intentionally scoped to the current projected Work graph and adjacent runtime/supporting nodes, not a future universal all-entity graph.",
+      "The viewer must consume canonical export JSON rather than redefining graph semantics in a UI-specific shape."
+    ]
+  },
+  "userStories": [
+    {
+      "story": "As a repository maintainer, I want a default table summary of the projected graph, so that I can quickly understand graph size, type distribution, and diagnostics without parsing raw JSON.",
+      "covers": {
+        "actor": "repository maintainer",
+        "journeyStage": "summary inspection",
+        "concern": "low-friction local usage"
+      }
+    },
+    {
+      "story": "As an automation consumer, I want a stable full-graph JSON export contract, so that tooling and review workflows can consume the entire projected graph without stitching together separate node and edge commands.",
+      "covers": {
+        "actor": "automation consumer",
+        "journeyStage": "full graph export",
+        "concern": "export contract stability"
+      }
+    },
+    {
+      "story": "As a human reviewer, I want a renderable DOT export of the whole projected graph, so that I can produce directed graph diagrams from the same canonical facts used by automation.",
+      "covers": {
+        "actor": "human reviewer",
+        "journeyStage": "full graph export",
+        "concern": "metadata fidelity"
+      }
+    },
+    {
+      "story": "As a repository maintainer, I want `dv work graph visualize` to open the current projected graph locally by default while still supporting canonical export JSON from stdin, inline payloads, or files, so that the common review path is one command and automation still has flexible transport options.",
+      "covers": {
+        "actor": "repository maintainer",
+        "journeyStage": "viewer artifact generation",
+        "concern": "low-friction local usage"
+      }
+    },
+    {
+      "story": "As a human reviewer, I want to filter and search the graph by type and stable identifiers, so that I can isolate the relationships and artifacts relevant to one review question.",
+      "covers": {
+        "actor": "human reviewer",
+        "journeyStage": "filtering and search",
+        "concern": "diagnostics visibility"
+      }
+    },
+    {
+      "story": "As an implementation agent, I want viewer adapters to preserve stable ids, metadata, and diagnostics exactly, so that UI and test layers do not accidentally redefine the meaning of the projected graph.",
+      "covers": {
+        "actor": "implementation agent",
+        "journeyStage": "viewer artifact generation",
+        "concern": "maintainable adapter boundaries"
+      }
+    },
+    {
+      "story": "As a repository maintainer, I want traversal tools such as one-hop expansion and path tracing between selected nodes, so that I can validate dependency, record, and scope relationships directly from the rendered graph.",
+      "covers": {
+        "actor": "repository maintainer",
+        "journeyStage": "relationship traversal",
+        "concern": "metadata fidelity"
+      }
+    },
+    {
+      "story": "As an automation consumer, I want summary, export, and visualization surfaces to remain read-only, so that graph review never creates claims, locks, records, or audit artifacts.",
+      "covers": {
+        "actor": "automation consumer",
+        "journeyStage": "acceptance review",
+        "concern": "read-only safety"
+      }
+    }
+  ],
+  "coverageReview": {
+    "status": "complete",
+    "notes": "Stories cover the approved AFK MVP surfaces: summary, full export, viewer generation, filtering/search, traversal, and read-only acceptance review.",
+    "gaps": []
+  },
+  "qualityReview": {
+    "dimensions": [
+      {
+        "name": "grounding",
+        "score": 5,
+        "rationale": "Grounded in current graph explorer commands, existing UAC fixtures, and the user-approved AFK implementation posture."
+      },
+      {
+        "name": "coverage",
+        "score": 5,
+        "rationale": "The coverage model explicitly spans the summary, export, viewer, traversal, and review lifecycle rather than stopping at command output."
+      },
+      {
+        "name": "decision-rationale",
+        "score": 5,
+        "rationale": "Key decisions explain why summary, export, and visualization are separate surfaces and why Cytoscape is preferred before core replacement."
+      },
+      {
+        "name": "testability",
+        "score": 4,
+        "rationale": "Existing CLI and fixture seams make export and review highly testable; viewer interaction will need a new but still deterministic artifact-level seam."
+      },
+      {
+        "name": "automation-readiness",
+        "score": 5,
+        "rationale": "Canonical JSON remains the interchange source of truth and each AFK work item maps to named UAT scenarios."
+      }
+    ],
+    "notes": "The main implementation risk is viewer delivery shape, which is intentionally contained by using a generated standalone HTML artifact rather than a new application platform."
+  },
+  "implementationDecisions": [
+    {
+      "statement": "Split graph review into `summary`, `export`, and `visualize` surfaces instead of overloading one command with both human and machine defaults.",
+      "rationale": "A human-readable overview and a full-fidelity interchange/export contract solve different jobs and should not blur their output guarantees."
+    },
+    {
+      "statement": "Add `dv work graph summary` and `dv wi graph summary` with default `table` output and optional `json` output.",
+      "rationale": "This keeps summary behavior consistent with other human-facing report surfaces in the CLI while avoiding lossy table defaults for full export."
+    },
+    {
+      "statement": "Add `dv work graph export` and `dv wi graph export` with default `json` output and optional `dot` output.",
+      "rationale": "Export is a machine-first and artifact-first contract, so JSON should remain the default while DOT remains available for rendering pipelines."
+    },
+    {
+      "statement": "Define a new canonical full-graph export JSON contract that includes schema version, graph summary metadata, nodes, edges, and diagnostics, with diagnostics remaining separate from nodes and edges.",
+      "rationale": "The current `nodes` and `edges` command payloads are useful inspection outputs, but a whole-graph contract is needed for viewer generation, acceptance fixtures, and downstream adapters."
+    },
+    {
+      "statement": "Keep existing `nodes`, `edges`, and `inspect` commands as focused graph inspection surfaces and do not replace them with the new export contract.",
+      "rationale": "Those commands remain valuable for targeted troubleshooting and regression review even after whole-graph export exists."
+    },
+    {
+      "statement": "Use Cytoscape.js as the first visualization target and defer Graphology until export/viewer work demonstrates a repeated need for a richer in-memory analysis model.",
+      "rationale": "Cytoscape provides the fastest path to local filtering, selection, and traversal, while Graphology is only justified if adapter or analysis pressure grows beyond the current seam."
+    },
+    {
+      "statement": "Generate a standalone, read-only HTML viewer artifact rather than introducing a new dev-server-backed frontend stack.",
+      "rationale": "A standalone artifact keeps local usage friction low, fits the current repository shape, and avoids coupling visualization work to a broader frontend platform decision."
+    },
+    {
+      "statement": "Make `dv work graph visualize` and `dv wi graph visualize` default to the current projected Work graph when `--input` is omitted, while still accepting canonical export JSON from stdin (`-`), inline JSON, or a file path.",
+      "rationale": "The common maintainer path should not require exporting JSON just to re-ingest the same facts, but automation and external tooling still need transport-flexible entry points."
+    },
+    {
+      "statement": "Make `--output` optional for `visualize`, with `-` meaning stdout, an explicit path meaning a durable artifact, and omission meaning a temporary artifact that opens locally.",
+      "rationale": "Visualization should optimize for immediate review by default while still supporting scripted capture, deterministic fixture review, and explicit artifact retention."
+    },
+    {
+      "statement": "Translate canonical export JSON into Cytoscape element data through a dedicated adapter seam and keep Cytoscape shapes non-canonical.",
+      "rationale": "This preserves one source-of-truth graph contract and prevents UI library assumptions from leaking back into projection semantics."
+    },
+    {
+      "statement": "The first viewer capability set includes node-type and edge-type filters, stable-id and label search, metadata inspection, one-hop traversal, and path tracing between selected nodes.",
+      "rationale": "Those are the smallest useful interactions that satisfy the stated need to visualize, filter, and traverse the graph directly."
+    },
+    {
+      "statement": "Summary, export, and visualization surfaces must remain read-only and must not create claims, locks, records, runtime rows, or audit artifacts.",
+      "rationale": "Graph review is part of the projection lane, not the mutation or runtime-governance lane."
+    },
+    {
+      "statement": "UAT coverage is part of MVP scope and every acceptance scenario must map to at least one AFK work item.",
+      "rationale": "The immediate value of this slice is direct maintainer review, so acceptance coverage cannot be deferred to a later polish pass."
+    }
+  ],
+  "testingDecisions": {
+    "behaviorContract": "Validate that graph summary, full export, and graph visualization remain read-only while preserving stable node, edge, and diagnostic facts from the current projected Work graph across live projection, stdin, inline JSON, file input, stdout, durable files, and temporary browser-opened artifacts.",
+    "modulesUnderTest": [
+      "graph summary CLI surface",
+      "full graph export result contract and output extensions",
+      "canonical export JSON to Cytoscape adapter",
+      "standalone HTML viewer renderer",
+      "graph visualization UAT fixtures and review documentation"
+    ],
+    "seams": [
+      {
+        "name": "graph summary and export CLI",
+        "level": "end-to-end",
+        "rationale": "The existing CLI and fixture harness are the highest-confidence seams for validating live projection output and read-only behavior."
+      },
+      {
+        "name": "adapter contract",
+        "level": "integration",
+        "rationale": "The adapter must prove that canonical export JSON maps to Cytoscape elements without losing stable ids, metadata, or diagnostics context."
+      },
+      {
+        "name": "viewer artifact generation",
+        "level": "integration",
+        "rationale": "The viewer should be validated as a generated artifact that consumes export JSON deterministically and can be reviewed without a running app server."
+      }
+    ],
+    "priorArt": [
+      "Existing `dv work graph` and `dv wi graph` commands for nodes, edges, and inspect.",
+      "The current work graph UAC fixture and snapshots in `tests/work-graph-uac-review.test.ts`.",
+      "Completed graph-backed list, show, readiness, and derived findings slices."
+    ],
+    "validationGates": [
+      "doc-vader prd validate on the PRD content payload",
+      "doc-vader prd render to markdown view",
+      "pnpm run docs:lint",
+      "pnpm run backlog:validate",
+      "Focused Vitest suites for graph export, adapter, and viewer generation"
+    ],
+    "seamReview": {
+      "status": "confirmed",
+      "notes": "The CLI fixture harness already covers graph projection review end-to-end. The new viewer work needs one additional deterministic artifact seam, but it does not require a new application runtime model to become testable."
+    }
+  },
+  "successCriteria": [
+    "Maintainers can run a table-first graph summary without parsing raw node or edge JSON.",
+    "Maintainers and automation can export the whole projected graph through one stable JSON contract.",
+    "The same canonical export facts can produce DOT and Cytoscape-compatible visualization output without redefining graph semantics.",
+    "Reviewers can open a standalone HTML artifact with a no-argument command or capture the same viewer into stdout or a durable file when needed.",
+    "A documented UAT flow covers summary, export, visualization, traversal, diagnostics visibility, and read-only guarantees."
+  ],
+  "outOfScope": [
+    "Replacing the local projection core with Graphology or another community graph core in this slice",
+    "Adding graph mutation, editing, or governance actions to the viewer",
+    "Building a hosted or collaborative multi-user graph viewer service",
+    "Expanding the MVP from the current projected Work graph to a universal all-entity graph",
+    "Introducing GraphQL or remote graph query transport"
+  ],
+  "agentHandoff": {
+    "readyLabel": "ready-for-agent",
+    "handoffNotes": [
+      "Use the approved AFK defaults: maintainer-facing, read-only, canonical full-graph JSON export, Cytoscape first, Graphology deferred behind the adapter seam.",
+      "Treat `summary` as the human-readable surface and `export` as the machine-readable surface; do not collapse them into one default output mode.",
+      "Do not couple the viewer to live projection internals when canonical export JSON can carry the same facts more cleanly."
+    ]
+  },
+  "furtherNotes": [
+    "UAT-01: `dv work graph summary` renders a default table with total node count, total edge count, diagnostics count, node-type rollups, and edge-type rollups. Covered by WI-60399.",
+    "UAT-02: `dv work graph export --format json` emits a stable full-graph payload with schema version, summary metadata, nodes, edges, and diagnostics. Covered by WI-60399.",
+    "UAT-03: `dv work graph export --format dot` emits a renderable directed graph covering the same canonical nodes and edges as JSON export. Covered by WI-60399.",
+    "UAT-04: `dv work graph visualize` renders the current projected graph into a temporary HTML artifact and opens it locally when no input or output is provided; the same command can also emit a deterministic file-backed artifact with `--output`. Covered by WI-60400.",
+    "UAT-05: The viewer supports node-type and edge-type filtering plus search by stable id, label, and file path. Covered by WI-60401.",
+    "UAT-06: Selecting a node or edge reveals stable metadata, provenance/source details, and relevant diagnostics context without mutating repository state. Covered by WI-60401.",
+    "UAT-07: The viewer supports one-hop traversal from a selected node and path tracing between two selected nodes when a path exists, with a clear no-path state otherwise. Covered by WI-60402.",
+    "UAT-08: Diagnostics remain separate from canonical nodes and edges but are visible in summary output and in the viewer review surface. Covered by WI-60399 and WI-60401.",
+    "UAT-09: Summary, export, and viewer generation are read-only and do not create claims, locks, records, audit files, or other repository mutations beyond explicit output artifacts such as a requested file, stdout, or a temporary browser-opened viewer. Covered by WI-60399, WI-60400, and WI-60403.",
+    "UAT-10: Viewer data is derived through a dedicated adapter from the canonical export payload shape rather than a Cytoscape-native canonical shape, regardless of whether the payload came from live projection, stdin, inline JSON, or a file. Covered by WI-60400."
+  ]
+}

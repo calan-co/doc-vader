@@ -1,0 +1,5 @@
+Work Graph Summary
+Nodes	4 scope, 2 work-item, 1 claim, 1 record
+Edges	3 records, 2 belongs_to, 2 locks, 1 depends_on, 1 implements, 1 references
+Diagnostics	1
+Totals	8 nodes, 10 edges

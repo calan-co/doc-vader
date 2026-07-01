@@ -3,6 +3,7 @@ import { execFileSync } from "child_process";
 import path from "path";
 
 const cliPath = path.resolve(__dirname, "../cli/doc-vader.ts");
+const repoRoot = path.resolve(__dirname, "..");
 const CLI_TEST_TIMEOUT_MS = 15_000;
 const runCli = (args = "") => {
   try {
@@ -11,6 +12,7 @@ const runCli = (args = "") => {
       ["--import", "tsx", cliPath, ...args.split(/\s+/).filter(Boolean)],
       {
         encoding: "utf-8",
+        cwd: repoRoot,
         env: { ...process.env, TMPDIR: process.env.TMPDIR ?? "/tmp" },
       },
     );
@@ -39,45 +41,52 @@ describe("doc-vader CLI integration", () => {
     );
   });
 
-  it("should run docs-diataxis command", () => {
-    const output = runCli("docs-diataxis");
-    expect(output).toMatch(
-      /(analyze|error|success|diataxis|No moves necessary)/i,
+  it("should run doc-system diataxis-validate command", () => {
+    const output = runCli(
+      `doc-system diataxis-validate --file ${path.join(repoRoot, "docs/how-to/getting-started.md")} --diataxis how-to`,
     );
+    expect(typeof output).toBe("string");
+    expect(output.length).toBeGreaterThan(0);
   });
 
-  it("should run fix-docs-diataxis command", () => {
-    const output = runCli("fix-docs-diataxis");
+  it("should run doc-system diataxis-fix command", () => {
+    const output = runCli("doc-system diataxis-fix docs --dry-run");
     expect(output).toMatch(/(fix|error|success|diataxis|No moves necessary)/i);
   });
 
-  it("should run frontmatter-utils command", () => {
-    const output = runCli("frontmatter-utils");
-    expect(output).toMatch(/(frontmatter|error|success|parse|format)/i);
+  it("should run frontmatter utils command", () => {
+    const output = runCli(
+      `frontmatter utils --input ${path.join(repoRoot, "backlog/60390-record-edges-and-audit-lineage.md")}`,
+    );
+    expect(output.trim()).toBe("{}");
   });
 
-  it("should run validate-docs command", () => {
-    const output = runCli("validate-docs");
+  it("should run doc-system validate command", () => {
+    const output = runCli(
+      `doc-system validate --docs-dir ${path.join(repoRoot, "docs")} --schema-dir ${path.join(repoRoot, "schemas")}`,
+    );
     expect(output).toMatch(
       /(validate|error|success|structure|content|No moves necessary)/i,
     );
   });
 
-  it("should run validate-frontmatter command", () => {
-    const output = runCli("validate-frontmatter");
+  it("should run frontmatter validate command", () => {
+    const output = runCli(
+      `frontmatter validate ${path.join(repoRoot, "docs")} --no-strict`,
+    );
     expect(output).toMatch(
       /(frontmatter|error|success|validate|No moves necessary)/i,
     );
   });
 
   it("should run backlog command", () => {
-    const output = runCli("backlog --list");
+    const output = runCli("backlog list");
     expect(output).toMatch(/(backlog|error|success|list)/i);
   });
 
   it("should run backlog scan with fixtures in json mode", { timeout: CLI_TEST_TIMEOUT_MS }, () => {
     const output = runCli(
-      "backlog scan --dir tests/fixtures/backlog-scan --report-format json",
+      `backlog scan --dir ${path.join(repoRoot, "tests/fixtures/backlog-scan")} --report-format json`,
     );
     const parsed = JSON.parse(output);
     expect(parsed.items.length).toBeGreaterThan(0);

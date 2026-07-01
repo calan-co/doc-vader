@@ -2,30 +2,12 @@
 
 Fix issue {{TASK_ID}}: {{ISSUE_TITLE}}
 
-Mode: {{MODE}}
-Existing claim: {{CLAIM_ID}}
+Pull in the issue using `node .sandcastle/view-issue.mjs {{TASK_ID}}`.
+If it has a parent PRD, pull that in too.
 
-Recovery context:
+Only work on the issue specified.
 
-```json
-{{RECOVERY_CONTEXT}}
-```
-
-First claim the task:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts claim {{TASK_ID}} --holder "$SANDCASTLE_CLAIM_HOLDER" --branch {{BRANCH}} --json`
-
-Save the returned `claimId`. For recovered work, this may return the existing adopted claim idempotently. Use that exact claim for evidence recording. Do not release it after successful implementation; the merger closes the task with this active claim and releases it after close.
-
-Pull in the issue using `CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts view {{TASK_ID}}`. If the task has a parent PRD, pull that in too.
-
-Load the implementation prompt rendered from the same task JSON:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts prompt {{TASK_ID}}`
-
-Only work on the claimed task. If claim, view, or prompt fails, stop.
-
-Work on branch {{BRANCH}}. If mode is `recovered`, inspect existing branch commits, diff, evidence, and tests before deciding what work remains. Do not assume existing commits are complete. Make commits and run tests.
+Work on branch {{BRANCH}}. Make commits and run tests.
 
 # CONTEXT
 
@@ -52,77 +34,44 @@ If applicable, use RGR to complete the task.
 3. REPEAT until done
 4. REFACTOR the code
 
+# COMPLETION EVIDENCE
+
+Before outputting `<promise>COMPLETE</promise>`, update the task file for
+`{{TASK_ID}}` on branch `{{BRANCH}}`:
+
+1. Mark every completed item in `## Tasks` with `[x]`.
+2. Mark every satisfied item in `## Acceptance Criteria` with `[x]`.
+3. Set frontmatter `status: completed`.
+4. Set frontmatter `status_reason: completed`.
+5. Set `completed_date` to today's ISO date.
+6. Commit this backlog update as the final commit on the feature branch.
+
+Do not mark the task complete unless every task and acceptance criterion is
+actually satisfied by the branch. If anything remains incomplete, leave it
+unchecked, leave the status non-completed, explain the blocker, and do not emit
+`<promise>COMPLETE</promise>`.
+
 # FEEDBACK LOOPS
 
-Before committing, run validation with heartbeat output so Sandcastle can distinguish long-running validation from an idle agent:
-
-```sh
-CI=true scripts/sandcastle/run-with-heartbeat.sh typecheck pnpm run typecheck
-CI=true scripts/sandcastle/run-with-heartbeat.sh test pnpm run test
-```
-
-# TEMPORARY WORK-ITEM COMPLETION PROTOCOL
-
-Until Doc-Vader has runtime-backed claim completion, you must maintain work-item checkboxes explicitly and conservatively.
-
-After implementation and validation:
-
-1. Re-open the claimed work item Markdown file from `dv task show <TASK_ID> --json` / `filePath`.
-2. Review every unchecked `- [ ]` item under `## Tasks`, `## Deliverables`, `## Acceptance Criteria`, `## Acceptance criteria`, or similarly named checklist sections.
-3. Change `- [ ]` to `- [x]` only when the repository now contains concrete evidence that the item is satisfied:
-   - code/docs/config changes are present in the branch,
-   - relevant tests or validation commands passed, and
-   - the implementation directly addresses the checklist text.
-4. Leave a checkbox unchecked if the evidence is partial, inferred, blocked, or outside this task's scope.
-5. Do not mark the work item `completed`, `closed`, or otherwise lifecycle-complete in the implementation phase.
-6. If any required checkbox remains unchecked, do not output `<promise>COMPLETE</promise>`; instead report the unchecked items and blockers.
-
-When you record evidence, include a concise checklist summary in the payload observation naming the validation commands that passed and any checkboxes intentionally left unchecked.
-
-# EVIDENCE AND CLAIM HANDOFF
-
-After implementation and validation, record evidence using the saved `claimId`.
-
-Create an evidence payload:
-
-```sh
-cat > /tmp/doc-vader-evidence.json <<'JSON'
-{
-  "type": "test-result",
-  "summary": "Sandcastle task validation passed",
-  "observation": "Implementation completed, required validation commands passed, and supported work-item checkboxes were checked with evidence.",
-  "outcome": "pass"
-}
-JSON
-```
-
-Record evidence:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts record --claim <claimId> --payload /tmp/doc-vader-evidence.json`
-
-Keep the claim active after evidence is recorded. The merge phase uses the active claim as the mutex guard when closing the task.
-
-If the task is abandoned or cannot be completed, release the claim before stopping:
-
-`CI=true TMPDIR=/tmp node --import tsx scripts/sandcastle/dv-adapter.ts release --claim <claimId>`
+Before committing, run the validation gates in `.sandcastle/VALIDATION.md`.
+At minimum, run `pnpm run typecheck` and `pnpm run test`.
 
 # COMMIT
 
 Make a git commit. The commit message must:
 
-1. Use the repository conventional commit format, such as `feat(scope): summary`, `fix(scope): summary`, `test(scope): summary`, or `docs(scope): summary`
-2. Include task completed + PRD reference in the commit body when applicable
-3. Include key decisions made
-4. Include files changed
-5. Include blockers or notes for next iteration
+1. Use a conventional commit subject, e.g. `fix(scope): complete wi-12345 title`.
+2. Include `RALPH:` task completed + PRD reference in the commit body.
+3. Include key decisions made.
+4. Include files changed.
+5. Include blockers or notes for next iteration.
 
 Keep it concise.
 
 # THE ISSUE
 
-If the task is not complete, leave a comment on the issue with what was done.
-
-Do not close the issue - this will be done later.
+If the task is not complete, leave a note in your final response with what was
+done and what remains.
 
 Once complete, output <promise>COMPLETE</promise>.
 

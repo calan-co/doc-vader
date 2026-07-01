@@ -1,0 +1,12 @@
+digraph WorkGraph {
+  "record:work-graph-uac-review" [label="Work Graph UAC Review Evidence"];
+  "scope:plan:work-graph-uac-review-prd" [label="Work Graph UAC Review PRD"];
+  "scope:project:work-graph-uac-review" [label="Work Graph UAC Review Project"];
+  "wi:70001" [label="Work Graph UAC Review Main"];
+  "wi:70002" [label="Work Graph UAC Review Dependency"];
+  "wi:70001" -> "scope:project:work-graph-uac-review" [label="belongs_to"];
+  "wi:70001" -> "wi:70002" [label="depends_on"];
+  "wi:70001" -> "scope:plan:work-graph-uac-review-prd" [label="implements"];
+  "record:work-graph-uac-review" -> "wi:70001" [label="records"];
+  "wi:70001" -> "wi:70002" [label="references"];
+}

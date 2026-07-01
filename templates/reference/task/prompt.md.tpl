@@ -1,8 +1,8 @@
 Implement {{ task.id }}: {{ task.title }}
 
-Use `dv task show {{ task.id }} --json` as the authoritative task model. Use this prompt only as a rendered view of that JSON.
+Use `dv work show {{ task.id }} --json` as the authoritative work item model. Use this prompt only as a rendered view of that JSON.
 
-Task file: {{ task.filePath }}
+Work item file: {{ task.filePath }}
 Status: {{ task.status }}
 Lifecycle: {{ task.lifecycle }}
 
@@ -24,6 +24,6 @@ Until Doc-Vader has runtime-backed claim completion, maintain checklist state ex
 
 1. Check `- [ ]` items only when concrete branch evidence satisfies the item.
 2. Leave unsupported, partial, or blocked items unchecked.
-3. Record evidence with `dv task record --claim` after validation passes.
+3. Record evidence with `dv work record --claim` after validation passes.
 4. Do not mark the Work Item complete or closed from an implementation prompt.
 5. Output `<promise>COMPLETE</promise>` only when all required task, deliverable, and acceptance checkboxes for this slice are checked with evidence and validation has passed.
