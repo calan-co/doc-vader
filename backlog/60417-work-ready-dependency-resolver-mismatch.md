@@ -28,6 +28,10 @@ tags:
 
 # Fix `dv wi ready` Dependency Resolver Mismatch
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Problem
 
 The work graph correctly resolves dependencies, but `dv wi ready` reports dependency state as unknown, preventing work items with satisfied dependencies from being selectable.

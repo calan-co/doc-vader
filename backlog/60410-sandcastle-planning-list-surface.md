@@ -26,6 +26,10 @@ Make Sandcastle planning enter Doc-Vader through `dv4sandcastle list`, backed by
 authoritative `dv work` facts, deterministic AFK eligibility, and planner
 horizon context.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 The compatibility window for the public `dv task` command surface has ended.

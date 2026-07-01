@@ -76,6 +76,8 @@ async function loadSandcastleListPayload() {
   const payload = await loadSandcastlePlanningListPayload();
   return {
     ...payload,
+    // The Sandcastle planner treats list entries as selectable work, so keep
+    // non-selectable horizon context inside Doc-Vader and adapter tests only.
     horizon: [],
   };
 }

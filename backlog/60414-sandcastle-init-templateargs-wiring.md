@@ -30,6 +30,10 @@ tags:
 Make Sandcastle generated artifacts call the `dv4sandcastle` adapter surfaces
 through InitService template arguments instead of hand-maintained prompt edits.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 The generated Sandcastle prompts should be artifacts of the adapter contract.

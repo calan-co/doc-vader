@@ -49,7 +49,7 @@ Use these commands for the current Sandcastle-facing contract:
 | Render implementation prompt | `node --import tsx scripts/sandcastle/dv4sandcastle.ts prompt <task-id>` | `dv work prompt <task-id>` |
 | Claim work | `node --import tsx scripts/sandcastle/dv4sandcastle.ts claim-task <task-id> --holder <holder> --branch <branch> --json` | `dv work claim <task-id>` |
 | Inspect runtime state for the active claim | `node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json` | runtime claim and execution state |
-| Record evidence | `node --import tsx scripts/sandcastle/dv4sandcastle.ts record-task --claim <claim-id> --type <record-type> --payload <json-file|-> --json` | `dv work record` |
+| Record evidence | `node --import tsx scripts/sandcastle/dv4sandcastle.ts record-task --claim <claim-id> --type <record-type> --payload <json-file\|-> --json` | `dv work record` |
 | Recover halted work | `node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json` | `dv work recover <task-id>` |
 | Close after validation passes | `node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]` | repository-configured transition script plus successful claim release |
 

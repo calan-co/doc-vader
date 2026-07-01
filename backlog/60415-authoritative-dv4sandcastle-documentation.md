@@ -31,6 +31,10 @@ Create or update authoritative documentation for the current `dv work` plus
 `dv4sandcastle` contract so agents do not treat completed backlog history as
 current guidance.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 Earlier completed work items describe the former `dv task` and JSON-claim-store

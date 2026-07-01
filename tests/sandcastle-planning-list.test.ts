@@ -210,7 +210,9 @@ tags:
     addActiveRuntimeClaim(rootDir, "wi-102", "backlog/102-claimed.md");
     addBlockedExecution(rootDir, "wi-104");
 
-    const payload = JSON.parse(runAdapter(rootDir, ["list"])) as PlanningListPayload;
+    const payload = JSON.parse(
+      runAdapter(rootDir, ["list"]),
+    ) as SandcastlePlanningListPayload;
 
     expect(payload).toMatchObject({
       schemaVersion: "dv4sandcastle-list/v1",

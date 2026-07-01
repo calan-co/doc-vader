@@ -27,6 +27,10 @@ tags:
 Make Sandcastle inspection use `dv4sandcastle view` and `dv4sandcastle prompt`
 as thin adapters over canonical `dv work` inspection output.
 
+## Notes
+
+- 2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
+
 ## Background
 
 After planning selects a work item, Sandcastle needs stable context for the
