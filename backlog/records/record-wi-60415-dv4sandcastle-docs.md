@@ -11,7 +11,7 @@ status_reason: recorded
 links:
   supporting_reference:
     - '[[../../docs/how-to/sandcastle-dogfood-task-flow.md]]'
-    - '[[../../.sandcastle/SETUP_ISSUE_TRACKER.md]]'
+    - '[[../../scripts/sandcastle/dv4sandcastle.ts]]'
     - '[[project-brief]]'
     - '[[../../tests/task-command.test.ts]]'
 ---
@@ -41,7 +41,7 @@ Updated the Sandcastle workflow guide, linked the generated issue-tracker wiring
 ## Supporting References
 
 - [[../../docs/how-to/sandcastle-dogfood-task-flow.md]]
-- [[../../.sandcastle/SETUP_ISSUE_TRACKER.md]]
+- [[../../scripts/sandcastle/dv4sandcastle.ts]]
 - [[project-brief]]
 - [[../../tests/task-command.test.ts]]
 

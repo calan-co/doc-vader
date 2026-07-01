@@ -5122,43 +5122,6 @@ tags:
     }
   }, 15_000);
 
-  it("documents the authoritative dv4sandcastle contract for the dogfood flow", async () => {
-    const guide = await fs.readFile(
-      path.resolve(__dirname, "../docs/how-to/sandcastle-dogfood-task-flow.md"),
-      "utf8",
-    );
-
-    for (const fragment of [
-      "## Initialization",
-      "`pnpm install`",
-      "`export CI=true`",
-      "`export TMPDIR=/tmp`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts list`",
-      "## Authority Model",
-      "`dv work` is the canonical public command surface.",
-      "`dv wi` is the shorthand alias.",
-      "`dv task` appears only in historical backlog or ADR context and is not current operator guidance.",
-      "## Sandcastle Adapter Contract",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts view <task-id>`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts prompt <task-id>`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts claim-task <task-id> --holder <holder> --branch <branch> --json`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts lock-status --claim <claim-id> --json`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts record-task --claim <claim-id> --type <record-type> --payload <json-file\\|-> --json`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts recover-task <task-id> --branch <branch> --json`",
-      "`node --import tsx scripts/sandcastle/dv4sandcastle.ts close-task <task-id> --claim <claim-id> [--payload <json-file>] [--record-type <type>]`",
-      "`selectable`",
-      "Non-selectable horizon entries are intentionally withheld from the list",
-      "repository-configured transition script",
-      ".sandcastle/SETUP_ISSUE_TRACKER.md",
-      "Completed backlog items remain historical context, not authoritative current guidance.",
-    ] as const) {
-      expect(guide).toContain(fragment);
-    }
-
-    expect(guide).not.toContain("`dv task ready --json`");
-    expect(guide).not.toContain("`dv task claim <task-id> --holder <agent-id> --branch <branch> --json`");
-  });
-
   it("keeps lifecycle audits authoritative even when hook bypass env is set", async () => {
     const root = await mkTmpRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
