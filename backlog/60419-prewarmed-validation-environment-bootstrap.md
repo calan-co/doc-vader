@@ -12,6 +12,8 @@ estimated: 5
 links:
   depends_on:
     - '[[60418-agent-baseline-escalation-policy]]'
+  evidence:
+    - '[[record-20260702-034230-60419]]'
 tags:
   - afk
   - agent-environment

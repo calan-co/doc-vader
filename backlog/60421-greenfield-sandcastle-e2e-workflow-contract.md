@@ -14,6 +14,8 @@ links:
     - '[[60414-sandcastle-init-templateargs-wiring]]'
     - '[[60415-authoritative-dv4sandcastle-documentation]]'
     - '[[60416-end-to-end-sandcastle-smoke-and-recovery]]'
+  evidence:
+    - '[[record-20260702-034230-60421]]'
 tags:
   - afk
   - sandcastle

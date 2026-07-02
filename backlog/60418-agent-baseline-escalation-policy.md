@@ -9,6 +9,9 @@ lifecycle: active
 status: ready
 priority: high
 estimated: 3
+links:
+  evidence:
+    - '[[record-20260702-034230-60418]]'
 tags:
   - afk
   - agent-environment

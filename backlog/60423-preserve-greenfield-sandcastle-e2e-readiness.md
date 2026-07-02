@@ -12,6 +12,8 @@ estimated: 5
 links:
   depends_on:
     - '[[60422-greenfield-sandcastle-init-to-implementation-harness]]'
+  evidence:
+    - '[[record-20260702-034230-60423]]'
 tags:
   - afk
   - sandcastle

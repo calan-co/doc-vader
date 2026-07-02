@@ -13,6 +13,8 @@ links:
   depends_on:
     - '[[60421-greenfield-sandcastle-e2e-workflow-contract]]'
     - '[[60419-prewarmed-validation-environment-bootstrap]]'
+  evidence:
+    - '[[record-20260702-034230-60422]]'
 tags:
   - afk
   - sandcastle

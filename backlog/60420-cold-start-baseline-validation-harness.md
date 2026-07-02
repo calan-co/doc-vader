@@ -12,6 +12,8 @@ estimated: 4
 links:
   depends_on:
     - '[[60419-prewarmed-validation-environment-bootstrap]]'
+  evidence:
+    - '[[record-20260702-034230-60420]]'
 tags:
   - afk
   - agent-environment
