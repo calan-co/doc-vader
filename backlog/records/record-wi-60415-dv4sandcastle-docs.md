@@ -11,6 +11,8 @@ status_reason: recorded
 links:
   supporting_reference:
     - '[[../../docs/how-to/sandcastle-dogfood-task-flow.md]]'
+    - '[[../../.sandcastle/SETUP_ISSUE_TRACKER.md]]'
+    - '[[../../.sandcastle/VALIDATION.md]]'
     - '[[../../scripts/sandcastle/dv4sandcastle.ts]]'
     - '[[project-brief]]'
     - '[[../../tests/task-command.test.ts]]'
@@ -26,7 +28,7 @@ pass
 
 ## Observation
 
-Updated the Sandcastle workflow guide, linked the generated issue-tracker wiring, aligned the project brief with the current dv work plus dv4sandcastle contract, and added a regression test for the durable guide.
+Updated the Sandcastle workflow guide, linked the generated issue-tracker wiring, aligned the project brief with the current dv work plus dv4sandcastle contract, and validated the durable guide contract test in `tests/task-command.test.ts`.
 
 ## Subject References
 
@@ -41,6 +43,8 @@ Updated the Sandcastle workflow guide, linked the generated issue-tracker wiring
 ## Supporting References
 
 - [[../../docs/how-to/sandcastle-dogfood-task-flow.md]]
+- [[../../.sandcastle/SETUP_ISSUE_TRACKER.md]]
+- [[../../.sandcastle/VALIDATION.md]]
 - [[../../scripts/sandcastle/dv4sandcastle.ts]]
 - [[project-brief]]
 - [[../../tests/task-command.test.ts]]
@@ -52,5 +56,4 @@ Updated the Sandcastle workflow guide, linked the generated issue-tracker wiring
 - pnpm run backlog:validate:ci passed.
 - pnpm run typecheck passed.
 - pnpm exec vitest run tests/task-command.test.ts -t "documents the authoritative dv4sandcastle contract for the dogfood flow" passed.
-- pnpm exec vitest run tests/sandcastle-init-template-args.test.ts passed.
-- pnpm run test failed on tests/sandcastle-planning-list.test.ts, and the same failure reproduced on HEAD without this change.
+- 2026-07-02 PR #77 feedback pass: refreshed guide references against the committed Sandcastle wiring and validation matrix.
