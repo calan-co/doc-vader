@@ -5133,6 +5133,7 @@ tags:
       "`pnpm install`",
       "`export CI=true`",
       "`export TMPDIR=/tmp`",
+      "committed convenience copies",
       "`node --import tsx scripts/sandcastle/dv4sandcastle.ts list`",
       "## Authority Model",
       "`dv work` is the canonical public command surface.",
@@ -5150,6 +5151,8 @@ tags:
       "Non-selectable horizon entries are intentionally withheld from the list",
       "repository-configured transition script",
       ".sandcastle/SETUP_ISSUE_TRACKER.md",
+      ".sandcastle/VALIDATION.md",
+      "`pnpm run backlog:validate:ci`",
       "Completed backlog items remain historical context, not authoritative current guidance.",
     ] as const) {
       expect(guide).toContain(fragment);
