@@ -7,6 +7,17 @@
 - If a task references or edits `docs/rfcs/**`, MUST read `docs/rfcs/AGENTS.md` and `docs/rfcs/INTERACTION_PROTOCOL.md` before responding.
 - Any optimization activity targeting any `AGENTS.md` file MUST use the `writing-agents-md` skill before proposing or applying edits.
 
+## Doc-Vader CLI Usage
+
+- Prefer repository-local `pnpm exec dv ...` for Doc-Vader CLI operations that have a `dv` command surface in an installed/linked environment.
+- In this source checkout's package scripts and CI wrappers, use `pnpm -s run dv ...` after build so the local `dist/cli/doc-vader.js` artifact is used reliably.
+- Use `dv work` / `dv wi` for Work Item selection, inspection, claims, recovery, records, and graph read operations.
+- Avoid legacy `dv task`, `doc-vader work-item`, and direct `node dist/cli/doc-vader.js ...` invocations unless explicitly testing compatibility.
+- Keep package scripts when they add behavior beyond direct `dv` execution, especially:
+  - `pnpm run docs:lint` for the unified remark/frontmatter documentation lint pipeline.
+  - `pnpm run backlog:validate:ci` when the CI artifact must be generated.
+  - Build, typecheck, test, changeset, and schema-policy scripts.
+
 ## Safety Boundaries
 
 **NEVER modify, disable, or bypass any explicitly applied constraint without explicit written approval in the current conversation turn.** This includes:
@@ -37,8 +48,8 @@ If blocked by any such constraint, **stop and ask** — do not modify or work ar
 - Run `pnpm run docs:lint` before and after every change to documentation or work items.
 - Reference the appropriate schema in `schemas/` and template in `docs/templates/` for the file type.
 - For backlog-affecting changes, also run:
-  - `doc-vader backlog validate --dir backlog --fail-on error`
-  - CI-grade validation: `pnpm run backlog:validate:ci` (generates `backlog/audit/auditing-backlog-report.json`)
+  - `pnpm run backlog:validate` (builds first, then invokes the local `dv` command surface through the Nx target)
+  - CI-grade validation: `pnpm run backlog:validate:ci` (wraps `dv backlog validate --dir backlog --profile profiles/backlog-ci.json --format json` and writes `backlog/audit/auditing-backlog-report.json`)
 
 ### YAML Formatting Rules
 

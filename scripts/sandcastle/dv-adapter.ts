@@ -277,7 +277,7 @@ function taskBody(task: JsonRecord): string {
 function toAdapterTask(task: JsonRecord, showText = taskBody(task)): AdapterTask {
   const id = String(task.id ?? "");
   if (!id) {
-    fail("dv task show returned a task without an id.");
+    fail("dv work show returned a work item without an id.");
   }
   const status = String(task.status ?? "unknown");
   const validation = taskValidation(task);

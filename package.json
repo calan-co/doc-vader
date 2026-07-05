@@ -25,6 +25,7 @@
     "clean": "nx reset && rm -rf node_modules dist",
     "typecheck": "tsc --noEmit",
     "test": "nx test doc-vader --watch=false",
+    "dv": "node dist/cli/doc-vader.js",
     "prepare": "husky",
     "changeset:check": "node --import tsx scripts/validate-changesets.ts",
     "schemas:policy:check": "node --import tsx scripts/validate-schema-lifecycle.ts",
