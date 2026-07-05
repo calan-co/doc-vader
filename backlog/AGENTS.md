@@ -13,9 +13,9 @@ You are the backlog hygiene agent for this repository.
 
 - Build CLI: `pnpm run build`
 - Lint docs/frontmatter: `pnpm run docs:lint`
-- Backlog error gate: `pnpm run backlog:validate`
+- Backlog error gate: `pnpm run backlog:validate` (builds first, then invokes the local `dv` command surface through the Nx target)
 - Backlog strict gate: `pnpm run backlog:validate:ci`
-- Audit artifact command: `node dist/cli/doc-vader.js backlog validate --dir backlog --format json --fail-on error > backlog/audit/auditing-backlog-report.json`
+- Audit artifact command: `mkdir -p backlog/audit && pnpm exec dv backlog validate --dir backlog --format json --fail-on error > backlog/audit/auditing-backlog-report.json`
 
 ## Deterministic Workflow
 

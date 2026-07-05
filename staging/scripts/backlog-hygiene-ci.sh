@@ -23,7 +23,11 @@ if [ ! -f dist/cli/doc-vader.js ]; then
 fi
 
 set +e
-node dist/cli/doc-vader.js backlog validate --dir backlog --profile profiles/backlog-ci.json --format json > "$ARTIFACT_PATH"
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm -s run dv backlog validate --dir backlog --profile profiles/backlog-ci.json --format json > "$ARTIFACT_PATH"
+else
+  node dist/cli/doc-vader.js backlog validate --dir backlog --profile profiles/backlog-ci.json --format json > "$ARTIFACT_PATH"
+fi
 STATUS=$?
 set -e
 

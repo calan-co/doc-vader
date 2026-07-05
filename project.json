@@ -33,7 +33,7 @@
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
       "options": {
-        "command": "node dist/cli/doc-vader.js backlog validate --dir backlog --fail-on error"
+        "command": "pnpm -s run dv backlog validate --dir backlog --fail-on error"
       }
     },
     "backlog-validate-ci": {
@@ -46,7 +46,7 @@
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
       "options": {
-        "command": "node dist/cli/doc-vader.js backlog validate --dir backlog --profile profiles/backlog-ci.json"
+        "command": "pnpm -s run dv backlog validate --dir backlog --profile profiles/backlog-ci.json"
       }
     },
     "lint": {
