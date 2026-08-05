@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/metadata/base",
+  "title": "metadata/base",
+  "description": "Canonical Doc-Vader routing metadata shared by governed document types. Frontmatter is one serialization format for this metadata, not the domain model.",
+  "type": "object",
+  "required": ["namespace", "type"],
+  "properties": {
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*$",
+      "description": "Document-pack namespace that owns the routing vocabulary."
+    },
+    "type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Document type used with namespace for handler and schema routing."
+    },
+    "subtype": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Optional specialization used only when the document family has meaningful variants."
+    }
+  },
+  "additionalProperties": true
+}

@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import {
   BacklogConfigSchema,
   DocVaderConfigSchema,
+  DocumentRoutingConfigSchema,
   SchemaMapConfigSchema,
   ValidationConfigSchema,
   VocabularyConfigSchema,
@@ -29,6 +30,7 @@ describe("config schema", () => {
     expect(BacklogConfigSchema.$schema).toBe(JSON_SCHEMA_2020_12);
     expect(VocabularyConfigSchema.$schema).toBe(JSON_SCHEMA_2020_12);
     expect(DocVaderConfigSchema.$schema).toBe(JSON_SCHEMA_2020_12);
+    expect(DocumentRoutingConfigSchema.$schema).toBe(JSON_SCHEMA_2020_12);
   });
 
   it("accepts extends as either a string or an array of strings", () => {
@@ -49,6 +51,39 @@ describe("config schema", () => {
     expect(compileDocVaderConfigSchema()({})).toBe(true);
   });
 
+  it("accepts dv.yaml document routing defaults", () => {
+    const validate = compileDocVaderConfigSchema();
+
+    expect(
+      validate({
+        namespace: "doc-vader.work-management",
+        defaultType: "work-item",
+        document: {
+          defaultSubtype: "task",
+          schemaMap: {
+            byType: {
+              "work-item": "schemas/work-management/metadata/work-item.json",
+            },
+          },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects invalid namespace and type routing tokens", () => {
+    const validate = compileDocVaderConfigSchema();
+
+    expect(
+      validate({
+        namespace: "Doc Vader",
+        defaultType: "WorkItem",
+      }),
+    ).toBe(false);
+    expect(validate.errors?.map((error) => error.instancePath)).toEqual(
+      expect.arrayContaining(["/namespace", "/defaultType"]),
+    );
+  });
+
   it("rejects unknown top-level properties", () => {
     const validate = compileDocVaderConfigSchema();
 
@@ -65,5 +100,53 @@ describe("config schema", () => {
     const raw = JSON.parse(await readFile(".doc.json", "utf8"));
 
     expect(validate(raw)).toBe(true);
+  });
+
+  it("validates canonical metadata and document type pack schema files", async () => {
+    const ajv = createAjv();
+    const metadataSchema = JSON.parse(
+      await readFile("schemas/metadata/base.json", "utf8"),
+    );
+    const configSchema = JSON.parse(
+      await readFile("schemas/doc-vader/config.json", "utf8"),
+    );
+    const packSchema = JSON.parse(
+      await readFile("schemas/doc-vader/document-type-pack.json", "utf8"),
+    );
+    ajv.addSchema(configSchema, "/doc-vader/config");
+
+    expect(ajv.compile(metadataSchema)({
+      namespace: "example.decisions",
+      type: "decision",
+    })).toBe(true);
+    expect(ajv.compile(metadataSchema)({ type: "decision" })).toBe(false);
+
+    const validatePack = ajv.compile(packSchema);
+    expect(
+      validatePack({
+        schemaVersion: "doc-vader/document-type-pack/v1",
+        name: "Example Decisions",
+        namespace: "example.decisions",
+        documentTypes: [
+          {
+            type: "decision",
+            subtypes: ["adr"],
+            metadataSchema: "schemas/example/metadata/decision.json",
+            contentSchema: "schemas/example/content/decision.json",
+          },
+        ],
+        templates: [
+          {
+            path: "templates/example/decision.md.tpl",
+            type: "decision",
+            subtype: "adr",
+          },
+        ],
+        configDefaults: {
+          namespace: "example.decisions",
+          defaultType: "decision",
+        },
+      }),
+    ).toBe(true);
   });
 });
