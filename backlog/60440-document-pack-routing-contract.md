@@ -6,15 +6,20 @@ summary: Define Doc-Vader metadata routing, nested dv.yaml config, and author gu
 type: work-item
 subtype: task
 lifecycle: active
-status: running
-status_reason: implementation
+status: completed
+status_reason: completed
 priority: high
 estimated: 3
+actual: 3
+completed_date: '2026-08-05'
+commits:
+  9f52898c: 'docs(extensibility): define document pack routing contract'
 links:
   reference:
     - '[[../docs/architecture/decisions/adr-009-storage-and-format-seams.md]]'
     - '[[../docs/architecture/decisions/adr-010-composable-evaluation-primitives.md]]'
-  evidence: []
+  evidence:
+    - '[[record-wi-60440-validation]]'
 tags:
   - afk
   - architecture
@@ -38,16 +43,16 @@ frontmatter into the core domain model.
 
 ## Tasks
 
-- [ ] Capture an ADR for metadata routing, namespace inference, and nested
+- [x] Capture an ADR for metadata routing, namespace inference, and nested
       `dv.yaml` configuration.
-- [ ] Add or update schema contracts for canonical metadata, document-pack
+- [x] Add or update schema contracts for canonical metadata, document-pack
       manifests, and Doc-Vader config defaults.
-- [ ] Document extension author responsibilities and document-pack author
+- [x] Document extension author responsibilities and document-pack author
       responsibilities.
-- [ ] Update schema reference documentation to explain metadata versus
+- [x] Update schema reference documentation to explain metadata versus
       frontmatter compatibility paths.
-- [ ] Add focused tests for the config schema routing fields.
-- [ ] Run docs and backlog validation gates.
+- [x] Add focused tests for the config schema routing fields.
+- [x] Run docs and backlog validation gates.
 
 ## Deliverables
 
@@ -58,15 +63,17 @@ frontmatter into the core domain model.
 
 ## Acceptance Criteria
 
-- [ ] Canonical metadata requires `namespace` and `type`; `subtype` remains
+- [x] Canonical metadata requires `namespace` and `type`; `subtype` remains
       optional.
-- [ ] Routing precedence is documented: explicit metadata, `$schema`, merged
+- [x] Routing precedence is documented: explicit metadata, `$schema`, merged
       `dv.yaml`, then unsupported-document diagnostic.
-- [ ] Nested `dv.yaml` merge semantics are documented with closer config
+- [x] Nested `dv.yaml` merge semantics are documented with closer config
       overriding parent values.
-- [ ] Existing frontmatter schema paths are documented as compatibility paths,
+- [x] Existing frontmatter schema paths are documented as compatibility paths,
       not the canonical domain term.
-- [ ] Extension and document-pack author docs include install/manifest examples.
-- [ ] Focused config schema tests pass.
-- [ ] `pnpm run docs:lint` passes.
-- [ ] `pnpm run backlog:validate` passes.
+- [x] Extension and document-pack author docs include install/manifest examples.
+- [x] Focused config schema tests pass.
+- [x] `pnpm run docs:lint` passes.
+- [x] `pnpm run backlog:validate` passes.
+
+- 2026-08-05: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
