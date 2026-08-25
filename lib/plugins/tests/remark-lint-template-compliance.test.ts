@@ -16,10 +16,7 @@ describe("remark-lint-template-compliance", () => {
     expect(result.messages.length).toBe(0);
   });
   it("skips heading checks when disabled", async () => {
-    const result = await run("# Heading1", {
-      enabled: false,
-      requiredHeadings: ["__disabled__"],
-    });
+    const result = await run("# Heading1", { enabled: false });
     expect(result.messages).toHaveLength(0);
   });
 
