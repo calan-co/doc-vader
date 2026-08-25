@@ -138,6 +138,9 @@ const remarkLintTemplateCompliance = lintRule(
       return;
     }
     options = parsedOptions;
+    if (options.enabled === false) {
+      return;
+    }
 
     // Collect all headings in the document
     const headings: string[] = [];
