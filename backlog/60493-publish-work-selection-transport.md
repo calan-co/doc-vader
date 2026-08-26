@@ -42,6 +42,8 @@ tracking only; it does not authorize that historical CLI implementation.
 - [ ] Identify the generic or pack-owned owner and contract for selection transport before any publisher-owned Work adapter is implemented.
 - [ ] Define how the transport carries Doc-Vader-owned selection outcomes without accepting consumer-supplied readiness semantics.
 - [ ] Define fail-closed handling for malformed, unsupported, identity-mismatched, unavailable, denied, and non-selection outcomes.
+- [ ] Preserve canonical ScopeRef handling by rejecting storage-adapter references and malformed ScopeRefs before transport selection.
+- [ ] Preserve graph-backed Work selection by projecting the graph, filtering listable items, and then hydrating Work models.
 - [ ] Make any standalone decoder or package-distribution choice explicit and reconcile it with supported Node `>=22` packaging.
 - [ ] Link the approved contract/ADR/reference from this Work Item before authorizing an implementation tranche; it must name the owner, input/output contract, and implementation prerequisite.
 
@@ -57,5 +59,7 @@ tracking only; it does not authorize that historical CLI implementation.
 - [ ] The eventual transport exposes no Work-specific unscoped CLI command, including `dv work capabilities` or `dv work select`.
 - [ ] Focused contract tests show consumer-supplied readiness is rejected or ignored, cannot redefine Doc-Vader-owned readiness semantics, and causes no durable mutation.
 - [ ] Focused contract tests show malformed, unsupported, identity-mismatched, unavailable, denied, and non-selection outcomes each produce the defined fail-closed result and cause no durable mutation.
+- [ ] Focused transport tests reject storage-adapter references and malformed ScopeRefs consistently with canonical ScopeRef handling, with no durable mutation.
+- [ ] Focused selection tests preserve the graph-backed order: project the Work graph, filter listable items, then hydrate Work models.
 - [ ] Any standalone decoder or package-distribution decision is explicit, compatible with Node `>=22` support, and tested through its published entrypoint on Node 22.
 - [ ] This item does not implement resource-first CLI cutover, routing/schema runtime behavior, claim/runtime behavior, or historical terminal/evidence state.
