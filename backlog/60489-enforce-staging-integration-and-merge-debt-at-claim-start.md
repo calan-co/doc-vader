@@ -1,7 +1,7 @@
 ---
 $schema: schemas/work-management/frontmatter/work-item.json
 id: wi-60489
-title: Enforce Staging Integration And Merge Debt At Claim Start
+title: Enforce Staging Integration and Merge Debt at Claim Start
 summary: Require verified staging delivery for declared prerequisites and deny new dependent execution when tracked Work-Item delivery debt reaches three.
 type: work-item
 subtype: task
