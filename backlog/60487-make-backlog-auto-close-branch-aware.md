@@ -13,7 +13,7 @@ links:
   depends_on:
     - '[[60488-add-provider-neutral-delivery-facts]]'
   reference:
-    - '[[../docs/reference/work-management/foundation]]'
+    - '[[../docs/reference/work-management/foundation.md]]'
 tags:
   - backlog-automation
   - delivery
