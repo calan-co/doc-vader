@@ -1,0 +1,66 @@
+name: Windows Node 22 Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Bounded iterations for each focused phase (1-30)
+        required: true
+        default: "1"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wi60495-windows-node22-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: windows-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout diagnostic harness
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout approved historical subject
+        uses: actions/checkout@v4
+        with:
+          path: subject
+          ref: 067dff5736754438e1bf8185096c26a9dacebfb1
+          fetch-depth: 0
+
+      - name: Set up Node 22.23.2
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.2
+
+      - name: Enable Corepack and record environment
+        shell: pwsh
+        run: |
+          corepack enable
+          node --version
+          npm --version
+          pnpm --version
+          git --version
+          Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber | Format-List
+
+      - name: Run bounded Windows diagnostic probe
+        shell: pwsh
+        env:
+          INPUT_ITERATIONS: ${{ inputs.iterations }}
+          SUBJECT_DIR: ${{ github.workspace }}\subject
+          ARTIFACT_ROOT: ${{ runner.temp }}\wi60495-diagnostic
+        run: node scripts/windows-node22-diagnostic-probe.mjs
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wi60495-windows-node22-${{ github.run_id }}
+          path: ${{ runner.temp }}\wi60495-diagnostic
+          if-no-files-found: error
+          retention-days: 14
