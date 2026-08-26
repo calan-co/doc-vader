@@ -21,7 +21,7 @@ tags:
 
 ## Goal
 
-Use the existing claimability seam to prevent dependent execution from outrunning verified staging integration or accumulating more than three tracked Work Items merged to staging but not main.
+Use the existing claimability seam to prevent dependent execution from outrunning verified staging integration or accumulating debt from three or more tracked Work Items merged to staging but not main.
 
 ## Background
 

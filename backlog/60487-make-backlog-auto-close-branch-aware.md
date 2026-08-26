@@ -10,6 +10,8 @@ status: ready
 priority: high
 estimated: 3
 links:
+  depends_on:
+    - '[[60488-add-provider-neutral-delivery-facts.md]]'
   reference:
     - '[[../docs/reference/work-management/foundation.md]]'
 tags:
