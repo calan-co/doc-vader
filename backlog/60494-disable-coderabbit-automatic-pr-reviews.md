@@ -9,9 +9,13 @@ lifecycle: active
 status: ready
 priority: high
 estimated: 1
+commits:
+  077f88992e251db0d0489b6e2b3f72bb1c49a8f8: 'chore(review): disable automatic CodeRabbit PR reviews'
 links:
   reference:
     - '[[60492-add-repository-owned-pr-review-resolve-status-gate]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/83
 tags:
   - ci
   - review
