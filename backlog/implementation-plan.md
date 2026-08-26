@@ -14,6 +14,12 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-vader-entity-governance-architecture-prd]]'
     - '[[../docs/architecture/decisions/adr-005-entity-governance-primitive-model]]'
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
+    - '[[60487-make-backlog-auto-close-branch-aware]]'
+    - '[[60488-add-provider-neutral-delivery-facts]]'
+    - '[[60489-enforce-staging-integration-and-merge-debt-at-claim-start]]'
+    - '[[60490-complete-work-items-through-verified-post-main-delivery]]'
+    - '[[60491-define-and-validate-current-head-independent-review-evidence]]'
+    - '[[60492-add-repository-owned-pr-review-resolve-status-gate]]'
 ---
 
 ## Roadmap Premise
@@ -45,6 +51,15 @@ are no longer the active roadmap for the next implementation phase.
 14. [x] [[60370-sandcastle-local-multi-agent-flow]]
 15. [x] [[60371-runtime-contract-integration-tests]]
 16. [ ] [[60376-runtime-extension-authoring-process]]
+
+## Delivery Governance Guardrails
+
+- [ ] [[60487-make-backlog-auto-close-branch-aware]]
+- [ ] [[60488-add-provider-neutral-delivery-facts]]
+- [ ] [[60489-enforce-staging-integration-and-merge-debt-at-claim-start]]
+- [ ] [[60490-complete-work-items-through-verified-post-main-delivery]]
+- [ ] [[60491-define-and-validate-current-head-independent-review-evidence]]
+- [ ] [[60492-add-repository-owned-pr-review-resolve-status-gate]]
 
 ## Reconciliation Notes
 
