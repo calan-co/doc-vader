@@ -8,10 +8,16 @@ subtype: task
 lifecycle: active
 status: completed
 status_reason: completed
-completed_date: '2026-08-24'
 priority: high
 estimated: 1
-tags: [docs, lint, regression]
+completed_date: '2026-08-24'
+links:
+  evidence:
+    - '[[record-20260826-010933-60474]]'
+tags:
+  - docs
+  - lint
+  - regression
 ---
 
 # Fix Template Compliance Disabled Sentinel
