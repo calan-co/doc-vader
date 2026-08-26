@@ -43,19 +43,19 @@ tracking only; it does not authorize that historical CLI implementation.
 - [ ] Define how the transport carries Doc-Vader-owned selection outcomes without accepting consumer-supplied readiness semantics.
 - [ ] Define fail-closed handling for malformed, unsupported, identity-mismatched, unavailable, denied, and non-selection outcomes.
 - [ ] Make any standalone decoder or package-distribution choice explicit and reconcile it with supported Node `>=22` packaging.
-- [ ] Record the approved contract owner and update this Work Item before authorizing an implementation tranche.
+- [ ] Link the approved contract/ADR/reference from this Work Item before authorizing an implementation tranche; it must name the owner, input/output contract, and implementation prerequisite.
 
 ## Deliverables
 
-- Approved generic or pack-owned selection-transport contract and owner.
-- Selection outcome and failure-mode contract suitable for focused implementation tests.
-- Explicit standalone-decoder and package-distribution decision, if one is needed.
+- Approved generic or pack-owned selection-transport contract and owner, linked from this Work Item and naming its input/output contract and implementation prerequisite.
+- Selection outcome and failure-mode contract with focused no-write and consumer-readiness assertions.
+- Explicit standalone-decoder and package-distribution decision, if one is needed, with its published-entrypoint test requirement.
 
 ## Acceptance Criteria
 
-- [ ] The generic or pack-owned transport contract owner is identified before implementation begins.
+- [ ] Before implementation begins, this Work Item links an approved contract/ADR/reference that names the generic or pack-owned owner, input/output contract, and implementation prerequisite.
 - [ ] The eventual transport exposes no Work-specific unscoped CLI command, including `dv work capabilities` or `dv work select`.
-- [ ] A Work adapter receives readiness only from Doc-Vader-owned evaluation; consumers cannot supply or redefine readiness semantics.
-- [ ] Malformed, unsupported, identity-mismatched, unavailable, denied, and non-selection outcomes fail closed.
-- [ ] Any standalone decoder or package-distribution decision is explicit and compatible with Node `>=22` support.
+- [ ] Focused contract tests show consumer-supplied readiness is rejected or ignored, cannot redefine Doc-Vader-owned readiness semantics, and causes no durable mutation.
+- [ ] Focused contract tests show malformed, unsupported, identity-mismatched, unavailable, denied, and non-selection outcomes each produce the defined fail-closed result and cause no durable mutation.
+- [ ] Any standalone decoder or package-distribution decision is explicit, compatible with Node `>=22` support, and tested through its published entrypoint on Node 22.
 - [ ] This item does not implement resource-first CLI cutover, routing/schema runtime behavior, claim/runtime behavior, or historical terminal/evidence state.
