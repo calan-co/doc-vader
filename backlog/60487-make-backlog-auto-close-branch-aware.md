@@ -11,7 +11,7 @@ priority: high
 estimated: 3
 links:
   reference:
-    - '[[../docs/reference/work-management/policy-seams.md]]'
+    - '[[../docs/reference/work-management/foundation.md]]'
 tags:
   - backlog-automation
   - delivery
@@ -21,6 +21,12 @@ tags:
 ## Goal
 
 Ensure backlog automation distinguishes staging integration from verified main delivery so a staging merge cannot terminalize a Work Item.
+
+## Background
+
+Current merge ingestion can finalize a linked Work Item without distinguishing
+the integration branch. Staging must retain delivery evidence without asserting
+that main delivery has occurred.
 
 ## Tasks
 

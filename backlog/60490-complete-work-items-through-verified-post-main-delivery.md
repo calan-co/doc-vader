@@ -24,6 +24,13 @@ tags:
 
 Perform terminal Work Item completion only after provider-backed verification that the linked implementation has reached main.
 
+## Background
+
+Terminal completion currently occurs before the containing implementation PR
+can be proven on main. Completion therefore needs a separate policy-authorized
+post-main operation, while feature and staging integration retain nonterminal
+delivery facts.
+
 ## Tasks
 
 - [ ] Keep feature and staging delivery nonterminal while retaining linked PR and evidence facts.

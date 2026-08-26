@@ -22,6 +22,12 @@ tags:
 
 Provide a forge-neutral delivery-fact contract for Work-Item-linked pull requests before delivery policy relies on remote branch state.
 
+## Background
+
+Existing provider metadata does not expose the base ref or configured-ref
+ancestry needed for delivery policy. Those facts must be provider-neutral so
+claim and completion policy do not depend on GitHub-specific fields.
+
 ## Tasks
 
 - [ ] Define provider-neutral merged state, base ref, merge SHA, and configured-ref ancestry facts.
