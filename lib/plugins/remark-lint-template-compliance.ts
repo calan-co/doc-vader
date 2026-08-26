@@ -107,12 +107,15 @@ import { visitParents } from "unist-util-visit-parents";
 import { z } from "zod";
 import type { Root } from "mdast";
 
-export const optionsSchema = z.object({
-  enabled: z.boolean().optional().default(true),
-  requiredHeadings: z
-    .array(z.string())
-    .nonempty("'requiredHeadings' must be a non-empty array"),
-});
+export const optionsSchema = z.union([
+  z.object({ enabled: z.literal(false) }),
+  z.object({
+    enabled: z.boolean().optional().default(true),
+    requiredHeadings: z
+      .array(z.string())
+      .nonempty("'requiredHeadings' must be a non-empty array"),
+  }),
+]);
 
 export type Options = z.input<typeof optionsSchema>;
 
@@ -138,6 +141,9 @@ const remarkLintTemplateCompliance = lintRule(
       return;
     }
     options = parsedOptions;
+    if (options.enabled === false) {
+      return;
+    }
 
     // Collect all headings in the document
     const headings: string[] = [];
