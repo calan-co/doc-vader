@@ -11,7 +11,7 @@ priority: high
 estimated: 5
 links:
   depends_on:
-    - '[[60491-define-and-validate-current-head-independent-review-evidence.md]]'
+    - '[[60491-define-and-validate-current-head-independent-review-evidence]]'
 tags:
   - ci
   - review

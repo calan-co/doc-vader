@@ -11,9 +11,9 @@ priority: high
 estimated: 3
 links:
   depends_on:
-    - '[[60488-add-provider-neutral-delivery-facts.md]]'
+    - '[[60488-add-provider-neutral-delivery-facts]]'
   reference:
-    - '[[../docs/reference/work-management/foundation.md]]'
+    - '[[../docs/reference/work-management/foundation]]'
 tags:
   - backlog-automation
   - delivery

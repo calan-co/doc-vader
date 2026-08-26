@@ -11,7 +11,7 @@ priority: high
 estimated: 5
 links:
   depends_on:
-    - '[[60488-add-provider-neutral-delivery-facts.md]]'
+    - '[[60488-add-provider-neutral-delivery-facts]]'
 tags:
   - claims
   - dependencies
