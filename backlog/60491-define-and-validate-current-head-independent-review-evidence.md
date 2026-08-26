@@ -12,6 +12,8 @@ estimated: 5
 links:
   reference:
     - '[[../docs/reference/work-management/foundation.md]]'
+  evidence:
+    - '[[record-20260826-171242-60491]]'
 tags:
   - review
   - evidence

@@ -13,6 +13,8 @@ links:
   depends_on:
     - '[[60487-make-backlog-auto-close-branch-aware]]'
     - '[[60488-add-provider-neutral-delivery-facts]]'
+  evidence:
+    - '[[record-20260826-171242-60490]]'
 tags:
   - backlog-automation
   - completion

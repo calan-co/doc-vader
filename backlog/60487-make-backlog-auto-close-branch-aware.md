@@ -14,6 +14,8 @@ links:
     - '[[60488-add-provider-neutral-delivery-facts]]'
   reference:
     - '[[../docs/reference/work-management/foundation.md]]'
+  evidence:
+    - '[[record-20260826-171242-60487]]'
 tags:
   - backlog-automation
   - delivery

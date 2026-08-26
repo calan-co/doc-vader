@@ -12,6 +12,8 @@ estimated: 5
 links:
   depends_on:
     - '[[60491-define-and-validate-current-head-independent-review-evidence]]'
+  evidence:
+    - '[[record-20260826-171242-60492]]'
 tags:
   - ci
   - review

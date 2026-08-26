@@ -9,6 +9,9 @@ lifecycle: active
 status: ready
 priority: high
 estimated: 5
+links:
+  evidence:
+    - '[[record-20260826-171242-60488]]'
 tags:
   - backlog-automation
   - provider
