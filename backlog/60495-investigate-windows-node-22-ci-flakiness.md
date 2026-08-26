@@ -12,7 +12,7 @@ estimated: 3
 links:
   reference:
     - 'https://github.com/calan-co/doc-vader/pull/81'
-    - 'https://github.com/calan-co/doc-vader/actions/runs/98255894389'
+    - 'https://github.com/calan-co/doc-vader/actions/runs/32993179106/job/98255894389'
     - 'https://github.com/calan-co/doc-vader/actions/runs/32933842522'
 tags:
   - ci
