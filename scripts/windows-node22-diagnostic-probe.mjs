@@ -400,17 +400,27 @@ export function run(
       (error) =>
         void finish({ error: error.message, code: null, signal: null }),
     );
-    child.once(
-      "close",
-      (code, signal) => void finish({ code, signal, error: null }),
-    );
+    child.once("close", (code, signal) => {
+      if (timedOut) {
+        cleanup = { ...cleanup, terminationObserved: true };
+      }
+      void finish({
+        code,
+        signal,
+        error: null,
+        terminationObserved: timedOut,
+      });
+    });
     let done = false;
-    async function finish(result) {
+    async function finish({ terminationObserved = false, ...result }) {
       if (done) return;
       done = true;
       clearTimeout(timer);
       clearTimeout(postCleanupTimer);
       await terminationPromise;
+      if (terminationObserved) {
+        cleanup = { ...cleanup, terminationObserved: true };
+      }
       stdoutStream.end();
       stderrStream.end();
       resolveRun({
@@ -418,7 +428,7 @@ export function run(
         timedOut,
         cleanup: {
           ...cleanup,
-          terminationObserved: cleanup.terminationObserved ?? timedOut,
+          terminationObserved: cleanup.terminationObserved ?? !timedOut,
         },
         startedAt,
         endedAt: new Date().toISOString(),

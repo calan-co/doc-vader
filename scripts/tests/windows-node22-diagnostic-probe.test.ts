@@ -216,6 +216,72 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     expect(signals).toEqual(["SIGTERM"]);
   });
 
+  it("lets a successful cold sample proceed to later probe phases", async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      kill: () => true,
+    });
+    const root = mkdtempSync(join(tmpdir(), "wi60495-successful-cold-"));
+    try {
+      const resultPromise = run("pnpm", ["run", "test"], {
+        cwd: root,
+        env: process.env,
+        stdoutPath: join(root, "stdout.log"),
+        stderrPath: join(root, "stderr.log"),
+        timeoutMs: 60_000,
+        spawnProcess: () => child,
+      });
+      child.emit("close", 0, null);
+      const coldProbe = await resultPromise;
+      const successfulCleanup = coldProbe.cleanup as {
+        terminationObserved?: boolean;
+      };
+      expect(successfulCleanup.terminationObserved).toBe(true);
+      expect(
+        shouldStopAfterUnobservedTermination([
+          { probe: { cleanup: successfulCleanup } },
+        ]),
+      ).toBe(false);
+
+      const subject = mkdtempSync(
+        join(tmpdir(), "wi60495-next-phase-subject-"),
+      );
+      const sampleRoot = mkdtempSync(
+        join(tmpdir(), "wi60495-next-phase-root-"),
+      );
+      writeFileSync(
+        join(subject, "pnpm-lock.yaml"),
+        "lockfileVersion: '9.0'\n",
+      );
+      const laterCalls: string[] = [];
+      const { result } = await runSample({
+        phase: { id: "serial" },
+        coldWarm: "cold",
+        iteration: 1,
+        childIndex: 0,
+        subject,
+        root: sampleRoot,
+        sharedEnv: {},
+        runtimeTelemetry: {},
+        verifiedSubjectSha: APPROVED_TARGET_SHA,
+        runOperation: async (command: string, args: string[]) => {
+          laterCalls.push([command, ...args].join(" "));
+          return { code: 0, signal: null, error: null, timedOut: false };
+        },
+      });
+      expect(result.incomplete).toBe(false);
+      expect(laterCalls).toHaveLength(3);
+      rmSync(subject, { recursive: true, force: true });
+      rmSync(sampleRoot, { recursive: true, force: true });
+    } finally {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("waits for Windows process-tree cleanup before recording a timeout", async () => {
     const child = Object.assign(new EventEmitter(), {
       pid: 1234,
