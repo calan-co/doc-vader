@@ -522,6 +522,97 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     }
   });
 
+  it("isolates cold stores and reuses only the matching cold workspace for warm samples", async () => {
+    const root = mkdtempSync(join(tmpdir(), "wi60495-store-isolation-"));
+    try {
+      const subject = join(root, "subject");
+      mkdirSync(subject, { recursive: true });
+      writeFileSync(
+        join(subject, "pnpm-lock.yaml"),
+        "lockfileVersion: '9.0'\n",
+      );
+      const operations: Array<{
+        command: string;
+        args: string[];
+        cwd: string;
+        store: string;
+      }> = [];
+      const runOperation = async (
+        command: string,
+        args: string[],
+        options: { cwd: string; env: NodeJS.ProcessEnv },
+      ) => {
+        operations.push({
+          command,
+          args,
+          cwd: options.cwd,
+          store: options.env.PNPM_STORE_DIR ?? "",
+        });
+        return { code: 0, signal: null, timedOut: false };
+      };
+      const input = {
+        phase: { id: "two-process" as const, fullSuite: false },
+        iteration: 1,
+        subject,
+        root,
+        sharedEnv: {},
+        runtimeTelemetry: {},
+        verifiedSubjectSha: APPROVED_TARGET_SHA,
+        runOperation,
+      };
+      const cold0 = await runSample({
+        ...input,
+        coldWarm: "cold",
+        childIndex: 0,
+      });
+      const cold1 = await runSample({
+        ...input,
+        coldWarm: "cold",
+        childIndex: 1,
+      });
+      await runSample({
+        ...input,
+        coldWarm: "warm",
+        childIndex: 0,
+        reuse: cold0.reuse,
+      });
+      const installs = operations.filter(
+        ({ command, args }) => command === "pnpm" && args[0] === "install",
+      );
+      expect(installs).toHaveLength(2);
+      expect(installs[0]).toMatchObject({
+        cwd: cold0.reuse.workspace,
+        store: cold0.reuse.pnpmStore,
+        args: expect.arrayContaining(["--store-dir", cold0.reuse.pnpmStore]),
+      });
+      expect(installs[1]).toMatchObject({
+        cwd: cold1.reuse.workspace,
+        store: cold1.reuse.pnpmStore,
+        args: expect.arrayContaining(["--store-dir", cold1.reuse.pnpmStore]),
+      });
+      expect(cold0.reuse.workspace).not.toBe(cold1.reuse.workspace);
+      expect(cold0.reuse.pnpmStore).not.toBe(cold1.reuse.pnpmStore);
+      const warmOperations = operations.slice(6);
+      expect(warmOperations).toHaveLength(2);
+      expect(warmOperations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            cwd: cold0.reuse.workspace,
+            store: cold0.reuse.pnpmStore,
+          }),
+        ]),
+      );
+      expect(
+        warmOperations.every(
+          ({ cwd, store }) =>
+            cwd === cold0.reuse.workspace && store === cold0.reuse.pnpmStore,
+        ),
+      ).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("writes verified subject SHA in completed runSample result metadata", async () => {
     const root = mkdtempSync(join(tmpdir(), "wi60495-probe-"));
     try {
