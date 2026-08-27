@@ -110,7 +110,11 @@ export function runSample(input: {
   reuse?: { workspace: string; pnpmStore: string };
   runOperation?: typeof run;
 }): Promise<{
-  result: Record<string, unknown> & { gitHead: string };
+  result: Record<string, unknown> & {
+    gitHead: string;
+    stdoutPath: string;
+    stderrPath: string;
+  };
   reuse: { workspace: string; pnpmStore: string };
 }>;
 export function waveBudgetForPhase(
@@ -135,12 +139,20 @@ export interface ProbeRate {
   timedOut: number;
 }
 
+export interface ProbeStep {
+  code?: number | null;
+  timedOut?: boolean;
+  skipped?: boolean;
+}
+
 export function summarizeProbeResults(input: {
   plan: ReturnType<typeof createProbePlan>;
   results: Array<{
     phase: string;
     coldWarm: string;
-    probe?: { code?: number | null; timedOut?: boolean };
+    install?: ProbeStep;
+    build?: ProbeStep;
+    probe?: ProbeStep;
   }>;
   incomplete: boolean;
 }): {

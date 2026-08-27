@@ -550,6 +550,8 @@ export async function runSample({
   mkdirSync(env.TEMP, { recursive: true });
   const stdoutPath = join(sampleRoot, "stdout.log");
   const stderrPath = join(sampleRoot, "stderr.log");
+  writeFileSync(stdoutPath, "");
+  writeFileSync(stderrPath, "");
   const entry = createProbeManifestEntry({
     phase: phase.id,
     coldWarm,
@@ -679,10 +681,21 @@ export function summarizeProbeResults({ plan, results, incomplete }) {
       const matching = results.filter(
         (result) => result.phase === phase.id && result.coldWarm === coldWarm,
       );
-      const failed = matching.filter(
-        (result) => result.probe?.timedOut || result.probe?.code !== 0,
+      const sampleSteps = (result) => [
+        result.install,
+        result.build,
+        result.probe,
+      ];
+      const failed = matching.filter((result) =>
+        sampleSteps(result).some(
+          (step) => step && !step.skipped && (step.timedOut || step.code !== 0),
+        ),
       );
-      const timedOut = matching.filter((result) => result.probe?.timedOut);
+      const timedOut = matching.filter((result) =>
+        sampleSteps(result).some(
+          (step) => step && !step.skipped && step.timedOut,
+        ),
+      );
       rates[key] = {
         planned: phase.iterations * phase.processes,
         executed: matching.length,

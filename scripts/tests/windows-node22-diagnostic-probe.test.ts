@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -144,6 +145,37 @@ describe("Windows Node 22 diagnostic probe contract", () => {
       timedOut: 1,
     });
     expect(summary.rates["four-process/cold"].planned).toBe(8);
+  });
+
+  it("counts install and build failures or timeouts in phase rates", () => {
+    const summary = summarizeProbeResults({
+      plan: createProbePlan({ iterations: 1, artifactLabel: "wi60495" }),
+      results: [
+        {
+          phase: "serial",
+          coldWarm: "cold",
+          install: { code: 1, timedOut: false },
+          build: { skipped: true },
+          probe: { skipped: true },
+        },
+        {
+          phase: "two-process",
+          coldWarm: "cold",
+          install: { code: 0, timedOut: false },
+          build: { code: null, timedOut: true },
+          probe: { skipped: true },
+        },
+      ],
+      incomplete: false,
+    });
+    expect(summary.rates["serial/cold"]).toMatchObject({
+      failed: 1,
+      timedOut: 0,
+    });
+    expect(summary.rates["two-process/cold"]).toMatchObject({
+      failed: 1,
+      timedOut: 1,
+    });
   });
 
   it("reserves a complete cold focused sample plus margin at the execution-budget boundary", () => {
@@ -680,6 +712,10 @@ describe("containment failure paths", () => {
         build: { skipped: true, reason: expect.stringMatching(/install/i) },
         probe: { skipped: true, reason: expect.stringMatching(/install/i) },
       });
+      expect(existsSync(result.stdoutPath)).toBe(true);
+      expect(existsSync(result.stderrPath)).toBe(true);
+      expect(readFileSync(result.stdoutPath, "utf8")).toBe("");
+      expect(readFileSync(result.stderrPath, "utf8")).toBe("");
     } finally {
       rmSync(subject, { recursive: true, force: true });
       rmSync(root, { recursive: true, force: true });
