@@ -18,6 +18,8 @@ links:
   reference:
     - https://github.com/calan-co/doc-vader/actions/runs/32993179106/job/98255894389
     - https://github.com/calan-co/doc-vader/actions/runs/32933842522/job/98231508726
+  evidence:
+    - '[[record-20260827-195058-60495]]'
 tags:
   - ci
   - windows

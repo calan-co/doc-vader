@@ -16,6 +16,8 @@ links:
     - '[[60492-add-repository-owned-pr-review-resolve-status-gate]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/83
+  evidence:
+    - '[[record-20260827-195058-60494]]'
 tags:
   - ci
   - review
