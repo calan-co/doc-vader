@@ -10,10 +10,11 @@ status: ready
 priority: high
 estimated: 3
 links:
+  pull_requests:
+    - "https://github.com/calan-co/doc-vader/pull/81"
   reference:
-    - 'https://github.com/calan-co/doc-vader/pull/81'
-    - 'https://github.com/calan-co/doc-vader/actions/runs/32993179106/job/98255894389'
-    - 'https://github.com/calan-co/doc-vader/actions/runs/32933842522'
+    - "https://github.com/calan-co/doc-vader/actions/runs/32993179106/job/98255894389"
+    - "https://github.com/calan-co/doc-vader/actions/runs/32933842522/job/98231508726"
 tags:
   - ci
   - windows
@@ -45,7 +46,6 @@ Dependency review: no existing active Work Item establishes a direct,
 resolvable prerequisite for this investigation. The work may begin independently
 and must record any newly discovered dependency before relying on it.
 
-
 ## Evidence Snapshot
 
 ### Failed required job
@@ -60,13 +60,13 @@ and must record any newly discovered dependency before relying on it.
 - Lockfile SHA-256: `1c5175f1263bcb0923d51ccad1cf7f0be8be2ff81b885e90c9e9388fea6c8e70`
 - Raw failure excerpts:
   - `tests/task-command.test.ts:3478:3` — `selects ready tasks and reports
-    structured deterministic exclusions`; `Error: Test timed out in 15000ms.`
+structured deterministic exclusions`; `Error: Test timed out in 15000ms.`
     (reported elapsed `15100ms`)
   - `tests/task-command.test.ts:3779:3` — `only returns ready candidates that
-    can be claimed in the same context`; `Error: Test timed out in 5000ms.`
+can be claimed in the same context`; `Error: Test timed out in 5000ms.`
     (reported elapsed `5100ms`)
 - Suite summary: `1 failed | 62 passed` test files; `2 failed | 505 passed | 2
-  skipped` tests; duration `227.27s` (tests `561.48s`).
+skipped` tests; duration `227.27s` (tests `561.48s`).
 
 ### Successful comparison job
 
@@ -77,7 +77,7 @@ and must record any newly discovered dependency before relying on it.
   `GitHub Actions`; Windows Server 2025, image `windows-2025-vs2026` version
   `20260818.207.1`, hosted-compute agent version `20260729.566`
 - Resolved Node: `v22.23.2`; suite summary: `63 passed` test files and `507
-  passed | 2 skipped` tests.
+passed | 2 skipped` tests.
 
 The successful job has the same recorded lockfile SHA-256 as the failed commit,
 but it is a different commit and run. GitHub did not expose a successful rerun
@@ -111,8 +111,7 @@ For each isolated checkout, run the CI-equivalent setup before the probe:
 $ErrorActionPreference = 'Stop'
 git checkout --detach 067dff5736754438e1bf8185096c26a9dacebfb1
 git clean -ffdx
-pnpm config set store-dir "$env:RUN_ROOT\pnpm-store-$env:ITERATION"
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --store-dir "$env:RUN_ROOT\pnpm-store-$env:ITERATION"
 pnpm run build
 ```
 
@@ -130,7 +129,7 @@ The controlled focused command exercises the two affected tests only:
 ```powershell
 pnpm exec vitest run tests/task-command.test.ts `
   -t "selects ready tasks and reports structured deterministic exclusions|only returns ready candidates that can be claimed in the same context" `
-  --pool=forks --minWorkers=1 --maxWorkers=1 --reporter=verbose
+  --pool=forks --minWorkers=1 --maxWorkers=1 --no-file-parallelism --reporter=verbose
 ```
 
 ### Required runs
@@ -184,20 +183,20 @@ SHA rather than copied Git metadata.
 ## Tasks
 
 - [ ] Preserve independently accessible failed and successful comparison evidence,
-  including job/run IDs, SHA, runner image, Node version, raw timeout excerpts,
-  and the comparison caveat below.
+      including job/run IDs, SHA, runner image, Node version, raw timeout excerpts,
+      and the comparison caveat above.
 - [ ] Run the defined Windows Node 22 probe contract from the failed SHA: the
-  four-worker baseline, serial repetitions, and isolated two- and four-process
-  waves. Record the specified telemetry and apply its outcome thresholds.
+      four-worker baseline, serial repetitions, and isolated two- and four-process
+      waves. Record the specified telemetry and apply its outcome thresholds.
 - [ ] Build a tight, agent-runnable Windows-representative feedback loop that can
-  detect the reported failure; raise its reproduction rate if the failure is
-  nondeterministic.
+      detect the reported failure; raise its reproduction rate if the failure is
+      nondeterministic.
 - [ ] Minimize the reproducer and record ranked, falsifiable hypotheses before
-  changing production code or workflow configuration.
+      changing production code or workflow configuration.
 - [ ] Add a focused failing regression test at the correct seam, implement the
-  smallest stabilization, and re-run the original reproduction loop.
+      smallest stabilization, and re-run the original reproduction loop.
 - [ ] Validate the fix on Node 22 Windows and relevant cross-platform CI without
-  weakening required checks, masking failures, or changing branch protection.
+      weakening required checks, masking failures, or changing branch protection.
 
 ## Deliverables
 
@@ -211,16 +210,16 @@ SHA rather than copied Git metadata.
 ## Acceptance Criteria
 
 - [ ] The failed Windows Node 22 job `98255894389` and the separately successful
-  comparison job are linked with their exact run/job IDs, SHAs, environment
-  facts, raw timeout excerpts, and the distinction between comparison evidence
-  and a verified rerun/fix.
+      comparison job are linked with their exact run/job IDs, SHAs, environment
+      facts, raw timeout excerpts, and the distinction between comparison evidence
+      and a verified rerun/fix.
 - [ ] The probe contract records its baseline and serial/wave outcomes against
-  the stated thresholds before a cause or stabilization is claimed.
+      the stated thresholds before a cause or stabilization is claimed.
 - [ ] A deterministic or measured-high-reproduction agent-runnable feedback loop
-  exercises the reported Windows Node 22 failure path.
+      exercises the reported Windows Node 22 failure path.
 - [ ] A focused regression test fails before the fix and passes after it at the
-  real failure seam.
+      real failure seam.
 - [ ] Required Node 22 Windows and relevant cross-platform CI pass without
-  removing, skipping, weakening, or bypassing CI/protection policy.
+      removing, skipping, weakening, or bypassing CI/protection policy.
 - [ ] The final evidence records the root cause, validation commands/results,
-  residual flake risk, and rollback signal.
+      residual flake risk, and rollback signal.

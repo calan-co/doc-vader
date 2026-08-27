@@ -469,10 +469,31 @@ describe("Windows Node 22 diagnostic probe contract", () => {
         join(subject, "pnpm-lock.yaml"),
         "lockfileVersion: '9.0'\n",
       );
-      const pnpm = join(bin, "pnpm");
-      writeFileSync(pnpm, "#!/bin/sh\nexit 0\n");
-      chmodSync(pnpm, 0o755);
+      const pnpm = join(
+        bin,
+        process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+      );
+      writeFileSync(
+        pnpm,
+        process.platform === "win32"
+          ? "@echo off\r\nexit /b 0\r\n"
+          : "#!/bin/sh\nexit 0\n",
+      );
+      if (process.platform !== "win32") chmodSync(pnpm, 0o755);
       const verifiedSubjectSha = APPROVED_TARGET_SHA;
+      const cold = await runSample({
+        phase: { id: "serial", fullSuite: false },
+        coldWarm: "cold",
+        iteration: 1,
+        childIndex: 0,
+        subject,
+        root,
+        sharedEnv: {
+          PATH: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env.PATH}`,
+        },
+        runtimeTelemetry: {},
+        verifiedSubjectSha,
+      });
       const { result } = await runSample({
         phase: { id: "serial", fullSuite: false },
         coldWarm: "warm",
@@ -485,6 +506,7 @@ describe("Windows Node 22 diagnostic probe contract", () => {
         },
         runtimeTelemetry: {},
         verifiedSubjectSha,
+        reuse: cold.reuse,
       });
       const resultPath = join(
         root,
@@ -673,5 +695,41 @@ describe("containment failure paths", () => {
     expect(taskkill.stdin.unrefCalls).toBe(1);
     expect(taskkill.stdout.destroyed).toBe(true);
     expect(taskkill.stderr.destroyed).toBe(true);
+  });
+});
+
+describe("review regressions", () => {
+  it("records the exact focused worker bounds in the plan and manifest", () => {
+    expect(
+      createProbePlan({ iterations: 1, artifactLabel: "wi60495" }).focusedArgs,
+    ).toEqual(expect.arrayContaining(["--minWorkers=1", "--maxWorkers=1"]));
+    expect(
+      createProbeManifestEntry({
+        phase: "serial",
+        coldWarm: "cold",
+        iteration: 1,
+        childIndex: 0,
+        workspace: ".",
+        pnpmStore: ".",
+        stdoutPath: "a",
+        stderrPath: "b",
+      }).command,
+    ).toEqual(expect.arrayContaining(["--minWorkers=1", "--maxWorkers=1"]));
+  });
+
+  it("rejects a warm sample without the cold workspace reuse", async () => {
+    await expect(
+      runSample({
+        phase: { id: "serial" },
+        coldWarm: "warm",
+        iteration: 1,
+        childIndex: 0,
+        subject: ".",
+        root: mkdtempSync(join(tmpdir(), "wi60495-")),
+        sharedEnv: {},
+        runtimeTelemetry: {},
+        verifiedSubjectSha: APPROVED_TARGET_SHA,
+      }),
+    ).rejects.toThrow(/warm sample/i);
   });
 });

@@ -36,8 +36,26 @@ export function createProbeManifestEntry(input: {
   runtimeTelemetry?: Record<string, string>;
 }): Record<string, unknown>;
 export function shouldCopySubjectPath(source: string): boolean;
+export interface ProcessTreeTerminationResult {
+  attempted: boolean;
+  failed: boolean;
+  taskkillExitCode?: number | null;
+  taskkillError?: string;
+  fallback?: string;
+  fallbackSucceeded?: boolean;
+  fallbackError?: string;
+  taskkillSettlementDeadlineExceeded?: boolean;
+}
+
 export function terminateProcessTree(
-  child: { pid?: number; kill(signal?: string): unknown },
+  child: {
+    pid?: number;
+    kill?(signal?: string): unknown;
+    unref?(): unknown;
+    stdin?: { end?(): unknown; destroy?(): unknown; unref?(): unknown };
+    stdout?: { destroy?(): unknown };
+    stderr?: { destroy?(): unknown };
+  },
   options?: {
     platform?: string;
     taskkillSettlementWaitMs?: number;
@@ -47,9 +65,14 @@ export function terminateProcessTree(
       options: { shell: boolean; windowsHide: boolean },
     ) => {
       once(event: string, listener: (...args: unknown[]) => void): unknown;
+      kill?(signal?: string): unknown;
+      unref?(): unknown;
+      stdin?: { end?(): unknown; destroy?(): unknown; unref?(): unknown };
+      stdout?: { destroy?(): unknown };
+      stderr?: { destroy?(): unknown };
     };
   },
-): Promise<void>;
+): Promise<ProcessTreeTerminationResult>;
 export function run(
   command: string,
   args: string[],

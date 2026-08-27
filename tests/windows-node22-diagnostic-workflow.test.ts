@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(
-  resolve(".github/workflows/windows-node22-diagnostic.yml"),
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "../.github/workflows/windows-node22-diagnostic.yml",
+  ),
   "utf8",
 );
 
@@ -23,7 +27,7 @@ describe("Windows Node 22 diagnostic workflow contract", () => {
 
   it("only accepts bounded diagnostic inputs and always retains evidence", () => {
     expect(workflow).toContain(
-      "Bounded iterations for each focused phase (1-30)",
+      "Bounded iterations for each probe phase (1-30)",
     );
     expect(workflow).toContain('default: "1"');
     expect(workflow).not.toContain("artifact_label:");

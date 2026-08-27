@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       iterations:
-        description: Bounded iterations for each focused phase (1-30)
+        description: Bounded iterations for each probe phase (1-30)
         required: true
         default: "1"
         type: string

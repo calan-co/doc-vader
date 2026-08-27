@@ -44,17 +44,7 @@ export function createProbePlan({ iterations, artifactLabel }) {
   return {
     targetSha: APPROVED_TARGET_SHA,
     artifactLabel: inputs.artifactLabel,
-    focusedArgs: [
-      "exec",
-      "vitest",
-      "run",
-      "tests/task-command.test.ts",
-      "-t",
-      TEST_SELECTOR,
-      "--pool=forks",
-      "--no-file-parallelism",
-      "--reporter=verbose",
-    ],
+    focusedArgs: commandFor({ fullSuite: false }).args,
     phases: [
       {
         id: "baseline",
@@ -112,25 +102,13 @@ export function createProbeManifestEntry({
     coldWarm,
     iteration,
     childIndex,
-    command:
-      phase === "baseline"
-        ? ["pnpm", "run", "build", "&&", "pnpm", "run", "test", "--", "--run"]
-        : [
-            "pnpm",
-            "exec",
-            "vitest",
-            "run",
-            "tests/task-command.test.ts",
-            "-t",
-            TEST_SELECTOR,
-            "--pool=forks",
-            "--maxWorkers=1",
-            "--no-file-parallelism",
-            "--reporter=verbose",
-          ],
+    command: (() => {
+      const selected = commandFor({ fullSuite: phase === "baseline" });
+      return [selected.command, ...selected.args];
+    })(),
     effectiveOptions:
       phase === "baseline"
-        ? { VITEST_MAX_WORKERS: "4", minWorkers: 4, maxWorkers: 4 }
+        ? { pool: "forks", minWorkers: 4, maxWorkers: 4 }
         : {
             pool: "forks",
             minWorkers: 1,
@@ -351,6 +329,8 @@ export function run(
       shell: false,
       windowsHide: true,
     });
+    mkdirSync(dirname(stdoutPath), { recursive: true });
+    mkdirSync(dirname(stderrPath), { recursive: true });
     writeFileSync(stdoutPath, "");
     writeFileSync(stderrPath, "");
     const stdoutStream = awaitableAppend(stdoutPath);
@@ -421,8 +401,10 @@ export function run(
       if (terminationObserved) {
         cleanup = { ...cleanup, terminationObserved: true };
       }
-      stdoutStream.end();
-      stderrStream.end();
+      await Promise.all([
+        closeWriteStream(stdoutStream),
+        closeWriteStream(stderrStream),
+      ]);
       resolveRun({
         ...result,
         timedOut,
@@ -440,6 +422,14 @@ export function run(
 
 function awaitableAppend(path) {
   return createWriteStream(path, { flags: "a" });
+}
+
+function closeWriteStream(stream) {
+  if (stream.destroyed || stream.writableFinished) return Promise.resolve();
+  return new Promise((resolveClose) => {
+    stream.once("error", resolveClose);
+    stream.end(resolveClose);
+  });
 }
 
 function commandFor(phase) {
@@ -508,6 +498,7 @@ function prepareWorkspace(subject, root, phase, iteration, childIndex) {
     `child-${childIndex}`,
   );
   rmSync(workspace, { recursive: true, force: true });
+  rmSync(pnpmStore, { recursive: true, force: true });
   cpSync(subject, workspace, {
     recursive: true,
     filter: shouldCopySubjectPath,
@@ -529,6 +520,9 @@ export async function runSample({
   reuse,
   runOperation = run,
 }) {
+  if (coldWarm === "warm" && !reuse) {
+    throw new Error("warm sample requires the preceding cold workspace reuse");
+  }
   const prepared =
     reuse ?? prepareWorkspace(subject, root, phase.id, iteration, childIndex);
   const { workspace, pnpmStore } = prepared;
