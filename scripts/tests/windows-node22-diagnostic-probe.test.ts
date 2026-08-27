@@ -438,9 +438,22 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     }
   });
 
-  it("bounds a taskkill that never settles, detaches live handles, and records incomplete timeout evidence", async () => {
+  it("bounds a taskkill that never settles, detaches all target/taskkill stdio, and records incomplete timeout evidence", async () => {
+    const targetStdin = Object.assign(new PassThrough(), {
+      unrefCalls: 0,
+      unref() {
+        this.unrefCalls += 1;
+      },
+    });
+    const taskkillStdin = Object.assign(new PassThrough(), {
+      unrefCalls: 0,
+      unref() {
+        this.unrefCalls += 1;
+      },
+    });
     const child = Object.assign(new EventEmitter(), {
       pid: 1234,
+      stdin: targetStdin,
       stdout: new PassThrough(),
       stderr: new PassThrough(),
       unrefCalls: 0,
@@ -449,7 +462,11 @@ describe("Windows Node 22 diagnostic probe contract", () => {
         this.unrefCalls += 1;
       },
     });
-    const taskkill = new EventEmitter();
+    const taskkill = Object.assign(new EventEmitter(), {
+      stdin: taskkillStdin,
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+    });
     const root = mkdtempSync(join(tmpdir(), "wi60495-taskkill-hang-"));
     try {
       const resultPromise = run("pnpm", ["run", "test"], {
@@ -475,8 +492,14 @@ describe("Windows Node 22 diagnostic probe contract", () => {
         },
       });
       expect(child.unrefCalls).toBe(1);
+      expect(child.stdin.destroyed).toBe(true);
+      expect(child.stdin.unrefCalls).toBe(1);
       expect(child.stdout.destroyed).toBe(true);
       expect(child.stderr.destroyed).toBe(true);
+      expect(taskkill.stdin.destroyed).toBe(true);
+      expect(taskkill.stdin.unrefCalls).toBe(1);
+      expect(taskkill.stdout.destroyed).toBe(true);
+      expect(taskkill.stderr.destroyed).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -548,7 +571,14 @@ describe("containment failure paths", () => {
       pid: 1234,
       kill: () => true,
     });
+    const taskkillStdin = Object.assign(new PassThrough(), {
+      unrefCalls: 0,
+      unref() {
+        this.unrefCalls += 1;
+      },
+    });
     const taskkill = Object.assign(new EventEmitter(), {
+      stdin: taskkillStdin,
       stdout: new PassThrough(),
       stderr: new PassThrough(),
       killCalls: 0,
@@ -573,6 +603,8 @@ describe("containment failure paths", () => {
     });
     expect(taskkill.killCalls).toBe(1);
     expect(taskkill.unrefCalls).toBe(1);
+    expect(taskkill.stdin.destroyed).toBe(true);
+    expect(taskkill.stdin.unrefCalls).toBe(1);
     expect(taskkill.stdout.destroyed).toBe(true);
     expect(taskkill.stderr.destroyed).toBe(true);
   });

@@ -239,6 +239,24 @@ export async function terminateProcessTree(
   });
 }
 
+function closeDetachedStdin(child) {
+  try {
+    child.stdin?.end?.();
+  } catch {
+    // Best effort only: final cleanup must not block bounded evidence.
+  }
+  try {
+    child.stdin?.destroy?.();
+  } catch {
+    // Best effort only: a closed stdin must not block bounded evidence.
+  }
+  try {
+    child.stdin?.unref?.();
+  } catch {
+    // Best effort only: stdin may not expose an independent handle.
+  }
+}
+
 function detachTaskkillChild(child) {
   let finalTerminationSucceeded = false;
   try {
@@ -246,6 +264,7 @@ function detachTaskkillChild(child) {
   } catch {
     finalTerminationSucceeded = false;
   }
+  closeDetachedStdin(child);
   try {
     child.stdout?.destroy();
     child.stderr?.destroy();
@@ -272,6 +291,7 @@ function detachLiveHandles(child, stdoutStream, stderrStream) {
   } catch {
     finalTerminationSucceeded = false;
   }
+  closeDetachedStdin(child);
   try {
     child.stdout?.unpipe(stdoutStream);
     child.stderr?.unpipe(stderrStream);
