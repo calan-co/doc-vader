@@ -40,6 +40,7 @@ export function terminateProcessTree(
   child: { pid?: number; kill(signal?: string): unknown },
   options?: {
     platform?: string;
+    taskkillSettlementWaitMs?: number;
     spawnProcess?: (
       command: string,
       args: string[],
@@ -59,6 +60,7 @@ export function run(
     stderrPath: string;
     timeoutMs: number;
     postCleanupWaitMs?: number;
+    taskkillSettlementWaitMs?: number;
     platform?: string;
     spawnProcess?: (
       command: string,
@@ -95,6 +97,13 @@ export function shouldStopForBudget(input: {
   nowMs: number;
   nextSampleBudgetMs: number;
 }): boolean;
+export function shouldStopAfterUnobservedTermination(
+  results: Array<{
+    install?: { cleanup?: { terminationObserved?: boolean } };
+    build?: { cleanup?: { terminationObserved?: boolean } };
+    probe?: { cleanup?: { terminationObserved?: boolean } };
+  }>,
+): boolean;
 export interface ProbeRate {
   planned: number;
   executed: number;

@@ -18,6 +18,7 @@ import {
   parseDiagnosticInputs,
   shouldCopySubjectPath,
   shouldStopForBudget,
+  shouldStopAfterUnobservedTermination,
   summarizeProbeResults,
   run,
   runSample,
@@ -435,5 +436,62 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("bounds a taskkill that never settles, detaches live handles, and records incomplete timeout evidence", async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      unrefCalls: 0,
+      kill: () => false,
+      unref() {
+        this.unrefCalls += 1;
+      },
+    });
+    const taskkill = new EventEmitter();
+    const root = mkdtempSync(join(tmpdir(), "wi60495-taskkill-hang-"));
+    try {
+      const resultPromise = run("pnpm", ["run", "test"], {
+        cwd: root,
+        env: process.env,
+        stdoutPath: join(root, "stdout.log"),
+        stderrPath: join(root, "stderr.log"),
+        timeoutMs: 1,
+        taskkillSettlementWaitMs: 5,
+        postCleanupWaitMs: 5,
+        platform: "win32",
+        spawnProcess: (command: string) =>
+          command === "taskkill" ? taskkill : child,
+      });
+      await expect(resultPromise).resolves.toMatchObject({
+        timedOut: true,
+        incomplete: true,
+        cleanup: {
+          failed: true,
+          taskkillSettlementDeadlineExceeded: true,
+          terminationObserved: false,
+          finalStrategy: "detach-live-handles",
+        },
+      });
+      expect(child.unrefCalls).toBe(1);
+      expect(child.stdout.destroyed).toBe(true);
+      expect(child.stderr.destroyed).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("halts later waves when any sample reports unobserved termination", () => {
+    expect(
+      shouldStopAfterUnobservedTermination([
+        { probe: { cleanup: { terminationObserved: false } } },
+      ]),
+    ).toBe(true);
+    expect(
+      shouldStopAfterUnobservedTermination([
+        { install: { cleanup: { terminationObserved: true } } },
+      ]),
+    ).toBe(false);
   });
 });

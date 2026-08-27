@@ -169,7 +169,11 @@ function writeJson(path, value) {
 
 export async function terminateProcessTree(
   child,
-  { platform = process.platform, spawnProcess = spawn } = {},
+  {
+    platform = process.platform,
+    spawnProcess = spawn,
+    taskkillSettlementWaitMs = 30_000,
+  } = {},
 ) {
   if (!child?.pid) return { attempted: false, failed: false };
   if (platform !== "win32") {
@@ -183,12 +187,22 @@ export async function terminateProcessTree(
       { shell: false, windowsHide: true },
     );
     let settled = false;
+    const settlementTimer = setTimeout(() => {
+      useFallback(
+        null,
+        "taskkill settlement deadline elapsed without close or error",
+        {
+          taskkillSettlementDeadlineExceeded: true,
+        },
+      );
+    }, taskkillSettlementWaitMs);
     const finishTermination = (result) => {
       if (settled) return;
       settled = true;
+      clearTimeout(settlementTimer);
       resolveTermination(result);
     };
-    const useFallback = (taskkillExitCode, taskkillError) => {
+    const useFallback = (taskkillExitCode, taskkillError, details = {}) => {
       let fallbackSucceeded = false;
       let fallbackError;
       try {
@@ -204,6 +218,7 @@ export async function terminateProcessTree(
         fallback: "child.kill(SIGTERM)",
         fallbackSucceeded,
         fallbackError,
+        ...details,
       });
     };
     terminator.once("error", (error) => {
@@ -223,6 +238,44 @@ export async function terminateProcessTree(
   });
 }
 
+function detachLiveHandles(child, stdoutStream, stderrStream) {
+  let finalTerminationSucceeded = false;
+  try {
+    finalTerminationSucceeded = child.kill?.("SIGKILL") !== false;
+  } catch {
+    finalTerminationSucceeded = false;
+  }
+  try {
+    child.stdout?.unpipe(stdoutStream);
+    child.stderr?.unpipe(stderrStream);
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+    stdoutStream.destroy();
+    stderrStream.destroy();
+  } catch {
+    // Best effort only: safe detachment must not prevent bounded result evidence.
+  }
+  try {
+    child.unref?.();
+  } catch {
+    // Best effort only: handles are already detached above.
+  }
+  return {
+    finalStrategy: finalTerminationSucceeded
+      ? "final-child-kill-and-detach"
+      : "detach-live-handles",
+    finalTerminationSucceeded,
+  };
+}
+
+export function shouldStopAfterUnobservedTermination(results) {
+  return results.some((result) =>
+    [result.install, result.build, result.probe].some(
+      (step) => step?.cleanup?.terminationObserved === false,
+    ),
+  );
+}
+
 export function run(
   command,
   args,
@@ -233,6 +286,7 @@ export function run(
     stderrPath,
     timeoutMs,
     postCleanupWaitMs = 30_000,
+    taskkillSettlementWaitMs = 30_000,
     platform = process.platform,
     spawnProcess = spawn,
   },
@@ -261,6 +315,7 @@ export function run(
       terminationPromise = terminateProcessTree(child, {
         platform,
         spawnProcess,
+        taskkillSettlementWaitMs,
       })
         .then((result) => {
           cleanup = result;
@@ -282,6 +337,7 @@ export function run(
             failed: true,
             terminationObserved: false,
             postCleanupDeadlineExceeded: true,
+            ...detachLiveHandles(child, stdoutStream, stderrStream),
           };
           void finish({
             code: null,
@@ -609,6 +665,7 @@ async function main() {
   const results = [];
   const startedAtMs = Date.now();
   let incomplete = false;
+  let incompleteReason = null;
   phaseLoop: for (const phase of plan.phases) {
     for (let iteration = 1; iteration <= phase.iterations; iteration += 1) {
       if (
@@ -619,6 +676,8 @@ async function main() {
         })
       ) {
         incomplete = true;
+        incompleteReason =
+          "remaining execution budget prevented the next planned wave";
         break phaseLoop;
       }
       const cold = await Promise.all(
@@ -636,7 +695,14 @@ async function main() {
           }),
         ),
       );
-      results.push(...cold.map((sample) => sample.result));
+      const coldResults = cold.map((sample) => sample.result);
+      results.push(...coldResults);
+      if (shouldStopAfterUnobservedTermination(coldResults)) {
+        incomplete = true;
+        incompleteReason =
+          "unobserved process termination halted later probe waves";
+        break phaseLoop;
+      }
       if (phase.id === "baseline") {
         const warm = await Promise.all(
           cold.map((sample, childIndex) =>
@@ -654,7 +720,14 @@ async function main() {
             }),
           ),
         );
-        results.push(...warm.map((sample) => sample.result));
+        const warmResults = warm.map((sample) => sample.result);
+        results.push(...warmResults);
+        if (shouldStopAfterUnobservedTermination(warmResults)) {
+          incomplete = true;
+          incompleteReason =
+            "unobserved process termination halted later probe waves";
+          break phaseLoop;
+        }
       }
     }
   }
@@ -664,9 +737,7 @@ async function main() {
     inputs,
     elapsedMs: Date.now() - startedAtMs,
     executionBudgetMs: MAX_EXECUTION_BUDGET_MS,
-    incompleteReason: incomplete
-      ? "remaining execution budget prevented the next planned wave"
-      : null,
+    incompleteReason,
   });
   writeFileSync(
     join(root, "sha256sums.txt"),
