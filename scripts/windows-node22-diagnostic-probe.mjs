@@ -15,6 +15,9 @@ import { fileURLToPath } from "node:url";
 
 export const APPROVED_TARGET_SHA = "067dff5736754438e1bf8185096c26a9dacebfb1";
 const MAX_ITERATIONS = 30;
+const MAX_EXECUTION_BUDGET_MS = 330 * 60_000;
+const BASELINE_WAVE_BUDGET_MS = 120 * 60_000;
+const FOCUSED_WAVE_BUDGET_MS = 45 * 60_000;
 const ARTIFACT_LABEL = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const TEST_SELECTOR =
   "selects ready tasks and reports structured deterministic exclusions|only returns ready candidates that can be claimed in the same context";
@@ -55,26 +58,30 @@ export function createProbePlan({ iterations, artifactLabel }) {
     phases: [
       {
         id: "baseline",
-        workers: 4,
-        iterations: 1,
+        processes: 1,
+        vitestWorkers: 4,
+        iterations: inputs.iterations,
         coldWarm: ["cold", "warm"],
         fullSuite: true,
       },
       {
         id: "serial",
-        workers: 1,
+        processes: 1,
+        vitestWorkers: 1,
         iterations: inputs.iterations,
         coldWarm: ["cold"],
       },
       {
         id: "two-process",
-        workers: 2,
+        processes: 2,
+        vitestWorkers: 1,
         iterations: inputs.iterations,
         coldWarm: ["cold"],
       },
       {
         id: "four-process",
-        workers: 4,
+        processes: 4,
+        vitestWorkers: 1,
         iterations: inputs.iterations,
         coldWarm: ["cold"],
       },
@@ -142,10 +149,15 @@ export function createProbeManifestEntry({
       corepackVersion: runtimeTelemetry.corepackVersion ?? "unavailable",
       gitVersion: runtimeTelemetry.gitVersion ?? "unavailable",
       windowsVersion: runtimeTelemetry.windowsVersion ?? "unavailable",
-      runnerOs: process.env.RUNNER_OS ?? process.platform,
-      runnerArch: process.env.RUNNER_ARCH ?? process.arch,
-      imageOs: process.env.ImageOS ?? "unavailable",
-      imageVersion: process.env.ImageVersion ?? "unavailable",
+      runnerOs:
+        runtimeTelemetry.runnerOs ?? process.env.RUNNER_OS ?? process.platform,
+      runnerArch:
+        runtimeTelemetry.runnerArch ?? process.env.RUNNER_ARCH ?? process.arch,
+      imageOs: runtimeTelemetry.imageOs ?? process.env.ImageOS ?? "unavailable",
+      imageVersion:
+        runtimeTelemetry.imageVersion ??
+        process.env.ImageVersion ??
+        "unavailable",
     },
   };
 }
@@ -158,6 +170,7 @@ function writeJson(path, value) {
 function run(command, args, { cwd, env, stdoutPath, stderrPath, timeoutMs }) {
   return new Promise((resolveRun) => {
     const startedAt = new Date().toISOString();
+    let timedOut = false;
     const startedNs = process.hrtime.bigint();
     const child = spawn(command, args, {
       cwd,
@@ -171,7 +184,10 @@ function run(command, args, { cwd, env, stdoutPath, stderrPath, timeoutMs }) {
     const stderrStream = awaitableAppend(stderrPath);
     child.stdout.pipe(stdoutStream);
     child.stderr.pipe(stderrStream);
-    const timer = setTimeout(() => child.kill(), timeoutMs);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, timeoutMs);
     child.once("error", (error) =>
       finish({ error: error.message, code: null, signal: null }),
     );
@@ -187,6 +203,7 @@ function run(command, args, { cwd, env, stdoutPath, stderrPath, timeoutMs }) {
       stderrStream.end();
       resolveRun({
         ...result,
+        timedOut,
         startedAt,
         endedAt: new Date().toISOString(),
         durationMs: Number(process.hrtime.bigint() - startedNs) / 1e6,
@@ -234,6 +251,21 @@ function commandFor(phase) {
   };
 }
 
+export function shouldCopySubjectPath(source) {
+  return (
+    !source.split(/[\\/]/).includes(".git") &&
+    !["node_modules", ".nx", "dist", "coverage"].includes(basename(source))
+  );
+}
+
+export function shouldStopForBudget({
+  startedAtMs,
+  nowMs,
+  nextSampleBudgetMs,
+}) {
+  return nowMs + nextSampleBudgetMs > startedAtMs + MAX_EXECUTION_BUDGET_MS;
+}
+
 function prepareWorkspace(subject, root, phase, iteration, childIndex) {
   const workspace = join(
     root,
@@ -252,8 +284,7 @@ function prepareWorkspace(subject, root, phase, iteration, childIndex) {
   rmSync(workspace, { recursive: true, force: true });
   cpSync(subject, workspace, {
     recursive: true,
-    filter: (source) =>
-      !["node_modules", ".nx", "dist", "coverage"].includes(basename(source)),
+    filter: shouldCopySubjectPath,
   });
   mkdirSync(pnpmStore, { recursive: true });
   return { workspace, pnpmStore };
@@ -268,6 +299,7 @@ async function runSample({
   root,
   sharedEnv,
   runtimeTelemetry,
+  verifiedSubjectSha,
   reuse,
 }) {
   const prepared =
@@ -351,13 +383,6 @@ async function runSample({
           endedAt: new Date().toISOString(),
           durationMs: 0,
         };
-  const gitHead = await run("git", ["rev-parse", "HEAD"], {
-    cwd: workspace,
-    env,
-    stdoutPath: join(sampleRoot, "git-head.stdout.log"),
-    stderrPath: join(sampleRoot, "git-head.stderr.log"),
-    timeoutMs: 60_000,
-  });
   const result = {
     ...entry,
     install,
@@ -411,6 +436,33 @@ async function collectRuntimeTelemetry(root, subject) {
   return telemetry;
 }
 
+export function summarizeProbeResults({ plan, results, incomplete }) {
+  const rates = {};
+  for (const phase of plan.phases) {
+    for (const coldWarm of phase.coldWarm) {
+      const key = `${phase.id}/${coldWarm}`;
+      const matching = results.filter(
+        (result) => result.phase === phase.id && result.coldWarm === coldWarm,
+      );
+      const failed = matching.filter(
+        (result) => result.probe?.timedOut || result.probe?.code !== 0,
+      );
+      const timedOut = matching.filter((result) => result.probe?.timedOut);
+      rates[key] = {
+        planned: phase.iterations * phase.processes,
+        executed: matching.length,
+        failed: failed.length,
+        timedOut: timedOut.length,
+      };
+    }
+  }
+  return { targetSha: APPROVED_TARGET_SHA, incomplete, rates, results };
+}
+
+function waveBudget(phase) {
+  return phase.fullSuite ? BASELINE_WAVE_BUDGET_MS : FOCUSED_WAVE_BUDGET_MS;
+}
+
 async function main() {
   const inputs = parseDiagnosticInputs({
     iterations: process.env.INPUT_ITERATIONS ?? "30",
@@ -442,10 +494,22 @@ async function main() {
   const plan = createProbePlan(inputs);
   writeJson(join(root, "plan.json"), plan);
   const results = [];
-  for (const phase of plan.phases) {
+  const startedAtMs = Date.now();
+  let incomplete = false;
+  phaseLoop: for (const phase of plan.phases) {
     for (let iteration = 1; iteration <= phase.iterations; iteration += 1) {
+      if (
+        shouldStopForBudget({
+          startedAtMs,
+          nowMs: Date.now(),
+          nextSampleBudgetMs: waveBudget(phase),
+        })
+      ) {
+        incomplete = true;
+        break phaseLoop;
+      }
       const cold = await Promise.all(
-        Array.from({ length: phase.workers }, (_, childIndex) =>
+        Array.from({ length: phase.processes }, (_, childIndex) =>
           runSample({
             phase,
             coldWarm: "cold",
@@ -454,6 +518,8 @@ async function main() {
             subject,
             root,
             sharedEnv: {},
+            runtimeTelemetry,
+            verifiedSubjectSha: head,
           }),
         ),
       );
@@ -469,6 +535,8 @@ async function main() {
               subject,
               root,
               sharedEnv: {},
+              runtimeTelemetry,
+              verifiedSubjectSha: head,
               reuse: sample.reuse,
             }),
           ),
@@ -477,16 +545,19 @@ async function main() {
       }
     }
   }
-  const summary = Object.groupBy(results, (result) => result.phase);
+  const summary = summarizeProbeResults({ plan, results, incomplete });
   writeJson(join(root, "summary.json"), {
-    targetSha: APPROVED_TARGET_SHA,
+    ...summary,
     inputs,
-    summary,
+    elapsedMs: Date.now() - startedAtMs,
+    executionBudgetMs: MAX_EXECUTION_BUDGET_MS,
+    incompleteReason: incomplete
+      ? "remaining execution budget prevented the next planned wave"
+      : null,
   });
   writeFileSync(
     join(root, "sha256sums.txt"),
-    Object.values(summary)
-      .flat()
+    results
       .map(
         (result) =>
           `${createHash("sha256").update(JSON.stringify(result)).digest("hex")}  ${result.phase}/${result.iteration}/${result.childIndex}/${result.coldWarm}\n`,

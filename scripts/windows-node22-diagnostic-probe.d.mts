@@ -7,7 +7,8 @@ export interface DiagnosticInputs {
 
 export interface ProbePhase {
   id: "baseline" | "serial" | "two-process" | "four-process";
-  workers: number;
+  processes: number;
+  vitestWorkers: number;
   iterations: number;
   coldWarm: readonly ("cold" | "warm")[];
   fullSuite?: boolean;
@@ -32,4 +33,32 @@ export function createProbeManifestEntry(input: {
   pnpmStore: string;
   stdoutPath: string;
   stderrPath: string;
+  runtimeTelemetry?: Record<string, string>;
 }): Record<string, unknown>;
+export function shouldCopySubjectPath(source: string): boolean;
+export function shouldStopForBudget(input: {
+  startedAtMs: number;
+  nowMs: number;
+  nextSampleBudgetMs: number;
+}): boolean;
+export interface ProbeRate {
+  planned: number;
+  executed: number;
+  failed: number;
+  timedOut: number;
+}
+
+export function summarizeProbeResults(input: {
+  plan: ReturnType<typeof createProbePlan>;
+  results: Array<{
+    phase: string;
+    coldWarm: string;
+    probe?: { code?: number | null; timedOut?: boolean };
+  }>;
+  incomplete: boolean;
+}): {
+  targetSha: string;
+  incomplete: boolean;
+  rates: Record<string, ProbeRate>;
+  results: Array<unknown>;
+};

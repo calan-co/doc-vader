@@ -18,6 +18,7 @@ describe("Windows Node 22 diagnostic workflow contract", () => {
     expect(workflow).toContain("node-version: 22.23.2");
     expect(workflow).toContain("067dff5736754438e1bf8185096c26a9dacebfb1");
     expect(workflow).toContain("timeout-minutes: 360");
+    expect(workflow).toContain("persist-credentials: false");
   });
 
   it("only accepts bounded diagnostic inputs and always retains evidence", () => {

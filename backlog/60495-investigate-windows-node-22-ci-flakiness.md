@@ -149,7 +149,10 @@ pnpm exec vitest run tests/task-command.test.ts `
 The two- and four-process waves use the one-worker focused command once per
 isolated checkout. PowerShell orchestration must preserve each process exit code
 and redirect its complete stdout/stderr to that iteration's evidence file; it
-must not share a checkout or pnpm store between wave members.
+must not share a checkout or pnpm store between wave members. The manual probe
+plans all requested iterations, but stops before its 330-minute execution budget
+would be exceeded, writes an explicit incomplete summary, and never treats a
+partial plan as a clean result.
 
 ### Telemetry and outcome thresholds
 
@@ -159,11 +162,17 @@ per-test durations; `node --version`, `pnpm --version`, `git --version`, and
 `git rev-parse HEAD`; Windows product/build; runner image/version when supplied
 by the runner; `Get-FileHash pnpm-lock.yaml -Algorithm SHA256`; effective Vitest
 options; cold/warm state; workspace path; and pnpm-store path. Retain logs even
-when the sample passes.
+when the sample passes. Every sample manifest includes the collected runtime
+telemetry. Artifact workspaces exclude `.git` and the workflow disables persisted
+checkout credentials; subject identity is recorded from the verified approved
+SHA rather than copied Git metadata.
 
 - Any timeout, non-zero exit, or matching failed test is a reproduction and
   records the observed rate by run class; preserve its raw output before any
   follow-up.
+- Record planned, executed, failed, and timed-out counts/rates for every
+  phase/cold-warm class. If the execution budget prevents all planned samples,
+  mark that class and the probe incomplete.
 - If no failures occur in a run class after 30 cold samples, record `0/30` for
   that class rather than calling it stable or fixed.
 - Compare rates and duration distributions only after all four classes complete.
