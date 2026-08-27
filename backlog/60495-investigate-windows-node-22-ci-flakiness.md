@@ -2,7 +2,7 @@
 $schema: schemas/work-management/frontmatter/work-item.json
 id: wi-60495
 title: Investigate Windows Node 22 CI Flakiness
-summary: Reproduce, diagnose, and stabilize the intermittent required Windows Node 22 CI test failure observed while merging PR #81.
+summary: Reproduce, diagnose, and stabilize the intermittent required Windows Node 22 CI test failure observed while merging PR
 type: work-item
 subtype: bug
 lifecycle: active
@@ -11,10 +11,12 @@ priority: high
 estimated: 3
 links:
   pull_requests:
-    - "https://github.com/calan-co/doc-vader/pull/81"
+    - https://github.com/calan-co/doc-vader/pull/81
   reference:
-    - "https://github.com/calan-co/doc-vader/actions/runs/32993179106/job/98255894389"
-    - "https://github.com/calan-co/doc-vader/actions/runs/32933842522/job/98231508726"
+    - https://github.com/calan-co/doc-vader/actions/runs/32993179106/job/98255894389
+    - https://github.com/calan-co/doc-vader/actions/runs/32933842522/job/98231508726
+  evidence:
+    - '[[record-20260827-191613-60495]]'
 tags:
   - ci
   - windows
