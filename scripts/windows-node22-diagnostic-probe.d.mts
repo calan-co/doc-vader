@@ -36,6 +36,41 @@ export function createProbeManifestEntry(input: {
   runtimeTelemetry?: Record<string, string>;
 }): Record<string, unknown>;
 export function shouldCopySubjectPath(source: string): boolean;
+export function terminateProcessTree(
+  child: { pid?: number; kill(signal?: string): unknown },
+  options?: {
+    platform?: string;
+    spawnProcess?: (
+      command: string,
+      args: string[],
+      options: { shell: boolean; windowsHide: boolean },
+    ) => {
+      once(event: string, listener: (...args: unknown[]) => void): unknown;
+    };
+  },
+): Promise<void>;
+export function run(
+  command: string,
+  args: string[],
+  input: {
+    cwd: string;
+    env: Record<string, string | undefined>;
+    stdoutPath: string;
+    stderrPath: string;
+    timeoutMs: number;
+    platform?: string;
+    spawnProcess?: (
+      command: string,
+      args: string[],
+      options: {
+        cwd: string;
+        env: Record<string, string | undefined>;
+        shell: boolean;
+        windowsHide: boolean;
+      },
+    ) => any;
+  },
+): Promise<Record<string, unknown> & { timedOut: boolean }>;
 export function runSample(input: {
   phase: Pick<ProbePhase, "id" | "fullSuite">;
   coldWarm: "cold" | "warm";

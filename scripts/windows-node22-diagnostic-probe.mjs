@@ -167,38 +167,89 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value)}\n`);
 }
 
-function run(command, args, { cwd, env, stdoutPath, stderrPath, timeoutMs }) {
+export async function terminateProcessTree(
+  child,
+  { platform = process.platform, spawnProcess = spawn } = {},
+) {
+  if (!child?.pid) return;
+  if (platform !== "win32") {
+    child.kill("SIGTERM");
+    return;
+  }
+  await new Promise((resolveTermination) => {
+    const terminator = spawnProcess(
+      "taskkill",
+      ["/pid", String(child.pid), "/t", "/f"],
+      { shell: false, windowsHide: true },
+    );
+    let settled = false;
+    const finishTermination = () => {
+      if (settled) return;
+      settled = true;
+      resolveTermination();
+    };
+    terminator.once("error", () => {
+      // Best effort fallback: the direct child may still be stoppable even if
+      // taskkill itself is unavailable. The caller still waits for close.
+      child.kill("SIGTERM");
+      finishTermination();
+    });
+    terminator.once("close", finishTermination);
+  });
+}
+
+export function run(
+  command,
+  args,
+  {
+    cwd,
+    env,
+    stdoutPath,
+    stderrPath,
+    timeoutMs,
+    platform = process.platform,
+    spawnProcess = spawn,
+  },
+) {
   return new Promise((resolveRun) => {
     const startedAt = new Date().toISOString();
     let timedOut = false;
+    let terminationPromise = Promise.resolve();
     const startedNs = process.hrtime.bigint();
-    const child = spawn(command, args, {
+    const child = spawnProcess(command, args, {
       cwd,
       env,
       shell: false,
       windowsHide: true,
     });
-    const stdout = writeFileSync(stdoutPath, "");
-    const stderr = writeFileSync(stderrPath, "");
+    writeFileSync(stdoutPath, "");
+    writeFileSync(stderrPath, "");
     const stdoutStream = awaitableAppend(stdoutPath);
     const stderrStream = awaitableAppend(stderrPath);
     child.stdout.pipe(stdoutStream);
     child.stderr.pipe(stderrStream);
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill();
+      terminationPromise = terminateProcessTree(child, {
+        platform,
+        spawnProcess,
+      }).catch(() => undefined);
     }, timeoutMs);
-    child.once("error", (error) =>
-      finish({ error: error.message, code: null, signal: null }),
+    child.once(
+      "error",
+      (error) =>
+        void finish({ error: error.message, code: null, signal: null }),
     );
-    child.once("close", (code, signal) =>
-      finish({ code, signal, error: null }),
+    child.once(
+      "close",
+      (code, signal) => void finish({ code, signal, error: null }),
     );
     let done = false;
-    function finish(result) {
+    async function finish(result) {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      await terminationPromise;
       stdoutStream.end();
       stderrStream.end();
       resolveRun({

@@ -8,6 +8,8 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import {
   APPROVED_TARGET_SHA,
@@ -17,7 +19,9 @@ import {
   shouldCopySubjectPath,
   shouldStopForBudget,
   summarizeProbeResults,
+  run,
   runSample,
+  terminateProcessTree,
   waveBudgetForPhase,
 } from "../windows-node22-diagnostic-probe.mjs";
 
@@ -159,6 +163,93 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     ).toBe(true);
     expect(shouldCopySubjectPath("C:/subject/.git/config")).toBe(false);
     expect(shouldCopySubjectPath("C:/subject/src/index.ts")).toBe(true);
+  });
+
+  it("terminates Windows descendant process trees and waits for taskkill completion", async () => {
+    const taskkill = new (await import("node:events")).EventEmitter() as any;
+    const calls: Array<{ command: string; args: string[]; options: object }> =
+      [];
+    const child = {
+      pid: 1234,
+      kill: () => {
+        throw new Error("Windows cleanup must use taskkill, not child.kill");
+      },
+    };
+    const cleanup = terminateProcessTree(child, {
+      platform: "win32",
+      spawnProcess: (command: string, args: string[], options: object) => {
+        calls.push({ command, args, options });
+        return taskkill;
+      },
+    });
+    expect(calls).toEqual([
+      {
+        command: "taskkill",
+        args: ["/pid", "1234", "/t", "/f"],
+        options: { shell: false, windowsHide: true },
+      },
+    ]);
+    let settled = false;
+    void cleanup.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    taskkill.emit("close", 0);
+    await expect(cleanup).resolves.toBeUndefined();
+
+    const signals: string[] = [];
+    await terminateProcessTree(
+      { pid: 4321, kill: (signal: string) => signals.push(signal) },
+      {
+        platform: "darwin",
+        spawnProcess: () => {
+          throw new Error("non-Windows cleanup must not spawn taskkill");
+        },
+      },
+    );
+    expect(signals).toEqual(["SIGTERM"]);
+  });
+
+  it("waits for Windows process-tree cleanup before recording a timeout", async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      kill: () => {
+        throw new Error("Windows timeout must not use child.kill directly");
+      },
+    });
+    const taskkill = new EventEmitter();
+    const calls: string[] = [];
+    const root = mkdtempSync(join(tmpdir(), "wi60495-timeout-"));
+    try {
+      const resultPromise = run("pnpm", ["run", "test"], {
+        cwd: root,
+        env: process.env,
+        stdoutPath: join(root, "stdout.log"),
+        stderrPath: join(root, "stderr.log"),
+        timeoutMs: 1,
+        platform: "win32",
+        spawnProcess: (command: string) => {
+          calls.push(command);
+          return command === "taskkill" ? taskkill : child;
+        },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(calls).toEqual(["pnpm", "taskkill"]);
+      child.emit("close", null, "SIGTERM");
+      let settled = false;
+      void resultPromise.then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      taskkill.emit("close", 0);
+      await expect(resultPromise).resolves.toMatchObject({ timedOut: true });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("writes verified subject SHA in completed runSample result metadata", async () => {
