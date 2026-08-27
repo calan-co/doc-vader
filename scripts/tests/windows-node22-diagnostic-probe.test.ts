@@ -305,6 +305,92 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     }
   });
 
+  it.each([
+    ["false", () => false],
+    [
+      "throwing",
+      () => {
+        throw new Error("fallback failed");
+      },
+    ],
+  ])(
+    "records an incomplete timeout after a nonzero taskkill and a %s fallback without child close",
+    async (_kind, fallback) => {
+      const child = Object.assign(new EventEmitter(), {
+        pid: 1234,
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+        kill: fallback,
+      });
+      const taskkill = new EventEmitter();
+      const root = mkdtempSync(join(tmpdir(), "wi60495-post-cleanup-"));
+      try {
+        const resultPromise = run("pnpm", ["run", "test"], {
+          cwd: root,
+          env: process.env,
+          stdoutPath: join(root, "stdout.log"),
+          stderrPath: join(root, "stderr.log"),
+          timeoutMs: 1,
+          postCleanupWaitMs: 5,
+          platform: "win32",
+          spawnProcess: (command: string) =>
+            command === "taskkill" ? taskkill : child,
+        });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        taskkill.emit("close", 1);
+        await expect(resultPromise).resolves.toMatchObject({
+          timedOut: true,
+          incomplete: true,
+          cleanup: {
+            attempted: true,
+            failed: true,
+            taskkillExitCode: 1,
+            terminationObserved: false,
+            postCleanupDeadlineExceeded: true,
+          },
+        });
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("records an incomplete timeout after a nonclosing fallback despite taskkill cleanup failure", async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      kill: () => true,
+    });
+    const taskkill = new EventEmitter();
+    const root = mkdtempSync(join(tmpdir(), "wi60495-nonclosing-fallback-"));
+    try {
+      const resultPromise = run("pnpm", ["run", "test"], {
+        cwd: root,
+        env: process.env,
+        stdoutPath: join(root, "stdout.log"),
+        stderrPath: join(root, "stderr.log"),
+        timeoutMs: 1,
+        postCleanupWaitMs: 5,
+        platform: "win32",
+        spawnProcess: (command: string) =>
+          command === "taskkill" ? taskkill : child,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      taskkill.emit("close", 1);
+      await expect(resultPromise).resolves.toMatchObject({
+        timedOut: true,
+        incomplete: true,
+        cleanup: {
+          terminationObserved: false,
+          postCleanupDeadlineExceeded: true,
+        },
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("writes verified subject SHA in completed runSample result metadata", async () => {
     const root = mkdtempSync(join(tmpdir(), "wi60495-probe-"));
     try {

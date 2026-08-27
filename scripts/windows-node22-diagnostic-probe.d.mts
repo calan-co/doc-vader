@@ -58,6 +58,7 @@ export function run(
     stdoutPath: string;
     stderrPath: string;
     timeoutMs: number;
+    postCleanupWaitMs?: number;
     platform?: string;
     spawnProcess?: (
       command: string,

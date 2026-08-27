@@ -232,6 +232,7 @@ export function run(
     stdoutPath,
     stderrPath,
     timeoutMs,
+    postCleanupWaitMs = 30_000,
     platform = process.platform,
     spawnProcess = spawn,
   },
@@ -241,6 +242,7 @@ export function run(
     let timedOut = false;
     let cleanup = { attempted: false, failed: false };
     let terminationPromise = Promise.resolve();
+    let postCleanupTimer;
     const startedNs = process.hrtime.bigint();
     const child = spawnProcess(command, args, {
       cwd,
@@ -271,6 +273,24 @@ export function run(
               error instanceof Error ? error.message : String(error),
           };
         });
+      void terminationPromise.then(() => {
+        if (done) return;
+        postCleanupTimer = setTimeout(() => {
+          if (done) return;
+          cleanup = {
+            ...cleanup,
+            failed: true,
+            terminationObserved: false,
+            postCleanupDeadlineExceeded: true,
+          };
+          void finish({
+            code: null,
+            signal: null,
+            error: "post-cleanup deadline elapsed without child close or error",
+            incomplete: true,
+          });
+        }, postCleanupWaitMs);
+      });
     }, timeoutMs);
     child.once(
       "error",
@@ -286,6 +306,7 @@ export function run(
       if (done) return;
       done = true;
       clearTimeout(timer);
+      clearTimeout(postCleanupTimer);
       await terminationPromise;
       stdoutStream.end();
       stderrStream.end();
@@ -294,7 +315,7 @@ export function run(
         timedOut,
         cleanup: {
           ...cleanup,
-          terminationObserved: timedOut,
+          terminationObserved: cleanup.terminationObserved ?? timedOut,
         },
         startedAt,
         endedAt: new Date().toISOString(),
