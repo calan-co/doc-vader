@@ -111,9 +111,15 @@ For each isolated checkout, run the CI-equivalent setup before the probe:
 $ErrorActionPreference = 'Stop'
 git checkout --detach 067dff5736754438e1bf8185096c26a9dacebfb1
 git clean -ffdx
-pnpm install --frozen-lockfile --store-dir "$env:RUN_ROOT\pnpm-store-$env:ITERATION"
+# `$phase`, `$iteration`, and `$member` identify this wave member.
+pnpm install --frozen-lockfile --store-dir "$env:RUN_ROOT\stores\$phase\iteration-$iteration\child-$member"
 pnpm run build
 ```
+
+`RUN_ROOT` is unique to the diagnostic execution. The harness maps each sample to
+`RUN_ROOT/stores/<phase>/iteration-<iteration>/child-<member>` (the same path it
+passes to `pnpm install --store-dir`), so concurrent wave members use separate
+stores. A warm sample reuses only its preceding cold member's store.
 
 The CI-equivalent full-suite baseline preserves the CI build-before-test
 sequence, Node major, frozen lockfile, and `pnpm run test -- --run` entry point,

@@ -282,6 +282,38 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     }
   });
 
+  it("creates nested evidence-log parents and flushes complete output before resolving", async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      kill: () => true,
+    });
+    const root = mkdtempSync(join(tmpdir(), "wi60495-evidence-streams-"));
+    const stdoutPath = join(root, "nested", "logs", "stdout.log");
+    const stderrPath = join(root, "nested", "logs", "stderr.log");
+    try {
+      const resultPromise = run("pnpm", ["run", "test"], {
+        cwd: root,
+        env: process.env,
+        stdoutPath,
+        stderrPath,
+        timeoutMs: 60_000,
+        spawnProcess: () => child,
+      });
+      child.stdout.end("complete stdout\\n");
+      child.stderr.end("complete stderr\\n");
+      child.emit("close", 0, null);
+
+      await expect(resultPromise).resolves.toMatchObject({ code: 0 });
+      expect(readFileSync(stdoutPath, "utf8")).toBe("complete stdout\\n");
+      expect(readFileSync(stderrPath, "utf8")).toBe("complete stderr\\n");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("waits for Windows process-tree cleanup before recording a timeout", async () => {
     const child = Object.assign(new EventEmitter(), {
       pid: 1234,
