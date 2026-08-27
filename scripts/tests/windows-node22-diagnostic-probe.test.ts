@@ -495,3 +495,85 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     ).toBe(false);
   });
 });
+
+describe("containment failure paths", () => {
+  it("short-circuits an unobserved install termination without spawning build or probe", async () => {
+    const subject = mkdtempSync(
+      join(tmpdir(), "wi60495-unobserved-install-subject-"),
+    );
+    const root = mkdtempSync(
+      join(tmpdir(), "wi60495-unobserved-install-root-"),
+    );
+    const calls: string[] = [];
+    writeFileSync(join(subject, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    try {
+      const { result } = await runSample({
+        phase: { id: "serial" },
+        coldWarm: "cold",
+        iteration: 1,
+        childIndex: 0,
+        subject,
+        root,
+        sharedEnv: {},
+        runtimeTelemetry: {},
+        verifiedSubjectSha: APPROVED_TARGET_SHA,
+        runOperation: async (command: string, args: string[]) => {
+          calls.push([command, ...args].join(" "));
+          return {
+            code: null,
+            signal: null,
+            error: "timeout",
+            timedOut: true,
+            incomplete: true,
+            cleanup: { terminationObserved: false },
+          };
+        },
+      });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toContain("pnpm install");
+      expect(calls.join("\n")).not.toContain("run build");
+      expect(result).toMatchObject({
+        incomplete: true,
+        build: { skipped: true, reason: expect.stringMatching(/install/i) },
+        probe: { skipped: true, reason: expect.stringMatching(/install/i) },
+      });
+    } finally {
+      rmSync(subject, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("bounds and detaches a taskkill child that never settles", async () => {
+    const target = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      kill: () => true,
+    });
+    const taskkill = Object.assign(new EventEmitter(), {
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      killCalls: 0,
+      unrefCalls: 0,
+      kill() {
+        this.killCalls += 1;
+        return true;
+      },
+      unref() {
+        this.unrefCalls += 1;
+      },
+    });
+    const result = await terminateProcessTree(target, {
+      platform: "win32",
+      taskkillSettlementWaitMs: 5,
+      spawnProcess: () => taskkill,
+    });
+    expect(result).toMatchObject({
+      failed: true,
+      taskkillSettlementDeadlineExceeded: true,
+      taskkillFinalStrategy: "final-taskkill-kill-and-detach",
+    });
+    expect(taskkill.killCalls).toBe(1);
+    expect(taskkill.unrefCalls).toBe(1);
+    expect(taskkill.stdout.destroyed).toBe(true);
+    expect(taskkill.stderr.destroyed).toBe(true);
+  });
+});

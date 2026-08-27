@@ -85,6 +85,7 @@ export function runSample(input: {
   runtimeTelemetry: Record<string, string>;
   verifiedSubjectSha: string;
   reuse?: { workspace: string; pnpmStore: string };
+  runOperation?: typeof run;
 }): Promise<{
   result: Record<string, unknown> & { gitHead: string };
   reuse: { workspace: string; pnpmStore: string };

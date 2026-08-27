@@ -193,6 +193,7 @@ export async function terminateProcessTree(
         "taskkill settlement deadline elapsed without close or error",
         {
           taskkillSettlementDeadlineExceeded: true,
+          ...detachTaskkillChild(terminator),
         },
       );
     }, taskkillSettlementWaitMs);
@@ -236,6 +237,32 @@ export async function terminateProcessTree(
       useFallback(code, undefined);
     });
   });
+}
+
+function detachTaskkillChild(child) {
+  let finalTerminationSucceeded = false;
+  try {
+    finalTerminationSucceeded = child.kill?.("SIGKILL") !== false;
+  } catch {
+    finalTerminationSucceeded = false;
+  }
+  try {
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+  } catch {
+    // Best effort only: taskkill cleanup must not block bounded evidence.
+  }
+  try {
+    child.unref?.();
+  } catch {
+    // Best effort only: streams are already detached above.
+  }
+  return {
+    taskkillFinalStrategy: finalTerminationSucceeded
+      ? "final-taskkill-kill-and-detach"
+      : "detach-taskkill-handles",
+    taskkillFinalTerminationSucceeded: finalTerminationSucceeded,
+  };
 }
 
 function detachLiveHandles(child, stdoutStream, stderrStream) {
@@ -470,6 +497,7 @@ export async function runSample({
   runtimeTelemetry,
   verifiedSubjectSha,
   reuse,
+  runOperation = run,
 }) {
   const prepared =
     reuse ?? prepareWorkspace(subject, root, phase.id, iteration, childIndex);
@@ -512,7 +540,7 @@ export async function runSample({
   writeJson(join(sampleRoot, "metadata.start.json"), entry);
   const install =
     coldWarm === "cold"
-      ? await run(
+      ? await runOperation(
           "pnpm",
           ["install", "--frozen-lockfile", "--store-dir", pnpmStore],
           {
@@ -527,17 +555,30 @@ export async function runSample({
           skipped: true,
           reason: "warm sample reuses cold workspace without reinstall",
         };
-  const build = await run("pnpm", ["run", "build"], {
-    cwd: workspace,
-    env,
-    stdoutPath: join(sampleRoot, "build.stdout.log"),
-    stderrPath: join(sampleRoot, "build.stderr.log"),
-    timeoutMs: 20 * 60_000,
-  });
+  const installTerminationUnobserved =
+    install?.cleanup?.terminationObserved === false;
+  const build = installTerminationUnobserved
+    ? {
+        skipped: true,
+        incomplete: true,
+        reason: "install termination was not observed; build was not started",
+      }
+    : await runOperation("pnpm", ["run", "build"], {
+        cwd: workspace,
+        env,
+        stdoutPath: join(sampleRoot, "build.stdout.log"),
+        stderrPath: join(sampleRoot, "build.stderr.log"),
+        timeoutMs: 20 * 60_000,
+      });
   const selected = commandFor(phase);
-  const probe =
-    build.code === 0
-      ? await run(selected.command, selected.args, {
+  const probe = installTerminationUnobserved
+    ? {
+        skipped: true,
+        incomplete: true,
+        reason: "install termination was not observed; probe was not started",
+      }
+    : build.code === 0
+      ? await runOperation(selected.command, selected.args, {
           cwd: workspace,
           env,
           stdoutPath,
@@ -557,6 +598,7 @@ export async function runSample({
     install,
     build,
     probe,
+    incomplete: installTerminationUnobserved,
     gitHead: verifiedSubjectSha,
     lockfileSha256: sha256(join(workspace, "pnpm-lock.yaml")),
   };
