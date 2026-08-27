@@ -36,6 +36,24 @@ export function createProbeManifestEntry(input: {
   runtimeTelemetry?: Record<string, string>;
 }): Record<string, unknown>;
 export function shouldCopySubjectPath(source: string): boolean;
+export function runSample(input: {
+  phase: Pick<ProbePhase, "id" | "fullSuite">;
+  coldWarm: "cold" | "warm";
+  iteration: number;
+  childIndex: number;
+  subject: string;
+  root: string;
+  sharedEnv: Record<string, string | undefined>;
+  runtimeTelemetry: Record<string, string>;
+  verifiedSubjectSha: string;
+  reuse?: { workspace: string; pnpmStore: string };
+}): Promise<{
+  result: Record<string, unknown> & { gitHead: string };
+  reuse: { workspace: string; pnpmStore: string };
+}>;
+export function waveBudgetForPhase(
+  phase: Pick<ProbePhase, "fullSuite">,
+): number;
 export function shouldStopForBudget(input: {
   startedAtMs: number;
   nowMs: number;

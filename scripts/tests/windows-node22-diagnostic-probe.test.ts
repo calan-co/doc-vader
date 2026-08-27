@@ -1,3 +1,13 @@
+import {
+  chmodSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import {
   APPROVED_TARGET_SHA,
@@ -7,6 +17,8 @@ import {
   shouldCopySubjectPath,
   shouldStopForBudget,
   summarizeProbeResults,
+  runSample,
+  waveBudgetForPhase,
 } from "../windows-node22-diagnostic-probe.mjs";
 
 describe("Windows Node 22 diagnostic probe contract", () => {
@@ -129,15 +141,69 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     expect(summary.rates["four-process/cold"].planned).toBe(8);
   });
 
-  it("stops before the execution budget and excludes Git metadata from copied workspaces", () => {
+  it("reserves a complete cold focused sample plus margin at the execution-budget boundary", () => {
+    expect(waveBudgetForPhase({ fullSuite: false })).toBe(55 * 60_000);
     expect(
       shouldStopForBudget({
         startedAtMs: 0,
-        nowMs: 329 * 60_000,
-        nextSampleBudgetMs: 5 * 60_000,
+        nowMs: 275 * 60_000,
+        nextSampleBudgetMs: 55 * 60_000,
+      }),
+    ).toBe(false);
+    expect(
+      shouldStopForBudget({
+        startedAtMs: 0,
+        nowMs: 275 * 60_000 + 1,
+        nextSampleBudgetMs: 55 * 60_000,
       }),
     ).toBe(true);
     expect(shouldCopySubjectPath("C:/subject/.git/config")).toBe(false);
     expect(shouldCopySubjectPath("C:/subject/src/index.ts")).toBe(true);
+  });
+
+  it("writes verified subject SHA in completed runSample result metadata", async () => {
+    const root = mkdtempSync(join(tmpdir(), "wi60495-probe-"));
+    try {
+      const subject = join(root, "subject");
+      const bin = join(root, "bin");
+      mkdirSync(subject, { recursive: true });
+      mkdirSync(bin, { recursive: true });
+      writeFileSync(
+        join(subject, "pnpm-lock.yaml"),
+        "lockfileVersion: '9.0'\n",
+      );
+      const pnpm = join(bin, "pnpm");
+      writeFileSync(pnpm, "#!/bin/sh\nexit 0\n");
+      chmodSync(pnpm, 0o755);
+      const verifiedSubjectSha = APPROVED_TARGET_SHA;
+      const { result } = await runSample({
+        phase: { id: "serial", fullSuite: false },
+        coldWarm: "warm",
+        iteration: 1,
+        childIndex: 0,
+        subject,
+        root,
+        sharedEnv: {
+          PATH: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env.PATH}`,
+        },
+        runtimeTelemetry: {},
+        verifiedSubjectSha,
+      });
+      const resultPath = join(
+        root,
+        "samples",
+        "serial",
+        "iteration-1",
+        "child-0",
+        "warm",
+        "metadata.result.json",
+      );
+      expect(JSON.parse(readFileSync(resultPath, "utf8")).gitHead).toBe(
+        verifiedSubjectSha,
+      );
+      expect(result.gitHead).toBe(verifiedSubjectSha);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -17,7 +17,7 @@ export const APPROVED_TARGET_SHA = "067dff5736754438e1bf8185096c26a9dacebfb1";
 const MAX_ITERATIONS = 30;
 const MAX_EXECUTION_BUDGET_MS = 330 * 60_000;
 const BASELINE_WAVE_BUDGET_MS = 120 * 60_000;
-const FOCUSED_WAVE_BUDGET_MS = 45 * 60_000;
+const FOCUSED_WAVE_BUDGET_MS = 55 * 60_000;
 const ARTIFACT_LABEL = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const TEST_SELECTOR =
   "selects ready tasks and reports structured deterministic exclusions|only returns ready candidates that can be claimed in the same context";
@@ -290,7 +290,7 @@ function prepareWorkspace(subject, root, phase, iteration, childIndex) {
   return { workspace, pnpmStore };
 }
 
-async function runSample({
+export async function runSample({
   phase,
   coldWarm,
   iteration,
@@ -388,7 +388,7 @@ async function runSample({
     install,
     build,
     probe,
-    gitHead,
+    gitHead: verifiedSubjectSha,
     lockfileSha256: sha256(join(workspace, "pnpm-lock.yaml")),
   };
   writeJson(join(sampleRoot, "metadata.result.json"), result);
@@ -459,7 +459,7 @@ export function summarizeProbeResults({ plan, results, incomplete }) {
   return { targetSha: APPROVED_TARGET_SHA, incomplete, rates, results };
 }
 
-function waveBudget(phase) {
+export function waveBudgetForPhase(phase) {
   return phase.fullSuite ? BASELINE_WAVE_BUDGET_MS : FOCUSED_WAVE_BUDGET_MS;
 }
 
@@ -502,7 +502,7 @@ async function main() {
         shouldStopForBudget({
           startedAtMs,
           nowMs: Date.now(),
-          nextSampleBudgetMs: waveBudget(phase),
+          nextSampleBudgetMs: waveBudgetForPhase(phase),
         })
       ) {
         incomplete = true;
