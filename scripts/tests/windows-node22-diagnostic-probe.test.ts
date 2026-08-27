@@ -196,7 +196,11 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     await Promise.resolve();
     expect(settled).toBe(false);
     taskkill.emit("close", 0);
-    await expect(cleanup).resolves.toBeUndefined();
+    await expect(cleanup).resolves.toMatchObject({
+      attempted: true,
+      failed: false,
+      taskkillExitCode: 0,
+    });
 
     const signals: string[] = [];
     await terminateProcessTree(
@@ -247,6 +251,55 @@ describe("Windows Node 22 diagnostic probe contract", () => {
       expect(settled).toBe(false);
       taskkill.emit("close", 0);
       await expect(resultPromise).resolves.toMatchObject({ timedOut: true });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("records a nonzero Windows taskkill cleanup failure, uses fallback, and waits for termination before timeout result", async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      killCalls: [] as string[],
+      kill(signal: string) {
+        this.killCalls.push(signal);
+        return true;
+      },
+    });
+    const taskkill = new EventEmitter();
+    const root = mkdtempSync(join(tmpdir(), "wi60495-taskkill-nonzero-"));
+    try {
+      const resultPromise = run("pnpm", ["run", "test"], {
+        cwd: root,
+        env: process.env,
+        stdoutPath: join(root, "stdout.log"),
+        stderrPath: join(root, "stderr.log"),
+        timeoutMs: 1,
+        platform: "win32",
+        spawnProcess: (command: string) =>
+          command === "taskkill" ? taskkill : child,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      taskkill.emit("close", 1);
+      expect(child.killCalls).toEqual(["SIGTERM"]);
+      let settled = false;
+      void resultPromise.then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      child.emit("close", null, "SIGTERM");
+      await expect(resultPromise).resolves.toMatchObject({
+        timedOut: true,
+        cleanup: {
+          attempted: true,
+          failed: true,
+          taskkillExitCode: 1,
+          fallback: "child.kill(SIGTERM)",
+          terminationObserved: true,
+        },
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

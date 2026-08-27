@@ -171,30 +171,55 @@ export async function terminateProcessTree(
   child,
   { platform = process.platform, spawnProcess = spawn } = {},
 ) {
-  if (!child?.pid) return;
+  if (!child?.pid) return { attempted: false, failed: false };
   if (platform !== "win32") {
     child.kill("SIGTERM");
-    return;
+    return { attempted: true, failed: false, fallback: "child.kill(SIGTERM)" };
   }
-  await new Promise((resolveTermination) => {
+  return await new Promise((resolveTermination) => {
     const terminator = spawnProcess(
       "taskkill",
       ["/pid", String(child.pid), "/t", "/f"],
       { shell: false, windowsHide: true },
     );
     let settled = false;
-    const finishTermination = () => {
+    const finishTermination = (result) => {
       if (settled) return;
       settled = true;
-      resolveTermination();
+      resolveTermination(result);
     };
-    terminator.once("error", () => {
-      // Best effort fallback: the direct child may still be stoppable even if
-      // taskkill itself is unavailable. The caller still waits for close.
-      child.kill("SIGTERM");
-      finishTermination();
+    const useFallback = (taskkillExitCode, taskkillError) => {
+      let fallbackSucceeded = false;
+      let fallbackError;
+      try {
+        fallbackSucceeded = child.kill("SIGTERM") !== false;
+      } catch (error) {
+        fallbackError = error instanceof Error ? error.message : String(error);
+      }
+      finishTermination({
+        attempted: true,
+        failed: true,
+        taskkillExitCode,
+        taskkillError,
+        fallback: "child.kill(SIGTERM)",
+        fallbackSucceeded,
+        fallbackError,
+      });
+    };
+    terminator.once("error", (error) => {
+      useFallback(null, error instanceof Error ? error.message : String(error));
     });
-    terminator.once("close", finishTermination);
+    terminator.once("close", (code) => {
+      if (code === 0) {
+        finishTermination({
+          attempted: true,
+          failed: false,
+          taskkillExitCode: 0,
+        });
+        return;
+      }
+      useFallback(code, undefined);
+    });
   });
 }
 
@@ -214,6 +239,7 @@ export function run(
   return new Promise((resolveRun) => {
     const startedAt = new Date().toISOString();
     let timedOut = false;
+    let cleanup = { attempted: false, failed: false };
     let terminationPromise = Promise.resolve();
     const startedNs = process.hrtime.bigint();
     const child = spawnProcess(command, args, {
@@ -233,7 +259,18 @@ export function run(
       terminationPromise = terminateProcessTree(child, {
         platform,
         spawnProcess,
-      }).catch(() => undefined);
+      })
+        .then((result) => {
+          cleanup = result;
+        })
+        .catch((error) => {
+          cleanup = {
+            attempted: true,
+            failed: true,
+            taskkillError:
+              error instanceof Error ? error.message : String(error),
+          };
+        });
     }, timeoutMs);
     child.once(
       "error",
@@ -255,6 +292,10 @@ export function run(
       resolveRun({
         ...result,
         timedOut,
+        cleanup: {
+          ...cleanup,
+          terminationObserved: timedOut,
+        },
         startedAt,
         endedAt: new Date().toISOString(),
         durationMs: Number(process.hrtime.bigint() - startedNs) / 1e6,
