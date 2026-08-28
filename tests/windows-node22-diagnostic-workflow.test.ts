@@ -33,6 +33,7 @@ describe("Windows Node 22 diagnostic workflow contract", () => {
     expect(workflow).not.toContain("artifact_label:");
     expect(workflow).toContain("INPUT_ITERATIONS");
     expect(workflow).toContain("scripts/windows-node22-diagnostic-probe.mjs");
+    expect(workflow).toContain("pnpm.cmd --version");
     expect(workflow).toContain("if: always()");
     expect(workflow).toContain("if-no-files-found: error");
     expect(workflow).not.toMatch(/\b(gh|git\s+push)\b/);

@@ -19,6 +19,20 @@ const MAX_EXECUTION_BUDGET_MS = 330 * 60_000;
 const BASELINE_WAVE_BUDGET_MS = 120 * 60_000;
 const FOCUSED_WAVE_BUDGET_MS = 55 * 60_000;
 const ARTIFACT_LABEL = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+export function packageManagerCommand(platform = process.platform) {
+  return platform === "win32" ? "pnpm.cmd" : "pnpm";
+}
+
+export function hasSetupFailure(result) {
+  return [result.install, result.build].some(
+    (step) =>
+      step &&
+      !step.skipped &&
+      (step.timedOut || step.error || step.code !== 0),
+  );
+}
+
 const TEST_SELECTOR =
   "selects ready tasks and reports structured deterministic exclusions|only returns ready candidates that can be claimed in the same context";
 
@@ -95,6 +109,7 @@ export function createProbeManifestEntry({
   stdoutPath,
   stderrPath,
   runtimeTelemetry = {},
+  platform = process.platform,
 }) {
   return {
     targetSha: APPROVED_TARGET_SHA,
@@ -104,7 +119,10 @@ export function createProbeManifestEntry({
     childIndex,
     command: (() => {
       const selected = commandFor({ fullSuite: phase === "baseline" });
-      return [selected.command, ...selected.args];
+      return [
+        selected.command === "pnpm" ? packageManagerCommand(platform) : selected.command,
+        ...selected.args,
+      ];
     })(),
     effectiveOptions:
       phase === "baseline"
@@ -326,7 +344,7 @@ export function run(
     const child = spawnProcess(command, args, {
       cwd,
       env,
-      shell: false,
+      shell: platform === "win32" && command.toLowerCase().endsWith(".cmd"),
       windowsHide: true,
     });
     mkdirSync(dirname(stdoutPath), { recursive: true });
@@ -562,12 +580,13 @@ export async function runSample({
     stdoutPath,
     stderrPath,
     runtimeTelemetry,
+    platform: process.platform,
   });
   writeJson(join(sampleRoot, "metadata.start.json"), entry);
   const install =
     coldWarm === "cold"
       ? await runOperation(
-          "pnpm",
+          packageManagerCommand(),
           ["install", "--frozen-lockfile", "--store-dir", pnpmStore],
           {
             cwd: workspace,
@@ -589,7 +608,7 @@ export async function runSample({
         incomplete: true,
         reason: "install termination was not observed; build was not started",
       }
-    : await runOperation("pnpm", ["run", "build"], {
+    : await runOperation(packageManagerCommand(), ["run", "build"], {
         cwd: workspace,
         env,
         stdoutPath: join(sampleRoot, "build.stdout.log"),
@@ -604,7 +623,7 @@ export async function runSample({
         reason: "install termination was not observed; probe was not started",
       }
     : build.code === 0
-      ? await runOperation(selected.command, selected.args, {
+      ? await runOperation(packageManagerCommand(), selected.args, {
           cwd: workspace,
           env,
           stdoutPath,
@@ -635,7 +654,7 @@ async function collectRuntimeTelemetry(root, subject) {
   const commands = [
     ["nodeVersion", "node", ["--version"]],
     ["npmVersion", "npm", ["--version"]],
-    ["pnpmVersion", "pnpm", ["--version"]],
+    ["pnpmVersion", packageManagerCommand(), ["--version"]],
     ["corepackVersion", "corepack", ["--version"]],
     ["gitVersion", "git", ["--version"]],
     [
@@ -818,6 +837,7 @@ async function main() {
     executionBudgetMs: MAX_EXECUTION_BUDGET_MS,
     incompleteReason,
   });
+  const setupFailures = results.filter(hasSetupFailure);
   writeFileSync(
     join(root, "sha256sums.txt"),
     results
@@ -827,6 +847,10 @@ async function main() {
       )
       .join(""),
   );
+  if (setupFailures.length > 0)
+    throw new Error(
+      `diagnostic setup failed before test execution in ${setupFailures.length} sample(s)`,
+    );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

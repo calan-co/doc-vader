@@ -14,6 +14,8 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import {
   APPROVED_TARGET_SHA,
+  hasSetupFailure,
+  packageManagerCommand,
   createProbePlan,
   createProbeManifestEntry,
   parseDiagnosticInputs,
@@ -145,6 +147,64 @@ describe("Windows Node 22 diagnostic probe contract", () => {
       timedOut: 1,
     });
     expect(summary.rates["four-process/cold"].planned).toBe(8);
+  });
+
+  it("uses the Windows Corepack shim with cmd and records the executable", async () => {
+    expect(packageManagerCommand("win32")).toBe("pnpm.cmd");
+    expect(packageManagerCommand("linux")).toBe("pnpm");
+
+    const child = Object.assign(new EventEmitter(), {
+      pid: 1234,
+      stdin: new PassThrough(),
+      stdout: new PassThrough(),
+      stderr: new PassThrough(),
+      kill: () => true,
+    });
+    const root = mkdtempSync(join(tmpdir(), "wi60495-windows-pnpm-shim-"));
+    try {
+      let spawnOptions: object | undefined;
+      const result = run("pnpm.cmd", ["--version"], {
+        cwd: root,
+        env: process.env,
+        stdoutPath: join(root, "stdout.log"),
+        stderrPath: join(root, "stderr.log"),
+        timeoutMs: 60_000,
+        platform: "win32",
+        spawnProcess: (_command: string, _args: string[], options: object) => {
+          spawnOptions = options;
+          return child;
+        },
+      });
+      child.emit("close", 0, null);
+      await result;
+      expect(spawnOptions).toMatchObject({ shell: true, windowsHide: true });
+      expect(
+        createProbeManifestEntry({
+          phase: "serial",
+          coldWarm: "cold",
+          iteration: 1,
+          childIndex: 0,
+          workspace: root,
+          pnpmStore: join(root, "store"),
+          stdoutPath: join(root, "stdout.log"),
+          stderrPath: join(root, "stderr.log"),
+          platform: "win32",
+        }).command[0],
+      ).toBe("pnpm.cmd");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("marks install or build failures as invalid diagnostic setup", () => {
+    expect(
+      hasSetupFailure({ install: { code: null, error: "spawn pnpm ENOENT" } }),
+    ).toBe(true);
+    expect(hasSetupFailure({ build: { code: 1 } })).toBe(true);
+    expect(hasSetupFailure({ probe: { code: 1 } })).toBe(false);
+    expect(hasSetupFailure({ install: { code: 0 }, build: { code: 0 } })).toBe(
+      false,
+    );
   });
 
   it("counts install and build failures or timeouts in phase rates", () => {

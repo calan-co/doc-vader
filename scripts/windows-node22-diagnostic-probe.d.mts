@@ -1,4 +1,10 @@
 export const APPROVED_TARGET_SHA: string;
+export function packageManagerCommand(platform?: string): string;
+export function hasSetupFailure(result: {
+  install?: ProbeStep;
+  build?: ProbeStep;
+  probe?: ProbeStep;
+}): boolean;
 
 export interface DiagnosticInputs {
   iterations: string | number;
@@ -34,7 +40,8 @@ export function createProbeManifestEntry(input: {
   stdoutPath: string;
   stderrPath: string;
   runtimeTelemetry?: Record<string, string>;
-}): Record<string, unknown>;
+  platform?: string;
+}): Record<string, unknown> & { command: string[] };
 export function shouldCopySubjectPath(source: string): boolean;
 export interface ProcessTreeTerminationResult {
   attempted: boolean;
@@ -143,6 +150,7 @@ export interface ProbeStep {
   code?: number | null;
   timedOut?: boolean;
   skipped?: boolean;
+  error?: string | null;
 }
 
 export function summarizeProbeResults(input: {
