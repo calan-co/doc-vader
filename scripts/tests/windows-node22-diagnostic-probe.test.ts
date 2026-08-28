@@ -14,12 +14,15 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import {
   APPROVED_TARGET_SHA,
+  hasSetupFailure,
+  packageManagerCommand,
   createProbePlan,
   createProbeManifestEntry,
   parseDiagnosticInputs,
   shouldCopySubjectPath,
   shouldStopForBudget,
   shouldStopAfterUnobservedTermination,
+  shouldUseWindowsCmdShell,
   summarizeProbeResults,
   run,
   runSample,
@@ -145,6 +148,38 @@ describe("Windows Node 22 diagnostic probe contract", () => {
       timedOut: 1,
     });
     expect(summary.rates["four-process/cold"].planned).toBe(8);
+  });
+
+  it("uses the Windows Corepack shim with cmd and records the executable", () => {
+    expect(packageManagerCommand("win32")).toBe("pnpm.cmd");
+    expect(packageManagerCommand("linux")).toBe("pnpm");
+    expect(shouldUseWindowsCmdShell("pnpm.cmd", "win32")).toBe(true);
+    expect(shouldUseWindowsCmdShell("pnpm", "win32")).toBe(false);
+    expect(shouldUseWindowsCmdShell("pnpm.cmd", "linux")).toBe(false);
+    expect(
+      createProbeManifestEntry({
+        phase: "serial",
+        coldWarm: "cold",
+        iteration: 1,
+        childIndex: 0,
+        workspace: "C:/temp/workspace",
+        pnpmStore: "C:/temp/store",
+        stdoutPath: "stdout.log",
+        stderrPath: "stderr.log",
+        platform: "win32",
+      }).command[0],
+    ).toBe("pnpm.cmd");
+  });
+
+  it("marks install or build failures as invalid diagnostic setup", () => {
+    expect(
+      hasSetupFailure({ install: { code: null, error: "spawn pnpm ENOENT" } }),
+    ).toBe(true);
+    expect(hasSetupFailure({ build: { code: 1 } })).toBe(true);
+    expect(hasSetupFailure({ probe: { code: 1 } })).toBe(false);
+    expect(hasSetupFailure({ install: { code: 0 }, build: { code: 0 } })).toBe(
+      false,
+    );
   });
 
   it("counts install and build failures or timeouts in phase rates", () => {

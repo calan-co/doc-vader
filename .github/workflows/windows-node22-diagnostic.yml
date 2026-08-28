@@ -46,7 +46,7 @@ jobs:
           corepack enable
           node --version
           npm --version
-          pnpm --version
+          pnpm.cmd --version
           git --version
           Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber | Format-List
 
