@@ -848,6 +848,38 @@ describe("containment failure paths", () => {
     }
   });
 
+  it("uses a short, isolated NX socket directory outside copied workspaces", async () => {
+    const subject = mkdtempSync(join(tmpdir(), "wi60495-nx-socket-subject-"));
+    const root = mkdtempSync(join(tmpdir(), "wi60495-nx-socket-root-"));
+    writeFileSync(join(subject, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    const operationEnvs: Array<Record<string, string | undefined>> = [];
+    try {
+      await runSample({
+        phase: { id: "serial" },
+        coldWarm: "cold",
+        iteration: 1,
+        childIndex: 0,
+        subject,
+        root,
+        sharedEnv: { RUNNER_TEMP: "C:\\rt" },
+        runtimeTelemetry: {},
+        verifiedSubjectSha: APPROVED_TARGET_SHA,
+        runOperation: async (_command: string, _args: string[], options: any) => {
+          operationEnvs.push(options.env);
+          return { code: 0, signal: null, error: null, timedOut: false };
+        },
+      });
+      expect(operationEnvs).toHaveLength(3);
+      expect(operationEnvs[0].NX_SOCKET_DIR).toContain("C:\\rt");
+      expect(operationEnvs[0].NX_SOCKET_DIR).toContain("nx-sockets");
+      expect(operationEnvs[0].NX_SOCKET_DIR).not.toContain(root);
+      expect(operationEnvs[1].NX_SOCKET_DIR).toBe(operationEnvs[0].NX_SOCKET_DIR);
+    } finally {
+      rmSync(subject, { recursive: true, force: true });
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("bounds and detaches a taskkill child that never settles", async () => {
     const target = Object.assign(new EventEmitter(), {
       pid: 1234,
