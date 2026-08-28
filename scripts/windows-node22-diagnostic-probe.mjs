@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 export const APPROVED_TARGET_SHA = "067dff5736754438e1bf8185096c26a9dacebfb1";
@@ -557,6 +558,14 @@ export async function runSample({
     coldWarm,
   );
   mkdirSync(sampleRoot, { recursive: true });
+  const socketRoot =
+    sharedEnv.RUNNER_TEMP ?? process.env.RUNNER_TEMP ?? process.env.TEMP ?? tmpdir();
+  const nxSocketDir = join(
+    socketRoot,
+    "nx-sockets",
+    phase.id,
+    `${iteration}-${childIndex}`,
+  );
   const env = {
     ...process.env,
     ...sharedEnv,
@@ -566,10 +575,12 @@ export async function runSample({
     TMP: join(sampleRoot, "temp"),
     TMPDIR: join(sampleRoot, "temp"),
     NX_CACHE_DIRECTORY: join(sampleRoot, "nx-cache"),
+    NX_SOCKET_DIR: nxSocketDir,
     DOC_VADER_RUNTIME_DIR: join(sampleRoot, "runtime"),
     PNPM_STORE_DIR: pnpmStore,
   };
   mkdirSync(env.TEMP, { recursive: true });
+  mkdirSync(env.NX_SOCKET_DIR, { recursive: true });
   const stdoutPath = join(sampleRoot, "stdout.log");
   const stderrPath = join(sampleRoot, "stderr.log");
   writeFileSync(stdoutPath, "");
