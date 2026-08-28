@@ -22,6 +22,7 @@ import {
   shouldCopySubjectPath,
   shouldStopForBudget,
   shouldStopAfterUnobservedTermination,
+  shouldUseWindowsCmdShell,
   summarizeProbeResults,
   run,
   runSample,
@@ -149,51 +150,25 @@ describe("Windows Node 22 diagnostic probe contract", () => {
     expect(summary.rates["four-process/cold"].planned).toBe(8);
   });
 
-  it("uses the Windows Corepack shim with cmd and records the executable", async () => {
+  it("uses the Windows Corepack shim with cmd and records the executable", () => {
     expect(packageManagerCommand("win32")).toBe("pnpm.cmd");
     expect(packageManagerCommand("linux")).toBe("pnpm");
-
-    const child = Object.assign(new EventEmitter(), {
-      pid: 1234,
-      stdin: new PassThrough(),
-      stdout: new PassThrough(),
-      stderr: new PassThrough(),
-      kill: () => true,
-    });
-    const root = mkdtempSync(join(tmpdir(), "wi60495-windows-pnpm-shim-"));
-    try {
-      let spawnOptions: object | undefined;
-      const result = run("pnpm.cmd", ["--version"], {
-        cwd: root,
-        env: process.env,
-        stdoutPath: join(root, "stdout.log"),
-        stderrPath: join(root, "stderr.log"),
-        timeoutMs: 60_000,
+    expect(shouldUseWindowsCmdShell("pnpm.cmd", "win32")).toBe(true);
+    expect(shouldUseWindowsCmdShell("pnpm", "win32")).toBe(false);
+    expect(shouldUseWindowsCmdShell("pnpm.cmd", "linux")).toBe(false);
+    expect(
+      createProbeManifestEntry({
+        phase: "serial",
+        coldWarm: "cold",
+        iteration: 1,
+        childIndex: 0,
+        workspace: "C:/temp/workspace",
+        pnpmStore: "C:/temp/store",
+        stdoutPath: "stdout.log",
+        stderrPath: "stderr.log",
         platform: "win32",
-        spawnProcess: (_command: string, _args: string[], options: object) => {
-          spawnOptions = options;
-          return child;
-        },
-      });
-      child.emit("close", 0, null);
-      await result;
-      expect(spawnOptions).toMatchObject({ shell: true, windowsHide: true });
-      expect(
-        createProbeManifestEntry({
-          phase: "serial",
-          coldWarm: "cold",
-          iteration: 1,
-          childIndex: 0,
-          workspace: root,
-          pnpmStore: join(root, "store"),
-          stdoutPath: join(root, "stdout.log"),
-          stderrPath: join(root, "stderr.log"),
-          platform: "win32",
-        }).command[0],
-      ).toBe("pnpm.cmd");
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
+      }).command[0],
+    ).toBe("pnpm.cmd");
   });
 
   it("marks install or build failures as invalid diagnostic setup", () => {

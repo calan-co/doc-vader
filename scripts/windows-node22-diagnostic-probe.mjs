@@ -24,6 +24,10 @@ export function packageManagerCommand(platform = process.platform) {
   return platform === "win32" ? "pnpm.cmd" : "pnpm";
 }
 
+export function shouldUseWindowsCmdShell(command, platform = process.platform) {
+  return platform === "win32" && command.toLowerCase().endsWith(".cmd");
+}
+
 export function hasSetupFailure(result) {
   return [result.install, result.build].some(
     (step) =>
@@ -344,7 +348,7 @@ export function run(
     const child = spawnProcess(command, args, {
       cwd,
       env,
-      shell: platform === "win32" && command.toLowerCase().endsWith(".cmd"),
+      shell: shouldUseWindowsCmdShell(command, platform),
       windowsHide: true,
     });
     mkdirSync(dirname(stdoutPath), { recursive: true });

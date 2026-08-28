@@ -1,5 +1,9 @@
 export const APPROVED_TARGET_SHA: string;
 export function packageManagerCommand(platform?: string): string;
+export function shouldUseWindowsCmdShell(
+  command: string,
+  platform?: string,
+): boolean;
 export function hasSetupFailure(result: {
   install?: ProbeStep;
   build?: ProbeStep;
