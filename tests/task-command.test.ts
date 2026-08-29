@@ -6,6 +6,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { integrationTestTimeoutMs } from "./helper/windows-integration-timeout.js";
 import {
   claimTask,
   getClaimStatus,
@@ -1886,7 +1887,10 @@ tags:
     }
   });
 
-  it("refuses dirty recovery without force", async () => {
+  it(
+    "refuses dirty recovery without force",
+    { timeout: integrationTestTimeoutMs() },
+    async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
@@ -1932,7 +1936,8 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+    },
+  );
 
   it(
     "supports force reset and reconcile recovery modes",

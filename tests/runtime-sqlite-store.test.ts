@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { integrationTestTimeoutMs } from "./helper/windows-integration-timeout.js";
 import {
   createRuntimeClaimToken,
   createRuntimeLockIdentity,
@@ -19,6 +20,19 @@ import {
 } from "../lib/runtime/sqlite-store.js";
 
 const tempDirs: string[] = [];
+
+async function measureStage<T>(name: string, operation: () => T | Promise<T>): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    if (process.env.DOC_VADER_STAGE_TIMING === "1") {
+      console.info(
+        `[runtime-audit-stage] ${name}: ${(performance.now() - startedAt).toFixed(1)}ms`,
+      );
+    }
+  }
+}
 
 afterEach(async () => {
   await Promise.all(
@@ -1751,87 +1765,120 @@ describe("runtime sqlite store", () => {
 
   it("reports missing, foreign-owned, and expired lock diagnostics", async () => {
     const root = await mkRoot();
-    await initGitRepo(root);
-    await fs.mkdir(path.join(root, "backlog"), { recursive: true });
-    await fs.writeFile(path.join(root, "backlog", "owned.md"), "base\n", "utf8");
-    await fs.writeFile(path.join(root, "backlog", "foreign.md"), "base\n", "utf8");
-    await fs.writeFile(path.join(root, "backlog", "missing.md"), "base\n", "utf8");
-    execFileSync("git", ["add", "backlog/owned.md", "backlog/foreign.md", "backlog/missing.md"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["commit", "-m", "chore: base audit files"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["switch", "-c", "feature/audit-lock-states"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    await fs.appendFile(path.join(root, "backlog", "owned.md"), "feature\n");
-    await fs.appendFile(path.join(root, "backlog", "foreign.md"), "feature\n");
-    await fs.appendFile(path.join(root, "backlog", "missing.md"), "feature\n");
-    execFileSync("git", ["add", "backlog/owned.md", "backlog/foreign.md", "backlog/missing.md"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["commit", "-m", "feat: branch changes"], {
-      cwd: root,
-      stdio: "ignore",
+    await measureStage("Git fixture setup", async () => {
+      await initGitRepo(root);
+      await fs.mkdir(path.join(root, "backlog"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog", "owned.md"),
+        "base\n",
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(root, "backlog", "foreign.md"),
+        "base\n",
+        "utf8",
+      );
+      await fs.writeFile(
+        path.join(root, "backlog", "missing.md"),
+        "base\n",
+        "utf8",
+      );
+      execFileSync(
+        "git",
+        ["add", "backlog/owned.md", "backlog/foreign.md", "backlog/missing.md"],
+        { cwd: root, stdio: "ignore" },
+      );
+      execFileSync("git", ["commit", "-m", "chore: base audit files"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", "feature/audit-lock-states"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.appendFile(path.join(root, "backlog", "owned.md"), "feature\n");
+      await fs.appendFile(
+        path.join(root, "backlog", "foreign.md"),
+        "feature\n",
+      );
+      await fs.appendFile(
+        path.join(root, "backlog", "missing.md"),
+        "feature\n",
+      );
+      execFileSync(
+        "git",
+        ["add", "backlog/owned.md", "backlog/foreign.md", "backlog/missing.md"],
+        { cwd: root, stdio: "ignore" },
+      );
+      execFileSync("git", ["commit", "-m", "feat: branch changes"], {
+        cwd: root,
+        stdio: "ignore",
+      });
     });
 
     const store = openRuntimeSqliteStore({ rootDir: root });
     try {
-      const expiredClaim = store.acquireRuntimeClaim(
-        makeClaimSeed({
-          target_id: "wi-expired",
-          created_at: "2026-06-15T12:00:00.000Z",
-          expires_at: "2026-06-15T12:01:00.000Z",
-          entropy: "entropy-expired",
-        }),
-      );
-      if (expiredClaim.outcome !== "acquired") {
-        throw new Error("Expected the claim to be acquired.");
-      }
-      const foreignClaim = store.acquireRuntimeClaim(
-        makeClaimSeed({
-          target_id: "wi-foreign",
-          created_at: "2026-06-15T12:00:00.000Z",
-          expires_at: "2099-06-23T05:14:36.020Z",
-          entropy: "entropy-foreign",
-        }),
-      );
-      if (foreignClaim.outcome !== "acquired") {
-        throw new Error("Expected the claim to be acquired.");
-      }
-      const ownedIdentity = createRuntimeLockIdentity("backlog/owned.md", {
-        rootDir: root,
-        cwd: root,
-      });
-      const foreignIdentity = createRuntimeLockIdentity("backlog/foreign.md", {
-        rootDir: root,
-        cwd: root,
-      });
-      store.insertLock(
-        makeLock(root, {
-          claim_token: expiredClaim.claimToken,
-          target_id: "wi-expired",
-          path: ownedIdentity.path,
-          key: ownedIdentity.key,
-        }),
-      );
-      store.insertLock(
-        makeLock(root, {
-          claim_token: foreignClaim.claimToken,
-          target_id: "wi-foreign",
-          path: foreignIdentity.path,
-          key: foreignIdentity.key,
-        }),
+      const expiredClaim = await measureStage(
+        "SQLite claim and lock setup",
+        () => {
+          const expiredClaim = store.acquireRuntimeClaim(
+            makeClaimSeed({
+              target_id: "wi-expired",
+              created_at: "2026-06-15T12:00:00.000Z",
+              expires_at: "2026-06-15T12:01:00.000Z",
+              entropy: "entropy-expired",
+            }),
+          );
+          if (expiredClaim.outcome !== "acquired") {
+            throw new Error("Expected the claim to be acquired.");
+          }
+          const foreignClaim = store.acquireRuntimeClaim(
+            makeClaimSeed({
+              target_id: "wi-foreign",
+              created_at: "2026-06-15T12:00:00.000Z",
+              expires_at: "2099-06-23T05:14:36.020Z",
+              entropy: "entropy-foreign",
+            }),
+          );
+          if (foreignClaim.outcome !== "acquired") {
+            throw new Error("Expected the claim to be acquired.");
+          }
+          const ownedIdentity = createRuntimeLockIdentity("backlog/owned.md", {
+            rootDir: root,
+            cwd: root,
+          });
+          const foreignIdentity = createRuntimeLockIdentity(
+            "backlog/foreign.md",
+            {
+              rootDir: root,
+              cwd: root,
+            },
+          );
+          store.insertLock(
+            makeLock(root, {
+              claim_token: expiredClaim.claimToken,
+              target_id: "wi-expired",
+              path: ownedIdentity.path,
+              key: ownedIdentity.key,
+            }),
+          );
+          store.insertLock(
+            makeLock(root, {
+              claim_token: foreignClaim.claimToken,
+              target_id: "wi-foreign",
+              path: foreignIdentity.path,
+              key: foreignIdentity.key,
+            }),
+          );
+          return expiredClaim;
+        },
       );
 
-      const audit = store.auditChangedFiles(expiredClaim.claimToken, {
-        mergeTargetRef: "main",
-      });
+      const audit = await measureStage("auditChangedFiles", () =>
+        store.auditChangedFiles(expiredClaim.claimToken, {
+          mergeTargetRef: "main",
+        }),
+      );
 
       expect(audit.passed).toBe(false);
       expect(audit.diagnostics).toEqual(
@@ -2087,7 +2134,10 @@ describe("runtime sqlite store", () => {
     }
   });
 
-  it("fails terminal audit when freshness, mergeability, and lock coverage all disagree", async () => {
+  it(
+    "fails terminal audit when freshness, mergeability, and lock coverage all disagree",
+    { timeout: integrationTestTimeoutMs() },
+    async () => {
     const root = await mkRoot();
     const featureBranch = "feature/audit-contract";
     const readmePath = path.join(root, "README.md");
@@ -2171,7 +2221,8 @@ describe("runtime sqlite store", () => {
     } finally {
       store.close();
     }
-  });
+    },
+  );
 
   it("stores execution log payloads as canonical JSON and validates them before insert", async () => {
     const root = await mkRoot();

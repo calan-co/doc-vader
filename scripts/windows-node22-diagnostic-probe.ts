@@ -20,15 +20,18 @@ const BASELINE_WAVE_BUDGET_MS = 120 * 60_000;
 const FOCUSED_WAVE_BUDGET_MS = 55 * 60_000;
 const ARTIFACT_LABEL = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-export function packageManagerCommand(platform = process.platform) {
+export function packageManagerCommand(platform: string = process.platform) {
   return platform === "win32" ? "pnpm.cmd" : "pnpm";
 }
 
-export function shouldUseWindowsCmdShell(command, platform = process.platform) {
+export function shouldUseWindowsCmdShell(
+  command: string,
+  platform: string = process.platform,
+) {
   return platform === "win32" && command.toLowerCase().endsWith(".cmd");
 }
 
-export function hasSetupFailure(result) {
+export function hasSetupFailure(result: any) {
   return [result.install, result.build].some(
     (step) =>
       step &&
@@ -40,7 +43,10 @@ export function hasSetupFailure(result) {
 const TEST_SELECTOR =
   "selects ready tasks and reports structured deterministic exclusions|only returns ready candidates that can be claimed in the same context";
 
-export function parseDiagnosticInputs({ iterations, artifactLabel }) {
+export function parseDiagnosticInputs({
+  iterations,
+  artifactLabel,
+}: { iterations: string | number; artifactLabel: string }) {
   const parsedIterations = Number(iterations);
   if (
     !Number.isInteger(parsedIterations) ||
@@ -57,7 +63,10 @@ export function parseDiagnosticInputs({ iterations, artifactLabel }) {
   return { iterations: parsedIterations, artifactLabel };
 }
 
-export function createProbePlan({ iterations, artifactLabel }) {
+export function createProbePlan({
+  iterations,
+  artifactLabel,
+}: { iterations: string | number; artifactLabel: string }) {
   const inputs = parseDiagnosticInputs({ iterations, artifactLabel });
   return {
     targetSha: APPROVED_TARGET_SHA,
@@ -97,7 +106,7 @@ export function createProbePlan({ iterations, artifactLabel }) {
   };
 }
 
-function sha256(path) {
+function sha256(path: string) {
   return existsSync(path)
     ? createHash("sha256").update(readFileSync(path)).digest("hex")
     : "unavailable";
@@ -114,7 +123,7 @@ export function createProbeManifestEntry({
   stderrPath,
   runtimeTelemetry = {},
   platform = process.platform,
-}) {
+}: any) {
   return {
     targetSha: APPROVED_TARGET_SHA,
     phase,
@@ -162,25 +171,25 @@ export function createProbeManifestEntry({
   };
 }
 
-function writeJson(path, value) {
+function writeJson(path: string, value: unknown) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value)}\n`);
 }
 
 export async function terminateProcessTree(
-  child,
+  child: any,
   {
     platform = process.platform,
     spawnProcess = spawn,
     taskkillSettlementWaitMs = 30_000,
-  } = {},
-) {
+  }: any = {},
+): Promise<any> {
   if (!child?.pid) return { attempted: false, failed: false };
   if (platform !== "win32") {
     child.kill("SIGTERM");
     return { attempted: true, failed: false, fallback: "child.kill(SIGTERM)" };
   }
-  return await new Promise((resolveTermination) => {
+  return await new Promise<any>((resolveTermination) => {
     const terminator = spawnProcess(
       "taskkill",
       ["/pid", String(child.pid), "/t", "/f"],
@@ -197,13 +206,17 @@ export async function terminateProcessTree(
         },
       );
     }, taskkillSettlementWaitMs);
-    const finishTermination = (result) => {
+    const finishTermination = (result: any) => {
       if (settled) return;
       settled = true;
       clearTimeout(settlementTimer);
       resolveTermination(result);
     };
-    const useFallback = (taskkillExitCode, taskkillError, details = {}) => {
+    const useFallback = (
+      taskkillExitCode: any,
+      taskkillError: any,
+      details: any = {},
+    ) => {
       let fallbackSucceeded = false;
       let fallbackError;
       try {
@@ -222,10 +235,10 @@ export async function terminateProcessTree(
         ...details,
       });
     };
-    terminator.once("error", (error) => {
+    terminator.once("error", (error: any) => {
       useFallback(null, error instanceof Error ? error.message : String(error));
     });
-    terminator.once("close", (code) => {
+    terminator.once("close", (code: any) => {
       if (code === 0) {
         finishTermination({
           attempted: true,
@@ -239,7 +252,7 @@ export async function terminateProcessTree(
   });
 }
 
-function closeDetachedStdin(child) {
+function closeDetachedStdin(child: any) {
   try {
     child.stdin?.end?.();
   } catch {
@@ -257,7 +270,7 @@ function closeDetachedStdin(child) {
   }
 }
 
-function detachTaskkillChild(child) {
+function detachTaskkillChild(child: any) {
   let finalTerminationSucceeded = false;
   try {
     finalTerminationSucceeded = child.kill?.("SIGKILL") !== false;
@@ -284,7 +297,7 @@ function detachTaskkillChild(child) {
   };
 }
 
-function detachLiveHandles(child, stdoutStream, stderrStream) {
+function detachLiveHandles(child: any, stdoutStream: any, stderrStream: any) {
   let finalTerminationSucceeded = false;
   try {
     finalTerminationSucceeded = child.kill?.("SIGKILL") !== false;
@@ -315,7 +328,7 @@ function detachLiveHandles(child, stdoutStream, stderrStream) {
   };
 }
 
-export function shouldStopAfterUnobservedTermination(results) {
+export function shouldStopAfterUnobservedTermination(results: any[]) {
   return results.some((result) =>
     [result.install, result.build, result.probe].some(
       (step) => step?.cleanup?.terminationObserved === false,
@@ -324,8 +337,8 @@ export function shouldStopAfterUnobservedTermination(results) {
 }
 
 export function run(
-  command,
-  args,
+  command: string,
+  args: string[],
   {
     cwd,
     env,
@@ -336,14 +349,14 @@ export function run(
     taskkillSettlementWaitMs = 30_000,
     platform = process.platform,
     spawnProcess = spawn,
-  },
+  }: any,
 ) {
-  return new Promise((resolveRun) => {
+  return new Promise<any>((resolveRun) => {
     const startedAt = new Date().toISOString();
     let timedOut = false;
-    let cleanup = { attempted: false, failed: false };
+    let cleanup: any = { attempted: false, failed: false };
     let terminationPromise = Promise.resolve();
-    let postCleanupTimer;
+    let postCleanupTimer: NodeJS.Timeout | undefined;
     const startedNs = process.hrtime.bigint();
     const child = spawnProcess(command, args, {
       cwd,
@@ -399,10 +412,10 @@ export function run(
     }, timeoutMs);
     child.once(
       "error",
-      (error) =>
+      (error: any) =>
         void finish({ error: error.message, code: null, signal: null }),
     );
-    child.once("close", (code, signal) => {
+    child.once("close", (code: any, signal: any) => {
       if (timedOut) {
         cleanup = { ...cleanup, terminationObserved: true };
       }
@@ -414,7 +427,7 @@ export function run(
       });
     });
     let done = false;
-    async function finish({ terminationObserved = false, ...result }) {
+    async function finish({ terminationObserved = false, ...result }: any) {
       if (done) return;
       done = true;
       clearTimeout(timer);
@@ -442,19 +455,19 @@ export function run(
   });
 }
 
-function awaitableAppend(path) {
+function awaitableAppend(path: string) {
   return createWriteStream(path, { flags: "a" });
 }
 
-function closeWriteStream(stream) {
+function closeWriteStream(stream: any) {
   if (stream.destroyed || stream.writableFinished) return Promise.resolve();
-  return new Promise((resolveClose) => {
+  return new Promise<void>((resolveClose) => {
     stream.once("error", resolveClose);
     stream.end(resolveClose);
   });
 }
 
-function commandFor(phase) {
+function commandFor(phase: any) {
   if (phase.fullSuite)
     return {
       command: "pnpm",
@@ -489,7 +502,7 @@ function commandFor(phase) {
   };
 }
 
-export function shouldCopySubjectPath(source) {
+export function shouldCopySubjectPath(source: string) {
   return (
     !source.split(/[\\/]/).includes(".git") &&
     !["node_modules", ".nx", "dist", "coverage"].includes(basename(source))
@@ -500,11 +513,21 @@ export function shouldStopForBudget({
   startedAtMs,
   nowMs,
   nextSampleBudgetMs,
+}: {
+  startedAtMs: number;
+  nowMs: number;
+  nextSampleBudgetMs: number;
 }) {
   return nowMs + nextSampleBudgetMs > startedAtMs + MAX_EXECUTION_BUDGET_MS;
 }
 
-function prepareWorkspace(subject, root, phase, iteration, childIndex) {
+function prepareWorkspace(
+  subject: string,
+  root: string,
+  phase: string,
+  iteration: number,
+  childIndex: number,
+) {
   const workspace = join(
     root,
     "workspaces",
@@ -541,7 +564,7 @@ export async function runSample({
   verifiedSubjectSha,
   reuse,
   runOperation = run,
-}) {
+}: any) {
   if (coldWarm === "warm" && !reuse) {
     throw new Error("warm sample requires the preceding cold workspace reuse");
   }
@@ -654,8 +677,8 @@ export async function runSample({
   writeJson(join(sampleRoot, "metadata.result.json"), result);
   return { result, reuse: prepared };
 }
-async function collectRuntimeTelemetry(root, subject) {
-  const commands = [
+async function collectRuntimeTelemetry(root: string, subject: string) {
+  const commands: any[][] = [
     ["nodeVersion", "node", ["--version"]],
     ["npmVersion", "npm", ["--version"]],
     ["pnpmVersion", packageManagerCommand(), ["--version"]],
@@ -671,7 +694,7 @@ async function collectRuntimeTelemetry(root, subject) {
       ],
     ],
   ];
-  const telemetry = {};
+  const telemetry: Record<string, string> = {};
   for (const [key, command, args] of commands) {
     const stdoutPath = join(root, "environment", `${key}.stdout.log`);
     const stderrPath = join(root, "environment", `${key}.stderr.log`);
@@ -696,27 +719,29 @@ async function collectRuntimeTelemetry(root, subject) {
   return telemetry;
 }
 
-export function summarizeProbeResults({ plan, results, incomplete }) {
-  const rates = {};
+export function summarizeProbeResults({ plan, results, incomplete }: any) {
+  const rates: Record<string, any> = {};
   for (const phase of plan.phases) {
     for (const coldWarm of phase.coldWarm) {
       const key = `${phase.id}/${coldWarm}`;
       const matching = results.filter(
-        (result) => result.phase === phase.id && result.coldWarm === coldWarm,
+        (result: any) =>
+          result.phase === phase.id && result.coldWarm === coldWarm,
       );
-      const sampleSteps = (result) => [
+      const sampleSteps = (result: any) => [
         result.install,
         result.build,
         result.probe,
       ];
-      const failed = matching.filter((result) =>
+      const failed = matching.filter((result: any) =>
         sampleSteps(result).some(
-          (step) => step && !step.skipped && (step.timedOut || step.code !== 0),
+          (step: any) =>
+            step && !step.skipped && (step.timedOut || step.code !== 0),
         ),
       );
-      const timedOut = matching.filter((result) =>
+      const timedOut = matching.filter((result: any) =>
         sampleSteps(result).some(
-          (step) => step && !step.skipped && step.timedOut,
+          (step: any) => step && !step.skipped && step.timedOut,
         ),
       );
       rates[key] = {
@@ -730,7 +755,7 @@ export function summarizeProbeResults({ plan, results, incomplete }) {
   return { targetSha: APPROVED_TARGET_SHA, incomplete, rates, results };
 }
 
-export function waveBudgetForPhase(phase) {
+export function waveBudgetForPhase(phase: any) {
   return phase.fullSuite ? BASELINE_WAVE_BUDGET_MS : FOCUSED_WAVE_BUDGET_MS;
 }
 
@@ -764,7 +789,7 @@ async function main() {
   const runtimeTelemetry = await collectRuntimeTelemetry(root, subject);
   const plan = createProbePlan(inputs);
   writeJson(join(root, "plan.json"), plan);
-  const results = [];
+  const results: any[] = [];
   const startedAtMs = Date.now();
   let incomplete = false;
   let incompleteReason = null;

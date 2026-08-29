@@ -89,16 +89,14 @@ but it is a different commit and run. GitHub did not expose a successful rerun
 of run `32993179106` in the evidence reviewed here; this Work Item must not
 label the comparison job as that rerun.
 
-## Windows Node 22 Probe Contract
+## Historical Windows Node 22 Probe Contract
 
-Run this contract on a clean GitHub-hosted Windows Server 2025 / Node `22.23.2`
-runner, checked out at failed SHA `067dff5736754438e1bf8185096c26a9dacebfb1`.
-It is a diagnostic contract, not a change to required CI, branch protection,
-or merge policy and not a root-cause claim. The bounded execution surface is
-[`.github/workflows/windows-node22-diagnostic.yml`](../.github/workflows/windows-node22-diagnostic.yml):
-manual dispatch only, fixed to the failed SHA, and separate from the required
-CI workflow. Its only dispatch input is an integer from `1` through `30`; it
-records the selected bounded iteration count with every result.
+The bounded probe ran on a clean GitHub-hosted Windows Server 2025 / Node
+`22.23.2` runner against failed SHA `067dff5736754438e1bf8185096c26a9dacebfb1`.
+It was diagnostic-only and never changed required CI, branch protection, or
+merge policy. The temporary workflow was removed after the Windows stabilization
+validation completed; its bounded iteration, isolation, and evidence rules remain
+recorded below for historical interpretation.
 
 ### Isolation and cache policy
 
