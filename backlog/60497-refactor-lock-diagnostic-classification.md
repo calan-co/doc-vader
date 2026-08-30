@@ -13,6 +13,8 @@ estimated: 3
 links:
   depends_on:
     - '[[60496-self-hosted-pull-ci-timing-telemetry]]'
+  evidence:
+    - '[[record-20260830-092324-60497]]'
 tags:
   - runtime
   - sqlite

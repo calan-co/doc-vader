@@ -9,6 +9,9 @@ lifecycle: active
 status: ready
 priority: high
 estimated: 5
+links:
+  evidence:
+    - '[[record-20260830-092324-60496]]'
 tags:
   - ci
   - windows
