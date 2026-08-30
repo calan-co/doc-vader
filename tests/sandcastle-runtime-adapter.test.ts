@@ -34,6 +34,20 @@ const inspectionTemplateNames = [
 ] as const;
 
 const tempDirs: string[] = [];
+
+async function measureStage<T>(name: string, operation: () => T | Promise<T>): Promise<T> {
+  const startedAt = performance.now();
+  try {
+    return await operation();
+  } finally {
+    if (process.env.DOC_VADER_STAGE_TIMING === "1") {
+      console.info(
+        `[sandcastle-stage] ${name}: ${(performance.now() - startedAt).toFixed(1)}ms`,
+      );
+    }
+  }
+}
+
 type RuntimeClaimCommandResult = { outcome: string; claimToken: string };
 type RuntimeLockCreateResult = { outcome: string };
 type RuntimeLockStatusResult = {
@@ -755,7 +769,9 @@ process.stdout.write(JSON.stringify({ lockPaths }, null, 2));
     "halts close failures into recoverable runtime state after evidence is recorded",
     { timeout: 30_000 },
     async () => {
-      const rootDir = await createTempRepo();
+      const rootDir = await measureStage("create temporary repository", () =>
+        createTempRepo(),
+      );
       writeBacklogConsumerConfig(rootDir, {
         sandcastle: {
           close: {
@@ -763,10 +779,11 @@ process.stdout.write(JSON.stringify({ lockPaths }, null, 2));
           },
         },
       });
-      await createCommittedTaskRepo(
-        rootDir,
-        "204-close-failure.md",
-        `id: wi-204
+      await measureStage("create committed task repository", () =>
+        createCommittedTaskRepo(
+          rootDir,
+          "204-close-failure.md",
+          `id: wi-204
 title: Close Failure
 summary: Close script failures should remain recoverable.
 type: work-item
@@ -776,7 +793,7 @@ status: ready
 priority: high
 tags:
   - afk`,
-        `## Tasks
+          `## Tasks
 
 - [ ] Mark the repository-specific checklist.
 
@@ -784,6 +801,7 @@ tags:
 
 - [ ] Leave failed close attempts recoverable.
 `,
+        ),
       );
       await writeCloseScript(
         rootDir,
@@ -801,14 +819,20 @@ if (payload.mode === "plan") {
 throw new Error("Transition script failed after evidence recording.");
 `,
       );
-      commitRepoState(rootDir, "chore: add failing close transition script");
-      runGit(rootDir, ["switch", "-c", "sandcastle/issue-204"]);
+      await measureStage("commit failing close transition script", () =>
+        commitRepoState(rootDir, "chore: add failing close transition script"),
+      );
+      await measureStage("create implementation branch", () =>
+        runGit(rootDir, ["switch", "-c", "sandcastle/issue-204"]),
+      );
       await writeFile(
         path.join(rootDir, "implementation.txt"),
         "feature branch work\n",
         "utf8",
       );
-      commitRepoState(rootDir, "feat: implementation progress");
+      await measureStage("commit implementation progress", () =>
+        commitRepoState(rootDir, "feat: implementation progress"),
+      );
 
       const payload = JSON.stringify({
         id: "record:wi-204-close",
@@ -817,27 +841,35 @@ throw new Error("Transition script failed after evidence recording.");
         outcome: "warn",
       });
 
-      const claimed = runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
-        "claim-task",
-        "204",
-        "--holder",
-        "sandcastle:agent-a",
-        "--branch",
-        "sandcastle/issue-204",
-        "--json",
-      ]);
+      const claimed = await measureStage("claim task", () =>
+        runAdapterJson<RuntimeClaimCommandResult>(rootDir, [
+          "claim-task",
+          "204",
+          "--holder",
+          "sandcastle:agent-a",
+          "--branch",
+          "sandcastle/issue-204",
+          "--json",
+        ]),
+      );
       expect(claimed.outcome).toBe("acquired");
 
-      const failedOutput = runAdapterFailure(rootDir, [
-        "close-task",
-        "204",
-        "--claim",
-        claimed.claimToken,
-        "--payload",
-        "-",
-        "--record-type",
-        "test-result",
-      ], payload);
+      const failedOutput = await measureStage("close task failure", () =>
+        runAdapterFailure(
+          rootDir,
+          [
+            "close-task",
+            "204",
+            "--claim",
+            claimed.claimToken,
+            "--payload",
+            "-",
+            "--record-type",
+            "test-result",
+          ],
+          payload,
+        ),
+      );
       expect(failedOutput).toContain(
         "Transition script failed after evidence recording.",
       );
@@ -858,15 +890,17 @@ throw new Error("Transition script failed after evidence recording.");
         });
       });
 
-      const recovered = runAdapterJson<RuntimeRecoverResult>(rootDir, [
-        "recover-task",
-        "204",
-        "--branch",
-        "sandcastle/issue-204",
-        "--force",
-        "reconcile",
-        "--json",
-      ]);
+      const recovered = await measureStage("recover task", () =>
+        runAdapterJson<RuntimeRecoverResult>(rootDir, [
+          "recover-task",
+          "204",
+          "--branch",
+          "sandcastle/issue-204",
+          "--force",
+          "reconcile",
+          "--json",
+        ]),
+      );
       expect(recovered).toMatchObject({
         taskId: "wi-204",
         executionLogEntry: {

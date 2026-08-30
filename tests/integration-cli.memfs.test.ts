@@ -3,7 +3,6 @@ import { execSync } from "child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import os from "os";
 import path from "path";
-import "./helper/setupTests";
 
 const cliPath = path.resolve(__dirname, "../dist/cli/doc-vader.js");
 const repoRoot = path.resolve(__dirname, "..");

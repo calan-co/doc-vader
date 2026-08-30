@@ -28,7 +28,7 @@ import {
   runSample,
   terminateProcessTree,
   waveBudgetForPhase,
-} from "../windows-node22-diagnostic-probe.mjs";
+} from "../windows-node22-diagnostic-probe";
 
 describe("Windows Node 22 diagnostic probe contract", () => {
   it("rejects unbounded iterations and unsafe artifact labels", () => {
@@ -612,7 +612,8 @@ describe("Windows Node 22 diagnostic probe contract", () => {
         reuse: cold0.reuse,
       });
       const installs = operations.filter(
-        ({ command, args }) => command === "pnpm" && args[0] === "install",
+        ({ command, args }) =>
+          command === packageManagerCommand() && args[0] === "install",
       );
       expect(installs).toHaveLength(2);
       expect(installs[0]).toMatchObject({
@@ -831,7 +832,7 @@ describe("containment failure paths", () => {
         },
       });
       expect(calls).toHaveLength(1);
-      expect(calls[0]).toContain("pnpm install");
+      expect(calls[0]).toContain(`${packageManagerCommand()} install`);
       expect(calls.join("\n")).not.toContain("run build");
       expect(result).toMatchObject({
         incomplete: true,

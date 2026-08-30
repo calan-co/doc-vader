@@ -5,6 +5,7 @@ export default {
     globals: true,
     environment: "node",
     clearMocks: true,
+    fileParallelism: process.platform !== "win32",
     exclude: [
       "**/node_modules/**",
       "**/.pnpm-store/**",
@@ -12,13 +13,6 @@ export default {
       "**/.sandcastle/**",
       "**/.sandcastle_bk/**",
       "**/dist/**",
-    ],
-    //globalSetup: "tests/helper/globalSetup.ts",
-    setupFiles: [
-      //"dotenv/config",
-      "tests/helper/setupTests.ts",
-      //"tests/helper/setupTestEnvVars.ts",
-      //"tests/helper/customMatchers/toHaveBeenCalledWithScopes.ts",
     ],
   },
   resolve: {
