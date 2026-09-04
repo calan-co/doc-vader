@@ -48,3 +48,10 @@ remain provenance only. The source implementation range is
 including the resource-first cutover, bounded escalation hardening, and
 versioned schema-reference remediation. Its completed statuses, records, and
 audit artifacts are not staging evidence and are not imported here.
+
+## Integration Evidence
+
+- 2026-09-04: Normalized the archived `wi-228` parent and implementation
+  relationship links to strict canonical link arrays without changing its target,
+  lifecycle, status, body, or historical meaning. Regression coverage validates
+  that archived artifact under strict routing.
