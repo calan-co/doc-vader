@@ -6,10 +6,10 @@ summary: Port the verified resource-first Work delivery to staging while retaini
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: recoverable
+status: completed
+status_reason: completed
 priority: high
-estimated: 8
+completed_date: '2026-09-04'
 links:
   evidence:
     - '[[record-wi-60498-staging-integration-validation]]'
@@ -59,3 +59,5 @@ audit artifacts are not staging evidence and are not imported here.
 - 2026-09-04: Reverted the archived `wi-228` relationship-link normalization.
   Archive content is restored from `origin/staging` and is not relied on as
   staging integration evidence.
+
+- 2026-09-04: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
