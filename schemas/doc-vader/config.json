@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/doc-vader/config",
+  "title": "doc-vader/config",
+  "description": "Doc-Vader dv.yaml configuration. Config files may be nested; effective config is merged from repository root to the document directory, with closer values overriding parent values.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "extends": {
+      "anyOf": [
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      ],
+      "description": "One or more base configuration files or package names to merge before the local config."
+    },
+    "namespace": {
+      "$ref": "#/$defs/namespace"
+    },
+    "defaultType": {
+      "$ref": "#/$defs/routingToken"
+    },
+    "defaultSubtype": {
+      "$ref": "#/$defs/routingToken"
+    },
+    "document": {
+      "$ref": "#/$defs/documentRouting"
+    },
+    "schemaMap": {
+      "$ref": "#/$defs/schemaMap"
+    },
+    "documentTypePacks": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Ordered document-type-pack manifest locators. Local config replaces inherited lists."
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "failOn": {
+          "enum": ["error", "warning"]
+        },
+        "allowUnknownProperties": {
+          "type": "boolean"
+        }
+      }
+    },
+    "backlog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dir": { "type": "string" },
+        "schemaMap": { "$ref": "#/$defs/schemaMap" },
+        "profiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "vocabularies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultContext": {
+          "anyOf": [{ "type": "string" }, { "type": "object" }]
+        },
+        "contexts": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [{ "type": "string" }, { "type": "object" }]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "namespace": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*$"
+    },
+    "routingToken": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "schemaMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "byType": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "bySubtype": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "default": { "type": "string" }
+      }
+    },
+    "documentRouting": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "namespace": { "$ref": "#/$defs/namespace" },
+        "defaultType": { "$ref": "#/$defs/routingToken" },
+        "defaultSubtype": { "$ref": "#/$defs/routingToken" },
+        "schemaMap": { "$ref": "#/$defs/schemaMap" }
+      }
+    }
+  }
+}

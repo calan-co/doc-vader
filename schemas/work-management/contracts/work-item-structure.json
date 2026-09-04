@@ -15,12 +15,11 @@
     "lifecycle",
     "status",
     "summary",
-    "priority",
-    "estimated"
+    "priority"
   ],
   "patternProperties": {
     "^\\$[a-zA-Z0-9_]+$": {
-      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/toolingProperty"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/toolingProperty"
     }
   },
   "propertyNames": {
@@ -62,10 +61,10 @@
       "$ref": "/work-management/support/common#/$defs/workItemLinks"
     },
     "classification": {
-      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/classification"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/classification"
     },
     "lifecycle": {
-      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycle"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/lifecycle"
     },
     "status": {
       "$ref": "/work-management/support/common#/$defs/nonEmptyString"
@@ -76,10 +75,10 @@
       "maxLength": 128
     },
     "audience": {
-      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/audience"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/audience"
     },
     "governance": {
-      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/ba226f8a801750d1fedc6486c82624034ac24533/schemas/frontmatter/support/base/1.0.0#/$defs/governance"
+      "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/governance"
     },
     "priority": {
       "$ref": "/work-management/support/common#/$defs/priority"

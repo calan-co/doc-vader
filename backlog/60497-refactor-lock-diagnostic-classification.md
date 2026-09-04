@@ -7,7 +7,6 @@ type: work-item
 subtype: task
 lifecycle: draft
 status: draft
-status_reason: blocked-by-dependency
 priority: medium
 estimated: 3
 links:
