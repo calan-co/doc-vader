@@ -1,5 +1,36 @@
 export { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
 export {
+  CLAIM_RELEASE_OUTCOMES,
+  claimWorkCommand,
+  promptWorkCommand,
+  recordWorkCommand,
+  recoverWorkCommand,
+  releaseClaimCommand,
+  repairGeneratedEvidenceCommand,
+  renderWorkShowCommand,
+  showWorkCommand,
+  statusWorkCommand,
+  updateWorkCommand,
+  updateWorkFromInputCommand,
+  inspectWorkChecklistCommand,
+  inspectWorkChecklistsCommand,
+  mutateWorkChecklistCheckCommand,
+  completeWorkChecklistCheckCommand,
+} from "./command-operations.js";
+export {
+  PUBLISHED_WORK_SELECTION_CAPABILITY,
+  PUBLISHED_WORK_NON_SELECTION_CODES,
+  discoverPublishedWorkSelectionCapabilities,
+  formatPublishedWorkSelectionCommand,
+  decodePublishedWorkSelectionResponse,
+  selectPublishedWork,
+  type DecodedPublishedWorkSelection,
+  type PublishedWorkNonSelectionCode,
+  type PublishedWorkSelectionRequest,
+  type PublishedWorkSelectionResponse,
+  type PublishedWorkSelectionJson,
+} from "./selection.js";
+export {
   WORK_COMMAND_ALIASES,
   WORK_COMMAND_INVENTORY,
   iterWorkCommandInventory,
@@ -146,8 +177,45 @@ export {
   formatReadyText,
 } from "../task/ready.js";
 export {
+  readTaskAuthorityGitContext as readWorkAuthorityGitContext,
   resolveGitRoot as resolveWorkRoot,
   resolveTaskAuthority as resolveWorkAuthority,
   resolveTaskAuthorityFromGitContext as resolveWorkAuthorityFromGitContext,
   type TaskAuthorityGitContext as WorkAuthorityGitContext,
 } from "../task/authority.js";
+export {
+  composeReviewProfile as composeWorkReviewProfile,
+  createReviewProfile as createWorkReviewProfile,
+  createReviewProfileRegistry as createWorkReviewProfileRegistry,
+  snapshotReviewProfile as snapshotWorkReviewProfile,
+  type ComposeReviewProfileOptions as ComposeWorkReviewProfileOptions,
+  type ReviewProfileRegistry as WorkReviewProfileRegistry,
+} from "../evaluation/profile.js";
+export {
+  assembleReviewReport as assembleWorkEvaluationReport,
+  collectJsonSummaryValues as collectWorkEvaluationSummaryValues,
+  collectSortedStrings as collectWorkEvaluationSortedStrings,
+  createFinding as createWorkEvaluationFinding,
+  executeReviewProfile as executeWorkReviewProfile,
+  normalizeFinding as normalizeWorkEvaluationFinding,
+  serializeEvaluationReport as serializeWorkEvaluationReport,
+  sortFindings as sortWorkEvaluationFindings,
+} from "../evaluation/report.js";
+export type {
+  EvaluationCheck as WorkEvaluationCheck,
+  EvaluationCheckInput as WorkEvaluationCheckInput,
+  EvaluationCheckOutput as WorkEvaluationCheckOutput,
+  EvaluationDisposition as WorkEvaluationDisposition,
+  EvaluationEvidence as WorkEvaluationEvidence,
+  EvaluationFinding as WorkEvaluationFinding,
+  EvaluationFollowUpReference as WorkEvaluationFollowUpReference,
+  EvaluationReport as WorkEvaluationReport,
+  EvaluationReviewExecution as WorkEvaluationReviewExecution,
+  EvaluationReviewProfile as WorkEvaluationReviewProfile,
+  EvaluationReviewProfileSnapshot as WorkEvaluationReviewProfileSnapshot,
+  EvaluationSeverity as WorkEvaluationSeverity,
+  EvaluationSubject as WorkEvaluationSubject,
+  EvaluationSummaryRule as WorkEvaluationSummaryRule,
+  JsonRecord as WorkEvaluationJsonRecord,
+  JsonValue as WorkEvaluationJsonValue,
+} from "../evaluation/types.js";

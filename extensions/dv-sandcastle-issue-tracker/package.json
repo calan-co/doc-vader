@@ -1,0 +1,23 @@
+{
+  "name": "@calan-co/dv-sandcastle-issue-tracker",
+  "version": "0.0.0",
+  "description": "Sandcastle custom issue-tracker initializer for Doc-Vader work items.",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": "./index.mjs",
+  "docVader": {
+    "extension": "./index.mjs"
+  },
+  "bin": {
+    "dv-sandcastle-init": "bin/dv-sandcastle-init.mjs"
+  },
+  "files": [
+    "bin/",
+    "index.mjs",
+    "README.md"
+  ],
+  "license": "ISC",
+  "engines": {
+    "node": ">=22"
+  }
+}
