@@ -51,7 +51,6 @@ audit artifacts are not staging evidence and are not imported here.
 
 ## Integration Evidence
 
-- 2026-09-04: Normalized the archived `wi-228` parent and implementation
-  relationship links to strict canonical link arrays without changing its target,
-  lifecycle, status, body, or historical meaning. Regression coverage validates
-  that archived artifact under strict routing.
+- 2026-09-04: Reverted the archived `wi-228` relationship-link normalization.
+  Archive content is restored from `origin/staging` and is not relied on as
+  staging integration evidence.
