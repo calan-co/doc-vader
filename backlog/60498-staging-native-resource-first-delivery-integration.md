@@ -13,6 +13,7 @@ estimated: 8
 links:
   evidence:
     - '[[record-wi-60498-staging-integration-validation]]'
+    - '[[record-wi-60498-independent-review-approval]]'
 tags:
   - work-management
   - cli
