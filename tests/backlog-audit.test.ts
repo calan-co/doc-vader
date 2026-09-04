@@ -412,6 +412,28 @@ status_reason: recorded
     expect(report.unresolved_wikilinks.map((finding) => finding.reason)).toEqual(["invalid-target", "invalid-target", "invalid-target"]);
   });
 
+  it("uses the CI profile for active failures while ignoring archive-origin links", async () => {
+    const root = await mkTmpDir("doc-vader-backlog-ci-profile-links-");
+    cleanupDirs.push(root);
+    const backlogDir = path.join(root, "backlog");
+    await writeFile(path.join(backlogDir, "archive", "174.1.story.md"), "---\nid: archived-target\nstatus: closed\n---\n");
+    await writeFile(path.join(backlogDir, "archive", "history.md"), "---\nid: history\nstatus: closed\nlinks:\n  related:\n    - '[[missing-history]]'\n---\n");
+    await writeFile(path.join(backlogDir, "records", "record.md"), "---\nid: record\nstatus: closed\nlinks:\n  related:\n    - '[[../archive/174.1.story.md]]'\n---\n");
+    await writeFile(path.join(backlogDir, "active.md"), "---\nid: active\nstatus: ready\nlinks:\n  related:\n    - '[[missing-active]]'\n---\n");
+
+    const report = await auditBacklog({
+      rootDir: process.cwd(),
+      backlogDir,
+      profile: path.join(process.cwd(), "profiles", "backlog-ci.json"),
+    });
+
+    expect(report.options.includeArchive).toBe(false);
+    expect(report.exit_code).toBe(1);
+    expect(report.unresolved_wikilinks).toEqual([
+      expect.objectContaining({ file: expect.stringMatching(/backlog\/active\.md$/), ref: "missing-active", reason: "not-found" }),
+    ]);
+  });
+
   it("keeps accepted unresolved archive history visible outside CI scope", async () => {
     const root = await mkTmpDir("doc-vader-source-relative-archive-history-");
     cleanupDirs.push(root);

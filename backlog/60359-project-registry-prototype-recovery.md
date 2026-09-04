@@ -11,7 +11,7 @@ priority: low
 estimated: 3
 links:
   reference:
-    - '[[174.1.graph-and-naming-story]]'
+    - '[[archive/174.1.graph-and-naming-story.md]]'
   evidence:
     - '[[record-20260624-234349-60359]]'
 tags:

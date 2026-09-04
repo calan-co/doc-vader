@@ -7,8 +7,12 @@ type: work-item
 subtype: task
 lifecycle: active
 status: ready
+status_reason: recoverable
 priority: high
 estimated: 8
+links:
+  evidence:
+    - '[[record-wi-60498-staging-integration-validation]]'
 tags:
   - work-management
   - cli
@@ -26,17 +30,17 @@ Work contracts.
 
 ## Tasks
 
-- [ ] Port the staging-native Claim authority, recovery safety, and command-operation seams.
-- [ ] Replace the public Work CLI with canonical resource/id/subresource routes and update Sandcastle transport.
-- [ ] Add bounded, fail-closed escalation consumption with compensation and recovery coverage.
-- [ ] Regenerate staging-native validation evidence; do not import source completion evidence.
+- [x] Port the staging-native Claim authority, recovery safety, and command-operation seams.
+- [x] Replace the public Work CLI with canonical resource/id/subresource routes and update Sandcastle transport.
+- [x] Add bounded, fail-closed escalation consumption with compensation and recovery coverage.
+- [x] Regenerate staging-native validation evidence; do not import source completion evidence.
 
 ## Acceptance Criteria
 
-- [ ] Staging retains one repository Runtime Claim authority and fail-closed recovery safety behavior.
-- [ ] Every Work-Item operation uses `dv work <work-item-id> ...`; `dv wi`, `dv task`, graph, and verb-first item routes are unavailable.
-- [ ] Escalations are scope-bound, expiry/use bounded, audited, compensable, and recovered safely.
-- [ ] Focused and full validation runs attest this staging port before any closure transition.
+- [x] Staging retains one repository Runtime Claim authority and fail-closed recovery safety behavior.
+- [x] Every Work-Item operation uses `dv work <work-item-id> ...`; `dv wi`, `dv task`, graph, and verb-first item routes are unavailable.
+- [x] Escalations are scope-bound, expiry/use bounded, audited, compensable, and recovered safely.
+- [x] Focused and full validation runs attest this staging port before any closure transition.
 
 ## Source Delivery Provenance
 

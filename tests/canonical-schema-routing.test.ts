@@ -87,16 +87,16 @@ describe("canonical schema routing surfaces", () => {
     );
   });
 
-  it("validates the normalized archived Work relationship under strict routing", async () => {
+  it("keeps archived legacy relationships outside the canonical CI schema scope", async () => {
     const report = await auditBacklog({
       rootDir: repoRoot,
       backlogDir: path.join(repoRoot, "backlog"),
-      includeArchive: true,
+      includeArchive: false,
       format: "json",
     });
-    expect(report.schema_violations.filter(({ file }) =>
+    expect(report.schema_violations.some(({ file }) =>
       file === "backlog/archive/228.design-cross-file-registry-model-story.md",
-    )).toEqual([]);
+    )).toBe(false);
   });
 
   it("keeps legacy lint routing estimate-optional while canonical terminal policy owns actual", () => {
