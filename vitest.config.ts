@@ -1,13 +1,13 @@
 import path from "path";
 
 const requestedMaxWorkers = Number.parseInt(
-  process.env.VITEST_MAX_WORKERS ?? "4",
+  process.env.VITEST_MAX_WORKERS ?? "2",
   10,
 );
 const maxWorkers =
   Number.isFinite(requestedMaxWorkers) && requestedMaxWorkers > 0
     ? requestedMaxWorkers
-    : 4;
+    : 2;
 
 export default {
   test: {
