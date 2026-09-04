@@ -169,18 +169,17 @@ subtype: audit-note
 lifecycle: active
 status: ready
 status_reason: recorded
+links:
+  subjects:
+    - "[[60389-post-mutation-graph-verification]]"
+    - "claim:${claimToken}"
+    - "wi:60387"
+    - "wi:60388"
 ---
 
 ## Observation
 
 Renewal audit stayed deterministic.
-
-## Subject References
-
-- [[60389-post-mutation-graph-verification]]
-- claim:${claimToken}
-- wi:60387
-- wi:60388
 `,
     );
 
@@ -195,10 +194,10 @@ Renewal audit stayed deterministic.
       outcome: "renewed",
       claimToken,
       claim: {
-        claim_token: claimToken,
-        target_id: "wi-60389",
-        last_seen_at: "2099-06-26T00:10:00.000Z",
-        expires_at: "2099-06-26T00:40:00.000Z",
+        token: claimToken,
+        targetId: "wi-60389",
+        lastSeenAt: "2099-06-26T00:10:00.000Z",
+        expiresAt: "2099-06-26T00:40:00.000Z",
       },
       verification: {
         before: {
@@ -264,13 +263,13 @@ Renewal audit stayed deterministic.
     expect(runtimeStates[0]).toBeUndefined();
     expect(runtimeStates[1]).toMatchObject({
       claims: expect.arrayContaining([
-        expect.objectContaining({ claim_token: claimToken }),
+        expect.objectContaining({ token: claimToken }),
       ]),
       scopeLocks: expect.arrayContaining([
         expect.objectContaining({
-          claim_token: claimToken,
-          scope_ref: "wi:60388",
-          lifecycle_state: "active",
+          claimToken,
+          scopeRef: "wi:60388",
+          lifecycleState: "active",
         }),
       ]),
     });

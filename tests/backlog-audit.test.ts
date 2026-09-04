@@ -249,7 +249,7 @@ describe("auditBacklog", () => {
 
     await writeFile(
       path.join(tmp, "7.canonical.md"),
-      `---\nid: wi-7\ntitle: Canonical Route\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\npriority: high\n---\n`,
+      `---\nid: wi-7\ntitle: Canonical Route\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\npriority: high\nestimated: 1\n---\n`,
     );
 
     const report = await auditBacklog({
@@ -261,5 +261,241 @@ describe("auditBacklog", () => {
 
     expect(report.totals.schema_violations).toBe(0);
     expect(report.schema_violations).toHaveLength(0);
+  });
+
+  it("validates Work Management record subtypes through the backlog audit", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-work-management-record-");
+    cleanupDirs.push(tmp);
+
+    await writeFile(
+      path.join(tmp, "record.md"),
+      `---
+$schema: schemas/work-management/frontmatter/record.json
+id: record:subtype-resolution
+title: Record subtype resolution
+summary: Verify the audit resolves Work Management record subtypes.
+type: record
+subtype: test-result
+lifecycle: active
+status: ready
+status_reason: recorded
+---
+`,
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      failOn: "error",
+      format: "json",
+    });
+
+    expect(report.schema_load_errors).toHaveLength(0);
+    expect(report.schema_violations).toHaveLength(0);
+  });
+
+  it("allows standard work-item link vocabulary and x-prefixed extension links", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-link-vocabulary-");
+    cleanupDirs.push(tmp);
+
+    await writeFile(
+      path.join(tmp, "8.parent.md"),
+      `---\nid: wi-8\ntitle: Parent\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\npriority: high\nestimated: 1\n---\n`,
+    );
+    await writeFile(
+      path.join(tmp, "9.child.md"),
+      `---\nid: wi-9\ntitle: Child\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\npriority: high\nestimated: 1\nlinks:\n  parent:\n    - '[[8.parent]]'\n  implements:\n    - '[[8.parent]]'\n  x-traces-to:\n    - '[[8.parent]]'\n---\n`,
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      failOn: "error",
+      format: "json",
+    });
+
+    expect(report.totals.schema_violations).toBe(0);
+    expect(report.schema_violations).toHaveLength(0);
+  });
+
+  it("resolves bare wikilinks from the configured repository root rather than the CWD", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-cwd-");
+    cleanupDirs.push(root);
+    await writeFile(path.join(root, "backlog", "target.md"), "---\nid: target\nstatus: closed\n---\n");
+    await writeFile(
+      path.join(root, "backlog", "source.md"),
+      "---\nid: source\nstatus: closed\nlinks:\n  related:\n    - '[[target]]'\n---\n",
+    );
+
+    const report = await auditBacklog({
+      rootDir: root,
+      backlogDir: path.join(root, "backlog"),
+      format: "json",
+    });
+
+    expect(report.unresolved_wikilinks).toHaveLength(0);
+  });
+
+  it("prefers a nearer descendant directory for bare wikilinks", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-descendant-");
+    cleanupDirs.push(root);
+    await writeFile(path.join(root, "backlog", "near", "target.md"), "---\nid: near\nstatus: closed\n---\n");
+    await writeFile(path.join(root, "backlog", "far", "nested", "target.md"), "---\nid: far\nstatus: closed\n---\n");
+    await writeFile(
+      path.join(root, "backlog", "source.md"),
+      "---\nid: source\nstatus: closed\nlinks:\n  related:\n    - '[[target]]'\n---\n",
+    );
+
+    const report = await auditBacklog({ rootDir: root, backlogDir: path.join(root, "backlog"), format: "json" });
+    expect(report.unresolved_wikilinks).toHaveLength(0);
+  });
+
+  it("prefers the nearest ancestor directory for bare wikilinks", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-ancestor-");
+    cleanupDirs.push(root);
+    await writeFile(path.join(root, "backlog", "records", "target.md"), "---\nid: near\nstatus: closed\n---\n");
+    await writeFile(path.join(root, "backlog", "target.md"), "---\nid: far\nstatus: closed\n---\n");
+    await writeFile(
+      path.join(root, "backlog", "records", "nested", "source.md"),
+      "---\nid: source\nstatus: closed\nlinks:\n  related:\n    - '[[target]]'\n---\n",
+    );
+
+    const report = await auditBacklog({ rootDir: root, backlogDir: path.join(root, "backlog"), format: "json" });
+    expect(report.unresolved_wikilinks).toHaveLength(0);
+  });
+
+  it("fails closed for same-tier bare wikilink matches", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-ambiguous-");
+    cleanupDirs.push(root);
+    await writeFile(path.join(root, "backlog", "one", "target.md"), "---\nid: one\nstatus: closed\n---\n");
+    await writeFile(path.join(root, "backlog", "two", "target.md"), "---\nid: two\nstatus: closed\n---\n");
+    await writeFile(path.join(root, "backlog", "source.md"), "---\nid: source\nstatus: closed\nlinks:\n  related:\n    - '[[target]]'\n---\n");
+
+    const report = await auditBacklog({ rootDir: root, backlogDir: path.join(root, "backlog"), format: "json" });
+    expect(report.unresolved_wikilinks).toEqual([
+      expect.objectContaining({ ref: "target", reason: "ambiguous", candidates: expect.arrayContaining(["backlog/one/target.md", "backlog/two/target.md"]) }),
+    ]);
+  });
+
+  it("honors explicit paths despite a closer basename collision", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-explicit-");
+    cleanupDirs.push(root);
+    await writeFile(path.join(root, "backlog", "target.md"), "---\nid: target\nstatus: ready\n---\n");
+    await writeFile(path.join(root, "backlog", "records", "target.md"), "---\nid: collision\nstatus: closed\n---\n");
+    await writeFile(path.join(root, "backlog", "records", "source.md"), "---\nid: source\nstatus: closed\nlinks:\n  related:\n    - '[[../target.md]]'\n---\n");
+
+    const report = await auditBacklog({ rootDir: root, backlogDir: path.join(root, "backlog"), format: "json" });
+    expect(report.unresolved_wikilinks).toHaveLength(0);
+    expect(report.no_inbound_active).toHaveLength(0);
+  });
+
+  it("resolves explicit links to regular JSON repository artifacts", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-json-");
+    cleanupDirs.push(root);
+    await writeFile(path.join(root, "backlog", "audit", "report.json"), "{}\n");
+    await writeFile(path.join(root, "backlog", "records", "source.md"), "---\nid: source\nstatus: closed\nlinks:\n  supporting_reference:\n    - '[[../audit/report.json]]'\n---\n");
+
+    const report = await auditBacklog({ rootDir: root, backlogDir: path.join(root, "backlog"), format: "json" });
+    expect(report.unresolved_wikilinks).toHaveLength(0);
+  });
+
+  it("rejects root escapes and nonregular or symlink wikilink targets", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-safety-");
+    cleanupDirs.push(root);
+    await fs.mkdir(path.join(root, "backlog", "directory-target"), { recursive: true });
+    await writeFile(path.join(root, "outside.md"), "outside\n");
+    await fs.symlink(path.join(root, "outside.md"), path.join(root, "backlog", "symlink-target.md"));
+    await writeFile(path.join(root, "backlog", "source.md"), "---\nid: source\nstatus: closed\nlinks:\n  related:\n    - '[[../../outside.md]]'\n    - '[[directory-target]]'\n    - '[[symlink-target]]'\n---\n");
+
+    const report = await auditBacklog({ rootDir: root, backlogDir: path.join(root, "backlog"), format: "json" });
+    expect(report.unresolved_wikilinks).toHaveLength(3);
+    expect(report.unresolved_wikilinks.map((finding) => finding.reason)).toEqual(["invalid-target", "invalid-target", "invalid-target"]);
+  });
+
+  it("keeps accepted unresolved archive history visible outside CI scope", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-archive-history-");
+    cleanupDirs.push(root);
+    const archiveFile = path.join(
+      root,
+      "backlog",
+      "archive",
+      "174.1.graph-and-naming-story 1.md",
+    );
+    await writeFile(
+      archiveFile,
+      "---\nid: archived-history\nstatus: closed\nlinks:\n  implementedBy:\n    - '[[174.1.1.registry-utility-task.md]]'\n    - '[[174.1.2.crossref-plugin-task.md]]'\n    - '[[174.1.3.naming-rules-task.md]]'\n    - '[[174.1.4.backlog-lifecycle-rules-task.md]]'\n---\n",
+    );
+
+    const ciScope = await auditBacklog({
+      rootDir: root,
+      backlogDir: path.join(root, "backlog"),
+      includeArchive: false,
+      format: "json",
+    });
+    const archiveScope = await auditBacklog({
+      rootDir: root,
+      backlogDir: path.join(root, "backlog"),
+      includeArchive: true,
+      format: "json",
+    });
+
+    expect(ciScope.unresolved_wikilinks).toHaveLength(0);
+    expect(archiveScope.unresolved_wikilinks).toEqual([
+      {
+        file: "backlog/archive/174.1.graph-and-naming-story 1.md",
+        ref: "174.1.1.registry-utility-task.md",
+        reason: "not-found",
+        candidates: undefined,
+      },
+      {
+        file: "backlog/archive/174.1.graph-and-naming-story 1.md",
+        ref: "174.1.2.crossref-plugin-task.md",
+        reason: "not-found",
+        candidates: undefined,
+      },
+      {
+        file: "backlog/archive/174.1.graph-and-naming-story 1.md",
+        ref: "174.1.3.naming-rules-task.md",
+        reason: "not-found",
+        candidates: undefined,
+      },
+      {
+        file: "backlog/archive/174.1.graph-and-naming-story 1.md",
+        ref: "174.1.4.backlog-lifecycle-rules-task.md",
+        reason: "not-found",
+        candidates: undefined,
+      },
+    ]);
+  });
+
+  it("keeps archive targets visible and resolves migrated record links", async () => {
+    const root = await mkTmpDir("doc-vader-source-relative-record-");
+    cleanupDirs.push(root);
+    await writeFile(path.join(root, "backlog", "archive", "old.md"), "---\nid: old\nstatus: closed\n---\n");
+    await writeFile(path.join(root, "backlog", "audit", "auditing-backlog-report.json"), "{}\n");
+    await writeFile(path.join(root, "backlog", "records", "record.md"), "---\nid: record\nstatus: closed\nlinks:\n  related:\n    - '[[../archive/old]]'\n  supporting_reference:\n    - '[[../audit/auditing-backlog-report.json]]'\n---\n");
+
+    const report = await auditBacklog({ rootDir: root, backlogDir: path.join(root, "backlog"), includeArchive: false, format: "json" });
+    expect(report.unresolved_wikilinks).toHaveLength(0);
+  });
+
+  it("rejects unknown non-extension work-item link keys", async () => {
+    const tmp = await mkTmpDir("doc-vader-backlog-link-vocabulary-invalid-");
+    cleanupDirs.push(tmp);
+
+    await writeFile(
+      path.join(tmp, "10.invalid-link.md"),
+      `---\nid: wi-10\ntitle: Invalid Link\ntype: work-item\nsubtype: task\nlifecycle: active\nstatus: ready\npriority: high\nestimated: 1\nlinks:\n  owner_of:\n    - '[[wi-9]]'\n---\n`,
+    );
+
+    const report = await auditBacklog({
+      backlogDir: tmp,
+      rootDir: process.cwd(),
+      failOn: "error",
+      format: "json",
+    });
+
+    expect(report.totals.schema_violations).toBe(1);
+    expect(report.schema_violations[0]?.errors.join("\n")).toContain("owner_of");
   });
 });

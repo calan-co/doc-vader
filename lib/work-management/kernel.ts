@@ -107,6 +107,9 @@ function normalizeTags(tags: unknown): string[] {
 }
 
 function collectStringValues(value: unknown): string[] {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return [value.trim()];
+  }
   if (!Array.isArray(value)) {
     return [];
   }
@@ -203,7 +206,7 @@ function lifecycleSummary(record: WorkItemGovernanceRecord): {
   if (archived) {
     reasons.push(reason("archived", "Archived tasks are not ready candidates."));
   }
-  if (status === "closed" || lifecycle === "inactive") {
+  if (["closed", "completed", "aborted"].includes(status ?? "") || lifecycle === "inactive") {
     reasons.push(reason("closed", "Closed tasks are not ready candidates."));
   }
   if (status === "blocked") {
@@ -225,7 +228,7 @@ function lifecycleSummary(record: WorkItemGovernanceRecord): {
     valid: Boolean(id && status && lifecycle),
     isActive: lifecycle === "active",
     isArchived: archived,
-    isClosed: status === "closed" || lifecycle === "inactive",
+    isClosed: ["closed", "completed", "aborted"].includes(status ?? "") || lifecycle === "inactive",
     reasons,
     status: status ?? "",
     lifecycle: lifecycle ?? "",
@@ -240,17 +243,11 @@ function classificationSummary(
   reasons: WorkItemGovernanceReason[];
 } {
   const isHitl = tags.includes("hitl");
-  const isAfk = tags.includes("afk") && !isHitl;
+  const isAfk = !isHitl;
   const reasons: WorkItemGovernanceReason[] = [];
 
   if (isHitl) {
     reasons.push(reason("hitl", "HITL tasks are not AFK-ready candidates."));
-  } else if (!tags.includes("afk")) {
-    reasons.push(
-      reason("missing_classification", "Task is missing AFK classification.", {
-        tags,
-      }),
-    );
   }
 
   return {

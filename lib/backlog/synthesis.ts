@@ -272,9 +272,11 @@ function addSchemaAliases(ajv: Ajv2020, schema: SchemaLike): void {
   if (!schemaId) {
     return;
   }
-  addSchemaIfMissing(ajv, { ...schema, $id: schemaId });
   if (schemaId.endsWith(".json")) {
     addSchemaIfMissing(ajv, { ...schema, $id: schemaId.slice(0, -5) });
+  }
+  if (schemaId.endsWith("/base/current")) {
+    addSchemaIfMissing(ajv, { ...schema, $id: schemaId.replace(/\/current$/, "/1.0.0") });
   }
   if (
     schemaId.startsWith(
@@ -298,7 +300,13 @@ async function createValidationAjv(): Promise<Ajv2020> {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
 
-  for (const schemaPath of VALIDATION_SCHEMA_PATHS) {
+  const schemaPaths = [
+    ...VALIDATION_SCHEMA_PATHS,
+    ...VALIDATION_SCHEMA_PATHS
+      .filter((schemaPath) => schemaPath.endsWith("/1.0.0.json"))
+      .map((schemaPath) => schemaPath.replace("/1.0.0.json", "/current.json")),
+  ];
+  for (const schemaPath of schemaPaths) {
     const schema = await readJsonFile(schemaPath);
     addSchemaIfMissing(ajv, schema);
     addSchemaAliases(ajv, schema);

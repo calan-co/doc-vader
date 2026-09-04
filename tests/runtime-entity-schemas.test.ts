@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -242,6 +243,78 @@ describe("runtime entity schemas", () => {
 
     expect(relativeIdentity).toEqual(absoluteIdentity);
     expect(relativeIdentity.path).toBe("backlog/runtime/entity.md");
+  });
+
+  it("maps absolute registered-worktree paths to the shared repository lock identity", async () => {
+    const root = await mkRoot();
+    const worktree = `${root}-registered-worktree`;
+    tempDirs.push(worktree);
+    const rootFile = path.join(root, "backlog", "runtime", "entity.md");
+    await fs.mkdir(path.dirname(rootFile), { recursive: true });
+    await fs.writeFile(rootFile, "# runtime\n", "utf8");
+    execFileSync("git", ["init", "--initial-branch", "main"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "agent@example.com"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Agent"], { cwd: root });
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-m", "fixture"], { cwd: root });
+    execFileSync("git", ["worktree", "add", "-b", "lock-identity", worktree], {
+      cwd: root,
+    });
+
+    const rootIdentity = createRuntimeLockIdentity(rootFile, {
+      rootDir: root,
+      cwd: root,
+    });
+    const worktreeIdentity = createRuntimeLockIdentity(
+      path.join(worktree, "backlog", "runtime", "entity.md"),
+      { rootDir: root, cwd: root },
+    );
+
+    expect(worktreeIdentity).toEqual(rootIdentity);
+
+    const outside = await fs.mkdtemp(path.join(os.tmpdir(), "doc-vader-outside-"));
+    tempDirs.push(outside);
+    const outsideFile = path.join(outside, "escape.md");
+    await fs.writeFile(outsideFile, "# outside\n", "utf8");
+    expect(() =>
+      createRuntimeLockIdentity(outsideFile, { rootDir: root, cwd: root }),
+    ).toThrow(`Lock path escapes the repository root: ${outsideFile}`);
+    expect(() =>
+      createRuntimeLockIdentity(
+        path.relative(root, path.join(worktree, "backlog", "runtime", "entity.md")),
+        { rootDir: root, cwd: root },
+      ),
+    ).toThrow("Lock path escapes the repository root");
+  });
+
+  it("rejects files inside nested foreign Git repositories below the authority root", async () => {
+    const root = await mkRoot();
+    const authorityFile = path.join(root, "backlog", "runtime", "entity.md");
+    await fs.mkdir(path.dirname(authorityFile), { recursive: true });
+    await fs.writeFile(authorityFile, "# authority\n", "utf8");
+    execFileSync("git", ["init", "--initial-branch", "main"], { cwd: root });
+    execFileSync("git", ["config", "user.email", "agent@example.com"], { cwd: root });
+    execFileSync("git", ["config", "user.name", "Agent"], { cwd: root });
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-m", "authority fixture"], { cwd: root });
+
+    const nestedRepository = path.join(root, "backlog", "foreign-repository");
+    const nestedFile = path.join(nestedRepository, "nested.md");
+    await fs.mkdir(nestedRepository, { recursive: true });
+    execFileSync("git", ["init", "--initial-branch", "main"], {
+      cwd: nestedRepository,
+    });
+    await fs.writeFile(nestedFile, "# foreign\n", "utf8");
+
+    expect(() =>
+      createRuntimeLockIdentity(nestedFile, { rootDir: root, cwd: root }),
+    ).toThrow(`Lock path escapes the repository root: ${nestedFile}`);
+    expect(
+      createRuntimeLockIdentity(authorityFile, { rootDir: root, cwd: root }),
+    ).toEqual({
+      path: "backlog/runtime/entity.md",
+      key: deriveRuntimeLockKey("backlog/runtime/entity.md"),
+    });
   });
 
   it("preserves caller casing for new path segments while canonicalizing tracked prefixes", async () => {

@@ -1,24 +1,22 @@
-import { access } from "node:fs/promises";
-import path from "node:path";
 import {
-  openRuntimeSqliteStore,
-  type RuntimeExecutionLogRecord,
-  type RuntimeExecutionReason,
-  type RuntimeExecutionState,
-} from "../runtime/index.js";
+  readRuntimeClaimTaskExecutionSummaries,
+  type RuntimeClaimExecutionFact,
+  type RuntimeClaimTaskExecutionSummary,
+} from "../runtime-claim/index.js";
 
 export interface TaskRuntimeExecutionLog {
   claimToken: string;
   targetType: string;
   targetId: string;
-  state: RuntimeExecutionState;
-  reason: RuntimeExecutionReason;
+  state: RuntimeClaimExecutionFact["state"];
+  reason: RuntimeClaimExecutionFact["reason"];
   createdAt: string;
   readyPermitting: boolean;
   claimState?: "active" | "expired" | "missing";
   lockCount?: number;
   branch?: string;
   worktree?: string;
+  worktreeMetadataInvalid?: boolean;
 }
 
 export interface TaskRuntimeReadiness {
@@ -30,26 +28,28 @@ export interface TaskRuntimeReadiness {
 }
 
 function toExecutionSummary(
-  entry: RuntimeExecutionLogRecord,
+  entry: RuntimeClaimExecutionFact,
   options: {
     claimState?: "active" | "expired" | "missing";
     lockCount?: number;
     branch?: string;
     worktree?: string;
+    worktreeMetadataInvalid?: boolean;
   } = {},
 ): TaskRuntimeExecutionLog {
   return {
-    claimToken: entry.claim_token,
-    targetType: entry.target_type,
-    targetId: entry.target_id,
+    claimToken: entry.claimToken,
+    targetType: entry.targetType,
+    targetId: entry.targetId,
     state: entry.state,
     reason: entry.reason,
-    createdAt: entry.created_at,
+    createdAt: entry.createdAt,
     readyPermitting: entry.state === "completed" && entry.reason === "success",
     ...(options.claimState ? { claimState: options.claimState } : {}),
     ...(options.lockCount !== undefined ? { lockCount: options.lockCount } : {}),
     ...(options.branch ? { branch: options.branch } : {}),
     ...(options.worktree ? { worktree: options.worktree } : {}),
+    ...(options.worktreeMetadataInvalid ? { worktreeMetadataInvalid: true } : {}),
   };
 }
 
@@ -63,61 +63,33 @@ function claimMetadataString(
     : undefined;
 }
 
+function hasInvalidWorktreeMetadata(
+  metadata: Record<string, unknown> | undefined,
+): boolean {
+  return (
+    metadata !== undefined &&
+    Object.hasOwn(metadata, "worktree") &&
+    !claimMetadataString(metadata, "worktree")
+  );
+}
+
 export async function loadTaskExecutionLogSummaries(options: {
   rootDir?: string;
   taskIds?: Iterable<string>;
 } = {}): Promise<Map<string, TaskRuntimeExecutionLog>> {
-  const rootDir = path.resolve(options.rootDir ?? process.cwd());
-  const runtimeDatabasePath = path.resolve(
-    rootDir,
-    ".doc-vader",
-    "runtime",
-    "runtime.sqlite",
-  );
-  try {
-    await access(runtimeDatabasePath);
-  } catch {
-    return new Map();
-  }
-  const taskIds = options.taskIds ? new Set(options.taskIds) : undefined;
-  const store = openRuntimeSqliteStore({ rootDir });
-  try {
-    const summaries = new Map<string, RuntimeExecutionLogRecord>();
-    for (const entry of store.listExecutionLogEntries()) {
-      if (entry.target_type !== "task") {
-        continue;
-      }
-      if (taskIds && !taskIds.has(entry.target_id)) {
-        continue;
-      }
-      const current = summaries.get(entry.target_id);
-      if (
-        !current ||
-        entry.created_at > current.created_at ||
-        (entry.created_at === current.created_at && entry.id > current.id)
-      ) {
-        summaries.set(entry.target_id, entry);
-      }
-    }
-
-    return new Map(
-      [...summaries.entries()].map(([taskId, entry]) => {
-        const claim = store.getClaimByToken(entry.claim_token);
-        const locks = store.listLocksByClaimToken(entry.claim_token);
-        return [
-          taskId,
-          toExecutionSummary(entry, {
-            claimState: claim?.state ?? "missing",
-            lockCount: locks.length,
-            branch: claimMetadataString(claim?.metadata, "branch"),
-            worktree: claimMetadataString(claim?.metadata, "worktree"),
-          }),
-        ];
+  const summaries = readRuntimeClaimTaskExecutionSummaries(options);
+  return new Map(
+    [...summaries.entries()].map(([taskId, summary]: [string, RuntimeClaimTaskExecutionSummary]) => [
+      taskId,
+      toExecutionSummary(summary.execution, {
+        claimState: summary.claim?.state ?? "missing",
+        lockCount: summary.activeLockCount,
+        branch: claimMetadataString(summary.claim?.metadata, "branch"),
+        worktree: claimMetadataString(summary.claim?.metadata, "worktree"),
+        worktreeMetadataInvalid: hasInvalidWorktreeMetadata(summary.claim?.metadata),
       }),
-    );
-  } finally {
-    store.close();
-  }
+    ]),
+  );
 }
 
 export async function loadTaskRuntimeReadiness(options: {

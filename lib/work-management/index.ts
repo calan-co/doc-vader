@@ -1,7 +1,6 @@
 import matter from "gray-matter";
 import yaml from "js-yaml";
-import { execFileSync } from "node:child_process";
-import { existsSync, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import type { SubjectResolverName } from "../backlog/scan-types.js";
 import {
@@ -13,10 +12,53 @@ import {
 import { getProviderForForge } from "../backlog/provider-registry.js";
 import type { BacklogAutomationProvider } from "../backlog/provider.js";
 import {
-  openRuntimeSqliteStore,
-  type RuntimeChangedFileAuditResult,
+  auditRuntimeClaimCoverage,
+  completeRuntimeClaimExecutionForTask,
+  createRuntimeClaimPackage,
+  RuntimeClaimSqliteDataAdapter,
+} from "../runtime-claim/index.js";
+import type {
+  RuntimeChangedFileAuditResult,
+  RuntimeClaimAuditTrace,
+  RuntimeClaimCoverageAuditTrace,
+  RuntimeExecutionTerminalResult,
 } from "../runtime/index.js";
 import { TaskCommandError } from "../task/errors.js";
+import { validateRecordPayload, type RecordPayload } from "../task/record.js";
+import { loadDocVaderConfig } from "../config/loader.js";
+import { loadDocumentTypePackRegistry } from "../document-type-packs/registry.js";
+import {
+  resolveWorkManagementChecklistDefinitions,
+  workManagementDocumentTypePack,
+} from "./checklist-definitions.js";
+import { WorkItemCompletionGate } from "./completion-gate.js";
+import {
+  evaluateTransition,
+  resolveDefaultWorkItemState,
+} from "./frontmatter-lint.js";
+import {
+  allowPolicyDecision,
+  type GatePolicy,
+  type PolicyDecision,
+} from "./policies.js";
+import {
+  evaluateWorkItemCompletion,
+  mutateMarkdownQualifierLeaf,
+  projectMarkdownChecklists,
+  projectWorkItemQualifiers,
+  WorkItemCompletionQualifierError,
+  type CompletionQualifierBlocker,
+  type QualifierStatus,
+  type WorkItemQualifierProjection,
+} from "./qualifiers.js";
+import {
+  normalizeEvidenceLinks,
+  validateTerminalMetadata,
+} from "./terminal-metadata.js";
+import { Saga, SagaOrchestrator, SagaStore, createFileCommand } from "./saga.js";
+
+export * from "./policies.js";
+export { WorkItemCompletionGate } from "./completion-gate.js";
 
 export type LinkKind = "pr" | "evidence" | "reference";
 export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "subversion";
@@ -25,8 +67,23 @@ type Frontmatter = Record<string, unknown>;
 
 interface MarkdownDocument {
   filePath: string;
+  raw: string;
   frontmatter: Frontmatter;
   body: string;
+}
+
+interface WorkItemCompletionContext {
+  readonly rootDir: string;
+  readonly document: MarkdownDocument;
+  readonly targetStatus: string;
+  readonly requestedStatus: string;
+  readonly targetStatusReason: string;
+  readonly candidateFrontmatter: Frontmatter;
+  readonly requiredPaths: readonly string[];
+  readonly claimToken?: string;
+  readonly authorizeClaim: boolean;
+  readonly mode: "transition" | "finalize";
+  readonly checklistDefinitions: Parameters<typeof evaluateWorkItemCompletion>[1];
 }
 
 interface ConsumerRoots {
@@ -82,8 +139,13 @@ export interface TransitionWorkItemOptions {
   status: string;
   statusReason?: string;
   actual?: number;
+  /** Remove an optional estimate as part of this same validated update. */
+  clearEstimated?: boolean;
   assignee?: string;
-  completedDate?: string;
+  /** Exact active runtime claim required when the target is claimed. */
+  claimToken?: string;
+  /** Claimed-path coverage facts produced by a guarded authorization preflight. */
+  claimedPathAudit?: RuntimeChangedFileAuditResult;
   dryRun?: boolean;
 }
 
@@ -93,6 +155,8 @@ export interface LinkWorkItemOptions {
   id: string;
   kind: LinkKind;
   value: string;
+  /** Exact active runtime claim required when the target is claimed. */
+  claimToken?: string;
   dryRun?: boolean;
 }
 
@@ -102,6 +166,8 @@ export interface RecordCommitOptions {
   id: string;
   sha: string;
   summary: string;
+  /** Exact active runtime claim required when the target is claimed. */
+  claimToken?: string;
   dryRun?: boolean;
 }
 
@@ -121,6 +187,8 @@ export interface CreateRecordOptions {
   subjects: string[];
   artifactRefs?: string[];
   supportingRefs?: string[];
+  /** Exact active runtime Claim token when a subject resolves to claimed Work. */
+  claimToken?: string;
   dryRun?: boolean;
 }
 
@@ -131,8 +199,9 @@ export interface FinalizeWorkItemOptions {
   pullRequestPath?: string;
   provider?: BacklogAutomationProvider;
   statusReason?: string;
-  completedDate?: string;
   actual?: number;
+  /** Exact active runtime claim required when the target is claimed. */
+  claimToken?: string;
   dryRun?: boolean;
 }
 
@@ -140,6 +209,8 @@ export interface MigrateBacklogOptions {
   rootDir?: string;
   consumerConfig?: string;
   dir?: string;
+  /** Exact active Claim token when a migrated Work Item is claimed. */
+  claimToken?: string;
   dryRun?: boolean;
 }
 
@@ -149,6 +220,8 @@ export interface IngestEventOptions {
   provider: ForgeProvider;
   event: string;
   payloadPath: string;
+  /** Exact active Claim token for each event subject that is actively claimed. */
+  claimToken?: string;
   dryRun?: boolean;
 }
 
@@ -157,6 +230,8 @@ export interface TransitionWorkItemResult {
   filePath: string;
   frontmatter: Frontmatter;
   dryRun: boolean;
+  /** Claim lifecycle completion for a successful terminal mutation. */
+  execution?: RuntimeExecutionTerminalResult;
 }
 
 export interface LinkWorkItemResult extends TransitionWorkItemResult {
@@ -296,13 +371,32 @@ function inferLifecycle(status: string, archived: boolean): string {
   return "active";
 }
 
-const FINALIZABLE_STATUSES = new Set(["completed"]);
-
-function normalizeStatus(value: unknown): string {
+function normalizeRawStatus(value: unknown): string {
   if (typeof value !== "string" || value.trim().length === 0) {
     return "ready";
   }
   return value.trim().toLowerCase();
+}
+
+function normalizeStatus(value: unknown): string {
+  const status = normalizeRawStatus(value);
+  return status === "closed" ? "completed" : status;
+}
+
+function hasEvidenceLinks(frontmatter: Frontmatter): boolean {
+  return normalizeEvidenceLinks(frontmatter).length > 0;
+}
+
+function appendTerminalEvidenceNote(
+  document: MarkdownDocument,
+  statusReason: string,
+  completedDate: string,
+): void {
+  const note = `- ${completedDate}: Closed as ${statusReason} with evidence in backlog/audit/auditing-backlog-report.json.`;
+  if (document.body.includes(note)) {
+    return;
+  }
+  document.body = `${document.body.trimEnd()}\n\n${note}\n`;
 }
 
 function normalizeLifecycle(value: unknown): string {
@@ -312,175 +406,319 @@ function normalizeLifecycle(value: unknown): string {
   return value.trim().toLowerCase();
 }
 
-function defaultAuditMergeTargetRef(rootDir: string): string {
-  const candidates = ["main", "master", "HEAD"];
-  for (const candidate of candidates) {
-    try {
-      const result = execFileSync(
-        "git",
-        ["rev-parse", "--verify", "--quiet", candidate],
-        {
-          cwd: rootDir,
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-        },
-      );
-      if (typeof result === "string" && result.trim().length > 0) {
-        return candidate;
-      }
-    } catch {
-      continue;
-    }
-  }
-  return "HEAD";
-}
-
-export function runRuntimeClaimCoverageAudit(options: {
+export function authorizeWorkMutation(options: {
   rootDir: string;
   taskId: string;
+  claimToken?: string;
+  requiredPaths: string[];
+  claimedPathAudit?: RuntimeChangedFileAuditResult;
+}): void {
+  const decision = createRuntimeClaimPackage({ rootDir: options.rootDir })
+    .createAuthorityGatePolicy().evaluate({
+    rootDir: options.rootDir,
+    targetType: "task",
+    targetId: options.taskId,
+    claimToken: options.claimToken,
+    requiredPaths: options.requiredPaths,
+    ...(options.claimedPathAudit
+      ? { claimedPathAudit: options.claimedPathAudit }
+      : {}),
+    authorizeClaim: true,
+  });
+  if (!decision.allowed) {
+    throw new TaskCommandError(
+      decision.code ?? "RUNTIME_CLAIM_AUTHORITY_BLOCKED",
+      decision.message ?? "Runtime claim authority blocked this mutation.",
+      decision.details ? { ...decision.details } : undefined,
+    );
+  }
+}
+
+function authorizeWorkItemSagaRecovery(rootDir: string, taskId: string, claimToken: string | undefined): void {
+  const claim = new RuntimeClaimSqliteDataAdapter({ rootDir }).getClaimByTarget("task", taskId);
+  if (!claim || claim.state !== "active" || claim.claim_token !== claimToken) {
+    throw new TaskCommandError(
+      "WORK_MUTATION_CLAIM_REQUIRED",
+      `Saga recovery for '${taskId}' requires its exact active claim token.`,
+      { taskId, ...(claim ? { expectedClaimToken: claim.claim_token, providedClaimToken: claimToken } : {}) },
+    );
+  }
+}
+
+function createWorkItemSagaOrchestrator(store: SagaStore, rootDir: string): SagaOrchestrator {
+  return new SagaOrchestrator(store, {
+    authorize(authority, instance) {
+      authorizeWorkItemSagaRecovery(rootDir, authority.taskId, authority.claimToken);
+      authorizeWorkMutation({
+        rootDir,
+        taskId: authority.taskId,
+        claimToken: authority.claimToken,
+        requiredPaths: instance.commands.map((command) => command.targetPath),
+      });
+    },
+  });
+}
+
+export async function runRuntimeClaimCoverageAudit(options: {
+  rootDir: string;
+  taskId: string;
+  claimToken?: string;
   requiredPaths: string[];
   mergeTargetRef?: string;
-}): RuntimeChangedFileAuditResult {
-  const runtimeDatabasePath = path.join(
-    options.rootDir,
-    ".doc-vader",
-    "runtime",
-    "runtime.sqlite",
-  );
-  if (!existsSync(runtimeDatabasePath)) {
-    throw new TaskCommandError(
-      "TASK_RUNTIME_CLAIM_MISSING",
-      `Task '${options.taskId}' has no active runtime claim.`,
-      { taskId: options.taskId },
-    );
-  }
-
-  const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
-  try {
-    const claim = store.getClaimByTarget("task", options.taskId);
-    if (!claim) {
-      throw new TaskCommandError(
-        "TASK_RUNTIME_CLAIM_MISSING",
-        `Task '${options.taskId}' has no active runtime claim.`,
-        { taskId: options.taskId },
-      );
-    }
-
-    const mergeTargetRef = options.mergeTargetRef ?? defaultAuditMergeTargetRef(options.rootDir);
-    const currentAudit = store.auditChangedFiles(claim.claim_token, {
-      mergeTargetRef,
-    });
-    const requiredAudit = store.auditClaimedPaths(
-      claim.claim_token,
-      options.requiredPaths,
-      { mergeTargetRef },
-    );
-    const diagnostics = [...currentAudit.diagnostics];
-    const seen = new Set(
-      diagnostics.map((diagnostic) => `${diagnostic.path}:${diagnostic.actualLockState}`),
-    );
-    for (const diagnostic of requiredAudit.diagnostics) {
-      const key = `${diagnostic.path}:${diagnostic.actualLockState}`;
-      if (!seen.has(key)) {
-        diagnostics.push(diagnostic);
-      }
-    }
-    const changedFiles = [
-      ...currentAudit.changedFiles,
-      ...requiredAudit.changedFiles,
-    ];
-    const changedPaths = Array.from(
-      new Set([
-        ...currentAudit.changedPaths,
-        ...requiredAudit.changedPaths,
-      ]),
-    );
-    const renameDiagnostics = [
-      ...currentAudit.renameDiagnostics,
-      ...requiredAudit.renameDiagnostics,
-    ];
-
-    return {
-      ...currentAudit,
-      mergeTargetRef,
-      claim,
-      changedFiles,
-      changedPaths,
-      renameDiagnostics,
-      diagnostics,
-      fresh: currentAudit.fresh && requiredAudit.fresh,
-      mergeable: currentAudit.mergeable && requiredAudit.mergeable,
-      passed:
-        currentAudit.passed &&
-        requiredAudit.passed &&
-        diagnostics.length === 0 &&
-        renameDiagnostics.length === 0,
-    };
-  } finally {
-    store.close();
-  }
+  auditTrace?: RuntimeClaimAuditTrace;
+  /** Opt-in test/benchmark tracing for the complete changed-file coverage audit. */
+  fullAuditTrace?: RuntimeClaimCoverageAuditTrace;
+}): Promise<RuntimeChangedFileAuditResult> {
+  const audit = () => auditRuntimeClaimCoverage({
+    rootDir: options.rootDir,
+    targetType: "task",
+    targetId: options.taskId,
+    claimToken: options.claimToken,
+    requiredPaths: options.requiredPaths,
+    mergeTargetRef: options.mergeTargetRef,
+    auditTrace: options.auditTrace,
+    fullAuditTrace: options.fullAuditTrace,
+  });
+  return options.fullAuditTrace?.traceAsync
+    ? options.fullAuditTrace.traceAsync("fullAudit", audit)
+    : audit();
 }
 
-/**
- * Return unchecked checklist item labels from a named second-level markdown section.
- */
-function extractUncheckedChecklistItemsFromSection(
-  content: string,
-  heading: string,
-): string[] {
-  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const sectionRegex = new RegExp(
-    `(?:^|\\n)##\\s+${escapedHeading}(?:\\b[^\\n]*)?\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
-  );
-  const sectionMatch = content.match(sectionRegex);
-  if (!sectionMatch) {
-    return [];
-  }
-
-  const uncheckedItems: string[] = [];
-  const uncheckedRegex = /^\s*-\s*\[\s\]\s+(.*)$/gm;
-  for (const match of sectionMatch[1].matchAll(uncheckedRegex)) {
-    const item = match[1]?.trim();
-    if (item) {
-      uncheckedItems.push(item);
-    }
-  }
-
-  return uncheckedItems;
-}
-
-function assertNoUncheckedCompletionCriteria(
-  document: MarkdownDocument,
-  targetStatus: string,
-): void {
+function completionQualifierDecision(
+  context: WorkItemCompletionContext,
+): PolicyDecision {
+  const { document, targetStatus } = context;
+  const policyId = "work-item-completion-qualifier";
   if (targetStatus !== "completed") {
-    return;
+    return allowPolicyDecision(policyId);
   }
 
-  const uncheckedTasks = extractUncheckedChecklistItemsFromSection(
-    document.body,
-    "Tasks",
+  const completion = evaluateWorkItemCompletion(
+    document.raw,
+    context.checklistDefinitions,
   );
-  const uncheckedAcceptance = extractUncheckedChecklistItemsFromSection(
-    document.body,
-    "Acceptance Criteria",
+  const blockers: CompletionQualifierBlocker[] = completion.children.flatMap(
+    (scope) => [
+      ...scope.children
+        .filter((qualifier) => qualifier.status === "unmet")
+        .map((qualifier) => ({
+          scope: scope.scope,
+          status: qualifier.status,
+          id: qualifier.id,
+          label: qualifier.label,
+        })),
+      ...(scope.status === "indeterminate"
+        ? [{ scope: scope.scope, status: scope.status }]
+        : []),
+    ],
   );
 
-  if (uncheckedTasks.length === 0 && uncheckedAcceptance.length === 0) {
-    return;
+  if (blockers.length === 0) {
+    return allowPolicyDecision(policyId);
   }
 
-  const issues = [
-    ...uncheckedTasks.map((item) => `Tasks: ${item}`),
-    ...uncheckedAcceptance.map((item) => `Acceptance Criteria: ${item}`),
-  ];
-  throw new Error(
-    `Cannot transition '${String(
+  const checklistHeadingById = new Map(
+    (context.checklistDefinitions ?? resolveWorkManagementChecklistDefinitions()).map((definition) => [
+      definition.id,
+      definition.heading,
+    ]),
+  );
+  const issues = blockers.map((blocker) => {
+    const scope = checklistHeadingById.get(blocker.scope) ?? blocker.scope;
+    return blocker.label
+      ? `${scope}: ${blocker.label}`
+      : `${scope}: required completion scope is empty or unknown`;
+  });
+  return {
+    policyId,
+    allowed: false,
+    code: "WORK_ITEM_COMPLETION_QUALIFIERS_BLOCKED",
+    message: `Cannot transition '${String(
       document.frontmatter.id ?? path.basename(document.filePath),
     )}' to '${targetStatus}' with unchecked completion criteria:\n- ${issues.join(
       "\n- ",
     )}`,
-  );
+    details: { status: completion.status, blockers },
+  };
+}
+
+function transitionLifecycleDecision(
+  frontmatter: Frontmatter,
+  targetStatus: string,
+  targetStatusReason: string,
+): PolicyDecision {
+  const policyId = "work-item-completion-lifecycle";
+  const fromStatus = normalizeStatus(frontmatter.status);
+  const fromStatusReason =
+    typeof frontmatter.status_reason === "string" &&
+    frontmatter.status_reason.trim().length > 0
+      ? frontmatter.status_reason.trim()
+      : inferStatusReason(fromStatus);
+
+  if (fromStatus === targetStatus) {
+    return allowPolicyDecision(policyId);
+  }
+
+  let evaluation: ReturnType<typeof evaluateTransition>;
+  try {
+    evaluation = evaluateTransition(
+      { status: fromStatus, status_reason: fromStatusReason },
+      { status: targetStatus, status_reason: targetStatusReason },
+    );
+  } catch (error) {
+    return {
+      policyId,
+      allowed: false,
+      code: "WORK_UPDATE_INVALID_TRANSITION",
+      message: error instanceof Error ? error.message : String(error),
+      details: {
+        fromStatus,
+        fromStatusReason,
+        toStatus: targetStatus,
+        toStatusReason: targetStatusReason,
+      },
+    };
+  }
+
+  if (evaluation.allowed) {
+    return allowPolicyDecision(policyId);
+  }
+  return {
+    policyId,
+    allowed: false,
+    code: "WORK_UPDATE_INVALID_TRANSITION",
+    message: `Transition from '${fromStatus}' to '${targetStatus}' with status_reason '${targetStatusReason}' is not allowed by the work-management profile.`,
+    details: {
+      fromStatus,
+      fromStatusReason,
+      toStatus: targetStatus,
+      toStatusReason: targetStatusReason,
+    },
+  };
+}
+
+function createWorkItemCompletionGate(): WorkItemCompletionGate<WorkItemCompletionContext> {
+  const qualifierPolicy: GatePolicy<WorkItemCompletionContext> = {
+    id: "work-item-completion-qualifier",
+    evaluate: (context) =>
+      completionQualifierDecision(context),
+  };
+  const evidencePolicy: GatePolicy<WorkItemCompletionContext> = {
+    id: "work-item-completion-evidence",
+    evaluate: (context) => {
+      if (context.mode === "finalize") {
+        return hasEvidenceLinks(context.document.frontmatter)
+          ? allowPolicyDecision("work-item-completion-evidence")
+          : {
+              policyId: "work-item-completion-evidence",
+              allowed: false,
+              code: "WORK_ITEM_COMPLETION_EVIDENCE_BLOCKED",
+              message: `Cannot finalize '${String(context.document.frontmatter.id)}' without linked evidence.`,
+            };
+      }
+      const terminalMetadata = validateTerminalMetadata(context.candidateFrontmatter);
+      return terminalMetadata.valid
+        ? allowPolicyDecision("work-item-completion-evidence")
+        : {
+            policyId: "work-item-completion-evidence",
+            allowed: false,
+            code: "WORK_UPDATE_CLOSED_METADATA_REQUIRED",
+            message: `Transitioning to '${context.targetStatus}' requires schema-valid terminal metadata before mutation: provide a schema-compatible --status_reason, actual effort unless this is an unestimated AFK item, and links.evidence as a non-empty array of schema-valid links (for example: links.evidence: ['[[record-id]]']).`,
+            details: {
+              requestedStatus: context.requestedStatus,
+              canonicalStatus: context.targetStatus,
+              required: ["actual", "links.evidence"],
+              missing: terminalMetadata.missing,
+              schemaErrors: terminalMetadata.schemaErrors,
+              flags: ["--actual <number>", "--clear-estimated"],
+            },
+          };
+    },
+  };
+  const lifecyclePolicy: GatePolicy<WorkItemCompletionContext> = {
+    id: "work-item-completion-lifecycle",
+    evaluate: (context) => {
+      if (context.mode === "transition") {
+        return transitionLifecycleDecision(
+          context.document.frontmatter,
+          context.targetStatus,
+          context.targetStatusReason,
+        );
+      }
+      const currentStatus = normalizeStatus(context.document.frontmatter.status);
+      const currentLifecycle = normalizeLifecycle(context.document.frontmatter.lifecycle);
+      if (currentStatus !== "completed") {
+        return {
+          policyId: "work-item-completion-lifecycle",
+          allowed: false,
+          code: "WORK_ITEM_FINALIZE_STATUS_REQUIRED",
+          message: `Cannot finalize '${String(context.document.frontmatter.id)}' from status '${currentStatus}'. Expected completed.`,
+        };
+      }
+      if (currentLifecycle !== "active") {
+        return {
+          policyId: "work-item-completion-lifecycle",
+          allowed: false,
+          code: "WORK_ITEM_FINALIZE_LIFECYCLE_REQUIRED",
+          message: `Cannot finalize '${String(context.document.frontmatter.id)}' from lifecycle '${currentLifecycle || "(missing)"}'. Expected active.`,
+        };
+      }
+      return allowPolicyDecision("work-item-completion-lifecycle");
+    },
+  };
+  const claimAuthorityPolicy: GatePolicy<WorkItemCompletionContext> = {
+    id: "runtime-claim-authority",
+    evaluate: (context) =>
+      createRuntimeClaimPackage({ rootDir: context.rootDir })
+        .createAuthorityGatePolicy().evaluate({
+        rootDir: context.rootDir,
+        targetType: "task",
+        targetId: String(context.document.frontmatter.id),
+        claimToken: context.claimToken,
+        requiredPaths: context.requiredPaths,
+        authorizeClaim: context.authorizeClaim,
+      }),
+  };
+  return new WorkItemCompletionGate({
+    qualifierPolicy,
+    evidencePolicy,
+    lifecyclePolicy,
+    claimAuthorityPolicy,
+  });
+}
+
+function assertWorkItemCompletionAllowed(
+  context: WorkItemCompletionContext,
+): void {
+  const decision = createWorkItemCompletionGate().evaluate(context);
+  if (decision.allowed) {
+    return;
+  }
+  const blocker = decision.children?.find((child) => !child.allowed) ?? decision;
+  if (blocker.code === "WORK_ITEM_COMPLETION_QUALIFIERS_BLOCKED") {
+    throw new WorkItemCompletionQualifierError(blocker.message ?? "Completion qualifiers blocked.", {
+      status: blocker.details?.status as QualifierStatus,
+      blockers: (blocker.details?.blockers ?? []) as CompletionQualifierBlocker[],
+    });
+  }
+  if (
+    context.mode === "finalize" &&
+    [
+      "WORK_ITEM_COMPLETION_EVIDENCE_BLOCKED",
+      "WORK_ITEM_FINALIZE_STATUS_REQUIRED",
+      "WORK_ITEM_FINALIZE_LIFECYCLE_REQUIRED",
+    ].includes(blocker.code ?? "")
+  ) {
+    throw new Error(blocker.message ?? "Work item completion was blocked.");
+  }
+  if (blocker.code) {
+    throw new TaskCommandError(
+      blocker.code,
+      blocker.message ?? "Work item completion was blocked.",
+      blocker.details ? { ...blocker.details } : undefined,
+    );
+  }
+  throw new Error(blocker.message ?? "Work item completion was blocked.");
 }
 
 function normalizeSha(value: string): string {
@@ -573,6 +811,7 @@ async function readMarkdown(filePath: string): Promise<MarkdownDocument> {
   const parsed = matter(raw);
   return {
     filePath,
+    raw,
     frontmatter: (parsed.data ?? {}) as Frontmatter,
     body: parsed.content,
   };
@@ -732,7 +971,39 @@ function ensureWorkItemLinks(
   return links;
 }
 
-async function resolveWorkItemFile(
+async function resolveChecklistDefinitionsForWorkItem(
+  rootDir: string,
+  document: MarkdownDocument,
+) {
+  const configPath = path.join(rootDir, ".doc.json");
+  if (!(await pathExists(configPath))) {
+    return resolveWorkManagementChecklistDefinitions();
+  }
+  const config = await loadDocVaderConfig(configPath);
+  if (!config.documentTypePacks?.length) {
+    return resolveWorkManagementChecklistDefinitions();
+  }
+  const namespace = typeof document.frontmatter.namespace === "string"
+    ? document.frontmatter.namespace
+    : config.document?.namespace ?? config.namespace;
+  const type = typeof document.frontmatter.type === "string"
+    ? document.frontmatter.type
+    : config.document?.defaultType ?? config.defaultType;
+  const subtype = typeof document.frontmatter.subtype === "string"
+    ? document.frontmatter.subtype
+    : config.document?.defaultSubtype ?? config.defaultSubtype;
+  if (!namespace || !type) {
+    throw new Error("Configured document-type packs require canonical namespace and type metadata for Work Item checklist resolution.");
+  }
+  const registry = await loadDocumentTypePackRegistry({
+    config,
+    baseDir: rootDir,
+    builtIns: [workManagementDocumentTypePack],
+  });
+  return registry.select({ namespace, type, subtype }).checklistDefinitions;
+}
+
+export async function resolveWorkItemFile(
   rootDir: string,
   config: ResolvedConsumerConfig,
   id: string,
@@ -751,7 +1022,538 @@ async function resolveWorkItemFile(
   throw new Error(`Unable to find work item '${id}'.`);
 }
 
-function buildWorkItemBasename(slug: string): string {
+export interface InspectWorkItemQualifiersOptions {
+  rootDir?: string;
+  consumerConfig?: string;
+  id: string;
+}
+
+export interface WorkItemQualifierInspection extends WorkItemQualifierProjection {
+  readonly workItemId: string;
+  readonly filePath: string;
+}
+
+export interface MutateWorkItemQualifierOptions {
+  rootDir?: string;
+  consumerConfig?: string;
+  id: string;
+  qualifierId: string;
+  status: QualifierStatus;
+  /** Exact active runtime claim required when the target is claimed. */
+  claimToken?: string;
+}
+
+export interface WorkItemQualifierMutation extends WorkItemQualifierProjection {
+  readonly workItemId: string;
+  readonly filePath: string;
+}
+
+export interface AttestWorkItemQualifierOptions {
+  rootDir?: string;
+  consumerConfig?: string;
+  id: string;
+  qualifierId: string;
+  /** Existing evidence record/reference that sanctions this attestation. */
+  evidence: string;
+  /** Exact active runtime Claim token when the Work Item is claimed. */
+  claimToken?: string;
+}
+
+export interface WorkItemQualifierAttestation extends WorkItemQualifierMutation {
+  readonly evidence: string;
+}
+
+/** Read the authoritative Markdown Work Item as a semantic qualifier projection. */
+export async function inspectWorkItemQualifiers(
+  options: InspectWorkItemQualifiersOptions,
+): Promise<WorkItemQualifierInspection> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  const document = await readMarkdown(filePath);
+  const definitions = await resolveChecklistDefinitionsForWorkItem(rootDir, document);
+  return {
+    workItemId: String(document.frontmatter.id),
+    filePath,
+    ...projectWorkItemQualifiers(document.raw, definitions),
+  };
+}
+
+/**
+ * Persist one current Markdown leaf qualifier without rewriting unrelated
+ * frontmatter or body content.
+ */
+export async function attestWorkItemQualifier(
+  options: AttestWorkItemQualifierOptions,
+): Promise<WorkItemQualifierAttestation> {
+  const evidence = options.evidence.trim();
+  if (!evidence) {
+    throw new TaskCommandError(
+      "WORK_ITEM_ATTESTATION_EVIDENCE_REQUIRED",
+      "Checklist attestation requires an evidence reference.",
+      { workItemId: options.id },
+    );
+  }
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  authorizeWorkMutation({
+    rootDir,
+    taskId: options.id,
+    claimToken: options.claimToken,
+    requiredPaths: [filePath],
+  });
+  const document = await readMarkdown(filePath);
+  const definitions = await resolveChecklistDefinitionsForWorkItem(rootDir, document);
+  await assertAttestationEvidenceExists(rootDir, config, evidence);
+  const checkboxMutation = mutateMarkdownQualifierLeaf({
+    markdown: document.raw,
+    id: options.qualifierId,
+    status: "met",
+    definitions,
+  });
+  const attested = matter(checkboxMutation.markdown);
+  const links = ensureWorkItemLinks(attested.data as Frontmatter);
+  links.evidence = unique([
+    ...ensureArray(links.evidence),
+    normalizeLink("evidence", evidence),
+  ]);
+  await writeMarkdown(filePath, attested.data as Frontmatter, attested.content);
+  const written = await readMarkdown(filePath);
+  return {
+    workItemId: String(written.frontmatter.id),
+    filePath,
+    ...projectWorkItemQualifiers(
+      written.raw,
+      await resolveChecklistDefinitionsForWorkItem(rootDir, written),
+    ),
+    evidence: normalizeLink("evidence", evidence),
+  };
+}
+
+export interface InspectWorkItemChecklistOptions extends InspectWorkItemQualifiersOptions {
+  readonly checklistId: string;
+}
+
+export interface WorkItemChecklistInspection {
+  readonly workItemId: string;
+  readonly filePath: string;
+  readonly checklist: {
+    readonly id: string;
+    readonly checks: readonly {
+      readonly id: string;
+      readonly label: string;
+      readonly status: "met" | "unmet";
+    }[];
+  };
+}
+
+export interface MutateWorkItemCheckOptions extends Omit<MutateWorkItemQualifierOptions, "qualifierId" | "status"> {
+  readonly checklistId: string;
+  readonly checkId: string;
+  readonly action: "complete" | "clear";
+}
+
+/** Parsed evidence is passed to the transaction; stdin must be expanded by its caller. */
+export type WorkItemCheckEvidence = string | {
+  readonly reference?: string;
+  readonly json?: string;
+  readonly stdin?: string;
+};
+
+export interface CompleteWorkItemCheckWithEvidenceOptions extends Omit<MutateWorkItemCheckOptions, "action"> {
+  readonly evidence: WorkItemCheckEvidence;
+  /** Record subtype for JSON evidence; references retain their existing type. */
+  readonly evidenceType?: string;
+  /** Internal retry key for the durable evidence/check transaction. */
+  readonly sagaId?: string;
+}
+
+export interface WorkItemCheckEvidenceTransaction extends WorkItemQualifierAttestation {
+  readonly record?: CreateRecordResult;
+}
+
+export interface WorkItemCheckExecutionContext {
+  readonly workItemId: string;
+  readonly frontmatter: Frontmatter;
+  readonly action: "complete" | "clear";
+}
+
+/**
+ * Default execution policy derives the current category from the registered
+ * workflow profile rather than encoding lifecycle status names in check code.
+ */
+export const executionCategoryCheckPolicy: GatePolicy<WorkItemCheckExecutionContext> = {
+  id: "work-item-check-execution-category",
+  evaluate(context) {
+    try {
+      const category = resolveDefaultWorkItemState(context.frontmatter).category;
+      if (category === "execution") {
+        return allowPolicyDecision(this.id);
+      }
+      return {
+        policyId: this.id,
+        allowed: false,
+        code: "WORK_ITEM_CHECK_EXECUTION_CATEGORY_REQUIRED",
+        message: `Cannot ${context.action} a check while '${context.workItemId}' is outside the execution category.`,
+        details: { category },
+      };
+    } catch (error) {
+      return {
+        policyId: this.id,
+        allowed: false,
+        code: "WORK_ITEM_CHECK_EXECUTION_CATEGORY_REQUIRED",
+        message: `Cannot resolve the execution category for '${context.workItemId}'.`,
+        details: { error: error instanceof Error ? error.message : String(error) },
+      };
+    }
+  },
+};
+
+function assertWorkItemCheckExecutionAllowed(context: WorkItemCheckExecutionContext): void {
+  const decision = executionCategoryCheckPolicy.evaluate(context);
+  if (!decision.allowed) {
+    throw new TaskCommandError(
+      decision.code ?? "WORK_ITEM_CHECK_EXECUTION_BLOCKED",
+      decision.message ?? "Work Item check execution is blocked by policy.",
+      decision.details ? { ...decision.details } : undefined,
+    );
+  }
+}
+
+/** Validate the Work-pack running category before a bounded policy override consumes. */
+export async function assertWorkItemRunningCategory(options: InspectWorkItemQualifiersOptions): Promise<void> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  const document = await readMarkdown(filePath);
+  assertWorkItemCheckExecutionAllowed({
+    workItemId: String(document.frontmatter.id),
+    frontmatter: document.frontmatter,
+    action: "complete",
+  });
+}
+
+function checkAddressPath(checkId: string): string | undefined {
+  return /^([0-9]+(?:\.[0-9]+)*)-/.exec(checkId)?.[1];
+}
+
+function resolveCurrentWorkItemCheck(options: {
+  readonly workItemId: string;
+  readonly document: MarkdownDocument;
+  readonly definitions: Parameters<typeof projectMarkdownChecklists>[1];
+  readonly checklistId: string;
+  readonly checkId: string;
+}): { readonly check: { readonly id: string; readonly label: string; readonly status: "met" | "unmet" }; readonly qualifierId: string } {
+  const checklist = projectMarkdownChecklists(options.document.raw, options.definitions).checklists
+    .find((candidate) => candidate.id === options.checklistId);
+  if (!checklist) {
+    throw new TaskCommandError("WORK_ITEM_CHECKLIST_UNKNOWN", `Unknown current checklist '${options.checklistId}'.`, {
+      workItemId: options.workItemId,
+      checklistId: options.checklistId,
+    });
+  }
+  const checkIndex = checklist.checks.findIndex((candidate) => candidate.id === options.checkId);
+  if (checkIndex < 0) {
+    const requestedPath = checkAddressPath(options.checkId);
+    const sameSourceAddress = requestedPath && checklist.checks.some(
+      (candidate) => checkAddressPath(candidate.id) === requestedPath,
+    );
+    throw new TaskCommandError(
+      sameSourceAddress ? "WORK_ITEM_CHECK_ADDRESS_DRIFT" : "WORK_ITEM_CHECK_UNKNOWN",
+      sameSourceAddress
+        ? "Current checklist check title no longer matches the supplied natural address."
+        : `Unknown current check '${options.checkId}'.`,
+      { workItemId: options.workItemId, checklistId: options.checklistId, checkId: options.checkId },
+    );
+  }
+  const qualifier = projectWorkItemQualifiers(options.document.raw, options.definitions)
+    .qualifier.children.find((scope) => scope.scope === options.checklistId)?.children[checkIndex];
+  const check = checklist.checks[checkIndex]!;
+  if (!qualifier || qualifier.label !== check.label) {
+    throw new TaskCommandError("WORK_ITEM_CHECK_ADDRESS_DRIFT", "Current checklist check address no longer resolves to the expected source item.", {
+      workItemId: options.workItemId,
+      checklistId: options.checklistId,
+      checkId: options.checkId,
+    });
+  }
+  return { check, qualifierId: qualifier.id };
+}
+
+/** Inspect one current checklist contributed by the Work Item's selected pack. */
+export async function inspectWorkItemChecklist(
+  options: InspectWorkItemChecklistOptions,
+): Promise<WorkItemChecklistInspection> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  const document = await readMarkdown(filePath);
+  const definitions = await resolveChecklistDefinitionsForWorkItem(rootDir, document);
+  const checklist = projectMarkdownChecklists(document.raw, definitions).checklists
+    .find((candidate) => candidate.id === options.checklistId);
+  if (!checklist) {
+    throw new TaskCommandError("WORK_ITEM_CHECKLIST_UNKNOWN", `Unknown current checklist '${options.checklistId}'.`, {
+      workItemId: options.id,
+      checklistId: options.checklistId,
+    });
+  }
+  return { workItemId: String(document.frontmatter.id), filePath, checklist };
+}
+
+async function prepareClaimBoundCheckMutation(options: Omit<MutateWorkItemCheckOptions, "action"> & {
+  readonly action: "complete" | "clear";
+  readonly requiredPaths?: readonly string[];
+}) {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  // The claim gate is intentionally before the source read: natural addresses
+  // are always re-resolved from the content protected by the held lock.
+  authorizeWorkMutation({
+    rootDir,
+    taskId: options.id,
+    claimToken: options.claimToken,
+    requiredPaths: [...(options.requiredPaths ?? [filePath])],
+  });
+  const document = await readMarkdown(filePath);
+  assertWorkItemCheckExecutionAllowed({
+    workItemId: String(document.frontmatter.id),
+    frontmatter: document.frontmatter,
+    action: options.action,
+  });
+  const definitions = await resolveChecklistDefinitionsForWorkItem(rootDir, document);
+  const resolved = resolveCurrentWorkItemCheck({
+    workItemId: String(document.frontmatter.id),
+    document,
+    definitions,
+    checklistId: options.checklistId,
+    checkId: options.checkId,
+  });
+  return { rootDir, config, filePath, document, definitions, resolved };
+}
+
+export interface WorkItemCheckMutationPlan extends WorkItemQualifierMutation {
+  /** Current natural address persisted with the expected source version. */
+  readonly mutationId: string;
+  readonly expectedMarkdown: string;
+  readonly desiredMarkdown: string;
+}
+
+export interface WorkItemCheckMutationApplication extends WorkItemQualifierMutation {
+  /** Restore only the source version this application wrote. */
+  compensate(): Promise<void>;
+}
+
+/** Resolve a claimed Work mutation without writing its source. */
+export async function planWorkItemCheck(
+  options: MutateWorkItemCheckOptions,
+): Promise<WorkItemCheckMutationPlan> {
+  const prepared = await prepareClaimBoundCheckMutation(options);
+  const mutation = mutateMarkdownQualifierLeaf({
+    markdown: prepared.document.raw,
+    id: prepared.resolved.qualifierId,
+    status: options.action === "complete" ? "met" : "unmet",
+    definitions: prepared.definitions,
+  });
+  return {
+    workItemId: String(prepared.document.frontmatter.id),
+    filePath: prepared.filePath,
+    revision: mutation.revision,
+    qualifier: mutation.qualifier,
+    mutationId: prepared.resolved.qualifierId,
+    expectedMarkdown: prepared.document.raw,
+    desiredMarkdown: mutation.markdown,
+  };
+}
+
+/** Apply one fresh natural check address with source-owned compensation. */
+export async function applyWorkItemCheck(
+  options: MutateWorkItemCheckOptions,
+): Promise<WorkItemCheckMutationApplication> {
+  const plan = await planWorkItemCheck(options);
+  await fs.writeFile(plan.filePath, plan.desiredMarkdown, "utf8");
+  return {
+    workItemId: plan.workItemId,
+    filePath: plan.filePath,
+    revision: plan.revision,
+    qualifier: plan.qualifier,
+    async compensate() {
+      const current = await fs.readFile(plan.filePath, "utf8");
+      if (current !== plan.desiredMarkdown) {
+        throw new TaskCommandError(
+          "WORK_ITEM_CHECK_COMPENSATION_CONFLICT",
+          "Cannot compensate a Work check after its source changed again.",
+          { workItemId: plan.workItemId, filePath: plan.filePath },
+        );
+      }
+      await fs.writeFile(plan.filePath, plan.expectedMarkdown, "utf8");
+    },
+  };
+}
+
+/** Complete or clear one fresh natural check address under its Work Item claim. */
+export async function mutateWorkItemCheck(
+  options: MutateWorkItemCheckOptions,
+): Promise<WorkItemQualifierMutation> {
+  const { compensate: _compensate, ...mutation } = await applyWorkItemCheck(options);
+  return mutation;
+}
+
+function parseWorkItemCheckEvidence(evidence: WorkItemCheckEvidence):
+  | { readonly kind: "reference"; readonly value: string }
+  | { readonly kind: "record"; readonly payload: RecordPayload } {
+  const raw = typeof evidence === "string"
+    ? evidence.trim()
+    : (evidence.reference ?? evidence.json ?? evidence.stdin ?? "").trim();
+  if (!raw) {
+    throw new TaskCommandError("WORK_ITEM_CHECK_EVIDENCE_REQUIRED", "Check completion requires evidence.");
+  }
+  const shouldParseJson = typeof evidence !== "string"
+    ? Boolean(evidence.json ?? evidence.stdin)
+    : raw.startsWith("{");
+  if (!shouldParseJson) {
+    return { kind: "reference", value: raw };
+  }
+  try {
+    return { kind: "record", payload: validateRecordPayload(JSON.parse(raw)) };
+  } catch (error) {
+    throw new TaskCommandError(
+      "WORK_ITEM_CHECK_EVIDENCE_INVALID",
+      "Check evidence JSON must be a valid typed record payload.",
+      { error: error instanceof Error ? error.message : String(error) },
+    );
+  }
+}
+
+/**
+ * Atomically link existing evidence or create a typed evidence record and
+ * complete the exact natural check resolved under the active claim lock.
+ */
+export async function completeWorkItemCheckWithEvidence(
+  options: CompleteWorkItemCheckWithEvidenceOptions,
+): Promise<WorkItemCheckEvidenceTransaction> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const saga = new Saga({
+    id: options.sagaId,
+    authority: { taskId: options.id, ...(options.claimToken ? { claimToken: options.claimToken } : {}) },
+    commands: [],
+  });
+  const sagaStore = new SagaStore({ rootDir });
+  try {
+    // Recover stale evidence/check effects before reading or locking a conflicting Work Item.
+    const recovered = await createWorkItemSagaOrchestrator(sagaStore, rootDir).recoverPending();
+    if (recovered.some((instance) => instance.status === "disputed")) {
+      throw new TaskCommandError("WORK_ITEM_CHECK_SAGA_DISPUTED", "A pending evidence/check transaction is disputed and requires recovery review.");
+    }
+  } finally {
+    sagaStore.close();
+  }
+  const evidence = parseWorkItemCheckEvidence(options.evidence);
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  const recordPreview = evidence.kind === "record"
+    ? await createRecord({
+      rootDir,
+      consumerConfig: options.consumerConfig,
+      claimToken: options.claimToken,
+      dryRun: true,
+      id: evidence.payload.id,
+      summary: evidence.payload.summary,
+      observation: evidence.payload.observation,
+      subtype: options.evidenceType ?? "test-result",
+      outcome: evidence.payload.outcome,
+      recordedAt: evidence.payload.recordedAt,
+      artifactRefs: evidence.payload.artifactRefs,
+      supportingRefs: evidence.payload.supportingRefs,
+      findings: evidence.payload.findings,
+      notes: evidence.payload.notes,
+      subjects: unique([options.id, ...(evidence.payload.subjects ?? []), ...(evidence.payload.subject ? [evidence.payload.subject] : [])]),
+    })
+    : undefined;
+  const prepared = await prepareClaimBoundCheckMutation({
+    ...options,
+    action: "complete",
+    requiredPaths: [filePath, ...(recordPreview ? [recordPreview.filePath] : [])],
+  });
+  if (evidence.kind === "reference") {
+    await assertAttestationEvidenceExists(prepared.rootDir, prepared.config, evidence.value);
+  }
+  const mutation = mutateMarkdownQualifierLeaf({
+    markdown: prepared.document.raw,
+    id: prepared.resolved.qualifierId,
+    status: "met",
+    definitions: prepared.definitions,
+  });
+  const attested = matter(mutation.markdown);
+  const evidenceLink = evidence.kind === "reference"
+    ? normalizeLink("evidence", evidence.value)
+    : `[[${path.basename(recordPreview!.filePath, ".md")}]]`;
+  const links = ensureWorkItemLinks(attested.data as Frontmatter);
+  links.evidence = unique([...ensureArray(links.evidence), evidenceLink]);
+  const workItemContent = stringifyMarkdown(attested.data as Frontmatter, attested.content);
+  const commands = await Promise.all([
+    ...(recordPreview
+      ? [createFileCommand({
+        rootDir,
+        sagaId: saga.id,
+        filePath: recordPreview.filePath,
+        content: stringifyMarkdown(recordPreview.frontmatter, recordPreview.body),
+      })]
+      : []),
+    createFileCommand({ rootDir, sagaId: saga.id, filePath: prepared.filePath, content: workItemContent }),
+  ]);
+  const executionStore = new SagaStore({ rootDir });
+  try {
+    const result = await createWorkItemSagaOrchestrator(executionStore, rootDir).execute(new Saga({ id: saga.id, authority: saga.authority, commands }));
+    if (result.status === "disputed") {
+      throw new TaskCommandError("WORK_ITEM_CHECK_SAGA_DISPUTED", "Evidence/check transaction is disputed and requires recovery review.", { sagaId: saga.id });
+    }
+    if (result.status !== "completed") {
+      throw new TaskCommandError("WORK_ITEM_CHECK_SAGA_FAILED", "Evidence/check transaction was compensated.", { sagaId: saga.id });
+    }
+  } finally {
+    executionStore.close();
+  }
+  const written = await readMarkdown(prepared.filePath);
+  return {
+    workItemId: String(written.frontmatter.id),
+    filePath: prepared.filePath,
+    ...projectWorkItemQualifiers(written.raw, await resolveChecklistDefinitionsForWorkItem(prepared.rootDir, written)),
+    evidence: evidenceLink,
+    ...(recordPreview ? { record: { ...recordPreview, dryRun: false } } : {}),
+  };
+}
+
+export async function mutateWorkItemQualifier(
+  options: MutateWorkItemQualifierOptions,
+): Promise<WorkItemQualifierMutation> {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  authorizeWorkMutation({
+    rootDir,
+    taskId: options.id,
+    claimToken: options.claimToken,
+    requiredPaths: [filePath],
+  });
+  const document = await readMarkdown(filePath);
+  const definitions = await resolveChecklistDefinitionsForWorkItem(rootDir, document);
+  const mutation = mutateMarkdownQualifierLeaf({
+    markdown: document.raw,
+    id: options.qualifierId,
+    status: options.status,
+    definitions,
+  });
+  await fs.writeFile(filePath, mutation.markdown, "utf8");
+  return {
+    workItemId: String(document.frontmatter.id),
+    filePath,
+    revision: mutation.revision,
+    qualifier: mutation.qualifier,
+  };
+}
+
+function buildWorkItemBasename(slug: string) {
   return `work-item-${slug}`;
 }
 
@@ -908,6 +1710,105 @@ function buildRecordBody(options: CreateRecordOptions): string {
   return `${lines.join("\n")}\n`;
 }
 
+async function assertAttestationEvidenceExists(
+  rootDir: string,
+  config: ResolvedConsumerConfig,
+  evidence: string,
+): Promise<void> {
+  const normalized = normalizeLink("evidence", evidence);
+  const match = normalized.match(/^\[\[([^\]|#]+)/);
+  if (!match) {
+    throw new TaskCommandError(
+      "WORK_ITEM_ATTESTATION_EVIDENCE_UNRESOLVED",
+      "Checklist attestation evidence must reference an existing local record.",
+      { evidence: normalized },
+    );
+  }
+  const reference = stripMarkdownExtension(match[1].trim());
+  const recordsRoot = path.resolve(rootDir, config.roots.records);
+  for (const filePath of await findMarkdownFiles(recordsRoot)) {
+    if (stripMarkdownExtension(path.basename(filePath)) === reference) {
+      return;
+    }
+    const document = await readMarkdown(filePath);
+    if (document.frontmatter.id === reference) {
+      return;
+    }
+  }
+  throw new TaskCommandError(
+    "WORK_ITEM_ATTESTATION_EVIDENCE_UNRESOLVED",
+    `Checklist attestation evidence '${normalized}' does not resolve to an existing record.`,
+    { evidence: normalized },
+  );
+}
+
+async function resolveRecordSubjectWorkItem(
+  rootDir: string,
+  config: ResolvedConsumerConfig,
+  subject: string,
+): Promise<{ id: string; filePath: string } | undefined> {
+  const target = subject
+    .trim()
+    .replace(/^\[\[\s*/, "")
+    .replace(/\s*\]\]$/, "")
+    .split(/[|#]/, 1)[0]
+    ?.trim();
+  if (!target) {
+    return undefined;
+  }
+
+  try {
+    const filePath = await resolveWorkItemFile(rootDir, config, target);
+    const document = await readMarkdown(filePath);
+    return { id: String(document.frontmatter.id), filePath };
+  } catch {
+    // A record subject commonly uses a Work Item basename rather than its ID.
+    const basename = stripMarkdownExtension(path.basename(target));
+    const dirs = unique([config.roots.active, config.roots.backlog, config.roots.archive])
+      .map((value) => path.resolve(rootDir, value));
+    for (const dirPath of dirs) {
+      for (const filePath of await findMarkdownFiles(dirPath)) {
+        if (stripMarkdownExtension(path.basename(filePath)) !== basename) {
+          continue;
+        }
+        const document = await readMarkdown(filePath);
+        if (typeof document.frontmatter.id === "string") {
+          return { id: document.frontmatter.id, filePath };
+        }
+      }
+    }
+    return undefined;
+  }
+}
+
+/**
+ * A public record can describe unclaimed or non-Work subjects. When it
+ * resolves to claimed Work, reserve both the new record and its Work artifact
+ * before writing so record creation cannot be a Claim bypass.
+ */
+async function authorizeRecordCreation(
+  rootDir: string,
+  config: ResolvedConsumerConfig,
+  options: CreateRecordOptions,
+  recordPath: string,
+): Promise<void> {
+  const workItems = new Map<string, { id: string; filePath: string }>();
+  for (const subject of options.subjects) {
+    const workItem = await resolveRecordSubjectWorkItem(rootDir, config, subject);
+    if (workItem) {
+      workItems.set(workItem.id, workItem);
+    }
+  }
+  for (const workItem of workItems.values()) {
+    authorizeWorkMutation({
+      rootDir,
+      taskId: workItem.id,
+      claimToken: options.claimToken,
+      requiredPaths: [recordPath, workItem.filePath],
+    });
+  }
+}
+
 async function createRecordInternal(
   rootDir: string,
   config: ResolvedConsumerConfig,
@@ -933,10 +1834,11 @@ async function createRecordInternal(
       `Resolved record path escapes records root for '${recordId}'`,
     );
   }
+  // Supporting references are evidence annotations, not Work relationships.
+  // Preserve command, commit, glob, and test identifiers verbatim; only callers
+  // explicitly creating relationship-bearing links may use normalizeLink.
   const supportingRefs = unique(
-    (options.supportingRefs ?? []).map((value) =>
-      normalizeLink("reference", value),
-    ),
+    (options.supportingRefs ?? []).map((value) => value.trim()).filter(Boolean),
   );
 
   const frontmatter: Frontmatter = {
@@ -975,17 +1877,57 @@ export async function transitionWorkItem(
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
-  const document = await readMarkdown(filePath);
+  const requestedStatus = normalizeRawStatus(options.status);
   const status = normalizeStatus(options.status);
-  assertNoUncheckedCompletionCriteria(document, status);
+  const shouldValidateTerminalMetadata = ["completed", "aborted"].includes(status);
+  if (!options.dryRun && !shouldValidateTerminalMetadata) {
+    authorizeWorkMutation({
+      rootDir,
+      taskId: options.id,
+      claimToken: options.claimToken,
+      requiredPaths: [filePath],
+      claimedPathAudit: options.claimedPathAudit,
+    });
+  }
+  const document = await readMarkdown(filePath);
   const lifecycle = ["completed", "aborted"].includes(status)
     ? "active"
     : inferLifecycle(status, false);
+  const statusReason = options.statusReason ?? inferStatusReason(status);
+
+  const candidateFrontmatter: Frontmatter = {
+    ...document.frontmatter,
+    status,
+    status_reason: statusReason,
+    lifecycle,
+    ...(typeof options.actual === "number" ? { actual: options.actual } : {}),
+  };
+  if (options.clearEstimated) {
+    delete candidateFrontmatter.estimated;
+  }
+  if (shouldValidateTerminalMetadata) {
+    const checklistDefinitions = await resolveChecklistDefinitionsForWorkItem(rootDir, document);
+    assertWorkItemCompletionAllowed({
+      rootDir,
+      document,
+      targetStatus: status,
+      requestedStatus,
+      targetStatusReason: statusReason,
+      candidateFrontmatter,
+      requiredPaths: [filePath],
+      claimToken: options.claimToken,
+      authorizeClaim: !options.dryRun,
+      mode: "transition",
+      checklistDefinitions,
+    });
+  }
 
   document.frontmatter.status = status;
-  document.frontmatter.status_reason =
-    options.statusReason ?? inferStatusReason(status);
+  document.frontmatter.status_reason = statusReason;
   document.frontmatter.lifecycle = lifecycle;
+  if (options.clearEstimated) {
+    delete document.frontmatter.estimated;
+  }
   if (typeof options.actual === "number") {
     document.frontmatter.actual = options.actual;
   }
@@ -997,24 +1939,35 @@ export async function transitionWorkItem(
       delete document.frontmatter.assignee;
     }
   }
-  if (typeof options.completedDate === "string") {
-    document.frontmatter.completed_date = options.completedDate;
-  }
   if (["completed", "aborted"].includes(status)) {
-    document.frontmatter.completed_date ??= new Date()
-      .toISOString()
-      .slice(0, 10);
+    document.frontmatter.completed_date = new Date().toISOString().slice(0, 10);
+    if (hasEvidenceLinks(document.frontmatter)) {
+      appendTerminalEvidenceNote(
+        document,
+        statusReason,
+        String(document.frontmatter.completed_date),
+      );
+    }
   }
 
   if (!options.dryRun) {
     await writeMarkdown(filePath, document.frontmatter, document.body);
   }
+  const execution =
+    !options.dryRun && ["completed", "aborted"].includes(status)
+      ? completeRuntimeClaimExecutionForTask({
+          rootDir,
+          taskId: options.id,
+          claimToken: options.claimToken,
+        })
+      : undefined;
 
   return {
     id: options.id,
     filePath,
     frontmatter: document.frontmatter,
     dryRun: Boolean(options.dryRun),
+    ...(execution ? { execution } : {}),
   };
 }
 
@@ -1024,6 +1977,14 @@ export async function linkWorkItem(
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  if (!options.dryRun) {
+    authorizeWorkMutation({
+      rootDir,
+      taskId: options.id,
+      claimToken: options.claimToken,
+      requiredPaths: [filePath],
+    });
+  }
   const document = await readMarkdown(filePath);
   const links = ensureWorkItemLinks(document.frontmatter);
   const bucketKey = options.kind === "pr" ? "pull_requests" : options.kind;
@@ -1053,6 +2014,12 @@ export async function recordWorkItemCommit(
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
+  authorizeWorkMutation({
+    rootDir,
+    taskId: options.id,
+    claimToken: options.claimToken,
+    requiredPaths: [filePath],
+  });
   const document = await readMarkdown(filePath);
   const commits =
     typeof document.frontmatter.commits === "object" &&
@@ -1090,6 +2057,17 @@ export async function createRecord(
 ): Promise<CreateRecordResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  // Resolve the path without writing, authorize every affected Work subject,
+  // then perform the single durable record write through the private helper.
+  const preview = await createRecordInternal(rootDir, config, {
+    ...options,
+    dryRun: true,
+  });
+  // A dry run has no durable mutation to authorize. Callers use its stable
+  // predicted path to reserve a multi-artifact operation before writing.
+  if (!options.dryRun) {
+    await authorizeRecordCreation(rootDir, config, options, preview.filePath);
+  }
   return createRecordInternal(rootDir, config, options);
 }
 
@@ -1100,25 +2078,56 @@ export async function finalizeWorkItem(
   const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const filePath = await resolveWorkItemFile(rootDir, config, options.id);
   const document = await readMarkdown(filePath);
-  const currentStatus = normalizeStatus(document.frontmatter.status);
-  const currentLifecycle = normalizeLifecycle(document.frontmatter.lifecycle);
-  assertNoUncheckedCompletionCriteria(document, "completed");
-  const links =
-    typeof document.frontmatter.links === "object" &&
-    document.frontmatter.links !== null
-      ? (document.frontmatter.links as Record<string, unknown>)
-      : {};
+  const archivePath = path.resolve(
+    rootDir,
+    config.roots.archive,
+    path.basename(filePath),
+  );
+  const alreadyFinalized =
+    path.resolve(filePath) === archivePath &&
+    normalizeStatus(document.frontmatter.status) === "completed" &&
+    normalizeLifecycle(document.frontmatter.lifecycle) === "inactive";
 
-  if (!FINALIZABLE_STATUSES.has(currentStatus)) {
-    throw new Error(
-      `Cannot finalize '${options.id}' from status '${currentStatus}'. Expected completed.`,
-    );
+  if (alreadyFinalized) {
+    authorizeWorkMutation({
+      rootDir,
+      taskId: options.id,
+      claimToken: options.claimToken,
+      requiredPaths: [archivePath],
+    });
+    const execution =
+      !options.dryRun
+        ? completeRuntimeClaimExecutionForTask({
+            rootDir,
+            taskId: options.id,
+            claimToken: options.claimToken,
+          })
+        : undefined;
+    return {
+      id: options.id,
+      filePath,
+      archivePath,
+      frontmatter: document.frontmatter,
+      dryRun: Boolean(options.dryRun),
+      ...(execution ? { execution } : {}),
+    };
   }
-  if (currentLifecycle !== "active") {
-    throw new Error(
-      `Cannot finalize '${options.id}' from lifecycle '${currentLifecycle || "(missing)"}'. Expected active.`,
-    );
-  }
+
+  const checklistDefinitions = await resolveChecklistDefinitionsForWorkItem(rootDir, document);
+  assertWorkItemCompletionAllowed({
+    rootDir,
+    document,
+    targetStatus: "completed",
+    requestedStatus: "completed",
+    targetStatusReason: options.statusReason ?? "completed",
+    candidateFrontmatter: document.frontmatter,
+    requiredPaths: [filePath, archivePath],
+    claimToken: options.claimToken,
+    // Preserve the existing finalize seam, which validates claim coverage for dry runs too.
+    authorizeClaim: true,
+    mode: "finalize",
+    checklistDefinitions,
+  });
 
   const pullRequestPath =
     typeof options.pullRequestPath === "string" &&
@@ -1134,16 +2143,6 @@ export async function finalizeWorkItem(
   if (pullRequestLinks.length === 0) {
     throw new Error(`Cannot finalize '${options.id}' without linked PRs.`);
   }
-  if (ensureArray(links.evidence).length === 0) {
-    throw new Error(`Cannot finalize '${options.id}' without linked evidence.`);
-  }
-
-  const archivePath = path.resolve(
-    rootDir,
-    config.roots.archive,
-    path.basename(filePath),
-  );
-
   const provider = requireAuthenticatedProvider(options.provider, options.id);
 
   const validationErrors = await validateLinkedPullRequestsMerged({
@@ -1155,24 +2154,10 @@ export async function finalizeWorkItem(
     throw new Error(validationErrors.join("\n"));
   }
 
-  const runtimeAudit = runRuntimeClaimCoverageAudit({
-    rootDir,
-    taskId: options.id,
-    requiredPaths: [filePath, archivePath],
-  });
-  if (!runtimeAudit.passed) {
-    throw new TaskCommandError(
-      "WORK_ITEM_CHANGED_FILE_LOCK_AUDIT_FAILED",
-      `Cannot finalize '${options.id}' until changed-file lock coverage passes.`,
-      { id: options.id, audit: runtimeAudit },
-    );
-  }
-
   document.frontmatter.status = "completed";
   document.frontmatter.status_reason = options.statusReason ?? "completed";
   document.frontmatter.lifecycle = "inactive";
-  document.frontmatter.completed_date =
-    options.completedDate ?? new Date().toISOString().slice(0, 10);
+  document.frontmatter.completed_date = new Date().toISOString().slice(0, 10);
   if (typeof options.actual === "number") {
     document.frontmatter.actual = options.actual;
   }
@@ -1187,6 +2172,14 @@ export async function finalizeWorkItem(
       await fs.unlink(filePath);
     }
   }
+  const execution =
+    !options.dryRun
+      ? completeRuntimeClaimExecutionForTask({
+          rootDir,
+          taskId: options.id,
+          claimToken: options.claimToken,
+        })
+      : undefined;
 
   return {
     id: options.id,
@@ -1194,6 +2187,7 @@ export async function finalizeWorkItem(
     archivePath,
     frontmatter: document.frontmatter,
     dryRun: Boolean(options.dryRun),
+    ...(execution ? { execution } : {}),
   };
 }
 
@@ -1278,6 +2272,30 @@ function extractStringValuesAtPath(
     .filter((value): value is string => typeof value === "string")
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
+}
+
+/**
+ * Migration mapping output is repository-operational metadata rather than a
+ * Work artifact. It is deliberately non-governed, but fail closed if consumer
+ * configuration would place it under any governed Work/Record root.
+ */
+function assertNonGovernedMigrationMap(options: {
+  rootDir: string;
+  config: ResolvedConsumerConfig;
+  mappingPath: string;
+}): void {
+  const governedRoots = [
+    options.config.roots.active,
+    options.config.roots.archive,
+    options.config.roots.records,
+  ].map((entry) => path.resolve(options.rootDir, entry));
+  if (governedRoots.some((root) => isWithinPath(options.mappingPath, root))) {
+    throw new TaskCommandError(
+      "WORK_MIGRATION_NON_GOVERNED_POLICY_VIOLATION",
+      "Migration mapping output must remain outside governed Work and Record roots.",
+      { mappingPath: options.mappingPath, governedRoots },
+    );
+  }
 }
 
 export async function migrateBacklog(
@@ -1413,6 +2431,44 @@ export async function migrateBacklog(
           },
         ]
       : legacyTestResults;
+    const targetPath = path.resolve(
+      rootDir,
+      isArchived ? config.roots.archive : config.roots.active,
+      `${newBasename}.md`,
+    );
+    const generatedRecordPaths = evidenceEntries.map((_, index) =>
+      path.resolve(
+        rootDir,
+        config.roots.records,
+        `${buildRecordBasename(`${slug}-evidence-${index + 1}`)}.md`,
+      ),
+    );
+    if (!options.dryRun) {
+      // Verify all paths before the first record is created; this includes the
+      // replacement Work Item and the legacy source that will be deleted.
+      const requiredPaths = [targetPath, legacyPath, ...generatedRecordPaths];
+      authorizeWorkMutation({
+        rootDir,
+        taskId: newId,
+        claimToken: options.claimToken,
+        requiredPaths,
+      });
+      // The source may itself be an actively claimed legacy Work Item. Check
+      // its Claim too so migration cannot delete an in-progress source under a
+      // newly generated destination identity.
+      const legacyWorkItemId =
+        typeof legacyDoc.frontmatter.id === "string"
+          ? legacyDoc.frontmatter.id.trim()
+          : "";
+      if (legacyWorkItemId && legacyWorkItemId !== newId) {
+        authorizeWorkMutation({
+          rootDir,
+          taskId: legacyWorkItemId,
+          claimToken: options.claimToken,
+          requiredPaths,
+        });
+      }
+    }
 
     for (let index = 0; index < evidenceEntries.length; index += 1) {
       const entry = evidenceEntries[index];
@@ -1448,12 +2504,6 @@ export async function migrateBacklog(
       rewriteBasenames(legacyDoc.body, basenameMap),
       dependencies,
     );
-    const targetPath = path.resolve(
-      rootDir,
-      isArchived ? config.roots.archive : config.roots.active,
-      `${newBasename}.md`,
-    );
-
     if (!options.dryRun) {
       await writeMarkdown(targetPath, frontmatter, rewrittenBody);
       if (path.resolve(legacyPath) !== targetPath) {
@@ -1479,6 +2529,7 @@ export async function migrateBacklog(
       config.roots.audit,
       "work-management-migration-map.json",
     );
+    assertNonGovernedMigrationMap({ rootDir, config, mappingPath });
     await fs.mkdir(path.dirname(mappingPath), { recursive: true });
     await fs.writeFile(
       mappingPath,
@@ -1544,6 +2595,34 @@ function githubWorkflowOutcome(conclusion: string | undefined): string {
   }
 }
 
+/**
+ * Resolve the deterministic record path, then authorize the complete event
+ * mutation as one reservation before either artifact is written.
+ */
+async function reserveEventEvidenceMutation(options: {
+  rootDir: string;
+  config: ResolvedConsumerConfig;
+  subject: string;
+  claimToken?: string;
+  recordOptions: CreateRecordOptions;
+}): Promise<void> {
+  const record = await createRecordInternal(options.rootDir, options.config, {
+    ...options.recordOptions,
+    dryRun: true,
+  });
+  const workItemPath = await resolveWorkItemFile(
+    options.rootDir,
+    options.config,
+    options.subject,
+  );
+  authorizeWorkMutation({
+    rootDir: options.rootDir,
+    taskId: options.subject,
+    claimToken: options.claimToken,
+    requiredPaths: [record.filePath, workItemPath],
+  });
+}
+
 export async function ingestEvent(
   options: IngestEventOptions,
 ): Promise<IngestEventResult> {
@@ -1586,6 +2665,7 @@ export async function ingestEvent(
           id: subject,
           kind: "pr",
           value: prUrl,
+          claimToken: options.claimToken,
           dryRun: options.dryRun,
         });
         actions.push({ type: "link", subject, kind: "pr", value: prUrl });
@@ -1597,6 +2677,7 @@ export async function ingestEvent(
           id: subject,
           sha: mergeCommitSha,
           summary: title,
+          claimToken: options.claimToken,
           dryRun: options.dryRun,
         });
         actions.push({
@@ -1626,6 +2707,7 @@ export async function ingestEvent(
             rootDir,
             consumerConfig: options.consumerConfig,
             id: subject,
+            claimToken: options.claimToken,
             dryRun: options.dryRun,
             pullRequestPath: config.automation.pullRequestPath,
             provider: automationProvider,
@@ -1657,7 +2739,7 @@ export async function ingestEvent(
 
     for (const subject of subjects) {
       const subjectSlug = subject.replace(/^work-item:/, "");
-      const record = await createRecordInternal(rootDir, config, {
+      const recordOptions: CreateRecordOptions = {
         id: buildRecordId(
           `${subjectSlug}-${slugify(workflowName)}-${slugify(runId)}`,
         ),
@@ -1677,7 +2759,17 @@ export async function ingestEvent(
         subjects: [`[[work-item-${subjectSlug}]]`],
         artifactRefs: htmlUrl ? [htmlUrl] : undefined,
         dryRun: options.dryRun,
-      });
+      };
+      if (!options.dryRun) {
+        await reserveEventEvidenceMutation({
+          rootDir,
+          config,
+          subject,
+          claimToken: options.claimToken,
+          recordOptions,
+        });
+      }
+      const record = await createRecordInternal(rootDir, config, recordOptions);
       const evidenceLink = `[[${stripMarkdownExtension(
         path.basename(record.filePath),
       )}]]`;
@@ -1687,6 +2779,7 @@ export async function ingestEvent(
         id: subject,
         kind: "evidence",
         value: evidenceLink,
+        claimToken: options.claimToken,
         dryRun: options.dryRun,
       });
       actions.push({

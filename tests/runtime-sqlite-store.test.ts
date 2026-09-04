@@ -21,7 +21,10 @@ import {
 
 const tempDirs: string[] = [];
 
-async function measureStage<T>(name: string, operation: () => T | Promise<T>): Promise<T> {
+async function measureStage<T>(
+  name: string,
+  operation: () => T | Promise<T>,
+): Promise<T> {
   const startedAt = performance.now();
   try {
     return await operation();
@@ -36,9 +39,9 @@ async function measureStage<T>(name: string, operation: () => T | Promise<T>): P
 
 afterEach(async () => {
   await Promise.all(
-    tempDirs.splice(0, tempDirs.length).map((dir) =>
-      fs.rm(dir, { recursive: true, force: true }),
-    ),
+    tempDirs
+      .splice(0, tempDirs.length)
+      .map((dir) => fs.rm(dir, { recursive: true, force: true })),
   );
 });
 
@@ -118,7 +121,9 @@ function makeExecutionLogEntry(
   };
 }
 
-function makeLockRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function makeLockRow(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   return {
     schema_version: RUNTIME_SCHEMA_VERSION,
     key: "6607988ebde1ab1bec92ae9ac9115738611f8f040c3ccdf227b4f178309904c1",
@@ -139,7 +144,10 @@ function makeLock(
   overrides: Partial<RuntimeLock> = {},
 ): RuntimeLock {
   const path = overrides.path ?? "docs/runtime-entity-schemas.md";
-  const identity = createRuntimeLockIdentity(path, { rootDir: root, cwd: root });
+  const identity = createRuntimeLockIdentity(path, {
+    rootDir: root,
+    cwd: root,
+  });
   return {
     schema_version: RUNTIME_SCHEMA_VERSION,
     key: identity.key,
@@ -166,9 +174,7 @@ function snapshotSchema(store: ReturnType<typeof openRuntimeSqliteStore>) {
     .all() as Array<{ type: string; name: string; sql: string | null }>;
 }
 
-function expectClaimAcquired(
-  result: RuntimeInitialClaimAcquisitionResult,
-) {
+function expectClaimAcquired(result: RuntimeInitialClaimAcquisitionResult) {
   if (result.outcome !== "acquired") {
     throw new Error("Expected the claim to be acquired.");
   }
@@ -182,9 +188,7 @@ function expectClaimRenewed(result: RuntimeClaimRenewalResult) {
   return result;
 }
 
-function expectClaimRenewalConflict(
-  result: RuntimeClaimRenewalResult,
-) {
+function expectClaimRenewalConflict(result: RuntimeClaimRenewalResult) {
   if (result.outcome !== "conflict") {
     throw new Error("Expected renewal to conflict.");
   }
@@ -227,11 +231,7 @@ function setClaimLeaseWindow(
     .prepare(
       "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
     )
-    .run(
-      "2099-06-20T01:15:36.020Z",
-      "2099-06-20T01:20:36.020Z",
-      claimToken,
-    );
+    .run("2099-06-20T01:15:36.020Z", "2099-06-20T01:20:36.020Z", claimToken);
 }
 
 function insertActiveScopeLock(
@@ -268,9 +268,7 @@ describe("runtime sqlite store", () => {
       metadata: { a: 1, z: 2 },
     });
 
-    expect(createRuntimeClaimToken(seedA)).toBe(
-      createRuntimeClaimToken(seedB),
-    );
+    expect(createRuntimeClaimToken(seedA)).toBe(createRuntimeClaimToken(seedB));
     expect(createRuntimeClaimToken(seedA)).toHaveLength(64);
   });
 
@@ -297,7 +295,7 @@ describe("runtime sqlite store", () => {
         .prepare("PRAGMA table_info(execution_log)")
         .all() as Array<{ name: string }>;
 
-      expect(firstMigrationCount.count).toBe(3);
+      expect(firstMigrationCount.count).toBe(7);
       expect(claimColumns.map((column) => column.name)).toEqual([
         "schema_version",
         "claim_token",
@@ -336,9 +334,11 @@ describe("runtime sqlite store", () => {
         "payload",
       ]);
       expect(
-        store.database.prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'runtime_claims'",
-        ).get(),
+        store.database
+          .prepare(
+            "SELECT name FROM sqlite_master WHERE type = 'view' AND name = 'runtime_claims'",
+          )
+          .get(),
       ).toBeTruthy();
 
       store.close();
@@ -350,7 +350,7 @@ describe("runtime sqlite store", () => {
           reopened.database
             .prepare("SELECT count(*) AS count FROM runtime_migrations")
             .get(),
-        ).toMatchObject({ count: 3 });
+        ).toMatchObject({ count: 7 });
       } finally {
         reopened?.close();
       }
@@ -397,51 +397,55 @@ describe("runtime sqlite store", () => {
     }
   });
 
-  it("tracks claim context freshness without extending the lease unless renewed", { timeout: 15_000 }, async () => {
-    const root = await mkRoot();
-    const store = openRuntimeSqliteStore({ rootDir: root });
-    try {
-      const claim = store.insertClaim(
-        makeClaim({
-          claim_token: "claim-freshness",
-          target_id: "wi-freshness",
-          expires_at: "2099-06-23T05:14:36.020Z",
-          created_at: "2026-06-20T01:14:36.020Z",
-        }),
-      );
-      store.database
-        .prepare(
-          "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
-        )
-        .run(
-          "2026-06-20T01:15:36.020Z",
-          "2026-06-20T05:14:36.020Z",
-          claim.claim_token,
+  it(
+    "tracks claim context freshness without extending the lease unless renewed",
+    { timeout: 15_000 },
+    async () => {
+      const root = await mkRoot();
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        const claim = store.insertClaim(
+          makeClaim({
+            claim_token: "claim-freshness",
+            target_id: "wi-freshness",
+            expires_at: "2099-06-23T05:14:36.020Z",
+            created_at: "2026-06-20T01:14:36.020Z",
+          }),
         );
+        store.database
+          .prepare(
+            "UPDATE claims SET last_seen_at = ?, expires_at = ? WHERE claim_token = ?",
+          )
+          .run(
+            "2026-06-20T01:15:36.020Z",
+            "2026-06-20T05:14:36.020Z",
+            claim.claim_token,
+          );
 
-      const touched = store.touchClaimContext(claim.claim_token, {
-        now: new Date("2026-06-20T01:16:36.020Z"),
-      });
-      expect(touched).toMatchObject({
-        claim_token: claim.claim_token,
-        last_seen_at: "2026-06-20T01:16:36.020Z",
-        expires_at: "2026-06-20T05:14:36.020Z",
-      });
+        const touched = store.touchClaimContext(claim.claim_token, {
+          now: new Date("2026-06-20T01:16:36.020Z"),
+        });
+        expect(touched).toMatchObject({
+          claim_token: claim.claim_token,
+          last_seen_at: "2026-06-20T01:16:36.020Z",
+          expires_at: "2026-06-20T05:14:36.020Z",
+        });
 
-      const renewed = store.touchClaimContext(claim.claim_token, {
-        now: new Date("2026-06-20T01:17:36.020Z"),
-        renew: true,
-        ttlMilliseconds: 30 * 60_000,
-      });
-      expect(renewed).toMatchObject({
-        claim_token: claim.claim_token,
-        last_seen_at: "2026-06-20T01:17:36.020Z",
-        expires_at: "2026-06-20T01:47:36.020Z",
-      });
-    } finally {
-      store.close();
-    }
-  });
+        const renewed = store.touchClaimContext(claim.claim_token, {
+          now: new Date("2026-06-20T01:17:36.020Z"),
+          renew: true,
+          ttlMilliseconds: 30 * 60_000,
+        });
+        expect(renewed).toMatchObject({
+          claim_token: claim.claim_token,
+          last_seen_at: "2026-06-20T01:17:36.020Z",
+          expires_at: "2026-06-20T01:47:36.020Z",
+        });
+      } finally {
+        store.close();
+      }
+    },
+  );
 
   it("renews active claims when explicit claim-context mutations acquire locks", async () => {
     const root = await mkRoot();
@@ -517,9 +521,9 @@ describe("runtime sqlite store", () => {
       });
       expect(renewed.claim.claim_token).toBe(acquiredClaim.claimToken);
       expect(
-        store.listScopeLocksByClaimToken(acquiredClaim.claimToken).filter(
-          (lock) => lock.lifecycle_state === "active",
-        ),
+        store
+          .listScopeLocksByClaimToken(acquiredClaim.claimToken)
+          .filter((lock) => lock.lifecycle_state === "active"),
       ).toHaveLength(4);
     } finally {
       store.close();
@@ -972,18 +976,18 @@ describe("runtime sqlite store", () => {
           }),
         ],
       });
-      expect(store.listScopeLocksByClaimToken(readClaim.claimToken)).toHaveLength(
-        2,
-      );
+      expect(
+        store.listScopeLocksByClaimToken(readClaim.claimToken),
+      ).toHaveLength(2);
       expect(
         store.listScopeLocksByClaimToken(secondReadClaim.claimToken),
       ).toHaveLength(2);
-      expect(store.listScopeLocksByClaimToken(executeClaim.claimToken)).toHaveLength(
-        2,
-      );
-      expect(store.listScopeLocksByClaimToken(writeClaim.claimToken)).toHaveLength(
-        1,
-      );
+      expect(
+        store.listScopeLocksByClaimToken(executeClaim.claimToken),
+      ).toHaveLength(2);
+      expect(
+        store.listScopeLocksByClaimToken(writeClaim.claimToken),
+      ).toHaveLength(1);
       expect(store.listScopeLocks()).toHaveLength(7);
     } finally {
       store.close();
@@ -1528,8 +1532,16 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     await initGitRepo(root);
     await fs.mkdir(path.join(root, "backlog"), { recursive: true });
-    await fs.writeFile(path.join(root, "backlog", "clean.md"), "clean\n", "utf8");
-    await fs.writeFile(path.join(root, "backlog", "dirty.md"), "dirty\n", "utf8");
+    await fs.writeFile(
+      path.join(root, "backlog", "clean.md"),
+      "clean\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(root, "backlog", "dirty.md"),
+      "dirty\n",
+      "utf8",
+    );
     execFileSync("git", ["add", "backlog/clean.md", "backlog/dirty.md"], {
       cwd: root,
       stdio: "ignore",
@@ -1606,8 +1618,16 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     await initGitRepo(root);
     await fs.mkdir(path.join(root, "backlog"), { recursive: true });
-    await fs.writeFile(path.join(root, "backlog", "clean.md"), "clean\n", "utf8");
-    await fs.writeFile(path.join(root, "backlog", "dirty.md"), "dirty\n", "utf8");
+    await fs.writeFile(
+      path.join(root, "backlog", "clean.md"),
+      "clean\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(root, "backlog", "dirty.md"),
+      "dirty\n",
+      "utf8",
+    );
     execFileSync("git", ["add", "backlog/clean.md", "backlog/dirty.md"], {
       cwd: root,
       stdio: "ignore",
@@ -1681,8 +1701,16 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     await initGitRepo(root);
     await fs.mkdir(path.join(root, "backlog"), { recursive: true });
-    await fs.writeFile(path.join(root, "backlog", "locked.md"), "base\n", "utf8");
-    await fs.writeFile(path.join(root, "backlog", "unlocked.md"), "base\n", "utf8");
+    await fs.writeFile(
+      path.join(root, "backlog", "locked.md"),
+      "base\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(root, "backlog", "unlocked.md"),
+      "base\n",
+      "utf8",
+    );
     execFileSync("git", ["add", "backlog/locked.md", "backlog/unlocked.md"], {
       cwd: root,
       stdio: "ignore",
@@ -1731,7 +1759,7 @@ describe("runtime sqlite store", () => {
         }),
       );
 
-      const audit = store.auditChangedFiles(claim.claimToken, {
+      const audit = await store.auditChangedFiles(claim.claimToken, {
         mergeTargetRef: "main",
       });
 
@@ -1906,7 +1934,11 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     await initGitRepo(root);
     await fs.mkdir(path.join(root, "backlog"), { recursive: true });
-    await fs.writeFile(path.join(root, "backlog", "rename.md"), "base\n", "utf8");
+    await fs.writeFile(
+      path.join(root, "backlog", "rename.md"),
+      "base\n",
+      "utf8",
+    );
     execFileSync("git", ["add", "backlog/rename.md"], {
       cwd: root,
       stdio: "ignore",
@@ -1953,7 +1985,7 @@ describe("runtime sqlite store", () => {
         }),
       );
 
-      const audit = store.auditChangedFiles(claim.claimToken, {
+      const audit = await store.auditChangedFiles(claim.claimToken, {
         mergeTargetRef: "main",
       });
 
@@ -1970,9 +2002,7 @@ describe("runtime sqlite store", () => {
           expect.objectContaining({
             path: "backlog/renamed.md",
             actualLockState: "rename-detected",
-            recommendedNextCommand: expect.stringContaining(
-              "dv claim release",
-            ),
+            recommendedNextCommand: expect.stringContaining("dv claim release"),
           }),
         ]),
       );
@@ -2046,7 +2076,7 @@ describe("runtime sqlite store", () => {
         }),
       );
 
-      const audit = store.auditChangedFiles(claim.claimToken, {
+      const audit = await store.auditChangedFiles(claim.claimToken, {
         mergeTargetRef: "main",
       });
 
@@ -2123,7 +2153,7 @@ describe("runtime sqlite store", () => {
         }),
       );
 
-      const audit = store.auditChangedFiles(claim.claimToken, {
+      const audit = await store.auditChangedFiles(claim.claimToken, {
         mergeTargetRef: "main",
       });
 
@@ -2138,89 +2168,89 @@ describe("runtime sqlite store", () => {
     "fails terminal audit when freshness, mergeability, and lock coverage all disagree",
     { timeout: integrationTestTimeoutMs() },
     async () => {
-    const root = await mkRoot();
-    const featureBranch = "feature/audit-contract";
-    const readmePath = path.join(root, "README.md");
-    const unlockedPath = path.join(root, "backlog", "unlocked.md");
+      const root = await mkRoot();
+      const featureBranch = "feature/audit-contract";
+      const readmePath = path.join(root, "README.md");
+      const unlockedPath = path.join(root, "backlog", "unlocked.md");
 
-    await initGitRepo(root);
-    await fs.mkdir(path.join(root, "backlog"), { recursive: true });
-    await fs.writeFile(readmePath, "base\n", "utf8");
-    execFileSync("git", ["add", "README.md"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["commit", "-m", "chore: base"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["switch", "-c", featureBranch], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    await fs.writeFile(readmePath, "feature line\n", "utf8");
-    await fs.writeFile(unlockedPath, "feature\n", "utf8");
-    execFileSync("git", ["add", "README.md", "backlog/unlocked.md"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["commit", "-m", "feat: feature branch"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["switch", "main"], { cwd: root, stdio: "ignore" });
-    await fs.writeFile(path.join(root, "README.md"), "main line\n", "utf8");
-    execFileSync("git", ["add", "README.md"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["commit", "-m", "feat: main branch"], {
-      cwd: root,
-      stdio: "ignore",
-    });
-    execFileSync("git", ["switch", featureBranch], {
-      cwd: root,
-      stdio: "ignore",
-    });
-
-    const store = openRuntimeSqliteStore({ rootDir: root });
-    try {
-      const claim = store.acquireRuntimeClaim(
-        makeClaimSeed({
-          target_id: "wi-audit-contract",
-          entropy: "entropy-audit-contract",
-          expires_at: "2099-06-23T05:14:36.020Z",
-        }),
-        {
-          initialLockPaths: ["README.md"],
-        },
-      );
-      if (claim.outcome !== "acquired") {
-        throw new Error("Expected the claim to be acquired.");
-      }
-
-      const audit = store.auditChangedFiles(claim.claimToken, {
-        mergeTargetRef: "main",
+      await initGitRepo(root);
+      await fs.mkdir(path.join(root, "backlog"), { recursive: true });
+      await fs.writeFile(readmePath, "base\n", "utf8");
+      execFileSync("git", ["add", "README.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "-c", featureBranch], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      await fs.writeFile(readmePath, "feature line\n", "utf8");
+      await fs.writeFile(unlockedPath, "feature\n", "utf8");
+      execFileSync("git", ["add", "README.md", "backlog/unlocked.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "feat: feature branch"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", "main"], { cwd: root, stdio: "ignore" });
+      await fs.writeFile(path.join(root, "README.md"), "main line\n", "utf8");
+      execFileSync("git", ["add", "README.md"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "feat: main branch"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["switch", featureBranch], {
+        cwd: root,
+        stdio: "ignore",
       });
 
-      expect(audit).toMatchObject({
-        claimToken: claim.claimToken,
-        mergeTargetRef: "main",
-        fresh: false,
-        mergeable: false,
-        passed: false,
-      });
-      expect(audit.diagnostics).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            path: "backlog/unlocked.md",
-            actualLockState: "missing",
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        const claim = store.acquireRuntimeClaim(
+          makeClaimSeed({
+            target_id: "wi-audit-contract",
+            entropy: "entropy-audit-contract",
+            expires_at: "2099-06-23T05:14:36.020Z",
           }),
-        ]),
-      );
-    } finally {
-      store.close();
-    }
+          {
+            initialLockPaths: ["README.md"],
+          },
+        );
+        if (claim.outcome !== "acquired") {
+          throw new Error("Expected the claim to be acquired.");
+        }
+
+        const audit = await store.auditChangedFiles(claim.claimToken, {
+          mergeTargetRef: "main",
+        });
+
+        expect(audit).toMatchObject({
+          claimToken: claim.claimToken,
+          mergeTargetRef: "main",
+          fresh: false,
+          mergeable: false,
+          passed: false,
+        });
+        expect(audit.diagnostics).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              path: "backlog/unlocked.md",
+              actualLockState: "missing",
+            }),
+          ]),
+        );
+      } finally {
+        store.close();
+      }
     },
   );
 
@@ -2228,7 +2258,9 @@ describe("runtime sqlite store", () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
     try {
-      store.insertClaim(makeClaim({ claim_token: "claim-log", target_id: "wi-log" }));
+      store.insertClaim(
+        makeClaim({ claim_token: "claim-log", target_id: "wi-log" }),
+      );
       const inserted = store.insertExecutionLogEntry(
         makeExecutionLogEntry({
           claim_token: "claim-log",
@@ -2282,7 +2314,9 @@ describe("runtime sqlite store", () => {
     try {
       expect(() =>
         store.withTransaction(() => {
-          store.insertClaim(makeClaim({ claim_token: "claim-tx", target_id: "wi-tx" }));
+          store.insertClaim(
+            makeClaim({ claim_token: "claim-tx", target_id: "wi-tx" }),
+          );
           store.insertExecutionLogEntry(
             makeExecutionLogEntry({
               claim_token: "claim-tx",

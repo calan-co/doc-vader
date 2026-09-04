@@ -8,6 +8,8 @@ export interface RelativeImportBoundaryViolation {
 
 export interface RelativeImportBoundaryCheckOptions {
   repoRoot: string;
+  boundaryRoot?: string;
+  allowedInternalPathPrefixes?: readonly string[];
   filePath: string;
   sourceText: string;
 }
@@ -33,6 +35,17 @@ function resolvesOutsideRoot(rootDir: string, resolvedPath: string): boolean {
     relativePath.startsWith(`..${path.sep}`) ||
     path.isAbsolute(relativePath)
   );
+}
+
+function isWithinRoot(rootDir: string, resolvedPath: string): boolean {
+  return !resolvesOutsideRoot(rootDir, resolvedPath);
+}
+
+function resolvesWithinAnyRoot(
+  allowedRoots: readonly string[],
+  resolvedPath: string,
+): boolean {
+  return allowedRoots.some((allowedRoot) => isWithinRoot(allowedRoot, resolvedPath));
 }
 
 export function collectModuleSpecifiers(sourceText: string): string[] {
@@ -161,7 +174,11 @@ export function findRelativeImportBoundaryViolations(
   options: RelativeImportBoundaryCheckOptions,
 ): RelativeImportBoundaryViolation[] {
   const repoRoot = path.resolve(options.repoRoot);
+  const boundaryRoot = path.resolve(options.boundaryRoot ?? repoRoot);
   const importerDir = path.dirname(path.resolve(options.filePath));
+  const allowedInternalRoots = (
+    options.allowedInternalPathPrefixes ?? []
+  ).map((value) => path.resolve(repoRoot, value));
 
   return collectModuleSpecifiers(options.sourceText)
     .filter(isRelativeModuleSpecifier)
@@ -174,5 +191,17 @@ export function findRelativeImportBoundaryViolations(
         resolvedPath,
       };
     })
-    .filter((entry) => resolvesOutsideRoot(repoRoot, entry.resolvedPath));
+    .filter((entry) => {
+      const escapesBoundaryRoot = resolvesOutsideRoot(boundaryRoot, entry.resolvedPath);
+      if (!escapesBoundaryRoot) {
+        return false;
+      }
+
+      const escapesRepoRoot = resolvesOutsideRoot(repoRoot, entry.resolvedPath);
+      if (escapesRepoRoot) {
+        return true;
+      }
+
+      return !resolvesWithinAnyRoot(allowedInternalRoots, entry.resolvedPath);
+    });
 }

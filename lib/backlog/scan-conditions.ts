@@ -3,6 +3,9 @@ import {
   extractStringValuesAtPath,
   normalizePullRequestPath,
 } from "./configurable-rules.js";
+import { evaluateWorkItemGovernance } from "../work-management/kernel.js";
+
+const TERMINAL_WORK_ITEM_STATUSES = new Set(["completed", "aborted"]);
 
 /** Presence of an `id` field. */
 export function conditionHasId(id: unknown): ScanCondition {
@@ -74,40 +77,47 @@ export function conditionWorkflowSucceeded(
   return { code: "workflow_succeeded", value: succeeded === true };
 }
 
-function hasEvidenceEntry(raw: unknown): boolean {
-  if (Array.isArray(raw)) {
-    return raw.some((entry) => {
-      if (typeof entry !== "object" || entry === null) {
-        return false;
-      }
-      const evidence = (entry as Record<string, unknown>)["evidence"];
-      return typeof evidence === "string" && evidence.trim().length > 0;
-    });
-  }
+function getStringField(
+  data: Record<string, unknown>,
+  field: string,
+): string | undefined {
+  return typeof data[field] === "string" ? data[field] : undefined;
+}
 
-  if (typeof raw === "object" && raw !== null) {
-    const evidence = (raw as Record<string, unknown>)["evidence"];
-    if (Array.isArray(evidence)) {
-      return evidence.some(
-        (entry) => typeof entry === "string" && entry.trim().length > 0,
-      );
-    }
-    return typeof evidence === "string" && evidence.trim().length > 0;
-  }
+function getRecordField(
+  data: Record<string, unknown>,
+  field: string,
+): Record<string, unknown> | undefined {
+  const value = data[field];
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
 
-  return false;
+function toWorkItemGovernanceInput(data: Record<string, unknown>) {
+  return {
+    id: getStringField(data, "id") ?? "",
+    status: getStringField(data, "status"),
+    lifecycle: getStringField(data, "lifecycle"),
+    statusReason: getStringField(data, "status_reason"),
+    completedDate: getStringField(data, "completed_date"),
+    links: getRecordField(data, "links"),
+  };
 }
 
 export function conditionValidEvidence(
   data: Record<string, unknown>,
 ): ScanCondition {
-  // Evidence is only required for terminal work items; all other statuses pass unconditionally.
-  if (!["completed", "aborted"].includes(String(data["status"] ?? ""))) {
+  const status = getStringField(data, "status");
+  if (!TERMINAL_WORK_ITEM_STATUSES.has(status ?? "")) {
     return { code: "valid_evidence", value: true };
   }
+
+  const governance = evaluateWorkItemGovernance(toWorkItemGovernanceInput(data));
+
   return {
     code: "valid_evidence",
-    value: hasEvidenceEntry(data["links"]),
+    value: governance.evidence.ready,
   };
 }
 

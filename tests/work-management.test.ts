@@ -5,11 +5,16 @@ import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import {
   linkWorkItem,
+  createRecord,
   migrateBacklog,
   ingestEvent,
   finalizeWorkItem,
   transitionWorkItem,
 } from "../lib/work-management/index.js";
+import {
+  findPackageRoot,
+  validateTerminalMetadata,
+} from "../lib/work-management/terminal-metadata.js";
 import {
   openRuntimeSqliteStore,
   RUNTIME_SCHEMA_VERSION,
@@ -37,7 +42,7 @@ function acquireRuntimeClaim(
   rootDir: string,
   taskId: string,
   lockPaths: string[],
-): void {
+): string {
   const store = openRuntimeSqliteStore({ rootDir });
   try {
     const createdAt = new Date();
@@ -57,6 +62,7 @@ function acquireRuntimeClaim(
     if (acquisition.outcome !== "acquired") {
       throw new Error(`Expected runtime claim acquisition for ${taskId}.`);
     }
+    return acquisition.claimToken;
   } finally {
     store.close();
   }
@@ -71,6 +77,12 @@ afterEach(async () => {
 });
 
 describe.sequential("work-management automation", () => {
+  it("resolves schema assets from compiled dist modules", () => {
+    expect(findPackageRoot(path.join(process.cwd(), "dist/lib/work-management"))).toBe(
+      process.cwd(),
+    );
+  });
+
   it("keeps work-item link mutations idempotent", async () => {
     const rootDir = await createTempRepo();
     const filePath = path.join(
@@ -165,6 +177,64 @@ estimated: 1
     const updated = await readFile(filePath, "utf8");
     expect(updated).toContain("lifecycle: active");
     expect(updated).toContain("status: ready");
+  });
+
+  it("derives the UTC completion date when transitioning to a terminal status", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2031-04-05T00:30:00.000Z"));
+    try {
+      const rootDir = await createTempRepo();
+      const filePath = path.join(
+        rootDir,
+        "backlog",
+        "active",
+        "work-item-terminal-date.md",
+      );
+      await writeMarkdown(
+        filePath,
+        `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:terminal-date
+title: Terminal date
+summary: Derive terminal date from transition time.
+type: work-item
+subtype: task
+lifecycle: active
+status: running
+status_reason: implementation
+priority: medium
+estimated: 1
+actual: 1
+completed_date: '1999-01-01'
+links:
+  evidence:
+    - '[[record-terminal-date]]'
+---
+
+## Tasks
+
+- [x] Implement the change.
+
+## Acceptance Criteria
+
+- [x] Verify the terminal transition.
+`,
+      );
+
+      const result = await transitionWorkItem({
+        rootDir,
+        id: "work-item:terminal-date",
+        status: "completed",
+        statusReason: "completed",
+      });
+
+      expect(result.frontmatter.completed_date).toBe("2031-04-05");
+      await expect(readFile(filePath, "utf8")).resolves.toContain(
+        "completed_date: '2031-04-05'",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("refuses to transition to completed with unchecked completion criteria", async () => {
@@ -271,6 +341,10 @@ status: running
 status_reason: implementation
 priority: medium
 estimated: 1
+actual: 1
+links:
+  evidence:
+    - '[[record-aborted-sample]]'
 ---
 
 ## Tasks
@@ -288,17 +362,251 @@ estimated: 1
       rootDir,
       id: "work-item:sample",
       status: "aborted",
-      statusReason: "not-planned",
+      statusReason: "cancelled",
     });
 
     expect(result.frontmatter.status).toBe("aborted");
     expect(result.frontmatter.lifecycle).toBe("active");
-    expect(result.frontmatter.status_reason).toBe("not-planned");
+    expect(result.frontmatter.status_reason).toBe("cancelled");
     const updated = await readFile(filePath, "utf8");
     expect(updated).toContain("status: aborted");
   });
 
-  it("allows completed when tasks and acceptance criteria are checked", async () => {
+  it("refuses aborted transitions without schema-valid terminal metadata", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(rootDir, "backlog", "active", "work-item-aborted.md");
+    const original = `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:aborted
+summary: Sample summary
+title: Aborted
+priority: medium
+type: work-item
+subtype: task
+lifecycle: active
+status: running
+status_reason: implementation
+estimated: 1
+---
+
+## Goal
+
+- Halt the work.
+`;
+    await writeMarkdown(filePath, original);
+
+    await expect(
+      transitionWorkItem({
+        rootDir,
+        id: "work-item:aborted",
+        status: "aborted",
+        statusReason: "cancelled",
+      }),
+    ).rejects.toMatchObject({
+      code: "WORK_UPDATE_CLOSED_METADATA_REQUIRED",
+      details: expect.objectContaining({
+        missing: expect.arrayContaining(["actual", "links.evidence"]),
+      }),
+    });
+    await expect(readFile(filePath, "utf8")).resolves.toBe(original);
+  });
+
+  it("completes work items with schema-valid terminal metadata", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-closeable.md",
+    );
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:closeable
+title: Closeable
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: awaiting-review
+priority: medium
+estimated: 1
+links:
+  evidence:
+    - '[[record-closeable]]'
+---
+
+## Tasks
+
+- [x] Implement the work.
+
+## Acceptance Criteria
+
+- [x] Verify the user-facing behavior.
+`,
+    );
+
+    const result = await transitionWorkItem({
+      rootDir,
+      id: "work-item:closeable",
+      status: "completed",
+      statusReason: "completed",
+      actual: 1,
+    });
+
+    expect(result.frontmatter.status).toBe("completed");
+    expect(result.frontmatter.actual).toBe(1);
+    const updated = await readFile(filePath, "utf8");
+    expect(updated).toContain("status: completed");
+    expect(updated).toMatch(
+      /- \d{4}-\d{2}-\d{2}: Closed as completed with evidence in backlog\/audit\/auditing-backlog-report\.json\./,
+    );
+  });
+
+  it("requires actual terminal effort unless an AFK work item has no estimate", () => {
+    const base = {
+      id: "work-item:terminal-effort",
+      title: "Terminal effort",
+      summary: "Sample summary",
+      type: "work-item",
+      subtype: "task",
+      lifecycle: "active",
+      status: "completed",
+      status_reason: "completed",
+      priority: "medium",
+      links: { evidence: ["[[record-terminal-effort]]"] },
+    };
+    const afk = { ...base, tags: ["afk"] };
+
+    expect(validateTerminalMetadata(base)).toMatchObject({
+      valid: false,
+      missing: ["actual"],
+    });
+    expect(validateTerminalMetadata(afk)).toMatchObject({
+      valid: true,
+      missing: [],
+    });
+    expect(validateTerminalMetadata({ ...afk, estimated: 3 })).toMatchObject({
+      valid: false,
+      missing: ["actual"],
+    });
+    expect(validateTerminalMetadata({ ...afk, estimated: 3, actual: 2 })).toMatchObject({
+      valid: true,
+      missing: [],
+    });
+    expect(validateTerminalMetadata({ ...base, links: {} })).toMatchObject({
+      valid: false,
+      missing: ["actual", "links.evidence"],
+    });
+  });
+
+  it("clears an AFK work item estimate and completes without writing actual", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(rootDir, "backlog", "active", "work-item-unestimated.md");
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:unestimated
+title: Unestimated
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: awaiting-review
+priority: medium
+estimated: 3
+tags:
+  - afk
+links:
+  evidence:
+    - '[[record-unestimated]]'
+---
+
+## Tasks
+
+- [x] Implement the work.
+
+## Acceptance Criteria
+
+- [x] Verify the user-facing behavior.
+`,
+    );
+
+    const result = await transitionWorkItem({
+      rootDir,
+      id: "work-item:unestimated",
+      status: "completed",
+      statusReason: "completed",
+      clearEstimated: true,
+    });
+
+    expect(result.frontmatter.status).toBe("completed");
+    expect(result.frontmatter.estimated).toBeUndefined();
+    expect(result.frontmatter.actual).toBeUndefined();
+    const updated = await readFile(filePath, "utf8");
+    expect(updated).not.toContain("estimated:");
+    expect(updated).not.toContain("actual:");
+  });
+
+  it("refuses completed transitions with schema-invalid evidence before writing", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(
+      rootDir,
+      "backlog",
+      "active",
+      "work-item-invalid-evidence.md",
+    );
+    const original = `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:invalid-evidence
+title: Invalid Evidence
+summary: Sample summary
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: awaiting-review
+priority: medium
+estimated: 1
+links:
+  evidence: '[[record-invalid-evidence]]'
+---
+
+## Tasks
+
+- [x] Implement the work.
+
+## Acceptance Criteria
+
+- [x] Verify the user-facing behavior.
+`;
+    await writeMarkdown(filePath, original);
+
+    await expect(
+      transitionWorkItem({
+        rootDir,
+        id: "work-item:invalid-evidence",
+        status: "completed",
+        statusReason: "completed",
+        actual: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: "WORK_UPDATE_CLOSED_METADATA_REQUIRED",
+      details: expect.objectContaining({
+        missing: [],
+        schemaErrors: expect.arrayContaining([
+          expect.stringContaining("links/evidence"),
+        ]),
+      }),
+    });
+    await expect(readFile(filePath, "utf8")).resolves.toBe(original);
+  });
+
+  it("allows completed when tasks, acceptance criteria, and terminal metadata are complete", async () => {
     const rootDir = await createTempRepo();
     const filePath = path.join(
       rootDir,
@@ -320,6 +628,10 @@ status: running
 status_reason: implementation
 priority: medium
 estimated: 1
+actual: 1
+links:
+  evidence:
+    - '[[record-sample]]'
 ---
 
 ## Tasks
@@ -839,6 +1151,14 @@ links:
     - https://github.com/calan-co/doc-vader/pull/1
 ---
 
+## Tasks
+
+- [x] Validate the change.
+
+## Acceptance Criteria
+
+- [x] Validation is complete.
+
 ## Goal
 
 - Validate the change.
@@ -928,6 +1248,14 @@ links:
     - '[[record-sample]]'
 ---
 
+## Tasks
+
+- [x] Validate the change.
+
+## Acceptance Criteria
+
+- [x] Validation is complete.
+
 ## Goal
 
 - Validate the change.
@@ -975,6 +1303,14 @@ links:
     - '[[record-sample]]'
 ---
 
+## Tasks
+
+- [x] Validate the change.
+
+## Acceptance Criteria
+
+- [x] Validation is complete.
+
 ## Goal
 
 - Validate the change.
@@ -1009,6 +1345,14 @@ links:
   evidence:
     - '[[record-sample]]'
 ---
+
+## Tasks
+
+- [x] Validate the change.
+
+## Acceptance Criteria
+
+- [x] Validation is complete.
 
 ## Goal
 
@@ -1058,12 +1402,20 @@ links:
     - '[[record-sample]]'
 ---
 
+## Tasks
+
+- [x] Validate the change.
+
+## Acceptance Criteria
+
+- [x] Validation is complete.
+
 ## Goal
 
 - Validate the change.
 `,
     );
-    acquireRuntimeClaim(rootDir, "work-item:sample", [
+    const claimToken = acquireRuntimeClaim(rootDir, "work-item:sample", [
       path.join(rootDir, "backlog", "active", "work-item-sample.md"),
       path.join(rootDir, "backlog", "archive", "work-item-sample.md"),
     ]);
@@ -1073,6 +1425,7 @@ links:
         finalizeWorkItem({
           rootDir,
           id: "work-item:sample",
+          claimToken,
           provider: new GitHubBacklogAutomationProvider("test-token"),
         }),
       ).resolves.toMatchObject({
@@ -1084,8 +1437,302 @@ links:
           "utf8",
         ),
       ).resolves.toContain("status: completed");
+      const store = openRuntimeSqliteStore({ rootDir });
+      try {
+        expect(store.getClaimByToken(claimToken)).toBeUndefined();
+        expect(store.listLocksByClaimToken(claimToken)).toEqual([]);
+        expect(store.listExecutionLogEntries()).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              claim_token: claimToken,
+              state: "completed",
+              reason: "success",
+            }),
+          ]),
+        );
+      } finally {
+        store.close();
+      }
+      await expect(
+        finalizeWorkItem({
+          rootDir,
+          id: "work-item:sample",
+          claimToken,
+          provider: new GitHubBacklogAutomationProvider("test-token"),
+        }),
+      ).resolves.toMatchObject({ id: "work-item:sample" });
+      const retryStore = openRuntimeSqliteStore({ rootDir });
+      try {
+        expect(
+          retryStore
+            .listExecutionLogEntries()
+            .filter((entry) => entry.claim_token === claimToken && entry.state === "completed"),
+        ).toHaveLength(1);
+      } finally {
+        retryStore.close();
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("retries interrupted Claim finalization after durable terminal mutation without duplicate closeout", async () => {
+    const rootDir = await createTempRepo();
+    const filePath = path.join(rootDir, "backlog", "work-item-retry.md");
+    await writeMarkdown(
+      filePath,
+      `---
+$schema: schemas/work-management/frontmatter/work-item.json
+id: work-item:retry
+title: Retry closeout
+summary: A terminal write survived before Claim closeout.
+type: work-item
+subtype: task
+lifecycle: active
+status: completed
+status_reason: completed
+priority: medium
+estimated: 1
+actual: 1
+links:
+  evidence:
+    - '[[record-retry]]'
+---
+
+## Tasks
+
+- [x] Persist terminal Work state.
+
+## Acceptance Criteria
+
+- [x] Complete Claim closeout exactly once.
+`,
+    );
+    const claimToken = acquireRuntimeClaim(rootDir, "work-item:retry", [filePath]);
+
+    const finalizationFailure = vi
+      .spyOn(
+        (await import("../lib/runtime/sqlite-store.js")).RuntimeSqliteStore.prototype,
+        "completeRuntimeExecution",
+      )
+      .mockImplementationOnce(() => {
+        throw new Error("injected Claim finalization interruption");
+      });
+    await expect(transitionWorkItem({
+      rootDir,
+      id: "work-item:retry",
+      status: "completed",
+      statusReason: "completed",
+      claimToken,
+    })).rejects.toThrow("injected Claim finalization interruption");
+    await expect(readFile(filePath, "utf8")).resolves.toContain("status: completed");
+
+    finalizationFailure.mockRestore();
+    await transitionWorkItem({
+      rootDir,
+      id: "work-item:retry",
+      status: "completed",
+      statusReason: "completed",
+      claimToken,
+    });
+
+    const store = openRuntimeSqliteStore({ rootDir });
+    try {
+      expect(store.getClaimByToken(claimToken)).toBeUndefined();
+      expect(
+        store
+          .listExecutionLogEntries()
+          .filter((entry) => entry.claim_token === claimToken && entry.state === "completed"),
+      ).toHaveLength(1);
+    } finally {
+      store.close();
+    }
+    await expect(readFile(filePath, "utf8")).resolves.toContain("status: completed");
+  });
+
+  it("requires matching Claim authorization for public records about claimed Work", async () => {
+    const rootDir = await createTempRepo();
+    const workItemPath = path.join(rootDir, "backlog", "work-item-record-subject.md");
+    const recordPath = path.join(rootDir, "backlog", "records", "record-claimed-subject.md");
+    await writeMarkdown(workItemPath, `---
+id: wi-claimed-subject
+title: Claimed subject
+summary: Public record Claim enforcement
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: prioritized
+priority: medium
+estimated: 1
+---
+
+## Goal
+
+- Keep public evidence creation Claim-aware.
+`);
+    const claimToken = acquireRuntimeClaim(rootDir, "wi-claimed-subject", [
+      workItemPath,
+      recordPath,
+    ]);
+    const options = {
+      rootDir,
+      id: "record:claimed-subject",
+      summary: "Claimed subject evidence",
+      observation: "Public record creation is governed.",
+      subjects: ["[[wi-claimed-subject]]"],
+    };
+
+    await expect(createRecord(options)).rejects.toMatchObject({
+      code: "WORK_MUTATION_CLAIM_REQUIRED",
+    });
+    await expect(createRecord({ ...options, claimToken: "wrong-token" })).rejects.toMatchObject({
+      code: "WORK_MUTATION_CLAIM_REQUIRED",
+    });
+    await expect(readFile(recordPath, "utf8")).rejects.toThrow();
+
+    await expect(createRecord({ ...options, claimToken })).resolves.toMatchObject({
+      filePath: recordPath,
+    });
+  });
+
+  it("rejects expired claimed record subjects and permits unclaimed Work subjects", async () => {
+    const rootDir = await createTempRepo();
+    const expiredWorkItemPath = path.join(rootDir, "backlog", "work-item-expired-subject.md");
+    const unclaimedWorkItemPath = path.join(rootDir, "backlog", "work-item-unclaimed-subject.md");
+    await Promise.all([expiredWorkItemPath, unclaimedWorkItemPath].map((filePath, index) =>
+      writeMarkdown(filePath, `---
+id: ${index === 0 ? "wi-expired-subject" : "wi-unclaimed-subject"}
+title: ${index === 0 ? "Expired" : "Unclaimed"} subject
+summary: Record subject policy
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: prioritized
+priority: medium
+estimated: 1
+---
+
+## Goal
+
+- Exercise record subject Claim policy.
+`),
+    ));
+    const store = openRuntimeSqliteStore({ rootDir });
+    try {
+      const acquisition = store.acquireRuntimeClaim({
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        target_type: "task",
+        target_id: "wi-expired-subject",
+        holder: "agent-a",
+        created_at: new Date(Date.now() - 120_000).toISOString(),
+        expires_at: new Date(Date.now() - 60_000).toISOString(),
+        entropy: randomUUID(),
+      }, { initialLockPaths: [expiredWorkItemPath] });
+      expect(acquisition.outcome).toBe("acquired");
+    } finally {
+      store.close();
+    }
+
+    await expect(createRecord({
+      rootDir,
+      id: "record:expired-subject",
+      summary: "Expired subject evidence",
+      observation: "Must not bypass an expired Claim target.",
+      subjects: ["wi-expired-subject"],
+    })).rejects.toMatchObject({ code: "RUNTIME_CLAIM_EXPIRED" });
+    await expect(createRecord({
+      rootDir,
+      id: "record:unclaimed-subject",
+      summary: "Unclaimed subject evidence",
+      observation: "Unclaimed Work records remain permitted.",
+      subjects: ["wi-unclaimed-subject"],
+    })).resolves.toMatchObject({ id: "record:unclaimed-subject" });
+  });
+
+  it("authorizes legacy migration replacement and deletion paths before writing", async () => {
+    const rootDir = await createTempRepo();
+    const legacyPath = path.join(rootDir, "backlog", "001_claimed.md");
+    await writeMarkdown(
+      legacyPath,
+      `---
+id: wi-001
+title: Claimed migration
+status: ready
+priority: medium
+estimated: 1
+---
+
+## Goal
+
+- Migrate only with covered paths.
+`,
+    );
+    const targetPath = path.join(rootDir, "backlog", "active", "work-item-001-claimed.md");
+    const claimToken = acquireRuntimeClaim(rootDir, "wi-001", [
+      targetPath,
+    ]);
+
+    await expect(migrateBacklog({ rootDir, claimToken })).rejects.toMatchObject({
+      code: "WORK_MUTATION_CLAIM_COVERAGE_REQUIRED",
+    });
+    await expect(readFile(legacyPath, "utf8")).resolves.toContain("Claimed migration");
+    await expect(readFile(targetPath, "utf8")).rejects.toThrow();
+  });
+
+  it("reserves both event evidence paths before writing when the subject is claimed", async () => {
+    const rootDir = await createTempRepo();
+    const workItemPath = path.join(rootDir, "backlog", "active", "work-item-claimed-event.md");
+    await writeMarkdown(
+      workItemPath,
+      `---
+id: work-item:claimed-event
+title: Claimed event
+summary: Claimed workflow evidence
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+priority: medium
+estimated: 1
+---
+
+## Goal
+
+- Keep event evidence claim-authorized.
+`,
+    );
+    const payloadPath = path.join(rootDir, "claimed-workflow-run.json");
+    await writeFile(
+      payloadPath,
+      JSON.stringify({
+        workflow_run: {
+          id: 99,
+          name: "CI",
+          conclusion: "success",
+          display_title: "CI for work-item:claimed-event",
+        },
+      }),
+      "utf8",
+    );
+    const claimToken = acquireRuntimeClaim(rootDir, "work-item:claimed-event", [
+      workItemPath,
+    ]);
+
+    await expect(
+      ingestEvent({
+        rootDir,
+        provider: "github",
+        event: "workflow_run.completed",
+        payloadPath,
+        claimToken,
+      }),
+    ).rejects.toMatchObject({ code: "WORK_MUTATION_CLAIM_COVERAGE_REQUIRED" });
+    await expect(
+      readFile(path.join(rootDir, "backlog", "records", "record-claimed-event-ci-99.md"), "utf8"),
+    ).rejects.toThrow();
+    await expect(readFile(workItemPath, "utf8")).resolves.not.toContain("evidence:");
   });
 });

@@ -1,12 +1,12 @@
 import matter from "gray-matter";
 import { promises as fs } from "node:fs";
-import { existsSync } from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import {
-  type RuntimeClaimRecord,
-  type RuntimeScopeLockRecord,
-} from "../runtime/index.js";
+  readRuntimeClaimProjection,
+  type RuntimeClaimFact,
+  type RuntimeClaimProjectionState,
+  type RuntimeClaimScopeLockFact,
+} from "../runtime-claim/index.js";
 import { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
 import { stripWikiLink } from "./wiki-link.js";
 
@@ -45,7 +45,7 @@ export interface WorkGraphEdge {
   to: string;
   direction: "authored";
   source: {
-    kind: "frontmatter" | "relationships" | "runtime";
+    kind: "frontmatter" | "runtime";
     filePath?: string;
     claimToken?: string;
   };
@@ -85,10 +85,7 @@ export interface ProjectWorkGraphOptions {
   runtimeState?: RuntimeProjectionState;
 }
 
-export interface RuntimeProjectionState {
-  claims: RuntimeClaimRecord[];
-  scopeLocks: RuntimeScopeLockRecord[];
-}
+export type RuntimeProjectionState = RuntimeClaimProjectionState;
 
 interface MarkdownDocument {
   filePath: string;
@@ -128,13 +125,6 @@ interface GraphIndex {
 }
 
 const DEFAULT_WORKSPACE_DIRS = ["backlog", "docs"];
-const WORK_ITEM_PARENT_EDGE_TYPES = new Map<string, WorkGraphEdgeType>([
-  ["part_of", "belongs_to"],
-  ["belongs_to", "belongs_to"],
-]);
-const TRACEABILITY_EDGE_TYPES = new Map<string, WorkGraphEdgeType>([
-  ["implements", "implements"],
-]);
 const NODE_TYPE_SORT_ORDER: Record<WorkGraphNodeType, number> = {
   "work-item": 0,
   claim: 1,
@@ -194,7 +184,18 @@ function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
 
-const FORMAL_FRONTMATTER_LINK_KEYS = new Set(["depends_on", "evidence"]);
+const FORMAL_FRONTMATTER_LINK_EDGE_TYPES = new Map<string, WorkGraphEdgeType>([
+  ["depends_on", "depends_on"],
+  ["parent", "belongs_to"],
+  ["part_of", "belongs_to"],
+  ["belongs_to", "belongs_to"],
+  ["implements", "implements"],
+  ["evidence", "records"],
+  ["subject", "records"],
+  ["subjects", "records"],
+  ["records", "records"],
+]);
+const FORMAL_FRONTMATTER_LINK_KEYS = new Set(FORMAL_FRONTMATTER_LINK_EDGE_TYPES.keys());
 
 function stripMarkdownExtension(value: string): string {
   return value.replace(/\.md$/i, "");
@@ -227,57 +228,6 @@ function documentAliases(frontmatter: JsonObject, relativePath: string): string[
       normalizeText(path.basename(relativePath)),
     ].filter((entry): entry is string => Boolean(entry && entry.length > 0)),
   );
-}
-
-function parseRelationships(body: string): Array<{
-  sourceKey: string;
-  target: string;
-}> {
-  const section = findMarkdownSection(body, "Relationships");
-  if (!section) {
-    return [];
-  }
-
-  return section
-    .split(/\r?\n/)
-    .map((line) => line.match(/^\s*-\s*`([^`]+)`:\s*(.+)$/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => ({
-      sourceKey: (match[1] ?? "").trim().toLowerCase(),
-      target: (match[2] ?? "").trim(),
-    }))
-    .filter((entry) => entry.sourceKey.length > 0 && entry.target.length > 0);
-}
-
-function findMarkdownSection(body: string, heading: string): string | undefined {
-  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const headingRegex = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "gim");
-  const headingMatch = headingRegex.exec(body);
-  if (!headingMatch) {
-    return undefined;
-  }
-
-  const sectionStart = headingMatch.index + headingMatch[0].length;
-  const nextHeadingMatch = body.slice(sectionStart).match(/\n##\s+/);
-  const sectionEnd =
-    nextHeadingMatch && nextHeadingMatch.index !== undefined
-      ? sectionStart + nextHeadingMatch.index
-      : body.length;
-  return body.slice(sectionStart, sectionEnd);
-}
-
-function parseSectionBulletValues(body: string, heading: string): string[] {
-  const section = findMarkdownSection(body, heading);
-  if (!section) {
-    return [];
-  }
-
-  return section
-    .split(/\r?\n/)
-    .map((line) => line.match(/^\s*-\s+(.+)$/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => (match[1] ?? "").trim())
-    .filter((value) => value.length > 0);
 }
 
 async function pathExists(filePath: string): Promise<boolean> {
@@ -444,40 +394,40 @@ function createScopeNode(options: {
   };
 }
 
-function createClaimNode(record: RuntimeClaimRecord): WorkGraphNode {
+function createClaimNode(record: RuntimeClaimFact): WorkGraphNode {
   return {
-    id: `claim:${record.claim_token}`,
+    id: `claim:${record.token}`,
     type: "claim",
-    stableId: record.claim_token,
+    stableId: record.token,
     label: record.holder,
     source: {
       kind: "claim",
-      claimToken: record.claim_token,
+      claimToken: record.token,
     },
     properties: {
       entityType: "claim",
-      claimToken: record.claim_token,
-      targetType: record.target_type,
-      targetId: record.target_id,
+      claimToken: record.token,
+      targetType: record.targetType,
+      targetId: record.targetId,
       holder: record.holder,
       state: record.state,
-      createdAt: record.created_at,
-      expiresAt: record.expires_at,
-      lastSeenAt: record.last_seen_at,
+      createdAt: record.createdAt,
+      expiresAt: record.expiresAt,
+      lastSeenAt: record.lastSeenAt,
     },
   };
 }
 
-function createClaimScopeNode(record: RuntimeClaimRecord): WorkGraphNode {
+function createClaimScopeNode(record: RuntimeClaimFact): WorkGraphNode {
   const scopeId = normalizeClaimScopeRef(record);
   return createScopeNode({
     id: scopeId,
     label: scopeId,
-    originType: record.target_type,
+    originType: record.targetType,
     properties: {
-      claimToken: record.claim_token,
-      targetType: record.target_type,
-      targetId: record.target_id,
+      claimToken: record.token,
+      targetType: record.targetType,
+      targetId: record.targetId,
       state: record.state,
     },
   });
@@ -493,12 +443,12 @@ function createRuntimeLockScopeNode(scopeRef: string): WorkGraphNode {
   });
 }
 
-function normalizeClaimScopeRef(record: RuntimeClaimRecord): string {
-  const targetType = normalizeText(record.target_type);
+function normalizeClaimScopeRef(record: RuntimeClaimFact): string {
+  const targetType = normalizeText(record.targetType);
   if (targetType === "task" || targetType === "work-item" || targetType === "wi") {
-    return canonicalWorkItemNodeId(record.target_id);
+    return canonicalWorkItemNodeId(record.targetId);
   }
-  return canonicalScopeNodeId(`${record.target_type}:${record.target_id}`);
+  return canonicalScopeNodeId(`${record.targetType}:${record.targetId}`);
 }
 
 function resolveDocumentKind(document: MarkdownDocument): WorkGraphNodeType | undefined {
@@ -823,23 +773,6 @@ function disambiguateEdgeIds(edges: WorkGraphEdge[]): WorkGraphEdge[] {
   });
 }
 
-function mapRelationshipType(sourceKey: string): WorkGraphEdgeType | undefined {
-  const mappedParent = WORK_ITEM_PARENT_EDGE_TYPES.get(sourceKey);
-  if (mappedParent) {
-    return mappedParent;
-  }
-  const mappedTraceability = TRACEABILITY_EDGE_TYPES.get(sourceKey);
-  if (mappedTraceability) {
-    return mappedTraceability;
-  }
-  switch (sourceKey) {
-    case "depends_on":
-      return "depends_on";
-    default:
-      return undefined;
-  }
-}
-
 function buildGraphIndex(nodes: WorkGraphNode[], edges: WorkGraphEdge[]): GraphIndex {
   const nodeById = new Map<string, WorkGraphNode>();
   const nodeByType = new Map<WorkGraphNodeType, WorkGraphNode[]>();
@@ -923,122 +856,29 @@ function createProjectionView(
   };
 }
 
-function parseJsonObject(
-  value: unknown,
-): Record<string, unknown> | undefined {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return typeof parsed === "object" && parsed !== null
-      ? (parsed as Record<string, unknown>)
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function toReadonlyRuntimeClaimRecord(
-  row: Record<string, unknown>,
-): RuntimeClaimRecord {
-  const metadata = parseJsonObject(row.metadata);
-  return {
-    schema_version: row.schema_version as RuntimeClaimRecord["schema_version"],
-    claim_token: row.claim_token as string,
-    target_type: row.target_type as string,
-    target_id: row.target_id as string,
-    holder: row.holder as string,
-    created_at: row.created_at as string,
-    expires_at: row.expires_at as string,
-    ...(typeof row.last_seen_at === "string"
-      ? { last_seen_at: row.last_seen_at as string }
-      : {}),
-    ...(metadata ? { metadata } : {}),
-    state: row.state === "expired" ? "expired" : "active",
-  };
-}
-
-function toReadonlyRuntimeScopeLockRecord(
-  row: Record<string, unknown>,
-): RuntimeScopeLockRecord {
-  const metadata = parseJsonObject(row.metadata);
-  return {
-    schema_version: row.schema_version as RuntimeScopeLockRecord["schema_version"],
-    claim_token: row.claim_token as string,
-    scope_ref: row.scope_ref as string,
-    lock_mode: row.lock_mode as RuntimeScopeLockRecord["lock_mode"],
-    policy_name: row.policy_name as RuntimeScopeLockRecord["policy_name"],
-    acquired_at: row.acquired_at as string,
-    updated_at: row.updated_at as string,
-    lifecycle_state: row.lifecycle_state as RuntimeScopeLockRecord["lifecycle_state"],
-    ...(typeof row.released_at === "string"
-      ? { released_at: row.released_at as string }
-      : {}),
-    ...(metadata ? { metadata } : {}),
-  };
-}
-
-function hasDatabaseObject(database: DatabaseSync, objectName: string): boolean {
-  const row = database
-    .prepare(
-      `SELECT 1
-         FROM sqlite_master
-        WHERE type IN ('table', 'view')
-          AND name = ?
-        LIMIT 1`,
-    )
-    .get(objectName) as Record<string, unknown> | undefined;
-  return Boolean(row);
-}
-
 function readRuntimeProjectionState(rootDir: string): RuntimeProjectionState {
-  const databasePath = path.join(rootDir, ".doc-vader", "runtime", "runtime.sqlite");
-  if (!existsSync(databasePath)) {
-    return { claims: [], scopeLocks: [] };
-  }
-
-  let database: DatabaseSync | undefined;
-  try {
-    database = new DatabaseSync(databasePath, { readOnly: true });
-    const claims = hasDatabaseObject(database, "runtime_claims")
-      ? (database.prepare(
-          `SELECT * FROM runtime_claims ORDER BY created_at, claim_token`,
-        ).all() as Record<string, unknown>[])
-          .map(toReadonlyRuntimeClaimRecord)
-      : [];
-    const scopeLocks = hasDatabaseObject(database, "claim_scope_locks")
-      ? (database.prepare(
-          `SELECT * FROM claim_scope_locks
-           ORDER BY acquired_at, scope_ref, lock_mode`,
-        ).all() as Record<string, unknown>[])
-          .map(toReadonlyRuntimeScopeLockRecord)
-      : [];
-    return { claims, scopeLocks };
-  } finally {
-    database?.close();
-  }
+  return readRuntimeClaimProjection({ rootDir });
 }
 
 function createRuntimeLockEdgeProperties(
-  scopeLock: RuntimeScopeLockRecord,
-  claim: RuntimeClaimRecord,
+  scopeLock: RuntimeClaimScopeLockFact,
+  claim: RuntimeClaimFact,
   resolvedTargetId: string,
 ): JsonObject {
   return {
     sourceKey: "scope_lock",
-    rawTarget: scopeLock.scope_ref,
+    rawTarget: scopeLock.scopeRef,
     resolvedTargetId,
-    claimToken: scopeLock.claim_token,
-    scopeRef: scopeLock.scope_ref,
-    lockMode: scopeLock.lock_mode,
-    policyName: scopeLock.policy_name,
-    acquiredAt: scopeLock.acquired_at,
-    updatedAt: scopeLock.updated_at,
-    lifecycleState: scopeLock.lifecycle_state,
-    releasedAt: scopeLock.released_at,
-    targetType: claim.target_type,
-    targetId: claim.target_id,
+    claimToken: scopeLock.claimToken,
+    scopeRef: scopeLock.scopeRef,
+    lockMode: scopeLock.lockMode,
+    policyName: scopeLock.policyName,
+    acquiredAt: scopeLock.acquiredAt,
+    updatedAt: scopeLock.updatedAt,
+    lifecycleState: scopeLock.lifecycleState,
+    releasedAt: scopeLock.releasedAt,
+    targetType: claim.targetType,
+    targetId: claim.targetId,
     claimState: claim.state,
   };
 }
@@ -1063,31 +903,31 @@ function ensureRuntimeLockScopeNode(
 }
 
 function projectRuntimeLockEdges(options: {
-  claims: RuntimeClaimRecord[];
-  scopeLocks: RuntimeScopeLockRecord[];
+  claims: RuntimeClaimFact[];
+  scopeLocks: RuntimeClaimScopeLockFact[];
   nodes: WorkGraphNode[];
   edges: WorkGraphEdge[];
   nodesById: Map<string, WorkGraphNode>;
   scopeNodeIds: Set<string>;
 }): void {
   const claimsByToken = new Map(
-    options.claims.map((claim) => [claim.claim_token, claim] as const),
+    options.claims.map((claim) => [claim.token, claim] as const),
   );
 
   for (const scopeLock of options.scopeLocks) {
-    if (scopeLock.lifecycle_state !== "active") {
+    if (scopeLock.lifecycleState !== "active") {
       continue;
     }
 
-    const claimNodeId = `claim:${scopeLock.claim_token}`;
+    const claimNodeId = `claim:${scopeLock.claimToken}`;
     const claimNode = options.nodesById.get(claimNodeId);
-    const claim = claimsByToken.get(scopeLock.claim_token);
+    const claim = claimsByToken.get(scopeLock.claimToken);
     if (!claimNode || !claim) {
       continue;
     }
 
     const scopeNode = ensureRuntimeLockScopeNode(
-      scopeLock.scope_ref,
+      scopeLock.scopeRef,
       options.nodes,
       options.nodesById,
       options.scopeNodeIds,
@@ -1101,7 +941,7 @@ function projectRuntimeLockEdges(options: {
         "formal",
         {
           kind: "runtime",
-          claimToken: scopeLock.claim_token,
+          claimToken: scopeLock.claimToken,
         },
         {
           ...createRuntimeLockEdgeProperties(scopeLock, claim, scopeNode.id),
@@ -1122,88 +962,44 @@ function projectRelationshipEdges(options: {
   nodes: WorkGraphNode[];
 }): void {
   const links = getFrontmatterLinks(options.document.frontmatter);
-  const frontmatterDependsOn = asLinkArray(links.depends_on);
-  for (const target of frontmatterDependsOn) {
-    const resolved = resolveDocument(target, options.documents, options.aliases);
-    if (!resolved) {
+  for (const [sourceKey, edgeType] of FORMAL_FRONTMATTER_LINK_EDGE_TYPES) {
+    if (edgeType === "records") {
       continue;
     }
-    const targetNode = createResolvedTargetNode(resolved, options.nodesById);
-    if (!targetNode) {
-      continue;
-    }
-    ensureScopeNode(
-      targetNode,
-      options.nodes,
-      options.nodesById,
-      options.scopeNodeIds,
-    );
-    options.edges.push(
-      createEdge(
-        options.sourceNode,
+    for (const target of asLinkArray(links[sourceKey])) {
+      const resolved = resolveDocument(target, options.documents, options.aliases);
+      if (!resolved) {
+        continue;
+      }
+      const targetNode = createResolvedTargetNode(resolved, options.nodesById);
+      if (!targetNode) {
+        continue;
+      }
+      ensureScopeNode(
         targetNode,
-        "depends_on",
-        "formal",
-        {
-          kind: "frontmatter",
-          filePath: options.document.relativePath,
-        },
-        {
-          sourceKey: "depends_on",
-          rawTarget: target,
-          resolvedTargetId: targetNode.id,
-          frontmatterId: asString(options.document.frontmatter.id),
-        },
-      ),
-    );
-  }
-
-  for (const relationship of parseRelationships(options.document.body)) {
-    const mappedType = mapRelationshipType(relationship.sourceKey);
-    if (!mappedType) {
-      continue;
+        options.nodes,
+        options.nodesById,
+        options.scopeNodeIds,
+      );
+      options.edges.push(
+        createEdge(
+          options.sourceNode,
+          targetNode,
+          edgeType,
+          "formal",
+          {
+            kind: "frontmatter",
+            filePath: options.document.relativePath,
+          },
+          {
+            sourceKey,
+            rawTarget: target,
+            resolvedTargetId: targetNode.id,
+            frontmatterId: asString(options.document.frontmatter.id),
+          },
+        ),
+      );
     }
-    if (relationship.sourceKey === "blocks" || relationship.sourceKey === "relates_to") {
-      continue;
-    }
-
-    const resolved = resolveDocument(
-      relationship.target,
-      options.documents,
-      options.aliases,
-    );
-    if (!resolved) {
-      continue;
-    }
-
-    const targetNode = createResolvedTargetNode(resolved, options.nodesById);
-    if (!targetNode) {
-      continue;
-    }
-    ensureScopeNode(
-      targetNode,
-      options.nodes,
-      options.nodesById,
-      options.scopeNodeIds,
-    );
-    options.edges.push(
-      createEdge(
-        options.sourceNode,
-        targetNode,
-        mappedType,
-        "formal",
-        {
-          kind: "relationships",
-          filePath: options.document.relativePath,
-        },
-        {
-          sourceKey: relationship.sourceKey,
-          rawTarget: relationship.target,
-          resolvedTargetId: targetNode.id,
-          relationship: relationship.sourceKey,
-        },
-      ),
-    );
   }
 }
 
@@ -1363,10 +1159,12 @@ function projectRecordEdges(options: {
   scopeNodeIds: Set<string>;
   nodes: WorkGraphNode[];
 }): void {
-  const subjects = parseSectionBulletValues(
-    options.document.body,
-    "Subject References",
-  );
+  const links = getFrontmatterLinks(options.document.frontmatter);
+  const subjects = unique([
+    ...asLinkArray(links.subjects),
+    ...asLinkArray(links.subject),
+    ...asLinkArray(links.records),
+  ]);
   const recordKind =
     asString(options.document.frontmatter.subtype) ?? "record";
 
@@ -1394,7 +1192,7 @@ function projectRecordEdges(options: {
         "records",
         "formal",
         {
-          kind: "relationships",
+          kind: "frontmatter",
           filePath: options.document.relativePath,
         },
         {
@@ -1491,11 +1289,11 @@ export async function projectWorkGraph(
         "formal",
         {
           kind: "runtime",
-          claimToken: claim.claim_token,
+          claimToken: claim.token,
         },
         {
-          targetType: claim.target_type,
-          targetId: claim.target_id,
+          targetType: claim.targetType,
+          targetId: claim.targetId,
           state: claim.state,
         },
       ),

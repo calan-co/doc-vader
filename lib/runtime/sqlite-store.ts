@@ -1,11 +1,19 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { performance } from "node:perf_hooks";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { Type, type Static, type TSchema } from "@sinclair/typebox";
+import { isOperationalArtifact } from "../operational-artifacts.js";
+import {
+  esGitRuntimeChangedFileGitSnapshotReader,
+  type RuntimeChangedFileGitSnapshotTrace,
+  type RuntimeChangedFileGitSnapshotReader,
+} from "./changed-file-git-snapshot-reader.js";
+import type { ClaimedPathGitAuditAdapter } from "./git-audit-adapter.js";
 import {
   createRuntimeLockIdentity,
   detectRuntimeRenameDiagnostics,
@@ -72,7 +80,10 @@ const RUNTIME_SQLITE_BUSY_TIMEOUT_MS = 5_000;
 const RUNTIME_MIGRATION_ID = "0001-initial-runtime-entities";
 const RUNTIME_MIGRATION_ID_LAST_SEEN = "0002-claim-last-seen";
 const RUNTIME_MIGRATION_ID_SCOPE_LOCKS = "0003-claim-scope-locks";
-const RUNTIME_INTERNAL_PATH_PREFIX = ".doc-vader/runtime/";
+const RUNTIME_MIGRATION_ID_WORK_CHECK_SAGAS = "0004-work-check-sagas";
+const RUNTIME_MIGRATION_ID_WORK_CHECK_SAGA_AUTHORITY = "0005-work-check-saga-authority";
+const RUNTIME_MIGRATION_ID_ESCALATION_USE_SAGAS = "0006-escalation-use-sagas";
+const RUNTIME_MIGRATION_ID_ESCALATION_USE_EFFECT_FACTS = "0007-escalation-use-effect-facts";
 const DEFAULT_RUNTIME_CLAIM_TTL_MINUTES = 240;
 const DEFAULT_RUNTIME_CLAIM_GRACE_SECONDS = 300;
 
@@ -496,10 +507,168 @@ export async function persistRuntimeExecutionLogEntryForWrite(
   await persistRuntimeEntityForWrite("execution_log_entry", value, write);
 }
 
+export const RUNTIME_CLAIM_AUDIT_TRACE_STAGES = [
+  "runtimeClaimSqliteAuthorityOpen",
+  "claimLookup",
+  "scopeLockLookup",
+  "gitRevParseAbbrevRefHead",
+  "gitRevParseHead",
+  "requiredPathNormalization",
+  "lockOwnershipDecision",
+] as const;
+
+export type RuntimeClaimAuditTraceStage =
+  (typeof RUNTIME_CLAIM_AUDIT_TRACE_STAGES)[number];
+
+export interface RuntimeClaimAuditTrace {
+  trace<T>(stage: RuntimeClaimAuditTraceStage, operation: () => T): T;
+}
+
+/** Test-only stages for the end-to-end, full changed-file coverage audit. */
+export const RUNTIME_CLAIM_COVERAGE_AUDIT_TRACE_STAGES = [
+  "fullAudit",
+  "mergeTargetResolution",
+  "gitMergeTargetProbe",
+  "gitChangedFilesHeadRef",
+  "gitChangedFilesHead",
+  "gitChangedFilesMergeTarget",
+  "gitChangedFilesMergeBase",
+  "gitChangedFilesMergeTree",
+  "gitChangedFilesBranchDiff",
+  "gitChangedFilesWorktreeDiff",
+  "gitChangedFilesUntracked",
+  "gitRequiredPathsHeadRef",
+  "gitRequiredPathsHead",
+  "gitChangedFileParsing",
+  "gitChangedFileMerge",
+  "gitRenameDetection",
+  "scopeLockLookup",
+] as const;
+
+export type RuntimeClaimCoverageAuditTraceStage =
+  (typeof RUNTIME_CLAIM_COVERAGE_AUDIT_TRACE_STAGES)[number];
+
+export interface RuntimeClaimCoverageAuditTraceTiming {
+  durationMs: number;
+  invocationCount: number;
+}
+
+export type RuntimeClaimCoverageAuditTraceOutcome = "value" | "undefined";
+
+export interface RuntimeClaimCoverageAuditTrace {
+  trace<T>(stage: RuntimeClaimCoverageAuditTraceStage, operation: () => T): T;
+  traceAsync?<T>(
+    stage: RuntimeClaimCoverageAuditTraceStage,
+    operation: () => Promise<T>,
+  ): Promise<T>;
+  recordOutcome?(
+    stage: RuntimeClaimCoverageAuditTraceStage,
+    outcome: RuntimeClaimCoverageAuditTraceOutcome,
+  ): void;
+  recordDirectGitSubprocess?(durationMs: number): void;
+  traceLockLookup?<T>(pathValue: string, operation: () => T): T;
+}
+
+export interface RuntimeClaimCoverageAuditTraceReport
+  extends RuntimeClaimCoverageAuditTrace {
+  operationOnlyMs: number;
+  directGitSubprocess: RuntimeClaimCoverageAuditTraceTiming;
+  stages: Record<
+    RuntimeClaimCoverageAuditTraceStage,
+    RuntimeClaimCoverageAuditTraceTiming
+  >;
+  outcomes: Record<
+    RuntimeClaimCoverageAuditTraceStage,
+    Record<RuntimeClaimCoverageAuditTraceOutcome, number>
+  >;
+  lockLookups: Record<string, RuntimeClaimCoverageAuditTraceTiming>;
+}
+
+/** Creates an opt-in collector used by full-audit tests and benchmarks. */
+export function createRuntimeClaimCoverageAuditTrace(): RuntimeClaimCoverageAuditTraceReport {
+  const timings = (): RuntimeClaimCoverageAuditTraceTiming => ({
+    durationMs: 0,
+    invocationCount: 0,
+  });
+  const trace: RuntimeClaimCoverageAuditTraceReport = {
+    operationOnlyMs: 0,
+    directGitSubprocess: timings(),
+    stages: Object.fromEntries(
+      RUNTIME_CLAIM_COVERAGE_AUDIT_TRACE_STAGES.map((stage) => [stage, timings()]),
+    ) as RuntimeClaimCoverageAuditTraceReport["stages"],
+    outcomes: Object.fromEntries(
+      RUNTIME_CLAIM_COVERAGE_AUDIT_TRACE_STAGES.map((stage) => [
+        stage,
+        { value: 0, undefined: 0 },
+      ]),
+    ) as RuntimeClaimCoverageAuditTraceReport["outcomes"],
+    lockLookups: {},
+    trace<T>(stage: RuntimeClaimCoverageAuditTraceStage, operation: () => T): T {
+      const startedAt = performance.now();
+      try {
+        return operation();
+      } finally {
+        const durationMs = performance.now() - startedAt;
+        const timing = this.stages[stage];
+        timing.durationMs += durationMs;
+        timing.invocationCount += 1;
+        if (stage === "fullAudit") {
+          this.operationOnlyMs += durationMs;
+        }
+      }
+    },
+    async traceAsync<T>(
+      stage: RuntimeClaimCoverageAuditTraceStage,
+      operation: () => Promise<T>,
+    ): Promise<T> {
+      const startedAt = performance.now();
+      try {
+        return await operation();
+      } finally {
+        const durationMs = performance.now() - startedAt;
+        const timing = this.stages[stage];
+        timing.durationMs += durationMs;
+        timing.invocationCount += 1;
+        if (stage === "fullAudit") {
+          this.operationOnlyMs += durationMs;
+        }
+      }
+    },
+    recordOutcome(stage, outcome): void {
+      this.outcomes[stage][outcome] += 1;
+    },
+    recordDirectGitSubprocess(durationMs): void {
+      this.directGitSubprocess.invocationCount += 1;
+      this.directGitSubprocess.durationMs += durationMs;
+    },
+    traceLockLookup<T>(pathValue: string, operation: () => T): T {
+      return this.trace("scopeLockLookup", () => {
+        const startedAt = performance.now();
+        try {
+          return operation();
+        } finally {
+          const timing = this.lockLookups[pathValue] ?? timings();
+          timing.durationMs += performance.now() - startedAt;
+          timing.invocationCount += 1;
+          this.lockLookups[pathValue] = timing;
+        }
+      });
+    },
+  };
+  return trace;
+}
+
 export interface RuntimeSqliteStoreOptions {
+  /** Runtime authority root used for SQLite storage and lock identity. */
   rootDir?: string;
+  /** Registered worktree whose Git state is being audited. */
+  gitRootDir?: string;
   runtimeDir?: string;
   databasePath?: string;
+  auditTrace?: RuntimeClaimAuditTrace;
+  fullAuditTrace?: RuntimeClaimCoverageAuditTrace;
+  /** Injectable fallback for tests and callers that require CLI Git behavior. */
+  changedFileGitSnapshotReader?: RuntimeChangedFileGitSnapshotReader;
 }
 
 export interface RuntimeClaimRecord extends RuntimeClaim {
@@ -560,6 +729,15 @@ export interface RuntimeClaimRenewalConflict {
 export type RuntimeClaimRenewalResult =
   | RuntimeClaimRenewalSuccess
   | RuntimeClaimRenewalConflict;
+
+export type RuntimeExpiredClaimReleaseResult =
+  | {
+      outcome: "released";
+      claim: RuntimeClaimRecord;
+      locksRemoved: number;
+    }
+  | { outcome: "condition-not-met"; claim: RuntimeClaimRecord }
+  | { outcome: "missing" };
 
 type RuntimeScopeLockDescriptor = {
   scopeRef: string;
@@ -924,6 +1102,87 @@ const RUNTIME_SCHEMA_MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_claim_scope_locks_claim_token
           ON claim_scope_locks(claim_token, lifecycle_state, acquired_at);
       `);
+    },
+  },
+  {
+    id: RUNTIME_MIGRATION_ID_WORK_CHECK_SAGAS,
+    apply(database: DatabaseSync): void {
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS saga_instances (
+          id TEXT PRIMARY KEY,
+          status TEXT NOT NULL,
+          phase TEXT NOT NULL,
+          command_index INTEGER NOT NULL,
+          revision INTEGER NOT NULL,
+          commands TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        ) WITHOUT ROWID;
+
+        CREATE TABLE IF NOT EXISTS saga_execution_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          saga_id TEXT NOT NULL,
+          revision INTEGER NOT NULL,
+          phase TEXT NOT NULL,
+          command_index INTEGER NOT NULL,
+          fact TEXT NOT NULL,
+          detail TEXT,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (saga_id) REFERENCES saga_instances(id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_saga_instances_status ON saga_instances(status, updated_at);
+        CREATE INDEX IF NOT EXISTS idx_saga_execution_history_saga ON saga_execution_history(saga_id, id);
+      `);
+    },
+  },
+  {
+    id: RUNTIME_MIGRATION_ID_WORK_CHECK_SAGA_AUTHORITY,
+    apply(database: DatabaseSync): void {
+      database.exec("ALTER TABLE saga_instances ADD COLUMN authority TEXT");
+    },
+  },
+  {
+    id: RUNTIME_MIGRATION_ID_ESCALATION_USE_SAGAS,
+    apply(database: DatabaseSync): void {
+      const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'escalation_uses'").all();
+      if (tables.length === 0) return;
+      const columns = database.prepare("PRAGMA table_info(escalation_uses)").all() as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === "operation_id")) database.exec("ALTER TABLE escalation_uses ADD COLUMN operation_id TEXT");
+      database.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_escalation_uses_operation ON escalation_uses(operation_id) WHERE operation_id IS NOT NULL;
+        CREATE TABLE IF NOT EXISTS escalation_use_operations (
+          id TEXT PRIMARY KEY,
+          saga_id TEXT NOT NULL,
+          escalation_id TEXT NOT NULL,
+          work_item_id TEXT NOT NULL,
+          scope TEXT NOT NULL,
+          reservation_id TEXT NOT NULL UNIQUE,
+          claim_token TEXT NOT NULL,
+          work_file_path TEXT NOT NULL,
+          expected_work_hash TEXT NOT NULL,
+          desired_work_hash TEXT NOT NULL,
+          work_mutation_id TEXT NOT NULL,
+          expected_work_revision TEXT NOT NULL,
+          phase TEXT NOT NULL,
+          effect_attempted_at TEXT,
+          effect_expires_at TEXT,
+          mutation_applied_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_escalation_use_operations_pending ON escalation_use_operations(escalation_id, phase, created_at);
+      `);
+    },
+  },
+  {
+    id: RUNTIME_MIGRATION_ID_ESCALATION_USE_EFFECT_FACTS,
+    apply(database: DatabaseSync): void {
+      const tables = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'escalation_use_operations'").all();
+      if (tables.length === 0) return;
+      const columns = database.prepare("PRAGMA table_info(escalation_use_operations)").all() as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === "effect_attempted_at")) database.exec("ALTER TABLE escalation_use_operations ADD COLUMN effect_attempted_at TEXT");
+      if (!columns.some((column) => column.name === "effect_expires_at")) database.exec("ALTER TABLE escalation_use_operations ADD COLUMN effect_expires_at TEXT");
+      if (!columns.some((column) => column.name === "mutation_applied_at")) database.exec("ALTER TABLE escalation_use_operations ADD COLUMN mutation_applied_at TEXT");
     },
   },
 ] as const;
@@ -1298,6 +1557,7 @@ function gitOutput(rootDir: string, args: string[]): string | undefined {
 function parseGitChangedFiles(
   raw: string | undefined,
   rootDir: string,
+  gitRootDir: string = rootDir,
 ): RuntimeChangedFileAuditEntry[] {
   if (!raw) {
     return [];
@@ -1318,10 +1578,10 @@ function parseGitChangedFiles(
         continue;
       }
       const identity = createRuntimeLockIdentity(pathValue, {
-        rootDir,
-        cwd: rootDir,
+        rootDir: gitRootDir,
+        cwd: gitRootDir,
       });
-      if (identity.path.startsWith(RUNTIME_INTERNAL_PATH_PREFIX)) {
+      if (isOperationalArtifact(identity.path)) {
         continue;
       }
       files.push({
@@ -1338,10 +1598,10 @@ function parseGitChangedFiles(
       continue;
     }
     const identity = createRuntimeLockIdentity(pathValue, {
-      rootDir,
-      cwd: rootDir,
+      rootDir: gitRootDir,
+      cwd: gitRootDir,
     });
-    if (identity.path.startsWith(RUNTIME_INTERNAL_PATH_PREFIX)) {
+    if (isOperationalArtifact(identity.path)) {
       continue;
     }
     files.push({
@@ -1357,6 +1617,7 @@ function parseGitChangedFiles(
 function parseGitUntrackedFiles(
   raw: string | undefined,
   rootDir: string,
+  gitRootDir: string = rootDir,
 ): RuntimeChangedFileAuditEntry[] {
   if (!raw) {
     return [];
@@ -1367,10 +1628,10 @@ function parseGitUntrackedFiles(
     .filter((entry) => entry.length > 0)
     .flatMap((pathValue) => {
       const identity = createRuntimeLockIdentity(pathValue, {
-        rootDir,
-        cwd: rootDir,
+        rootDir: gitRootDir,
+        cwd: gitRootDir,
       });
-      if (identity.path.startsWith(RUNTIME_INTERNAL_PATH_PREFIX)) {
+      if (isOperationalArtifact(identity.path)) {
         return [];
       }
       return {
@@ -1411,9 +1672,12 @@ function mergeRuntimeChangedFiles(
   return [...merged.values()];
 }
 
-function mergeTreeHasConflicts(output: string | undefined): boolean {
-  if (!output) {
+function mergeTreeOutputHasConflicts(output: string | undefined): boolean {
+  if (output === undefined) {
     return true;
+  }
+  if (output.length === 0) {
+    return false;
   }
   return (
     output.includes("changed in both") ||
@@ -1556,10 +1820,19 @@ export class RuntimeSqliteStore {
   readonly database: DatabaseSync;
   readonly databasePath: string;
   readonly rootDir: string;
+  readonly gitRootDir: string;
+  readonly auditTrace: RuntimeClaimAuditTrace | undefined;
+  readonly fullAuditTrace: RuntimeClaimCoverageAuditTrace | undefined;
+  readonly changedFileGitSnapshotReader: RuntimeChangedFileGitSnapshotReader;
 
   constructor(options: RuntimeSqliteStoreOptions = {}) {
     this.rootDir = path.resolve(options.rootDir ?? process.cwd());
+    this.gitRootDir = path.resolve(options.gitRootDir ?? this.rootDir);
     this.databasePath = resolveRuntimeDatabasePath(this.rootDir, options);
+    this.auditTrace = options.auditTrace;
+    this.fullAuditTrace = options.fullAuditTrace;
+    this.changedFileGitSnapshotReader =
+      options.changedFileGitSnapshotReader ?? esGitRuntimeChangedFileGitSnapshotReader;
     mkdirSync(path.dirname(this.databasePath), { recursive: true });
     this.database = new DatabaseSync(this.databasePath, {
       timeout: RUNTIME_SQLITE_BUSY_TIMEOUT_MS,
@@ -1576,83 +1849,157 @@ export class RuntimeSqliteStore {
     return runTransaction(this.database, callback);
   }
 
+  private traceFullAudit<T>(
+    stage: RuntimeClaimCoverageAuditTraceStage,
+    operation: () => T,
+  ): T {
+    return this.fullAuditTrace
+      ? this.fullAuditTrace.trace(stage, operation)
+      : operation();
+  }
+
+  private traceFullAuditGitOutput(
+    stage: RuntimeClaimCoverageAuditTraceStage,
+    args: string[],
+    auditTraceStage?: RuntimeClaimAuditTraceStage,
+  ): string | undefined {
+    const read = () => this.traceFullAudit(stage, () => {
+      const startedAt = performance.now();
+      try {
+        return gitOutput(this.gitRootDir, args);
+      } finally {
+        this.fullAuditTrace?.recordDirectGitSubprocess?.(performance.now() - startedAt);
+      }
+    });
+    const output = auditTraceStage && this.auditTrace
+      ? this.auditTrace.trace(auditTraceStage, read)
+      : read();
+    this.fullAuditTrace?.recordOutcome?.(
+      stage,
+      output === undefined ? "undefined" : "value",
+    );
+    return output;
+  }
+
+  private traceFullAuditAsync<T>(
+    stage: RuntimeClaimCoverageAuditTraceStage,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    return this.fullAuditTrace?.traceAsync
+      ? this.fullAuditTrace.traceAsync(stage, operation)
+      : operation();
+  }
+
+  private changedFileSnapshotTrace(): RuntimeChangedFileGitSnapshotTrace {
+    return {
+      trace: async (stage, operation) => {
+        const read = () => this.traceFullAuditAsync(stage, operation);
+        const auditTraceStage: RuntimeClaimAuditTraceStage | undefined =
+          stage === "gitChangedFilesHeadRef"
+            ? "gitRevParseAbbrevRefHead"
+            : stage === "gitChangedFilesHead"
+              ? "gitRevParseHead"
+              : undefined;
+        return auditTraceStage && this.auditTrace
+          ? await this.auditTrace.trace(auditTraceStage, read)
+          : await read();
+      },
+      recordOutcome: (stage, outcome) =>
+        this.fullAuditTrace?.recordOutcome?.(stage, outcome),
+      recordDirectGitSubprocess: (durationMs) =>
+        this.fullAuditTrace?.recordDirectGitSubprocess?.(durationMs),
+    };
+  }
+
   private readLockConflict(
     pathValue: string,
     key: string,
   ): RuntimeLockConflictDetail | undefined {
-    const row = this.database.prepare(
-      `SELECT
-        locks.path,
-        locks.key,
-        locks.claim_token,
-        locks.target_type,
-        locks.target_id,
-        runtime_claims.state AS claim_state,
-        runtime_claims.expires_at AS claim_expires_at
-       FROM locks
-       JOIN runtime_claims ON runtime_claims.claim_token = locks.claim_token
-       WHERE locks.path = ? OR locks.key = ?`,
-    ).get(pathValue, key) as Record<string, unknown> | undefined;
-    return row ? toRuntimeLockConflictDetail(row) : undefined;
+    const lookup = () => {
+      const row = this.database.prepare(
+        `SELECT
+          locks.path,
+          locks.key,
+          locks.claim_token,
+          locks.target_type,
+          locks.target_id,
+          runtime_claims.state AS claim_state,
+          runtime_claims.expires_at AS claim_expires_at
+         FROM locks
+         JOIN runtime_claims ON runtime_claims.claim_token = locks.claim_token
+         WHERE locks.path = ? OR locks.key = ?`,
+      ).get(pathValue, key) as Record<string, unknown> | undefined;
+      return row ? toRuntimeLockConflictDetail(row) : undefined;
+    };
+    const tracedLookup = () => {
+      if (!this.fullAuditTrace) {
+        return lookup();
+      }
+      return this.fullAuditTrace.traceLockLookup
+        ? this.fullAuditTrace.traceLockLookup(pathValue, lookup)
+        : this.fullAuditTrace.trace("scopeLockLookup", lookup);
+    };
+    return this.auditTrace
+      ? this.auditTrace.trace("scopeLockLookup", tracedLookup)
+      : tracedLookup();
   }
 
-  private collectGitAuditContext(mergeTargetRef: string): {
+  private async collectGitAuditContext(mergeTargetRef: string): Promise<{
     headRef?: string;
     headSha?: string;
     fresh: boolean;
     mergeable: boolean;
-  } {
-    const headRef =
-      gitOutput(this.rootDir, ["rev-parse", "--abbrev-ref", "HEAD"])?.trim() ||
-      undefined;
-    const headSha = gitOutput(this.rootDir, ["rev-parse", "HEAD"])?.trim();
-    const mergeTargetSha = gitOutput(this.rootDir, [
-      "rev-parse",
+    branchDiff?: string;
+    worktreeDiff?: string;
+    untracked?: string;
+  }> {
+    const snapshot = await this.changedFileGitSnapshotReader.readSnapshot({
+      rootDir: this.gitRootDir,
       mergeTargetRef,
-    ])?.trim();
-    const mergeBaseSha =
-      mergeTargetSha && headSha
-        ? gitOutput(this.rootDir, ["merge-base", mergeTargetRef, "HEAD"])?.trim()
-        : undefined;
-    const mergeTreeOutput =
-      mergeTargetSha && headSha
-        ? gitOutput(this.rootDir, [
-            "merge-tree",
-            mergeBaseSha ?? mergeTargetRef,
-            mergeTargetRef,
-            "HEAD",
-          ])
-        : undefined;
+      trace: this.changedFileSnapshotTrace(),
+    });
+    const headRef = snapshot.headRef?.trim() || undefined;
+    const headSha = snapshot.headSha?.trim();
+    const mergeTargetSha = snapshot.mergeTargetSha?.trim();
+    const mergeBaseSha = snapshot.mergeBaseSha?.trim();
     const hasGitContext = Boolean(headSha || mergeTargetSha);
     const fresh =
       !hasGitContext ||
-      (!!mergeTargetSha &&
-        !!mergeBaseSha &&
-        mergeBaseSha === mergeTargetSha);
+      (!!mergeTargetSha && !!mergeBaseSha && mergeBaseSha === mergeTargetSha);
     const mergeable =
       !hasGitContext ||
-      (!!mergeTargetSha && !!headSha && !mergeTreeHasConflicts(mergeTreeOutput));
+      (!!mergeTargetSha &&
+        !!headSha &&
+        !mergeTreeOutputHasConflicts(snapshot.mergeTreeOutput));
 
     return {
       ...(headRef ? { headRef } : {}),
       ...(headSha ? { headSha } : {}),
       fresh,
       mergeable,
+      ...(snapshot.branchDiff === undefined ? {} : { branchDiff: snapshot.branchDiff }),
+      ...(snapshot.worktreeDiff === undefined ? {} : { worktreeDiff: snapshot.worktreeDiff }),
+      ...(snapshot.untracked === undefined ? {} : { untracked: snapshot.untracked }),
     };
   }
 
   private normalizeRuntimeLockIdentities(
     paths: string[],
   ): Array<{ path: string; key: string }> {
-    const identities = new Map<string, { path: string; key: string }>();
-    for (const inputPath of paths) {
-      const identity = createRuntimeLockIdentity(inputPath, {
-        rootDir: this.rootDir,
-        cwd: this.rootDir,
-      });
-      identities.set(identity.path, identity);
-    }
-    return [...identities.values()];
+    const normalize = () => {
+      const identities = new Map<string, { path: string; key: string }>();
+      for (const inputPath of paths) {
+        const identity = createRuntimeLockIdentity(inputPath, {
+          rootDir: this.rootDir,
+          cwd: this.rootDir,
+        });
+        identities.set(identity.path, identity);
+      }
+      return [...identities.values()];
+    };
+    return this.auditTrace
+      ? this.auditTrace.trace("requiredPathNormalization", normalize)
+      : normalize();
   }
 
   private readRuntimeLockWorktreeStates(
@@ -1664,7 +2011,7 @@ export class RuntimeSqliteStore {
         "git",
         [
           "-C",
-          this.rootDir,
+          this.gitRootDir,
           "status",
           "--porcelain=v1",
           "--untracked-files=all",
@@ -1973,6 +2320,40 @@ export class RuntimeSqliteStore {
         executionLogEntry,
       };
     }
+  }
+
+  /**
+   * Atomically releases the exact expired lease inspected by a caller. The
+   * expiration fingerprint prevents a concurrent adoption from being removed.
+   */
+  releaseExpiredRuntimeClaim(
+    claimToken: string,
+    expectedExpiresAt: string,
+  ): RuntimeExpiredClaimReleaseResult {
+    return this.withTransaction(() => {
+      const claim = this.getClaimByToken(claimToken);
+      if (!claim) {
+        return { outcome: "missing" };
+      }
+      if (claim.state !== "expired" || claim.expires_at !== expectedExpiresAt) {
+        return { outcome: "condition-not-met", claim };
+      }
+
+      const locksRemoved = this.listLocksByClaimToken(claimToken).length;
+      const deletion = this.database.prepare(
+        `DELETE FROM claims
+         WHERE claim_token = ?
+           AND expires_at = ?
+           AND expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+      ).run(claimToken, expectedExpiresAt);
+      if (Number(deletion.changes) !== 1) {
+        const current = this.getClaimByToken(claimToken);
+        return current
+          ? { outcome: "condition-not-met", claim: current }
+          : { outcome: "missing" };
+      }
+      return { outcome: "released", claim, locksRemoved };
+    });
   }
 
   acquireRuntimeLocks(
@@ -2294,49 +2675,44 @@ export class RuntimeSqliteStore {
     return this.collectRuntimeLockStatus(claimToken);
   }
 
-  auditChangedFiles(
+  async auditChangedFiles(
     claimToken: string,
     options: { mergeTargetRef?: string } = {},
-  ): RuntimeChangedFileAuditResult {
-    const claim = this.getClaimByToken(claimToken);
+  ): Promise<RuntimeChangedFileAuditResult> {
+    const claim = this.auditTrace
+      ? this.auditTrace.trace("claimLookup", () =>
+          this.getClaimByToken(claimToken),
+        )
+      : this.getClaimByToken(claimToken);
     const mergeTargetRef = options.mergeTargetRef ?? "HEAD";
-    const { headRef, headSha, fresh, mergeable } =
-      this.collectGitAuditContext(mergeTargetRef);
+    const {
+      headRef,
+      headSha,
+      fresh,
+      mergeable,
+      branchDiff,
+      worktreeDiff,
+      untracked,
+    } = await this.collectGitAuditContext(mergeTargetRef);
 
-    const branchChanges = parseGitChangedFiles(
-      gitOutput(this.rootDir, [
-        "diff",
-        "--name-status",
-        "-z",
-        "--find-renames",
-        `${mergeTargetRef}...HEAD`,
-      ]),
-      this.rootDir,
+    const branchChanges = this.traceFullAudit("gitChangedFileParsing", () =>
+      parseGitChangedFiles(branchDiff, this.rootDir, this.gitRootDir),
     );
-    const worktreeChanges = parseGitChangedFiles(
-      gitOutput(this.rootDir, [
-        "diff",
-        "--name-status",
-        "-z",
-        "--find-renames",
-        "HEAD",
-      ]),
-      this.rootDir,
+    const worktreeChanges = this.traceFullAudit("gitChangedFileParsing", () =>
+      parseGitChangedFiles(worktreeDiff, this.rootDir, this.gitRootDir),
     );
-    const untrackedChanges = parseGitUntrackedFiles(
-      gitOutput(this.rootDir, [
-        "ls-files",
-        "--others",
-        "--exclude-standard",
-        "-z",
-      ]),
-      this.rootDir,
+    const untrackedChanges = this.traceFullAudit("gitChangedFileParsing", () =>
+      parseGitUntrackedFiles(untracked, this.rootDir, this.gitRootDir),
     );
-    const changedFiles = mergeRuntimeChangedFiles(
+    const branchAndWorktree = this.traceFullAudit("gitChangedFileMerge", () =>
       mergeRuntimeChangedFiles(branchChanges, worktreeChanges),
-      untrackedChanges,
     );
-    const renameDiagnostics = detectRuntimeRenameDiagnostics(changedFiles);
+    const changedFiles = this.traceFullAudit("gitChangedFileMerge", () =>
+      mergeRuntimeChangedFiles(branchAndWorktree, untrackedChanges),
+    );
+    const renameDiagnostics = this.traceFullAudit("gitRenameDetection", () =>
+      detectRuntimeRenameDiagnostics(changedFiles),
+    );
     const renamePaths = new Set(
       renameDiagnostics.flatMap((diagnostic) => {
         const paths = [diagnostic.details.path];
@@ -2350,12 +2726,21 @@ export class RuntimeSqliteStore {
 
     for (const entry of changedFiles) {
       const lockConflict = this.readLockConflict(entry.path, entry.key);
-      const actualLockState = resolveRuntimeAuditLockState({
-        entry,
-        claimToken,
-        lockConflict,
-        renamePaths,
-      });
+      const actualLockState = this.auditTrace
+        ? this.auditTrace.trace("lockOwnershipDecision", () =>
+            resolveRuntimeAuditLockState({
+              entry,
+              claimToken,
+              lockConflict,
+              renamePaths,
+            }),
+          )
+        : resolveRuntimeAuditLockState({
+            entry,
+            claimToken,
+            lockConflict,
+            renamePaths,
+          });
       if (actualLockState === "owned") {
         continue;
       }
@@ -2389,10 +2774,54 @@ export class RuntimeSqliteStore {
     paths: string[],
     options: { mergeTargetRef?: string } = {},
   ): RuntimeChangedFileAuditResult {
-    const claim = this.getClaimByToken(claimToken);
+    const headRef = this.traceFullAuditGitOutput(
+      "gitRequiredPathsHeadRef",
+      ["rev-parse", "--abbrev-ref", "HEAD"],
+      "gitRevParseAbbrevRefHead",
+    )?.trim() || undefined;
+    const headSha = this.traceFullAuditGitOutput(
+      "gitRequiredPathsHead",
+      ["rev-parse", "HEAD"],
+      "gitRevParseHead",
+    )?.trim();
+    return this.buildClaimedPathAudit(claimToken, paths, options, {
+      ...(headRef ? { headRef } : {}),
+      ...(headSha ? { headSha } : {}),
+    });
+  }
+
+  async auditClaimedPathsWithGitAdapter(
+    claimToken: string,
+    paths: string[],
+    gitAuditAdapter: ClaimedPathGitAuditAdapter,
+    options: { mergeTargetRef?: string; gitRootDir?: string } = {},
+  ): Promise<RuntimeChangedFileAuditResult> {
+    const metadata = await gitAuditAdapter.readMetadata(
+      options.gitRootDir ?? this.gitRootDir,
+    );
+    return this.buildClaimedPathAudit(claimToken, paths, options, {
+      ...(metadata.detached ? { headRef: "HEAD" } : {}),
+      ...(metadata.branch ? { headRef: metadata.branch } : {}),
+      ...(metadata.headOid ? { headSha: metadata.headOid } : {}),
+    });
+  }
+
+  private buildClaimedPathAudit(
+    claimToken: string,
+    paths: string[],
+    options: { mergeTargetRef?: string },
+    metadata: { headRef?: string; headSha?: string },
+  ): RuntimeChangedFileAuditResult {
+    const claim = this.auditTrace
+      ? this.auditTrace.trace("claimLookup", () =>
+          this.getClaimByToken(claimToken),
+        )
+      : this.getClaimByToken(claimToken);
     const mergeTargetRef = options.mergeTargetRef ?? "HEAD";
-    const { headRef, headSha, fresh, mergeable } =
-      this.collectGitAuditContext(mergeTargetRef);
+    // This audit verifies explicit predicted paths only; branch freshness and
+    // mergeability belong to the changed-file audit.
+    const fresh = true;
+    const mergeable = true;
     const emptyRenamePaths = new Set<string>();
     const changedFiles = this.normalizeRuntimeLockIdentities(paths).map(
       (entry) => ({
@@ -2405,12 +2834,21 @@ export class RuntimeSqliteStore {
 
     for (const entry of changedFiles) {
       const lockConflict = this.readLockConflict(entry.path, entry.key);
-      const actualLockState = resolveRuntimeAuditLockState({
-        entry,
-        claimToken,
-        lockConflict,
-        renamePaths: emptyRenamePaths,
-      });
+      const actualLockState = this.auditTrace
+        ? this.auditTrace.trace("lockOwnershipDecision", () =>
+            resolveRuntimeAuditLockState({
+              entry,
+              claimToken,
+              lockConflict,
+              renamePaths: emptyRenamePaths,
+            }),
+          )
+        : resolveRuntimeAuditLockState({
+            entry,
+            claimToken,
+            lockConflict,
+            renamePaths: emptyRenamePaths,
+          });
       if (actualLockState === "owned") {
         continue;
       }
@@ -2429,8 +2867,8 @@ export class RuntimeSqliteStore {
       claimToken,
       claim,
       mergeTargetRef,
-      headRef,
-      headSha,
+      ...(metadata.headRef ? { headRef: metadata.headRef } : {}),
+      ...(metadata.headSha ? { headSha: metadata.headSha } : {}),
       fresh,
       mergeable,
       changedFiles,

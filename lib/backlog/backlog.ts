@@ -62,8 +62,7 @@ export function isReadyAfkEligibleWorkItem(
     return false;
   }
 
-  const tags = normalizeTags(item.tags);
-  return tags.includes("afk") && !tags.includes("hitl");
+  return !normalizeTags(item.tags).includes("hitl");
 }
 /**
  * Finds the next available numeric id prefix in the backlog directory.

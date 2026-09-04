@@ -21,7 +21,7 @@ function mkConsumerConfig(automation: Record<string, unknown> = {}) {
   writeBacklogConsumerConfig(testDir, automation);
 }
 
-function acquireArchiveClaim(taskId: string, lockPaths: string[]): void {
+function acquireArchiveClaim(taskId: string, lockPaths: string[]): string {
   const store = openRuntimeSqliteStore({ rootDir: testDir });
   try {
     const createdAt = new Date();
@@ -41,6 +41,7 @@ function acquireArchiveClaim(taskId: string, lockPaths: string[]): void {
     if (acquisition.outcome !== "acquired") {
       throw new Error(`Expected runtime claim acquisition for ${taskId}.`);
     }
+    return acquisition.claimToken;
   } finally {
     store.close();
   }
@@ -154,7 +155,7 @@ describe("scan-conditions", () => {
     );
     expect(conditions.find((c) => c.code === "valid_status")?.value).toBe(true);
     expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
-      true,
+      false,
     );
   });
 
@@ -167,6 +168,38 @@ describe("scan-conditions", () => {
         pull_requests: ["https://github.com/example/repo/pull/1"],
       },
     });
+    expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
+      true,
+    );
+  });
+
+  it("evaluateConditions: valid_evidence false when terminal metadata is incomplete", () => {
+    const { conditions } = evaluateConditions({
+      id: "work-item:201",
+      status: "completed",
+      lifecycle: "inactive",
+      links: {
+        evidence: ["[[record-20260704-work-item-201]]"],
+      },
+    });
+
+    expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
+      false,
+    );
+  });
+
+  it("evaluateConditions: valid_evidence true when terminal metadata uses a string evidence link", () => {
+    const { conditions } = evaluateConditions({
+      id: "work-item:202",
+      status: "aborted",
+      lifecycle: "inactive",
+      status_reason: "cancelled",
+      completed_date: "2026-07-04",
+      links: {
+        evidence: "[[record-20260704-work-item-202]]",
+      },
+    });
+
     expect(conditions.find((c) => c.code === "valid_evidence")?.value).toBe(
       true,
     );
@@ -567,17 +600,24 @@ links:
 ---
 # Work item
 
+## Tasks
+- [x] Complete archive candidate work.
+
+## Acceptance Criteria
+- [x] Archive candidate is ready to finalize.
+
 ## Closure Notes
 - 2026-01-01: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
           );
-          acquireArchiveClaim("work-item:012", [
+          const claimToken = acquireArchiveClaim("work-item:012", [
             "backlog/12.archive-ready.md",
             "backlog/archive/12.archive-ready.md",
           ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
+            claimToken,
             consumerConfig: ".doc-vader/backlog-consumer.json",
           });
 
@@ -643,6 +683,12 @@ links:
 ---
 # Work item
 
+## Tasks
+- [x] Complete archive candidate work.
+
+## Acceptance Criteria
+- [x] Archive candidate is ready to finalize.
+
 ## Closure Notes
 - 2026-01-01: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
@@ -700,6 +746,12 @@ links:
     - "[[record-20260105-000000-014]]"
 ---
 # Work item
+
+## Tasks
+- [x] Complete archive candidate work.
+
+## Acceptance Criteria
+- [x] Archive candidate is ready to finalize.
 
 ## Closure Notes
 - 2026-01-05: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
@@ -760,6 +812,12 @@ links:
 ---
 # Work item
 
+## Tasks
+- [x] Complete archive candidate work.
+
+## Acceptance Criteria
+- [x] Archive candidate is ready to finalize.
+
 ## Closure Notes
 - 2026-01-02: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
@@ -779,13 +837,14 @@ links:
 # Work item
 `,
           );
-          acquireArchiveClaim("work-item:015", [
+          const claimToken = acquireArchiveClaim("work-item:015", [
             "backlog/15.referenced-ready.md",
             "backlog/archive/15.referenced-ready.md",
           ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
+            claimToken,
             consumerConfig: ".doc-vader/backlog-consumer.json",
           });
 
@@ -856,6 +915,54 @@ title: Invalid candidate
   );
 
   it(
+    "validate-archive-candidates updates an invalid actively claimed candidate with its claim token",
+    { timeout: 15000 },
+    async () => {
+      mkConsumerConfig({
+        validateArchiveCandidates: true,
+        invalidCandidateStatus: "running",
+      });
+      mkFile(
+        "backlog/13.claimed-invalid.md",
+        `---
+id: "work-item:013"
+type: work-item
+status: completed
+status_reason: completed
+lifecycle: active
+title: Claimed invalid candidate
+---
+# Work item
+`,
+      );
+      const claimToken = acquireArchiveClaim("work-item:013", [
+        "backlog/13.claimed-invalid.md",
+      ]);
+
+      const report = await scanBacklog({
+        rootDir: testDir,
+        claimToken,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+      });
+
+      const item = report.items.find((entry) => entry.id === "work-item:013");
+      expect(item?.candidateValidation?.updatedStatus).toBe("running");
+      expect(report.summary.invalidStatusUpdates).toBe(1);
+      expect(
+        item?.errors.some(
+          (error) => error.code === "candidate_status_update_failed",
+        ),
+      ).toBe(false);
+      expect(
+        fsSync.readFileSync(
+          path.join(testDir, "backlog", "13.claimed-invalid.md"),
+          "utf8",
+        ),
+      ).toContain("status: running");
+    },
+  );
+
+  it(
     "validate-archive-candidates auto-generates missing evidence for ready candidates",
     { timeout: 15000 },
     async () => {
@@ -890,17 +997,24 @@ links:
 ---
 # Work item
 
+## Tasks
+- [x] Complete archive candidate work.
+
+## Acceptance Criteria
+- [x] Archive candidate is ready to finalize.
+
 ## Closure Notes
 - 2026-01-03: Closed as completed with evidence in PR #21.
 `,
           );
-          acquireArchiveClaim("work-item:021", [
+          const claimToken = acquireArchiveClaim("work-item:021", [
             "backlog/21.ready-missing-evidence.md",
             "backlog/archive/21.ready-missing-evidence.md",
           ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
+            claimToken,
             consumerConfig: ".doc-vader/backlog-consumer.json",
             generateEvidence: true,
             resolverOrder: ["payload_subject_tokens"],
@@ -962,17 +1076,24 @@ links:
 ---
 # Work item
 
+## Tasks
+- [x] Complete archive candidate work.
+
+## Acceptance Criteria
+- [x] Archive candidate is ready to finalize.
+
 ## Closure Notes
 - 2026-01-04: Closed as completed with evidence in PR #22.
 `,
           );
-          acquireArchiveClaim("wi-22", [
+          const claimToken = acquireArchiveClaim("wi-22", [
             "backlog/22.wi-ready-missing-evidence.md",
             "backlog/archive/22.wi-ready-missing-evidence.md",
           ]);
 
           const report = await scanBacklog({
             rootDir: testDir,
+            claimToken,
             consumerConfig: ".doc-vader/backlog-consumer.json",
             generateEvidence: true,
           });
@@ -1035,11 +1156,17 @@ links:
 ---
 # Work item
 
+## Tasks
+- [x] Complete archive candidate work.
+
+## Acceptance Criteria
+- [x] Archive candidate is ready to finalize.
+
 ## Closure Notes
 - 2026-01-03: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.
 `,
           );
-          acquireArchiveClaim("work-item:017", [
+          const claimToken = acquireArchiveClaim("work-item:017", [
             "backlog/17.nested-ref-candidate.md",
             "backlog/archive/17.nested-ref-candidate.md",
           ]);
@@ -1066,6 +1193,7 @@ links:
 
           const report = await scanBacklog({
             rootDir: testDir,
+            claimToken,
             consumerConfig: ".doc-vader/backlog-consumer.json",
           });
 

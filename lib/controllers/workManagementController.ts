@@ -6,4 +6,8 @@ export {
   finalizeWorkItem as finalize,
   migrateBacklog as migrate,
   ingestEvent,
+  inspectWorkItemQualifiers as inspectQualifiers,
+  attestWorkItemQualifier as attestQualifier,
+  mutateWorkItemQualifier as mutateQualifier,
+  type WorkItemQualifierInspection,
 } from "../work-management/index.js";

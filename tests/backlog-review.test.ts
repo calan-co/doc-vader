@@ -302,11 +302,10 @@ tags:
         JSON.parse(formatBacklogReviewReportJson(second)),
       );
       expect(cliJson).toEqual(JSON.parse(formatBacklogReviewReportJson(first)));
-      expect(first.summary.candidateIds).toEqual(["wi-200", "wi-203"]);
+      expect(first.summary.candidateIds).toEqual(["wi-200", "wi-203", "wi-204"]);
       expect(first.summary.excludedIds).toEqual([
         "wi-201",
         "wi-202",
-        "wi-204",
         "wi-205",
         "wi-206",
         "wi-208",
@@ -317,7 +316,7 @@ tags:
       expect(first.summary.hitlIds).toEqual(["wi-201"]);
       expect(first.summary.dependencyBlockedIds).toEqual(["wi-212"]);
       expect(first.summary.dependencyStateUnknownIds).toEqual(["wi-202"]);
-      expect(first.summary.missingClassificationIds).toEqual(["wi-204"]);
+      expect(first.summary.missingClassificationIds).toEqual([]);
       expect(first.summary.invalidIds).toEqual(["wi-205"]);
       expect(first.summary.closedIds).toEqual(["wi-206", "wi-209"]);
       expect(first.summary.archivedIds).toEqual(["wi-208"]);

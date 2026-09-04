@@ -6,6 +6,7 @@ import {
   runRuntimeClaimCoverageAudit,
   type TransitionWorkItemResult,
 } from "../work-management/index.js";
+import { loadClaimAuthorityClaimByTarget } from "../claim/index.js";
 import { evaluateTransition } from "../work-management/frontmatter-lint.js";
 import { getClaimStatus } from "./claims.js";
 import { TaskCommandError } from "./errors.js";
@@ -21,9 +22,8 @@ export interface TaskTransitionPayload {
   to_status_reason?: string;
   reason?: string;
   actual?: number;
+  clearEstimated?: boolean;
   assignee?: string;
-  completedDate?: string;
-  completed_date?: string;
 }
 
 export interface TaskTransitionOptions {
@@ -32,8 +32,8 @@ export interface TaskTransitionOptions {
   expectedFromStatus?: string;
   statusReason?: string;
   actual?: number;
+  clearEstimated?: boolean;
   assignee?: string;
-  completedDate?: string;
   rootDir?: string;
   claimStorePath?: string;
   backlogDir?: string;
@@ -78,6 +78,18 @@ function normalizeNumber(value: unknown, field: string): number | undefined {
   return value;
 }
 
+function normalizeBoolean(value: unknown, field: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    throw new TaskCommandError(
+      "TASK_TRANSITION_INVALID_PAYLOAD",
+      `Payload field '${field}' must be a boolean.`,
+      { field },
+    );
+  }
+  return value;
+}
+
 export function validateTaskTransitionPayload(
   value: unknown,
 ): TaskTransitionPayload {
@@ -98,10 +110,16 @@ export function validateTaskTransitionPayload(
     "to_status_reason",
     "reason",
     "actual",
+    "clearEstimated",
     "assignee",
-    "completedDate",
-    "completed_date",
   ]);
+  if (payload.estimated !== undefined && payload.clearEstimated !== undefined) {
+    throw new TaskCommandError(
+      "TASK_TRANSITION_INVALID_PAYLOAD",
+      "Payload cannot include both 'estimated' and 'clearEstimated'.",
+      { fields: ["estimated", "clearEstimated"] },
+    );
+  }
   const unknownFields = Object.keys(payload).filter(
     (field) => !allowedFields.has(field),
   );
@@ -125,9 +143,8 @@ export function validateTaskTransitionPayload(
     ),
     reason: normalizeString(payload.reason, "reason"),
     actual: normalizeNumber(payload.actual, "actual"),
+    clearEstimated: normalizeBoolean(payload.clearEstimated, "clearEstimated"),
     assignee: normalizeString(payload.assignee, "assignee"),
-    completedDate: normalizeString(payload.completedDate, "completedDate"),
-    completed_date: normalizeString(payload.completed_date, "completed_date"),
   };
 }
 
@@ -218,8 +235,9 @@ async function applyTaskTransition(options: {
   expectedFromStatus?: string;
   statusReason?: string;
   actual?: number;
+  clearEstimated?: boolean;
   assignee?: string;
-  completedDate?: string;
+  claimToken?: string;
   dryRun?: boolean;
 }): Promise<Omit<TaskTransitionResult, "claimId">> {
   const toStatus = normalizeStatus(options.status);
@@ -266,9 +284,10 @@ async function applyTaskTransition(options: {
 
   if (toStatus === "completed") {
     await assertCompletedHasEvidence(options.rootDir, options.task.filePath);
-    const audit = runRuntimeClaimCoverageAudit({
+    const audit = await runRuntimeClaimCoverageAudit({
       rootDir: options.rootDir,
       taskId: options.task.id,
+      claimToken: options.claimToken,
       requiredPaths: [options.task.filePath],
     });
     if (!audit.passed) {
@@ -287,8 +306,9 @@ async function applyTaskTransition(options: {
     status: toStatus,
     statusReason: toStatusReason,
     actual: options.actual,
+    clearEstimated: options.clearEstimated,
     assignee: options.assignee,
-    completedDate: options.completedDate,
+    claimToken: options.claimToken,
     dryRun: options.dryRun,
   });
 
@@ -317,8 +337,8 @@ export function optionsFromTransitionPayload(
     statusReason:
       payload.statusReason ?? payload.to_status_reason ?? payload.reason,
     actual: payload.actual,
+    clearEstimated: payload.clearEstimated,
     assignee: payload.assignee,
-    completedDate: payload.completedDate ?? payload.completed_date,
   };
 }
 
@@ -338,6 +358,13 @@ export async function transitionTask(
       { claimId: options.claimId, state: claim.state },
     );
   }
+
+  const runtimeClaimToken =
+    loadClaimAuthorityClaimByTarget({
+      rootDir,
+      targetType: "task",
+      targetId: claim.taskId,
+    })?.claim_token ?? options.claimId;
 
   const task = await loadTaskModel(claim.taskId, {
     rootDir,
@@ -359,8 +386,9 @@ export async function transitionTask(
     expectedFromStatus: options.expectedFromStatus,
     statusReason: options.statusReason,
     actual: options.actual,
+    clearEstimated: options.clearEstimated,
     assignee: options.assignee,
-    completedDate: options.completedDate,
+    claimToken: runtimeClaimToken,
     dryRun: options.dryRun,
   });
 

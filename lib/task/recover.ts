@@ -3,26 +3,44 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
-  openRuntimeSqliteStore,
+  acquireClaimAuthorityRuntimeClaim,
+  auditClaimAuthorityClaimedPaths,
+  completeClaimAuthorityExecution,
+  haltClaimAuthorityExecution,
+  loadClaimAuthorityLatestHaltedTaskExecution,
+} from "../claim/index.js";
+import {
   type RuntimeClaimAcquisitionSeed,
   type RuntimeClaimRecord,
+  type RuntimeChangedFileAuditResult,
   type RuntimeExecutionLogRecord,
   type RuntimeExecutionHaltedReason,
 } from "../runtime/index.js";
 import {
-  runRuntimeClaimCoverageAudit,
   transitionWorkItem,
   type TransitionWorkItemResult,
 } from "../work-management/index.js";
+import {
+  esGitClaimedPathGitAuditAdapter,
+  type ClaimedPathGitAuditAdapter,
+  type ClaimedPathGitMetadata,
+  ClaimedPathGitMetadataReadError,
+} from "../runtime/git-audit-adapter.js";
 import { TaskCommandError } from "./errors.js";
 import { loadTaskModel } from "./model.js";
 import {
-  collectBranchDiffPaths,
-  collectTaskRecoveryGitState,
+  collectTaskRecoverySafetyGitState,
   isRecoverableReadyRuntimeState,
   type GitChangedPathEntry,
   type TaskRecoveryGitState,
 } from "./recovery-state.js";
+import type { TaskRecoverySafetyStateReader } from "./recovery-safety-state-reader.js";
+import {
+  createRecoveryAuditTrace,
+  traceRecoveryStage,
+  traceRecoveryStageAsync,
+  type RecoveryTrace,
+} from "./recovery-trace.js";
 
 export type TaskRecoveryForceMode = "reset" | "reconcile";
 
@@ -33,11 +51,17 @@ export interface RecoverTaskClaimOptions {
   consumerConfig?: string;
   taskId: string;
   holder?: string;
-  branch?: string;
+  /**
+   * `null` preserves a selected detached worktree by suppressing stale runtime branch fallback.
+   */
+  branch?: string | null;
   worktree?: string;
   ttlMinutes?: number;
   force?: TaskRecoveryForceMode;
   dryRun?: boolean;
+  trace?: RecoveryTrace;
+  gitAuditAdapter?: ClaimedPathGitAuditAdapter;
+  recoverySafetyStateReader?: TaskRecoverySafetyStateReader;
 }
 
 export interface RecoverTaskClaimCheckpoint {
@@ -164,16 +188,14 @@ function loadLatestHaltedPathScope(
   rootDir: string,
   taskId: string,
 ): RecoveryHaltedPathScope | undefined {
-  const store = openRuntimeSqliteStore({ rootDir });
+  const latest = loadClaimAuthorityLatestHaltedTaskExecution({
+    rootDir,
+    taskId,
+  });
+  if (!latest) {
+    return undefined;
+  }
   try {
-    const latest = [...store.listExecutionLogEntries()]
-      .reverse()
-      .find(
-        (entry) => entry.target_id === taskId && entry.state === "halted",
-      );
-    if (!latest) {
-      return undefined;
-    }
     let payload: unknown;
     try {
       payload = JSON.parse(latest.payload) as unknown;
@@ -200,8 +222,8 @@ function loadLatestHaltedPathScope(
       dirtyPaths: new Set(dirtyPaths),
       unlockedPaths: new Set(unlockedPaths),
     };
-  } finally {
-    store.close();
+  } catch {
+    return undefined;
   }
 }
 
@@ -351,6 +373,22 @@ function assertRecoverableStatus(options: {
     allowUncertainLineage: true,
   });
 
+  if (gitState.resumeBlockedReasons.length > 0) {
+    throw new TaskCommandError(
+      "TASK_RECOVERY_RESUME_BLOCKED",
+      `Task '${task.id}' recovery is blocked by the current Git repository state.`,
+      {
+        taskId: task.id,
+        status: task.status,
+        latestExecutionLog: latestExecutionLog ?? null,
+        resumeBlockedReasons: gitState.resumeBlockedReasons,
+        gitState,
+        recommendation:
+          "Resolve the reported Git state before retrying recovery. Recovery will not acquire claims, transition the task, or discard changes while a resume blocker is present.",
+      },
+    );
+  }
+
   if (!options.force && recoverableWithForce && !recoverableReadyState) {
     throw new TaskCommandError(
       "TASK_RECOVERY_FORCE_REQUIRED",
@@ -415,6 +453,39 @@ function createRecoveryHaltDetail(message: string, claimToken: string): {
   };
 }
 
+async function readRecoveryClaimedPathGitMetadata(options: {
+  rootDir: string;
+  taskId: string;
+  gitAuditAdapter: ClaimedPathGitAuditAdapter;
+  trace?: RecoveryTrace;
+}): Promise<ClaimedPathGitMetadata> {
+  try {
+    return await traceRecoveryStageAsync(
+      options.trace,
+      "gitRevParseAbbrevRefHead",
+      () =>
+        traceRecoveryStageAsync(
+          options.trace,
+          "gitRevParseHead",
+          () => options.gitAuditAdapter.readMetadata(options.rootDir),
+        ),
+    );
+  } catch (error) {
+    throw new TaskCommandError(
+      "TASK_RECOVERY_CLAIMED_PATH_GIT_METADATA_UNAVAILABLE",
+      `Task '${options.taskId}' recovery cannot read claimed-path Git metadata before acquiring a claim.`,
+      {
+        taskId: options.taskId,
+        rootDir: options.rootDir,
+        ...(error instanceof ClaimedPathGitMetadataReadError
+          ? { adapter: error.adapter }
+          : {}),
+        metadataError: error instanceof Error ? error.message : String(error),
+      },
+    );
+  }
+}
+
 export async function recoverTaskClaim(
   options: RecoverTaskClaimOptions,
 ): Promise<RecoverTaskClaimResult> {
@@ -422,19 +493,40 @@ export async function recoverTaskClaim(
   const consumerConfig =
     options.consumerConfig ?? ".doc-vader/backlog-consumer.json";
   const now = new Date();
-  const task = await loadTaskModel(options.taskId, {
-    rootDir,
-    backlogDir: options.backlogDir,
-  });
-  const gitState = collectTaskRecoveryGitState({
-    rootDir,
-    taskFilePath: task.filePath,
-    expectedBranch: options.branch ?? task.runtime?.latestExecutionLog?.branch,
-    expectedWorktree: options.worktree ?? task.runtime?.latestExecutionLog?.worktree,
-  });
+  const task = await traceRecoveryStageAsync(
+    options.trace,
+    "taskRuntimeLoading",
+    () =>
+      loadTaskModel(options.taskId, {
+        rootDir,
+        backlogDir: options.backlogDir,
+      }),
+  );
+  const gitState = await traceRecoveryStageAsync(
+    options.trace,
+    "gitSafetyState",
+    () =>
+      collectTaskRecoverySafetyGitState({
+        rootDir,
+        taskFilePath: task.filePath,
+        expectedBranch:
+          options.branch === undefined
+            ? task.runtime?.latestExecutionLog?.branch
+            : options.branch ?? undefined,
+        expectedWorktree: options.worktree ?? task.runtime?.latestExecutionLog?.worktree,
+        reader: options.recoverySafetyStateReader,
+      }),
+  );
 
   assertRecoverySafe(task);
   assertRecoverableStatus({ task, gitState, force: options.force });
+
+  const claimedPathGitMetadata = await readRecoveryClaimedPathGitMetadata({
+    rootDir,
+    taskId: task.id,
+    gitAuditAdapter: options.gitAuditAdapter ?? esGitClaimedPathGitAuditAdapter,
+    trace: options.trace,
+  });
 
   const changedPaths = gitState.dirtyPaths;
   const recoverableReadyRuntimeState = isRecoverableReadyRuntimeState({
@@ -489,7 +581,7 @@ export async function recoverTaskClaim(
     );
   }
 
-  const branchPaths = collectBranchDiffPaths(rootDir).map((entry) =>
+  const branchPaths = gitState.branchDiffPaths.map((entry) =>
     asRelativeRepoPath(rootDir, entry),
   );
   const dirtyLockPaths =
@@ -505,14 +597,19 @@ export async function recoverTaskClaim(
   ];
 
   if (options.dryRun) {
-    const transition = await transitionWorkItem({
-      rootDir,
-      consumerConfig,
-      id: task.id,
-      status: "ready",
-      statusReason: "recoverable",
-      dryRun: true,
-    });
+    const transition = await traceRecoveryStageAsync(
+      options.trace,
+      "dryRunTransition",
+      () =>
+        transitionWorkItem({
+          rootDir,
+          consumerConfig,
+          id: task.id,
+          status: "ready",
+          statusReason: "recoverable",
+          dryRun: true,
+        }),
+    );
     return {
       taskId: task.id,
       dryRun: true,
@@ -538,17 +635,22 @@ export async function recoverTaskClaim(
     rootDir,
     taskId: task.id,
     holder: normalizeHolder(options.holder),
-    branch: options.branch,
+    branch: options.branch ?? undefined,
     worktree: options.worktree,
     now,
     ttlMinutes: options.ttlMinutes ?? DEFAULT_TTL_MINUTES,
   });
 
-  const store = openRuntimeSqliteStore({ rootDir });
-  try {
-    const claimResult = store.acquireRuntimeClaim(claimSeed, {
-      initialLockPaths,
-    });
+  const claimResult = traceRecoveryStage(
+    options.trace,
+    "claimAcquisition",
+    () =>
+      acquireClaimAuthorityRuntimeClaim({
+        rootDir,
+        seed: claimSeed,
+        initialLockPaths,
+      }),
+  );
 
     if (claimResult.outcome !== "acquired") {
       throw new TaskCommandError(
@@ -564,47 +666,23 @@ export async function recoverTaskClaim(
     }
 
     let checkpoint: RecoverTaskClaimCheckpoint | undefined;
+    let authorizationAudit: RuntimeChangedFileAuditResult | undefined;
     try {
-      if (options.force) {
-        checkpoint = await prepareRecoveryCheckpoint({
-          rootDir,
-          taskId: task.id,
-          claimToken: claimResult.claimToken,
-          force: options.force,
-          dirtyPaths: changedPaths,
-        });
-        restoreDirtyPaths(rootDir, changedPaths);
-      }
-
-      await transitionWorkItem({
+      const auditTrace = createRecoveryAuditTrace(options.trace);
+      const audit = await auditClaimAuthorityClaimedPaths({
         rootDir,
-        consumerConfig,
-        id: task.id,
-        status: "ready",
-        statusReason: "recoverable",
-        dryRun: true,
+        claimToken: claimResult.claimToken,
+        requiredPaths: [task.filePath],
+        auditTrace,
+        gitAuditAdapter: {
+          async readMetadata() {
+            return claimedPathGitMetadata;
+          },
+        },
       });
-
-      const transitioned = await transitionWorkItem({
-        rootDir,
-        consumerConfig,
-        id: task.id,
-        status: "ready",
-        statusReason: "recoverable",
-      });
-
-      const audit =
-        recoverableReadyRuntimeState && !options.force
-          ? store.auditClaimedPaths(claimResult.claimToken, [task.filePath])
-          : runRuntimeClaimCoverageAudit({
-              rootDir,
-              taskId: task.id,
-              requiredPaths: [task.filePath],
-            });
+      authorizationAudit = audit;
       const auditPassed =
-        recoverableReadyRuntimeState && !options.force
-          ? audit.diagnostics.length === 0 && audit.renameDiagnostics.length === 0
-          : audit.passed;
+        audit.diagnostics.length === 0 && audit.renameDiagnostics.length === 0;
       if (!auditPassed) {
         throw new TaskCommandError(
           "TASK_RECOVERY_CHANGED_FILE_LOCK_AUDIT_FAILED",
@@ -617,7 +695,52 @@ export async function recoverTaskClaim(
         );
       }
 
-      const completed = store.completeRuntimeExecution(claimResult.claimToken);
+      if (options.force) {
+        checkpoint = await prepareRecoveryCheckpoint({
+          rootDir,
+          taskId: task.id,
+          claimToken: claimResult.claimToken,
+          force: options.force,
+          dirtyPaths: changedPaths,
+        });
+        restoreDirtyPaths(rootDir, changedPaths);
+      }
+
+      await traceRecoveryStageAsync(
+        options.trace,
+        "dryRunTransition",
+        () =>
+          transitionWorkItem({
+            rootDir,
+            consumerConfig,
+            id: task.id,
+            status: "ready",
+            statusReason: "recoverable",
+            claimToken: claimResult.claimToken,
+            claimedPathAudit: audit,
+            dryRun: true,
+          }),
+      );
+
+      const transitioned = await traceRecoveryStageAsync(
+        options.trace,
+        "appliedTransition",
+        () =>
+          transitionWorkItem({
+            rootDir,
+            consumerConfig,
+            id: task.id,
+            status: "ready",
+            statusReason: "recoverable",
+            claimToken: claimResult.claimToken,
+            claimedPathAudit: audit,
+          }),
+      );
+
+      const completed = completeClaimAuthorityExecution({
+        rootDir,
+        claimToken: claimResult.claimToken,
+      });
       return {
         taskId: task.id,
         dryRun: false,
@@ -631,32 +754,37 @@ export async function recoverTaskClaim(
         ...(checkpoint ? { checkpoint } : {}),
       };
     } catch (error) {
-      try {
-        await transitionWorkItem({
-          rootDir,
-          consumerConfig,
-          id: task.id,
-          status: task.status,
-          statusReason: task.statusReason,
-          dryRun: false,
-        });
-      } catch {
-        // Best-effort rollback only.
+      if (authorizationAudit) {
+        try {
+          await transitionWorkItem({
+            rootDir,
+            consumerConfig,
+            id: task.id,
+            status: task.status,
+            statusReason: task.statusReason,
+            claimToken: claimResult.claimToken,
+            claimedPathAudit: authorizationAudit,
+            dryRun: false,
+          });
+        } catch {
+          // Best-effort rollback only.
+        }
       }
       try {
-        store.haltRuntimeExecution(claimResult.claimToken, {
-          reason: "invalid" as RuntimeExecutionHaltedReason,
-          detail: createRecoveryHaltDetail(
-            error instanceof Error ? error.message : String(error),
-            claimResult.claimToken,
-          ),
+        haltClaimAuthorityExecution({
+          rootDir,
+          claimToken: claimResult.claimToken,
+          halt: {
+            reason: "invalid" as RuntimeExecutionHaltedReason,
+            detail: createRecoveryHaltDetail(
+              error instanceof Error ? error.message : String(error),
+              claimResult.claimToken,
+            ),
+          },
         });
       } catch {
         // Best-effort cleanup only.
       }
       throw error;
     }
-  } finally {
-    store.close();
-  }
 }
