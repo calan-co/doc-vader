@@ -207,11 +207,11 @@ describe("canonical task model", () => {
     );
     expect(prompt).toContain("Initialization and registry mapping live in");
     for (const fragment of [
-      "Claim this work item before execution with `dv work claim <task-id> --holder <holder> --json`",
+      "Claim this work item before execution with `dv work <task-id> claim --holder <holder> --json`",
       "`dv lock create --claim <claim-token> <path...>`",
       "`dv lock rm --claim <claim-token> <path...>`",
       "`dv claim release <claim-token> --outcome conflict`",
-      "`dv work recover <task-id>`",
+      "`dv work <task-id> recover`",
       "do not treat Git hooks or prompt instructions as deterministic enforcement.",
     ]) {
       expect(prompt).toContain(fragment);

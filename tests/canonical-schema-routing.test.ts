@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { auditBacklog } from "../lib/backlog/audit.js";
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -84,6 +85,18 @@ describe("canonical schema routing surfaces", () => {
     expect(docStatusLint).toContain(
       "schemas/frontmatter/by-type/document/latest.json",
     );
+  });
+
+  it("validates the normalized archived Work relationship under strict routing", async () => {
+    const report = await auditBacklog({
+      rootDir: repoRoot,
+      backlogDir: path.join(repoRoot, "backlog"),
+      includeArchive: true,
+      format: "json",
+    });
+    expect(report.schema_violations.filter(({ file }) =>
+      file === "backlog/archive/228.design-cross-file-registry-model-story.md",
+    )).toEqual([]);
   });
 
   it("keeps legacy lint routing estimate-optional while canonical terminal policy owns actual", () => {
