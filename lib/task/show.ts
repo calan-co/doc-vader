@@ -4,8 +4,11 @@ import { renderTempljsTemplate } from "../template/render.js";
 import type { CanonicalTaskModel } from "./canonical.js";
 import { loadCanonicalTask } from "./canonical.js";
 import { omitRelationshipBodySections } from "./body-sections.js";
-import { projectWorkGraph, type WorkGraphEdge } from "../work/projection.js";
-import { canonicalizeWorkItemScopeRef } from "../work/scope-ref.js";
+import {
+  canonicalizeWorkItemScopeRef,
+  projectWorkGraph,
+  type WorkGraphEdge,
+} from "../work/format-adapter.js";
 
 export interface TaskShowRelationship {
   type: "depends_on" | "belongs_to" | "implements";

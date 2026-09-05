@@ -1,11 +1,11 @@
 import path from "node:path";
 import {
-  openRuntimeSqliteStore,
-  type RuntimeClaimRecord,
+  renewRuntimeClaimWithProjection,
+  type RuntimeClaimFact,
   type RuntimeClaimRenewalResult,
   type RuntimeClaimRenewalSuccess,
-  type RuntimeScopeLockRecord,
-} from "../runtime/sqlite-store.js";
+  type RuntimeClaimScopeLockFact,
+} from "../runtime-claim/index.js";
 import {
   canonicalizeClaimScopeRef,
 } from "../runtime/scope-locks.js";
@@ -109,18 +109,18 @@ function countLockEdgesForClaim(
 
 function hasLockEdge(
   projection: WorkGraphProjection,
-  scopeLock: RuntimeScopeLockRecord,
+  scopeLock: RuntimeClaimScopeLockFact,
 ): boolean {
-  const claimNodeId = toClaimNodeId(scopeLock.claim_token);
-  const scopeNodeId = toScopeNodeId(scopeLock.scope_ref);
+  const claimNodeId = toClaimNodeId(scopeLock.claimToken);
+  const scopeNodeId = toScopeNodeId(scopeLock.scopeRef);
   return projection.getEdgesByType("locks").some((edge) => {
     return (
       edge.from === claimNodeId &&
       edge.to === scopeNodeId &&
-      edge.properties.claimToken === scopeLock.claim_token &&
-      edge.properties.scopeRef === scopeLock.scope_ref &&
-      edge.properties.lockMode === scopeLock.lock_mode &&
-      edge.properties.policyName === scopeLock.policy_name &&
+      edge.properties.claimToken === scopeLock.claimToken &&
+      edge.properties.scopeRef === scopeLock.scopeRef &&
+      edge.properties.lockMode === scopeLock.lockMode &&
+      edge.properties.policyName === scopeLock.policyName &&
       edge.properties.lifecycleState === "active"
     );
   });
@@ -128,11 +128,11 @@ function hasLockEdge(
 
 function collectVerificationDiagnostics(options: {
   projection: WorkGraphProjection;
-  claim: RuntimeClaimRecord;
-  activeScopeLocks: RuntimeScopeLockRecord[];
+  claim: RuntimeClaimFact;
+  activeScopeLocks: RuntimeClaimScopeLockFact[];
 }): WorkGraphVerificationDiagnostic[] {
   const diagnostics: WorkGraphVerificationDiagnostic[] = [];
-  const claimNodeId = toClaimNodeId(options.claim.claim_token);
+  const claimNodeId = toClaimNodeId(options.claim.token);
   const claimNode = options.projection.findNode(claimNodeId);
   if (!claimNode) {
     diagnostics.push({
@@ -143,8 +143,8 @@ function collectVerificationDiagnostics(options: {
   }
 
   const targetScopeRef = canonicalizeClaimScopeRef(
-    options.claim.target_type,
-    options.claim.target_id,
+    options.claim.targetType,
+    options.claim.targetId,
   );
   const targetScopeNodeId = toScopeNodeId(targetScopeRef);
   if (!options.projection.findNode(targetScopeNodeId)) {
@@ -169,12 +169,12 @@ function collectVerificationDiagnostics(options: {
   }
 
   for (const scopeLock of options.activeScopeLocks) {
-    const scopeNodeId = toScopeNodeId(scopeLock.scope_ref);
+    const scopeNodeId = toScopeNodeId(scopeLock.scopeRef);
     if (!options.projection.findNode(scopeNodeId)) {
       diagnostics.push({
         kind: "missing-node",
         nodeId: scopeNodeId,
-        detail: `Missing scope node '${scopeNodeId}' for scope lock '${scopeLock.scope_ref}'.`,
+        detail: `Missing scope node '${scopeNodeId}' for scope lock '${scopeLock.scopeRef}'.`,
       });
       continue;
     }
@@ -184,7 +184,7 @@ function collectVerificationDiagnostics(options: {
         edgeType: "locks",
         from: claimNodeId,
         to: scopeNodeId,
-        detail: `Missing locks edge '${claimNodeId}' -> '${scopeNodeId}' for ${scopeLock.lock_mode} scope '${scopeLock.scope_ref}'.`,
+        detail: `Missing locks edge '${claimNodeId}' -> '${scopeNodeId}' for ${scopeLock.lockMode} scope '${scopeLock.scopeRef}'.`,
       });
     }
   }
@@ -212,18 +212,18 @@ function collectLineageEntries(
 
 function collectVerificationLineage(options: {
   projection: WorkGraphProjection;
-  claim: RuntimeClaimRecord;
-  activeScopeLocks: RuntimeScopeLockRecord[];
+  claim: RuntimeClaimFact;
+  activeScopeLocks: RuntimeClaimScopeLockFact[];
 }): RenewWorkClaimWithGraphVerificationSuccess["verification"]["lineage"] {
-  const claimNodeId = toClaimNodeId(options.claim.claim_token);
+  const claimNodeId = toClaimNodeId(options.claim.token);
   const workItemNodeId = canonicalizeClaimScopeRef(
-    options.claim.target_type,
-    options.claim.target_id,
+    options.claim.targetType,
+    options.claim.targetId,
   );
   const scopeNodeIds = [
     toScopeNodeId(workItemNodeId),
     ...options.activeScopeLocks.map((scopeLock) =>
-      toScopeNodeId(scopeLock.scope_ref),
+      toScopeNodeId(scopeLock.scopeRef),
     ),
   ].sort((left, right) => left.localeCompare(right));
 
@@ -243,29 +243,20 @@ export async function renewWorkClaimWithGraphVerification(
 
   const before = await project({ rootDir, workspaceDirs });
 
-  const store = openRuntimeSqliteStore({ rootDir });
-  let renewal: RuntimeClaimRenewalResult;
-  let activeScopeLocks: RuntimeScopeLockRecord[] = [];
-  let postRenewalRuntimeState: RuntimeProjectionState | undefined;
-  try {
-    renewal = store.renewRuntimeClaim(options.claimToken, {
-      now: options.now,
-      ttlMilliseconds: options.ttlMilliseconds,
-    });
-    if (renewal.outcome === "renewed") {
-      postRenewalRuntimeState = {
-        claims: store.listClaims(),
-        scopeLocks: store.listScopeLocks(),
-      };
-      activeScopeLocks = postRenewalRuntimeState.scopeLocks.filter(
-        (lock) =>
-          lock.claim_token === options.claimToken &&
-          lock.lifecycle_state === "active",
-      );
-    }
-  } finally {
-    store.close();
-  }
+  const renewedAuthorityState = renewRuntimeClaimWithProjection({
+    rootDir,
+    claimToken: options.claimToken,
+    now: options.now,
+    ttlMilliseconds: options.ttlMilliseconds,
+  });
+  const renewal: RuntimeClaimRenewalResult = renewedAuthorityState.renewal;
+  const postRenewalRuntimeState: RuntimeProjectionState | undefined =
+    renewedAuthorityState.projectionState;
+  const activeScopeLocks = (postRenewalRuntimeState?.scopeLocks ?? []).filter(
+    (lock) =>
+      lock.claimToken === options.claimToken &&
+      lock.lifecycleState === "active",
+  );
 
   if (renewal.outcome !== "renewed") {
     return renewal;
@@ -292,12 +283,12 @@ export async function renewWorkClaimWithGraphVerification(
     ...renewal,
     verification: {
       before: {
-        claimNodeId: toClaimNodeId(renewal.claim.claim_token),
-        lockEdgeCount: countLockEdgesForClaim(before, renewal.claim.claim_token),
+        claimNodeId: toClaimNodeId(renewal.claim.token),
+        lockEdgeCount: countLockEdgesForClaim(before, renewal.claim.token),
       },
       after: {
-        claimNodeId: toClaimNodeId(renewal.claim.claim_token),
-        lockEdgeCount: countLockEdgesForClaim(after, renewal.claim.claim_token),
+        claimNodeId: toClaimNodeId(renewal.claim.token),
+        lockEdgeCount: countLockEdgesForClaim(after, renewal.claim.token),
       },
       lineage: collectVerificationLineage({
         projection: after,

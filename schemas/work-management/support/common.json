@@ -433,10 +433,21 @@
         "depends_on": {
           "$ref": "#/$defs/supportingRefList"
         },
+        "parent": {
+          "$ref": "#/$defs/supportingRefList"
+        },
+        "implements": {
+          "$ref": "#/$defs/supportingRefList"
+        },
         "evidence": {
           "$ref": "#/$defs/supportingRefList"
         },
         "reference": {
+          "$ref": "#/$defs/supportingRefList"
+        }
+      },
+      "patternProperties": {
+        "^x-[a-z0-9]+(?:-[a-z0-9]+)*$": {
           "$ref": "#/$defs/supportingRefList"
         }
       },

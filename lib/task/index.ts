@@ -9,6 +9,7 @@ export * from "./complete.js";
 export * from "./record.js";
 export * from "./recover.js";
 export * from "./recovery-state.js";
+export * from "./recovery-safety-state-reader.js";
 export * from "./render.js";
 export * from "./runtime.js";
 export * from "./prompt.js";

@@ -11,7 +11,7 @@ priority: high
 estimated: 3
 completed_date: '2026-06-30'
 links:
-  blocks:
+  x-blocks:
     - '[[60415-authoritative-dv4sandcastle-documentation]]'
     - '[[60416-end-to-end-sandcastle-smoke-and-recovery]]'
   reference:

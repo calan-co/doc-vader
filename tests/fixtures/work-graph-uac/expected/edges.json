@@ -169,14 +169,14 @@
       "to": "scope:project:work-graph-uac-review",
       "direction": "authored",
       "source": {
-        "kind": "relationships",
+        "kind": "frontmatter",
         "filePath": "backlog/70001-work-graph-uac-main.md"
       },
       "properties": {
         "sourceKey": "part_of",
         "rawTarget": "[[project-work-graph-uac-review]]",
         "resolvedTargetId": "scope:project:work-graph-uac-review",
-        "relationship": "part_of"
+        "frontmatterId": "wi-70001"
       }
     },
     {
@@ -187,14 +187,14 @@
       "to": "wi:70002",
       "direction": "authored",
       "source": {
-        "kind": "relationships",
+        "kind": "frontmatter",
         "filePath": "backlog/70001-work-graph-uac-main.md"
       },
       "properties": {
         "sourceKey": "depends_on",
         "rawTarget": "[[wi-70002]]",
         "resolvedTargetId": "wi:70002",
-        "relationship": "depends_on"
+        "frontmatterId": "wi-70001"
       }
     },
     {
@@ -223,14 +223,14 @@
       "to": "scope:plan:work-graph-uac-review-prd",
       "direction": "authored",
       "source": {
-        "kind": "relationships",
+        "kind": "frontmatter",
         "filePath": "backlog/70001-work-graph-uac-main.md"
       },
       "properties": {
         "sourceKey": "implements",
         "rawTarget": "[[../docs/how-to/implementation-plans/work-graph-uac-review-prd.md]]",
         "resolvedTargetId": "scope:plan:work-graph-uac-review-prd",
-        "relationship": "implements"
+        "frontmatterId": "wi-70001"
       }
     },
     {
@@ -295,7 +295,7 @@
       "to": "claim:b73b0ab8f0422f8604837b5f977c8f6c62bbadf8d8da17e2f454bcf020cbe7e2",
       "direction": "authored",
       "source": {
-        "kind": "relationships",
+        "kind": "frontmatter",
         "filePath": "backlog/records/record-work-graph-uac-review.md"
       },
       "properties": {
@@ -315,7 +315,7 @@
       "to": "scope:wi:70001",
       "direction": "authored",
       "source": {
-        "kind": "relationships",
+        "kind": "frontmatter",
         "filePath": "backlog/records/record-work-graph-uac-review.md"
       },
       "properties": {
@@ -335,7 +335,7 @@
       "to": "wi:70001",
       "direction": "authored",
       "source": {
-        "kind": "relationships",
+        "kind": "frontmatter",
         "filePath": "backlog/records/record-work-graph-uac-review.md"
       },
       "properties": {

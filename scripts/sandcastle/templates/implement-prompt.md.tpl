@@ -42,11 +42,13 @@ manual completion edits.
 1. Inspect the canonical work item JSON with `{{VIEW_TASK_COMMAND}} {{TASK_ID}}`.
 2. Render the authoritative implementation context with `{{PROMPT_TASK_COMMAND}} {{TASK_ID}}`.
 3. Claim the task before editing with `{{CLAIM_TASK_COMMAND}} {{TASK_ID}} --holder <holder> --branch {{BRANCH}} --json`.
-4. Check or explain runtime lock ownership with `{{LOCK_STATUS_COMMAND}} --claim <claim-id> --json`, and recover interrupted work with `{{RECOVER_TASK_COMMAND}} {{TASK_ID}} --branch {{BRANCH}} --json`.
-5. Update task and acceptance checkboxes only when concrete branch evidence satisfies them, but leave status/completion transitions and evidence-link creation to the adapter close flow.
-6. After validation passes, close through `{{CLOSE_TASK_COMMAND}} {{TASK_ID}} --claim <claim-id> [--payload <json-file>] [--record-type <type>]` so repository-configured transition behavior, evidence recording, and runtime release stay aligned.
-7. When the close flow succeeds, keep the resulting backlog/status update as the final commit on the feature branch.
-8. Do not edit backlog status/checklists by hand as the normal completion path.
+4. Inspect pack-discovered checklists with `dv work {{TASK_ID}} checklist --json`. Complete a current check only with `dv work {{TASK_ID}} checklist <checklist-id> check <check-id> complete --claim <claim-id> --evidence <reference|json|->`; clear it with the matching `clear` command.
+5. Re-inspect before every mutation. If a check address-drift error is returned, do not retry that ID: inspect again and use a fresh ID. Do not edit raw Markdown checkboxes or use another Markdown bypass.
+6. Check or explain runtime lock ownership with `{{LOCK_STATUS_COMMAND}} --claim <claim-id> --json`, and recover interrupted work with `{{RECOVER_TASK_COMMAND}} {{TASK_ID}} --branch {{BRANCH}} --json`.
+7. Record evidence through `{{RECORD_TASK_COMMAND}} --claim <claim-id> --type <record-type> --payload <json-file|-> --json` before terminal completion.
+8. After validation passes, close through `{{CLOSE_TASK_COMMAND}} {{TASK_ID}} --claim <claim-id> [--payload <json-file>] [--record-type <type>]`. This evaluates the terminal Gate and releases the runtime claim only when checks, evidence, lifecycle, and Claim authority allow it. Surface expired claims and Gate blocks; recover interrupted work rather than bypassing the adapter.
+9. When the close flow succeeds, keep the resulting backlog/status update as the final commit on the feature branch.
+10. Do not edit backlog status/checklists by hand as the normal completion path.
 
 If a close attempt fails after evidence or transition planning, treat the work
 item as recoverable and use the adapter recovery surface before retrying.

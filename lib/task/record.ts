@@ -1,14 +1,18 @@
-import { existsSync, promises as fs } from "node:fs";
+import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   createRecord,
   linkWorkItem,
+  loadConsumerConfig,
+  resolveWorkItemFile,
   runRuntimeClaimCoverageAudit,
   type CreateRecordOptions,
   type CreateRecordResult,
 } from "../work-management/index.js";
-import { openRuntimeSqliteStore } from "../runtime/index.js";
-import { canonicalizeClaimScopeRef } from "../runtime/scope-locks.js";
+import {
+  loadClaimAuthorityClaimByTarget,
+  loadClaimAuthoritySubjects,
+} from "../claim/index.js";
 import { getClaimStatus } from "./claims.js";
 import { TaskCommandError } from "./errors.js";
 
@@ -211,6 +215,7 @@ function buildCreateRecordOptions(options: {
   payload: TaskRecordPayload;
   type?: string;
   consumerConfig?: string;
+  claimToken?: string;
   dryRun?: boolean;
   subjects: string[];
 }): CreateRecordOptions {
@@ -227,6 +232,7 @@ function buildCreateRecordOptions(options: {
     findings: options.payload.findings,
     notes: options.payload.notes,
     consumerConfig: options.consumerConfig,
+    claimToken: options.claimToken,
     dryRun: options.dryRun,
   };
 }
@@ -235,41 +241,7 @@ function resolveRuntimeRecordSubjects(options: {
   rootDir: string;
   claimToken: string;
 }): string[] {
-  const runtimeDatabasePath = path.resolve(
-    options.rootDir,
-    ".doc-vader",
-    "runtime",
-    "runtime.sqlite",
-  );
-  if (!existsSync(runtimeDatabasePath)) {
-    return [];
-  }
-
-  const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
-  try {
-    const runtimeClaim = store.getClaimByToken(options.claimToken);
-    if (!runtimeClaim) {
-      return [];
-    }
-
-    const subjects = new Set<string>([
-      `claim:${runtimeClaim.claim_token}`,
-      canonicalizeClaimScopeRef(
-        runtimeClaim.target_type,
-        runtimeClaim.target_id,
-      ),
-    ]);
-    for (const scopeLock of store.listScopeLocksByClaimToken(
-      options.claimToken,
-    )) {
-      if (scopeLock.lifecycle_state === "active") {
-        subjects.add(scopeLock.scope_ref);
-      }
-    }
-    return [...subjects];
-  } finally {
-    store.close();
-  }
+  return loadClaimAuthoritySubjects(options);
 }
 
 export async function recordTaskEvidence(options: {
@@ -295,24 +267,31 @@ export async function recordTaskEvidence(options: {
     );
   }
 
-  const workItemPreflight = await linkWorkItem({
+  const runtimeClaimToken =
+    loadClaimAuthorityClaimByTarget({
+      rootDir,
+      targetType: "task",
+      targetId: claim.taskId,
+    })?.claim_token ?? options.claimId;
+
+  // Reserve the Work Item path for the eventual evidence link without creating
+  // a placeholder relationship that could leak into durable frontmatter.
+  const workItemPath = await resolveWorkItemFile(
     rootDir,
-    consumerConfig,
-    id: claim.taskId,
-    kind: "evidence",
-    value: "[[task-record-preflight]]",
-    dryRun: true,
-  });
+    await loadConsumerConfig(rootDir, consumerConfig),
+    claim.taskId,
+  );
 
   const recordOptions = buildCreateRecordOptions({
     payload: options.payload,
     type: options.type,
     consumerConfig,
+    claimToken: runtimeClaimToken,
     subjects: resolveSubjects(options.payload, [
       claim.taskId,
       ...resolveRuntimeRecordSubjects({
         rootDir,
-        claimToken: options.claimId,
+        claimToken: runtimeClaimToken,
       }),
     ]),
   });
@@ -323,13 +302,11 @@ export async function recordTaskEvidence(options: {
     dryRun: true,
   });
 
-  const runtimeAudit = runRuntimeClaimCoverageAudit({
+  const runtimeAudit = await runRuntimeClaimCoverageAudit({
     rootDir,
     taskId: claim.taskId,
-    requiredPaths: [
-      path.relative(rootDir, recordPreflight.filePath).split(path.sep).join("/"),
-      workItemPreflight.filePath,
-    ],
+    claimToken: runtimeClaimToken,
+    requiredPaths: [recordPreflight.filePath, workItemPath],
   });
   if (!runtimeAudit.passed) {
     throw new TaskCommandError(
@@ -351,6 +328,7 @@ export async function recordTaskEvidence(options: {
     id: claim.taskId,
     kind: "evidence",
     value: evidenceLink,
+    claimToken: runtimeClaimToken,
     dryRun: options.dryRun,
   });
   return {

@@ -14,8 +14,7 @@
     {
       "type": "object",
       "required": [
-        "priority",
-        "estimated"
+        "priority"
       ],
       "properties": {
         "type": {
@@ -98,8 +97,9 @@
           "pattern": "^wi-\\d+$"
         },
         "links": {
-          "description": "Links to pull requests and dependencies.",
+          "description": "Links to pull requests, evidence, and Work Relationships.",
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "depends_on": {
               "description": "Array of work item links (wikilinks for local repos, URIs for cross-repo dependencies) that must be completed before this work item can start.",
@@ -113,9 +113,34 @@
             "pull_requests": {
               "description": "Array of GitHub PR URLs related to this work item.",
               "type": "array",
-              "items": {
-                "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link"
-              },
+              "items": { "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link" },
+              "minItems": 1
+            },
+            "parent": {
+              "type": "array",
+              "items": { "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link" },
+              "minItems": 1
+            },
+            "implements": {
+              "type": "array",
+              "items": { "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link" },
+              "minItems": 1
+            },
+            "evidence": {
+              "type": "array",
+              "items": { "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link" },
+              "minItems": 1
+            },
+            "reference": {
+              "type": "array",
+              "items": { "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link" },
+              "minItems": 1
+            }
+          },
+          "patternProperties": {
+            "^x-[a-z0-9]+(?:-[a-z0-9]+)*$": {
+              "type": "array",
+              "items": { "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current#/$defs/link" },
               "minItems": 1
             }
           }
@@ -179,7 +204,6 @@
                     "needs-triage",
                     "awaiting-approval",
                     "deferred",
-                    "blocked-by-dependency",
                     "blocked",
                     "needs-info"
                   ]
@@ -208,7 +232,7 @@
                     "needs-triage",
                     "awaiting-approval",
                     "deferred",
-                    "blocked-by-dependency"
+                    "blocked"
                   ]
                 },
                 {

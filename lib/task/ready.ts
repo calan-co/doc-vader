@@ -8,10 +8,9 @@ import {
   type WorkItemGovernanceVerdict,
 } from "../work-management/kernel.js";
 import {
-  openRuntimeSqliteStore,
-  type RuntimeClaimRecord,
-  type RuntimeScopeLockRecord,
-} from "../runtime/index.js";
+  readRuntimeClaimTaskSnapshots,
+  type RuntimeClaimTaskSnapshot,
+} from "../runtime-claim/index.js";
 import {
   composeTaskRuntimeReadiness,
   loadTaskExecutionLogSummaries,
@@ -27,17 +26,18 @@ import {
   type TaskClaimabilityFailure,
 } from "./claimability.js";
 import {
-  currentGitBranch,
-  listGitWorktrees,
+  readTaskAuthorityGitContext,
   resolveTaskAuthorityFromGitContext,
   type TaskAuthorityGitContext,
+  type TaskAuthorityTrace,
+  type TaskAuthorityUnavailable,
 } from "./authority.js";
 import {
   projectWorkGraph,
   type WorkGraphEdge,
   type WorkGraphNode,
   type WorkGraphProjection,
-} from "../work/projection.js";
+} from "../work/format-adapter.js";
 
 type Frontmatter = Record<string, unknown>;
 
@@ -146,6 +146,7 @@ interface ReadyDocument {
 
 interface ReadyAuthorityContext {
   git: TaskAuthorityGitContext;
+  trace?: TaskAuthorityTrace;
   documentsByRoot: Map<string, Promise<ReadyDocument[]>>;
   runtimeByRootAndTask: Map<string, Promise<Map<string, TaskRuntimeExecutionLog>>>;
   runtimeClaimSnapshotsByRoot: Map<string, Promise<Map<string, TaskRuntimeClaimSnapshot>>>;
@@ -156,18 +157,24 @@ export interface SelectReadyTasksOptions {
   backlogDir?: string;
   claimStorePath?: string;
   now?: Date;
+  /** Test-only instrumentation for the ready-selection Git-context seam. */
+  authorityTrace?: TaskAuthorityTrace;
 }
 
 const NON_TASK_PATH_PREFIXES = ["audit/", "records/"] as const;
 
-interface TaskRuntimeClaimSnapshot {
-  claim: RuntimeClaimRecord;
-  scopeLocks: RuntimeScopeLockRecord[];
-}
+type TaskRuntimeClaimSnapshot = RuntimeClaimTaskSnapshot;
 
 interface ReadyGraphContext {
   dependenciesByTaskId: Map<string, ReadyTaskDependency[]>;
 }
+
+type RuntimeWorktreeUnavailable =
+  | TaskAuthorityUnavailable["unavailable"]
+  | {
+      code: "runtime-worktree-document-missing";
+      runtimeWorktree: string;
+    };
 
 function toPosixPath(value: string): string {
   return value.split(path.sep).join("/");
@@ -186,33 +193,7 @@ async function loadTaskRuntimeClaimSnapshots(options: {
   rootDir: string;
   taskIds: Iterable<string>;
 }): Promise<Map<string, TaskRuntimeClaimSnapshot>> {
-  const runtimeDatabasePath = path.resolve(
-    options.rootDir,
-    ".doc-vader",
-    "runtime",
-    "runtime.sqlite",
-  );
-  if (!(await pathExists(runtimeDatabasePath))) {
-    return new Map();
-  }
-
-  const store = openRuntimeSqliteStore({ rootDir: options.rootDir });
-  try {
-    const snapshots = new Map<string, TaskRuntimeClaimSnapshot>();
-    for (const taskId of new Set(options.taskIds)) {
-      const claim = store.getClaimByTarget("task", taskId);
-      if (!claim) {
-        continue;
-      }
-      snapshots.set(taskId, {
-        claim,
-        scopeLocks: store.listScopeLocksByClaimToken(claim.claim_token),
-      });
-    }
-    return snapshots;
-  } finally {
-    store.close();
-  }
+  return readRuntimeClaimTaskSnapshots(options);
 }
 
 async function findMarkdownFiles(dirPath: string): Promise<string[]> {
@@ -307,51 +288,8 @@ function getLinks(frontmatter: Frontmatter): Record<string, unknown> {
     : {};
 }
 
-function findMarkdownSection(body: string, heading: string): string | undefined {
-  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const headingRegex = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "gim");
-  const headingMatch = headingRegex.exec(body);
-  if (!headingMatch) {
-    return undefined;
-  }
-
-  const sectionStart = headingMatch.index + headingMatch[0].length;
-  const nextHeadingMatch = body.slice(sectionStart).match(/\n##\s+/);
-  const sectionEnd =
-    nextHeadingMatch && nextHeadingMatch.index !== undefined
-      ? sectionStart + nextHeadingMatch.index
-      : body.length;
-  return body.slice(sectionStart, sectionEnd);
-}
-
-function parseRelationshipDependencyRefs(body: string): string[] {
-  const section = findMarkdownSection(body, "Relationships");
-  if (!section) {
-    return [];
-  }
-
-  return section
-    .split(/\r?\n/)
-    .map((line) => line.match(/^\s*-\s*`([^`]+)`:\s*(.+)$/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => ({
-      relationship: (match[1] ?? "").trim().toLowerCase(),
-      target: (match[2] ?? "").trim(),
-    }))
-    .filter(
-      (entry) => entry.relationship === "depends_on" && entry.target.length > 0,
-    )
-    .map((entry) => unwrapInlineCode(entry.target));
-}
-
-function unwrapInlineCode(value: string): string {
-  const trimmed = value.trim();
-  const match = trimmed.match(/^(`+)([\s\S]*?)\1$/u);
-  return match ? (match[2] ?? "").trim() : trimmed;
-}
-
 function stripWikiLink(value: string): string {
-  const trimmed = unwrapInlineCode(value);
+  const trimmed = value.trim();
   const withoutBrackets = trimmed.replace(/^\[\[/u, "").replace(/\]\]$/u, "");
   return withoutBrackets.split("|", 1)[0]?.split("#", 1)[0]?.trim() ?? "";
 }
@@ -630,10 +568,7 @@ function buildGraphReadyDependencies(options: {
   }));
 
   const authoredRefs = [
-    ...new Set([
-      ...collectStringLinks(getLinks(options.document.frontmatter ?? {}).depends_on),
-      ...parseRelationshipDependencyRefs(options.document.body ?? ""),
-    ]),
+    ...new Set(collectStringLinks(getLinks(options.document.frontmatter ?? {}).depends_on)),
   ];
   if (authoredRefs.length === 0) {
     return knownDependencies;
@@ -886,20 +821,20 @@ function projectDerivedReadinessFindings(options: {
           kind: "claim",
           ref: `claim:${options.subjectId}`,
           details: {
-            claimToken: options.runtimeClaim.claim.claim_token,
+            claimToken: options.runtimeClaim.claim.token,
             holder: options.runtimeClaim.claim.holder,
-            expiresAt: options.runtimeClaim.claim.expires_at,
-            lockCount: options.runtimeClaim.scopeLocks.length,
+            expiresAt: options.runtimeClaim.claim.expiresAt,
+            lockCount: options.runtimeClaim.activeScopeLocks.length,
           },
         },
-        ...options.runtimeClaim.scopeLocks.map((lock) => ({
+        ...options.runtimeClaim.activeScopeLocks.map((lock) => ({
           kind: "scope-lock" as const,
-          ref: lock.scope_ref,
+          ref: lock.scopeRef,
           details: {
-            claimToken: lock.claim_token,
-            lockMode: lock.lock_mode,
-            lifecycleState: lock.lifecycle_state,
-            policyName: lock.policy_name,
+            claimToken: lock.claimToken,
+            lockMode: lock.lockMode,
+            lifecycleState: lock.lifecycleState,
+            policyName: lock.policyName,
           },
         })),
       ],
@@ -917,9 +852,9 @@ function projectDerivedReadinessFindings(options: {
           kind: "claim",
           ref: `claim:${options.subjectId}`,
           details: {
-            claimToken: options.runtimeClaim.claim.claim_token,
+            claimToken: options.runtimeClaim.claim.token,
             holder: options.runtimeClaim.claim.holder,
-            expiresAt: options.runtimeClaim.claim.expires_at,
+            expiresAt: options.runtimeClaim.claim.expiresAt,
           },
         },
       ],
@@ -1054,6 +989,7 @@ async function evaluateDocument(
   latestExecutionLog?: TaskRuntimeExecutionLog,
   runtimeClaimSnapshots?: Map<string, TaskRuntimeClaimSnapshot>,
   projectedDependencies?: ReadyTaskDependency[],
+  runtimeWorktreeUnavailable?: RuntimeWorktreeUnavailable,
 ): Promise<{ candidate?: ReadyTaskCandidate; exclusion?: ReadyTaskExclusion }> {
   if (document.parseError) {
     return {
@@ -1099,7 +1035,9 @@ async function evaluateDocument(
   );
   const readiness = composeTaskRuntimeReadiness(
     governance.readiness.ready,
-    latestExecutionLog,
+    runtimeWorktreeUnavailable && latestExecutionLog
+      ? { ...latestExecutionLog, readyPermitting: false }
+      : latestExecutionLog,
   );
   const findings = id
     ? projectDerivedReadinessFindings({
@@ -1126,9 +1064,9 @@ async function evaluateDocument(
   if (runtimeClaim?.claim.state === "active") {
     reasons.push(
       reason("task_claim_active", "Task has an active runtime claim.", {
-        claimToken: runtimeClaim.claim.claim_token,
+        claimToken: runtimeClaim.claim.token,
         holder: runtimeClaim.claim.holder,
-        expiresAt: runtimeClaim.claim.expires_at,
+        expiresAt: runtimeClaim.claim.expiresAt,
       }),
     );
   }
@@ -1136,49 +1074,62 @@ async function evaluateDocument(
   if (runtimeClaim?.claim.state === "expired") {
     reasons.push(
       reason("task_claim_expired", "Task has an expired runtime claim.", {
-        claimToken: runtimeClaim.claim.claim_token,
+        claimToken: runtimeClaim.claim.token,
         holder: runtimeClaim.claim.holder,
-        expiresAt: runtimeClaim.claim.expires_at,
+        expiresAt: runtimeClaim.claim.expiresAt,
       }),
     );
   }
 
   if (claimability.failures.includes("execution-not-ready")) {
-    const gitState = collectTaskRecoveryGitState({
-      rootDir,
-      taskFilePath: document.relativePath,
-      expectedBranch: readiness.latestExecutionLog?.branch,
-    });
-    const recoverable = isRecoverableReadyRuntimeState({
-      status: status ?? "",
-      runtime: readiness,
-      gitState,
-    });
-    const recoverableWithForce = isRecoverableReadyRuntimeState({
-      status: status ?? "",
-      runtime: readiness,
-      gitState,
-      allowUncertainLineage: true,
-    });
-    reasons.push(
-      reason(
-        "execution_not_ready",
-        "Task's latest execution log entry is not ready-permitting.",
-        {
-          latestExecutionLog: readiness.latestExecutionLog,
-          recovery: {
-            recoverable,
-            recoverableWithForce,
-            forceRequired: !recoverable && recoverableWithForce,
-            forceReasons:
-              !recoverable && recoverableWithForce
-                ? [...gitState.resumeWarnings]
-                : [],
-            gitState,
+    if (runtimeWorktreeUnavailable) {
+      reasons.push(
+        reason(
+          "execution_not_ready",
+          "Execution metadata worktree is unavailable.",
+          {
+            latestExecutionLog: readiness.latestExecutionLog,
+            runtimeWorktree: runtimeWorktreeUnavailable,
           },
-        },
-      ),
-    );
+        ),
+      );
+    } else {
+      const gitState = collectTaskRecoveryGitState({
+        rootDir,
+        taskFilePath: document.relativePath,
+        expectedBranch: readiness.latestExecutionLog?.branch,
+      });
+      const recoverable = isRecoverableReadyRuntimeState({
+        status: status ?? "",
+        runtime: readiness,
+        gitState,
+      });
+      const recoverableWithForce = isRecoverableReadyRuntimeState({
+        status: status ?? "",
+        runtime: readiness,
+        gitState,
+        allowUncertainLineage: true,
+      });
+      reasons.push(
+        reason(
+          "execution_not_ready",
+          "Task's latest execution log entry is not ready-permitting.",
+          {
+            latestExecutionLog: readiness.latestExecutionLog,
+            recovery: {
+              recoverable,
+              recoverableWithForce,
+              forceRequired: !recoverable && recoverableWithForce,
+              forceReasons:
+                !recoverable && recoverableWithForce
+                  ? [...gitState.resumeWarnings]
+                  : [],
+              gitState,
+            },
+          },
+        ),
+      );
+    }
   }
 
   if (!title) {
@@ -1232,12 +1183,28 @@ async function evaluateDocumentWithAuthority(
           rootDir,
           taskId,
           runtimeBranch: latestExecutionLog?.branch,
+          runtimeWorktree: latestExecutionLog?.worktree,
+          runtimeWorktreeInvalid: latestExecutionLog?.worktreeMetadataInvalid,
         },
         authorityContext.git,
+        authorityContext.trace,
       )
     : {
         rootDir,
+        source: "current-root" as const,
       };
+  if (authority.source === "runtime-worktree-unavailable") {
+    return evaluateDocument(
+      rootDir,
+      document,
+      documents,
+      latestExecutionLog,
+      undefined,
+      projectedDependencies,
+      authority.unavailable,
+    );
+  }
+
   if (authority.rootDir === rootDir) {
     const runtimeClaimSnapshotsPromise =
       authorityContext?.runtimeClaimSnapshotsByRoot.get(authority.rootDir)
@@ -1269,7 +1236,18 @@ async function evaluateDocumentWithAuthority(
     (candidate) => asString(candidate.frontmatter?.id) === taskId,
   );
   if (!authorityDocument) {
-    return evaluateDocument(rootDir, document, documents, latestExecutionLog);
+    return evaluateDocument(
+      rootDir,
+      document,
+      documents,
+      latestExecutionLog,
+      undefined,
+      projectedDependencies,
+      {
+        code: "runtime-worktree-document-missing",
+        runtimeWorktree: authority.rootDir,
+      },
+    );
   }
 
   const runtimeKey = `${authority.rootDir}\0${taskId}`;
@@ -1330,7 +1308,11 @@ function sortReadyCandidates(items: ReadyTaskCandidate[]): ReadyTaskCandidate[] 
 export async function selectReadyTasks(
   options: SelectReadyTasksOptions = {},
 ): Promise<ReadyTaskSelection> {
-  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const gitContext = await readTaskAuthorityGitContext(
+    options.rootDir ?? process.cwd(),
+    options.authorityTrace,
+  );
+  const rootDir = gitContext.rootDir;
   const backlogDir = options.backlogDir ?? "backlog";
   const documents = await readReadyDocuments(rootDir, backlogDir);
   const graphContext = await buildReadyGraphContext({
@@ -1350,10 +1332,8 @@ export async function selectReadyTasks(
     taskIds,
   });
   const authorityContext: ReadyAuthorityContext = {
-    git: {
-      currentBranch: currentGitBranch(rootDir),
-      worktrees: listGitWorktrees(rootDir),
-    },
+    git: gitContext,
+    ...(options.authorityTrace ? { trace: options.authorityTrace } : {}),
     documentsByRoot: new Map([[rootDir, Promise.resolve(documents)]]),
     runtimeByRootAndTask: new Map(),
     runtimeClaimSnapshotsByRoot: new Map([[rootDir, Promise.resolve(runtimeClaimSnapshots)]]),

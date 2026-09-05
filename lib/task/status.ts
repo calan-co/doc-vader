@@ -1,5 +1,5 @@
 import path from "node:path";
-import { loadCanonicalTask, type CanonicalTaskBodySection } from "./canonical.js";
+import { loadCanonicalTask } from "./canonical.js";
 import type { TaskModel } from "./model.js";
 import {
   collectTaskRecoveryGitState,
@@ -11,9 +11,9 @@ import {
   type WorkGraphEdge,
   type WorkGraphNode,
   type WorkGraphProjectionDiagnostic,
-} from "../work/projection.js";
-import { canonicalizeWorkItemScopeRef } from "../work/scope-ref.js";
-import { stripWikiLink } from "../work/wiki-link.js";
+  canonicalizeWorkItemScopeRef,
+  stripWikiLink,
+} from "../work/format-adapter.js";
 
 type StatusRelationshipType = "belongs_to" | "depends_on" | "implements";
 type StatusDiagnosticScope = "formal" | "informational";
@@ -90,6 +90,8 @@ export interface TaskStatusReport {
 export interface BuildTaskStatusReportOptions {
   rootDir?: string;
   worktree?: string;
+  /** A locally-read branch overrides stale runtime branch metadata; null means detached. */
+  expectedBranch?: string | null;
   backlogDir?: string;
   includeGraph?: boolean;
 }
@@ -101,7 +103,21 @@ const FORCE_MODE_DESCRIPTIONS = {
 } as const;
 const FORCE_REQUIRED_RECOMMENDATION =
   "Inspect the current branch and dirty paths first. Pass --worktree when you can identify the intended recovery checkout. Use --force reset only when this checkout is the intended task branch and task-local dirty paths can be discarded; use --force reconcile when you want a checkpoint first.";
-const NON_INFORMATIONAL_LINK_KEYS = new Set(["depends_on", "evidence"]);
+const FORMAL_LINK_KEYS = new Set([
+  "depends_on",
+  "parent",
+  "part_of",
+  "belongs_to",
+  "implements",
+  "evidence",
+]);
+const RELATIONSHIP_LINK_KEYS = new Set([
+  "depends_on",
+  "parent",
+  "part_of",
+  "belongs_to",
+  "implements",
+]);
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0
@@ -150,44 +166,6 @@ function isStatusRelationshipType(
   }
 }
 
-function parseRelationshipReferences(
-  sections: CanonicalTaskBodySection[],
-): AuthoredStatusReference[] {
-  const relationshipSection = sections.find(
-    (section) => section.title.trim().toLowerCase() === "relationships",
-  );
-  if (!relationshipSection) {
-    return [];
-  }
-
-  return relationshipSection.content
-    .split(/\r?\n/u)
-    .map((line) => line.match(/^\s*-\s*`([^`]+)`:\s*(.+)$/u))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => ({
-      sourceKey: (match[1] ?? "").trim().toLowerCase(),
-      target: (match[2] ?? "").trim(),
-    }))
-    .flatMap<AuthoredStatusReference>(({ sourceKey, target }) => {
-      switch (sourceKey) {
-        case "depends_on":
-        case "implements":
-          return [{ scope: "formal", sourceKey, target }];
-        case "part_of":
-        case "belongs_to":
-          return [
-            {
-              scope: "formal",
-              sourceKey,
-              target,
-            },
-          ];
-        default:
-          return [];
-      }
-    });
-}
-
 function stableUniqueReferences(
   values: readonly AuthoredStatusReference[],
 ): AuthoredStatusReference[] {
@@ -206,16 +184,20 @@ function stableUniqueReferences(
 function collectAuthoredStatusReferences(options: {
   dependencies: Array<{ target: string }>;
   links: Record<string, unknown>;
-  bodySections: CanonicalTaskBodySection[];
 }): AuthoredStatusReference[] {
-  const formal = options.dependencies.map((dependency) => ({
-    scope: "formal" as const,
-    sourceKey: "depends_on",
-    target: dependency.target,
-  }));
+  const formal = Object.entries(options.links).flatMap(([sourceKey, value]) => {
+    if (!RELATIONSHIP_LINK_KEYS.has(sourceKey)) {
+      return [];
+    }
+    return asLinkArray(value).map((target) => ({
+      scope: "formal" as const,
+      sourceKey,
+      target,
+    }));
+  });
 
   const informational = Object.entries(options.links).flatMap(([sourceKey, value]) => {
-    if (NON_INFORMATIONAL_LINK_KEYS.has(sourceKey)) {
+    if (FORMAL_LINK_KEYS.has(sourceKey)) {
       return [];
     }
     return asLinkArray(value).map((target) => ({
@@ -228,7 +210,6 @@ function collectAuthoredStatusReferences(options: {
   return stableUniqueReferences([
     ...formal,
     ...informational,
-    ...parseRelationshipReferences(options.bodySections),
   ]);
 }
 
@@ -476,7 +457,6 @@ async function collectTaskStatusGraphFacts(options: {
   const authoredReferences = collectAuthoredStatusReferences({
     dependencies: canonicalTask.dependencies,
     links: canonicalTask.validation.links,
-    bodySections: canonicalTask.body.sections,
   });
   const projectionDiagnostics = stableUniqueProjectionDiagnostics(
     authoredReferences
@@ -670,7 +650,10 @@ export async function buildTaskStatusReport(
   const gitState = collectTaskRecoveryGitState({
     rootDir,
     taskFilePath: task.filePath,
-    expectedBranch: task.runtime?.latestExecutionLog?.branch,
+    expectedBranch:
+      options.expectedBranch === undefined
+        ? task.runtime?.latestExecutionLog?.branch
+        : options.expectedBranch ?? undefined,
     expectedWorktree:
       options.worktree ?? task.runtime?.latestExecutionLog?.worktree,
   });

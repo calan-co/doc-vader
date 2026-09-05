@@ -32,6 +32,7 @@ import {
   validateArchiveReadiness,
   validateClosedWorkItemEvidence,
 } from "../plugins/work-item-validation.js";
+import { normalizeEvidenceLinks } from "../work-management/terminal-metadata.js";
 
 function toPosix(p: string): string {
   return p.replaceAll("\\", "/");
@@ -289,6 +290,7 @@ async function generateEvidenceForItem(
   item: WorkItemScanResult,
   options: Required<Pick<BacklogScanOptions, "rootDir">> & {
     consumerConfig?: string;
+    claimToken?: string;
     dryRun: boolean;
     force?: boolean;
     workItemMatchPatterns?: string[];
@@ -325,6 +327,7 @@ async function generateEvidenceForItem(
         rootDir: options.rootDir,
         consumerConfig: options.consumerConfig,
         id: item.id,
+        claimToken: options.claimToken,
         kind: "evidence",
         value: `[[${existingRecordBasename}]]`,
         dryRun: options.dryRun,
@@ -372,6 +375,7 @@ async function generateEvidenceForItem(
       findings: item.errors.map((error) => `[${error.code}] ${error.message}`),
       subjects: [`[[work-item-${workItemSlug}]]`],
       supportingRefs: [item.file],
+      claimToken: options.claimToken,
       dryRun: options.dryRun,
     });
 
@@ -379,6 +383,7 @@ async function generateEvidenceForItem(
       rootDir: options.rootDir,
       consumerConfig: options.consumerConfig,
       id: item.id,
+      claimToken: options.claimToken,
       kind: "evidence",
       value: `[[${recordBasename}]]`,
       dryRun: options.dryRun,
@@ -401,19 +406,7 @@ async function generateEvidenceForItem(
 }
 
 function hasEvidenceLinks(frontmatter: Record<string, unknown>): boolean {
-  const links = frontmatter["links"];
-
-  // Handle object shape: links: { evidence: ["[[record-...]]"] }
-  if (typeof links === "object" && links !== null && !Array.isArray(links)) {
-    const evidence = (links as Record<string, unknown>)["evidence"];
-    if (Array.isArray(evidence)) {
-      return evidence.some(
-        (value) => typeof value === "string" && value.trim().length > 0,
-      );
-    }
-  }
-
-  return false;
+  return normalizeEvidenceLinks(frontmatter).length > 0;
 }
 
 export async function scanBacklog(
@@ -430,6 +423,7 @@ export async function scanBacklog(
   const debug = options.debug ?? false;
   const generateEvidence = options.generateEvidence ?? false;
   const validateArchiveCandidates = options.validateArchiveCandidates ?? false;
+  const claimToken = options.claimToken;
   const dryRun = options.dryRun ?? false;
   const consumerConfig = options.consumerConfig;
 
@@ -551,6 +545,7 @@ export async function scanBacklog(
         const evidenceGeneration = await generateEvidenceForItem(result, {
           rootDir,
           consumerConfig,
+          claimToken,
           dryRun,
           workItemMatchPatterns:
             loadedConfig.automation.workItemMatchPatterns,
@@ -606,6 +601,7 @@ export async function scanBacklog(
               {
                 rootDir,
                 consumerConfig,
+                claimToken,
                 dryRun,
                 force: true,
                 workItemMatchPatterns:
@@ -654,6 +650,7 @@ export async function scanBacklog(
                 rootDir,
                 consumerConfig,
                 id: result.id,
+                claimToken,
                 dryRun,
                 pullRequestPath: loadedConfig.automation.pullRequestPath,
                 provider,
@@ -706,6 +703,7 @@ export async function scanBacklog(
                   id: result.id,
                   status: effectiveInvalidStatus,
                   statusReason: "validation-failed",
+                  claimToken,
                   dryRun,
                 });
                 result.candidateValidation.updatedStatus =

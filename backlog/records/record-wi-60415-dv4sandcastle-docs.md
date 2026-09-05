@@ -14,7 +14,7 @@ links:
     - '[[../../.sandcastle/SETUP_ISSUE_TRACKER.md]]'
     - '[[../../.sandcastle/VALIDATION.md]]'
     - '[[../../scripts/sandcastle/dv4sandcastle.ts]]'
-    - '[[project-brief]]'
+    - '[[../archive/project-brief.md]]'
     - '[[../../tests/task-command.test.ts]]'
 ---
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { auditBacklog } from "../lib/backlog/audit.js";
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -84,5 +85,43 @@ describe("canonical schema routing surfaces", () => {
     expect(docStatusLint).toContain(
       "schemas/frontmatter/by-type/document/latest.json",
     );
+  });
+
+  it("keeps archived legacy relationships outside the canonical CI schema scope", async () => {
+    const report = await auditBacklog({
+      rootDir: repoRoot,
+      backlogDir: path.join(repoRoot, "backlog"),
+      includeArchive: false,
+      format: "json",
+    });
+    expect(report.schema_violations.some(({ file }) =>
+      file === "backlog/archive/228.design-cross-file-registry-model-story.md",
+    )).toBe(false);
+  });
+
+  it("keeps legacy lint routing estimate-optional while canonical terminal policy owns actual", () => {
+    for (const version of ["current.json", "latest.json", "1.0.0.json"]) {
+      const schema = JSON.parse(readFileSync(
+        path.join(repoRoot, "schemas/frontmatter/by-type/work-item", version),
+        "utf8",
+      )) as { allOf: Array<{ required?: string[] }> };
+      const workItemFields = schema.allOf.find((entry) => entry.required?.includes("priority"));
+      expect(workItemFields?.required).not.toContain("estimated");
+    }
+
+    const statusPolicy = JSON.parse(readFileSync(
+      path.join(repoRoot, "schemas/work-management/workflows/default/status-policy.json"),
+      "utf8",
+    )) as { allOf: Array<{ then?: { allOf?: Array<{ if?: { required?: string[] }; then?: { required?: string[] } }> } }> };
+    const terminalPolicy = statusPolicy.allOf.find((entry) => entry.then?.allOf);
+    expect(terminalPolicy?.then?.allOf).toContainEqual({
+      if: {
+        anyOf: [
+          { required: ["estimated"] },
+          { not: { properties: { tags: { type: "array", contains: { const: "afk" } } }, required: ["tags"] } },
+        ],
+      },
+      then: { required: ["actual"] },
+    });
   });
 });

@@ -121,6 +121,65 @@ Keep live repository projection robust.
     ]);
   });
 
+  it("projects parent frontmatter links as parentage edges", async () => {
+    const rootDir = await createTempRepo();
+    await writeMarkdown(
+      path.join(rootDir, "backlog", "101-child.md"),
+      `---
+id: wi-101
+title: Child Work
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+status_reason: auto
+links:
+  parent:
+    - '[[project-parent]]'
+---
+
+## Goal
+
+Exercise parent links.
+`,
+    );
+    await writeMarkdown(
+      path.join(rootDir, "docs", "project-parent.md"),
+      `---
+id: project:parent
+title: Parent Project
+type: project
+subtype: initiative
+lifecycle: active
+status: ready
+---
+
+## Goal
+
+Group child work.
+`,
+    );
+
+    const projection = await buildProjection(rootDir);
+
+    expect(projection.getOutgoingEdges("wi:101")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "belongs_to",
+          authority: "formal",
+          from: "wi:101",
+          to: "scope:project:parent",
+          source: expect.objectContaining({ kind: "frontmatter" }),
+          properties: expect.objectContaining({
+            sourceKey: "parent",
+            rawTarget: "[[project-parent]]",
+            resolvedTargetId: "scope:project:parent",
+          }),
+        }),
+      ]),
+    );
+  });
+
   it("reports project-like documents with non-canonical scope ids as unsupported diagnostics", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(
@@ -191,21 +250,18 @@ priority: high
 links:
   depends_on:
     - '[[wi-60384]]'
+    - '[[wi-60384]]'
   evidence:
     - '[[records/record-projection-note.md]]'
+  part_of:
+    - '[[project-projection-graph]]'
+  implements:
+    - '[[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]'
 ---
 
 ## Goal
 
 Track the first graph-aligned projection port.
-
-## Relationships
-
-- \`part_of\`: [[project-projection-graph]]
-- \`implements\`: [[../docs/how-to/implementation-plans/doc-vader-work-item-claim-scope-mvp-prd.md]]
-- \`depends_on\`: [[wi-60384]]
-- \`blocks\`: [[wi-99999]]
-- \`relates_to\`: [[wi-88888]]
 `,
     );
     await writeMarkdown(
@@ -328,7 +384,7 @@ Projection remains deterministic.
           from: "wi:60386",
           to: "wi:60384",
           direction: "authored",
-          source: expect.objectContaining({ kind: "relationships" }),
+          source: expect.objectContaining({ kind: "frontmatter" }),
         }),
       ]),
     );
@@ -606,18 +662,17 @@ subtype: audit-note
 lifecycle: active
 status: ready
 status_reason: recorded
+links:
+  subjects:
+    - "[[60390-record-edges-and-audit-lineage]]"
+    - "claim:${claimToken}"
+    - "wi:60390"
+    - "wi:60391"
 ---
 
 ## Observation
 
 Projected lineage stays queryable.
-
-## Subject References
-
-- [[60390-record-edges-and-audit-lineage]]
-- claim:${claimToken}
-- wi:60390
-- wi:60391
 `,
     );
 
@@ -672,10 +727,10 @@ Projected lineage stays queryable.
           from: "record:claim-scope-audit",
           to: "wi:60390",
           direction: "authored",
-          source: expect.objectContaining({ kind: "relationships" }),
+          source: expect.objectContaining({ kind: "frontmatter" }),
           properties: expect.objectContaining({
             recordKind: "audit-note",
-            subject: "[[60390-record-edges-and-audit-lineage]]",
+            subject: "[[records/record-claim-scope-audit.md]]",
           }),
         }),
       ]),

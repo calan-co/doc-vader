@@ -12,6 +12,19 @@ import {
 const tempDirs: string[] = [];
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PRODUCTION_SOURCE_DIRS = ["cli", "lib"] as const;
+const CORE_WORK_PACK_FILES = [
+  "lib/work/projection.ts",
+  "lib/work/claim-verification.ts",
+  "lib/work/format-adapter.ts",
+  "lib/work/scope-ref.ts",
+] as const;
+const CORE_WORK_BOUNDARY_ROOT = path.join("lib", "work");
+const CORE_WORK_ALLOWED_IMPORT_ROOTS = [
+  "lib/runtime",
+  "lib/runtime-claim",
+  "lib/task",
+] as const;
+const WORK_FORMAT_ADAPTER_IMPORT = "../work/format-adapter.js";
 
 async function createTempDir(): Promise<string> {
   const dir = path.join(
@@ -56,6 +69,12 @@ async function collectTypeScriptFiles(dirPath: string): Promise<string[]> {
   }
 
   return files.sort((a, b) => a.localeCompare(b));
+}
+
+async function readWorkRelativeImports(filePath: string): Promise<string[]> {
+  return collectModuleSpecifiers(await readFile(filePath, "utf8")).filter((specifier) =>
+    specifier.startsWith("../work/"),
+  );
 }
 
 afterEach(async () => {
@@ -139,6 +158,35 @@ import { badCatalog } from "../../../semantify/src/index.js";
     ]);
   });
 
+  it("flags cross-pack imports that escape the core work boundary unless explicitly allowed", async () => {
+    const repoRoot = await createTempDir();
+    const filePath = path.join(repoRoot, "lib", "work", "projection.ts");
+
+    await writeTextFile(
+      filePath,
+      `import { keepLocal } from "./scope-ref.js";
+import { keepRuntime } from "../runtime/index.js";
+import { keepTask } from "../task/show.js";
+import { badBacklog } from "../backlog/provider.js";
+`,
+    );
+
+    const violations = findRelativeImportBoundaryViolations({
+      repoRoot,
+      boundaryRoot: path.join(repoRoot, CORE_WORK_BOUNDARY_ROOT),
+      allowedInternalPathPrefixes: CORE_WORK_ALLOWED_IMPORT_ROOTS,
+      filePath,
+      sourceText: await readFile(filePath, "utf8"),
+    });
+
+    expect(violations).toEqual([
+      expect.objectContaining({
+        filePath,
+        specifier: "../backlog/provider.js",
+      }),
+    ]);
+  });
+
   it("keeps production source package-neutral within the repository boundary", async () => {
     const repoRoot = path.resolve(TEST_DIR, "..");
     const productionFiles = (
@@ -162,5 +210,48 @@ import { badCatalog } from "../../../semantify/src/index.js";
     ).flat();
 
     expect(violations).toEqual([]);
+  });
+
+  it("keeps the core work pack within local, Runtime Claim, runtime, and task boundaries", async () => {
+    const repoRoot = path.resolve(TEST_DIR, "..");
+
+    const violations = (
+      await Promise.all(
+        CORE_WORK_PACK_FILES.map(async (relativePath) => {
+          const filePath = path.join(repoRoot, relativePath);
+          return findRelativeImportBoundaryViolations({
+            repoRoot,
+            boundaryRoot: path.join(repoRoot, CORE_WORK_BOUNDARY_ROOT),
+            allowedInternalPathPrefixes: CORE_WORK_ALLOWED_IMPORT_ROOTS,
+            filePath,
+            sourceText: await readFile(filePath, "utf8"),
+          });
+        }),
+      )
+    ).flat();
+
+    expect(violations).toEqual([]);
+  });
+
+  it("routes task work imports through the format adapter seam", async () => {
+    const repoRoot = path.resolve(TEST_DIR, "..");
+    const taskFiles = [
+      { relativePath: path.join("lib", "task", "ready.ts"), expected: [WORK_FORMAT_ADAPTER_IMPORT] },
+      { relativePath: path.join("lib", "task", "show.ts"), expected: [WORK_FORMAT_ADAPTER_IMPORT] },
+      { relativePath: path.join("lib", "task", "status.ts"), expected: [WORK_FORMAT_ADAPTER_IMPORT] },
+      { relativePath: path.join("lib", "task", "prompt.ts"), expected: [] },
+    ] as const;
+
+    const importResults = await Promise.all(
+      taskFiles.map(async ({ relativePath, expected }) => ({
+        relativePath,
+        expected,
+        imports: await readWorkRelativeImports(path.join(repoRoot, relativePath)),
+      })),
+    );
+
+    for (const { relativePath, expected, imports } of importResults) {
+      expect(imports, relativePath).toEqual(expected);
+    }
   });
 });

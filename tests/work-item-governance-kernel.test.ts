@@ -106,4 +106,32 @@ describe("work item governance kernel", () => {
       dependencyLinked.readiness.reasons.map((reason) => reason.code),
     ).toContain("dependency_blocked");
   });
+
+  it("treats active ready work without hitl as AFK-ready", () => {
+    const active = evaluateWorkItemGovernance(
+      makeRecord({ tags: ["policy"] }),
+    );
+
+    expect(active.classification).toMatchObject({ isAfk: true, isHitl: false });
+    expect(active.readiness.ready).toBe(true);
+  });
+
+  it("treats legacy string evidence links as valid terminal evidence", () => {
+    const closed = evaluateWorkItemGovernance(
+      makeRecord({
+        id: "wi-7",
+        title: "Legacy evidence item",
+        status: "completed",
+        lifecycle: "inactive",
+        statusReason: "completed",
+        completedDate: "2026-07-04",
+        links: {
+          evidence: "[[record-20260704-wi-7]]",
+        },
+      }),
+    );
+
+    expect(closed.evidence.ready).toBe(true);
+    expect(closed.archive.eligible).toBe(true);
+  });
 });

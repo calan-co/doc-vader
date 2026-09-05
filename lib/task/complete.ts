@@ -1,5 +1,5 @@
 import path from "node:path";
-import { openRuntimeSqliteStore, type RuntimeExecutionTerminalResult } from "../runtime/index.js";
+import type { RuntimeExecutionTerminalResult } from "../runtime/index.js";
 import { transitionTask, type TaskTransitionResult } from "./transition.js";
 import { getClaimStatus } from "./claims.js";
 import { TaskCommandError } from "./errors.js";
@@ -11,6 +11,7 @@ export interface CompleteTaskClaimOptions {
   backlogDir?: string;
   consumerConfig?: string;
   dryRun?: boolean;
+  actual?: number;
 }
 
 export interface CompleteTaskClaimResult {
@@ -19,10 +20,6 @@ export interface CompleteTaskClaimResult {
   dryRun: boolean;
   transition: TaskTransitionResult;
   execution?: RuntimeExecutionTerminalResult;
-}
-
-function runtimeStorePath(rootDir: string): string {
-  return path.resolve(rootDir, ".doc-vader", "runtime", "runtime.sqlite");
 }
 
 export async function completeTaskClaim(
@@ -50,6 +47,7 @@ export async function completeTaskClaim(
     consumerConfig: options.consumerConfig,
     status: "completed",
     statusReason: "completed",
+    actual: options.actual,
     dryRun: options.dryRun,
   });
 
@@ -62,20 +60,11 @@ export async function completeTaskClaim(
     };
   }
 
-  const store = openRuntimeSqliteStore({
-    rootDir,
-    databasePath: runtimeStorePath(rootDir),
-  });
-  try {
-    const execution = store.completeRuntimeExecution(options.claimId);
-    return {
-      claimId: options.claimId,
-      taskId,
-      dryRun: false,
-      transition,
-      execution,
-    };
-  } finally {
-    store.close();
-  }
+  return {
+    claimId: options.claimId,
+    taskId,
+    dryRun: false,
+    transition,
+    execution: transition.workItem.execution,
+  };
 }

@@ -8,7 +8,7 @@ import {
   relative,
   resolve,
 } from "node:path";
-import { spawnSync } from "node:child_process";
+import { performance } from "node:perf_hooks";
 import yaml from "js-yaml";
 import { Ajv as LegacyAjv } from "ajv";
 import type { ValidateFunction } from "ajv";
@@ -16,6 +16,12 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import * as formatsPluginModule from "ajv-formats";
 import type { FormatsPlugin } from "ajv-formats";
 import { fileURLToPath } from "node:url";
+import { evaluateWorkItemCompletion } from "./qualifiers.js";
+import {
+  readFrontmatterGitSnapshot,
+  type FrontmatterGitSnapshot,
+  type FrontmatterGitSnapshotTraceStage,
+} from "./frontmatter-git-snapshot-reader.js";
 import { evaluateTransition as evaluateTransitionCore } from "./state-transition-evaluator.js";
 import {
   compileTransitionProfile,
@@ -264,6 +270,23 @@ export function evaluateTransition(
   return evaluateTransitionCore(previous, current, contract);
 }
 
+/** Resolve repository-default workflow dimensions, including the derived category. */
+export function resolveDefaultWorkItemState(document: unknown) {
+  const normalized =
+    document && typeof document === "object"
+      ? {
+          ...(document as Record<string, unknown>),
+          ...(
+            typeof (document as Record<string, unknown>).reason === "string" &&
+            (document as Record<string, unknown>).status_reason === undefined
+              ? { status_reason: (document as Record<string, unknown>).reason }
+              : {}
+          ),
+        }
+      : document;
+  return resolveStateVector(getDefaultTransitionProfile(), normalized);
+}
+
 /**
  * Parse YAML frontmatter from markdown file
  */
@@ -289,12 +312,8 @@ function isWithinPath(child: string, parent: string): boolean {
   );
 }
 
-function loadConsumerSeverityConfig(): ConsumerSeverityConfig {
-  const consumerConfigPath = join(
-    process.cwd(),
-    ".doc-vader",
-    "backlog-consumer.json",
-  );
+function loadConsumerSeverityConfig(rootDir = process.cwd()): ConsumerSeverityConfig {
+  const consumerConfigPath = join(rootDir, ".doc-vader", "backlog-consumer.json");
   if (!existsSync(consumerConfigPath)) {
     return {};
   }
@@ -423,35 +442,6 @@ function extractWikilinkTarget(reference: string): string | null {
   return target.length > 0 ? target : null;
 }
 
-/**
- * Return unchecked checklist item labels from a named second-level markdown section.
- */
-function extractUncheckedChecklistItemsFromSection(
-  content: string,
-  heading: string,
-): string[] {
-  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const sectionRegex = new RegExp(
-    `(?:^|\\n)##\\s+${escapedHeading}(?:\\b[^\\n]*)?\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`,
-  );
-  const sectionMatch = content.match(sectionRegex);
-  if (!sectionMatch) {
-    return [];
-  }
-
-  const sectionBody = sectionMatch[1];
-  const uncheckedItems: string[] = [];
-  const uncheckedRegex = /^\s*-\s*\[\s\]\s+(.*)$/gm;
-  for (const match of sectionBody.matchAll(uncheckedRegex)) {
-    const item = match[1]?.trim();
-    if (item) {
-      uncheckedItems.push(item);
-    }
-  }
-
-  return uncheckedItems;
-}
-
 function collectBacklogMarkdownFiles(
   dirPath: string,
   relativePrefix = "",
@@ -542,6 +532,22 @@ function loadSchemas() {
 
   addSchemasWithDeferredReferences(ajv, schemasToRegister);
   addSchemasWithDeferredReferences(workManagementAjv, schemasToRegister);
+  for (const validator of [ajv, workManagementAjv]) {
+    const baseSchema = schemasToRegister.find(
+      (schema) => schema.$id === "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/current",
+    );
+    if (
+      baseSchema &&
+      !validator.getSchema(
+        "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0",
+      )
+    ) {
+      validator.addSchema({
+        ...baseSchema,
+        $id: "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0",
+      });
+    }
+  }
 
   const workspaceTransitionProfilePath = join(
     workspaceWorkManagementSchemaDir,
@@ -660,117 +666,143 @@ function resolveValidatorForFrontmatter(
   return type ? validators.get(type) : undefined;
 }
 
-let cachedComparisonRef: string | null | undefined;
-let cachedChangedBacklogFiles: Set<string> | undefined;
+export const FRONTMATTER_GIT_READ_TRACE_STAGES = [
+  "selectedLocalRoot",
+  "comparisonRefResolution",
+  "changedSetRead",
+  "historicalContentRead",
+  "terminalDiagnosticIntegration",
+] as const;
 
-function runGitForRef(args: string[]): string | null {
-  const result = spawnSync("git", args, {
-    cwd: process.cwd(),
-    encoding: "utf-8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
+export type FrontmatterGitReadTraceStage =
+  (typeof FRONTMATTER_GIT_READ_TRACE_STAGES)[number];
 
-  if (result.status !== 0 || !result.stdout) {
-    return null;
-  }
-
-  const output = result.stdout.trim();
-  return output.length > 0 ? output : null;
+export interface FrontmatterGitReadTraceTiming {
+  durationMs: number;
+  invocationCount: number;
 }
 
-function resolveComparisonRef(): string | null {
-  if (cachedComparisonRef !== undefined) {
-    return cachedComparisonRef;
-  }
-
-  const explicitBaseRef =
-    process.env.PR_BASE_SHA?.trim() ||
-    process.env.GITHUB_BASE_SHA?.trim() ||
-    null;
-  if (explicitBaseRef) {
-    const verified = runGitForRef([
-      "rev-parse",
-      "--verify",
-      `${explicitBaseRef}^{commit}`,
-    ]);
-    if (verified) {
-      cachedComparisonRef = verified;
-      return cachedComparisonRef;
-    }
-  }
-
-  const baseBranch = process.env.GITHUB_BASE_REF?.trim();
-  if (baseBranch) {
-    const mergeBase = runGitForRef([
-      "merge-base",
-      "HEAD",
-      `origin/${baseBranch}`,
-    ]);
-    if (mergeBase) {
-      cachedComparisonRef = mergeBase;
-      return cachedComparisonRef;
-    }
-  }
-
-  const previousHead = runGitForRef(["rev-parse", "--verify", "HEAD~1"]);
-  cachedComparisonRef = previousHead;
-  return cachedComparisonRef;
+/** Test-only instrumentation for immutable Git reads performed by one lint run. */
+export interface FrontmatterGitReadTrace {
+  trace<T>(stage: FrontmatterGitReadTraceStage, operation: () => Promise<T>): Promise<T>;
+  recordDirectGitSubprocess(durationMs: number): void;
+  recordOutcome(stage: FrontmatterGitReadTraceStage, outcome: "value" | "unavailable"): void;
+  recordOutcomeState(
+    state: "comparisonRef" | "changedSet" | "historicalContent" | "terminalDiagnostics",
+    outcome: string,
+  ): void;
+  recordSelectedLocalRoot(rootDir: string, backlogRoot: string | null): void;
 }
 
-function hasBacklogFileChangedSinceComparison(file: string): boolean {
-  const comparisonRef = resolveComparisonRef();
-  if (!comparisonRef) {
-    return false;
-  }
-
-  if (!cachedChangedBacklogFiles) {
-    const changedOutput = runGitForRef([
-      "diff",
-      "--name-only",
-      comparisonRef,
-      "--",
-      "backlog",
-    ]);
-    cachedChangedBacklogFiles = new Set(
-      (changedOutput ?? "")
-        .split("\n")
-        .map((entry) => toPosixPath(entry.trim()))
-        .filter(Boolean),
-    );
-  }
-
-  return cachedChangedBacklogFiles.has(`backlog/${file}`);
+export interface FrontmatterGitReadTraceReport extends FrontmatterGitReadTrace {
+  operationOnlyMs: number;
+  directGitSubprocess: FrontmatterGitReadTraceTiming;
+  stages: Record<FrontmatterGitReadTraceStage, FrontmatterGitReadTraceTiming>;
+  outcomes: Record<FrontmatterGitReadTraceStage, Record<"value" | "unavailable", number>>;
+  selectedLocalRoot?: string;
+  backlogRoot?: string;
+  comparisonRef?: string;
+  changedSet?: string[];
+  historicalContentReads: Record<string, "value" | "unavailable">;
+  outcomeState: Partial<Record<"comparisonRef" | "changedSet" | "historicalContent" | "terminalDiagnostics", string>>;
 }
 
-/**
- * Get previous committed frontmatter from git for a backlog file.
- * Uses a stable baseline ref (PR base SHA, merge-base, or HEAD~1 fallback).
- * Returns null for new/untracked files or files without valid frontmatter.
- */
+/** Creates an opt-in collector for tests; production lint calls do not allocate one. */
+export function createFrontmatterGitReadTrace(): FrontmatterGitReadTraceReport {
+  const timing = (): FrontmatterGitReadTraceTiming => ({ durationMs: 0, invocationCount: 0 });
+  const trace: FrontmatterGitReadTraceReport = {
+    operationOnlyMs: 0,
+    directGitSubprocess: timing(),
+    stages: Object.fromEntries(FRONTMATTER_GIT_READ_TRACE_STAGES.map((stage) => [stage, timing()])) as FrontmatterGitReadTraceReport["stages"],
+    outcomes: Object.fromEntries(FRONTMATTER_GIT_READ_TRACE_STAGES.map((stage) => [stage, { value: 0, unavailable: 0 }])) as FrontmatterGitReadTraceReport["outcomes"],
+    historicalContentReads: {},
+    outcomeState: {},
+    async trace<T>(stage: FrontmatterGitReadTraceStage, operation: () => Promise<T>): Promise<T> {
+      const startedAt = performance.now();
+      try {
+        return await operation();
+      } finally {
+        const durationMs = performance.now() - startedAt;
+        const timingEntry = this.stages[stage];
+        timingEntry.durationMs += durationMs;
+        timingEntry.invocationCount += 1;
+        this.operationOnlyMs += durationMs;
+      }
+    },
+    recordDirectGitSubprocess(durationMs): void {
+      this.directGitSubprocess.invocationCount += 1;
+      this.directGitSubprocess.durationMs += durationMs;
+    },
+    recordOutcome(stage, outcome): void {
+      this.outcomes[stage][outcome] += 1;
+    },
+    recordOutcomeState(state, outcome): void {
+      this.outcomeState[state] = outcome;
+    },
+    recordSelectedLocalRoot(rootDir, backlogRoot): void {
+      this.selectedLocalRoot = rootDir;
+      if (backlogRoot) {
+        this.backlogRoot = backlogRoot;
+      }
+    },
+  };
+  return trace;
+}
+
+interface FrontmatterGitReadContext {
+  rootDir: string;
+  backlogRoot: string | null;
+  trace?: FrontmatterGitReadTrace;
+  snapshot?: FrontmatterGitSnapshot;
+}
+
+async function traceGitRead<T>(
+  context: FrontmatterGitReadContext,
+  stage: FrontmatterGitReadTraceStage,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return context.trace ? context.trace.trace(stage, operation) : operation();
+}
+
+function recordGitReadOutcome(
+  context: FrontmatterGitReadContext,
+  stage: FrontmatterGitReadTraceStage,
+  outcome: "value" | "unavailable",
+): void {
+  context.trace?.recordOutcome(stage, outcome);
+}
+
+function getGitReadTraceReport(
+  trace: FrontmatterGitReadTrace | undefined,
+): FrontmatterGitReadTraceReport | undefined {
+  return trace && "historicalContentReads" in trace
+    ? (trace as FrontmatterGitReadTraceReport)
+    : undefined;
+}
+
 function getPreviousFrontmatterFromGit(
+  context: FrontmatterGitReadContext,
   file: string,
 ): Record<string, unknown> | null {
-  const comparisonRef = resolveComparisonRef();
-  if (!comparisonRef) {
-    return null;
-  }
-
-  const gitPath = `${comparisonRef}:backlog/${file}`;
-  const result = spawnSync("git", ["show", gitPath], {
-    cwd: process.cwd(),
-    encoding: "utf-8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-
-  if (result.status !== 0 || !result.stdout) {
+  const historicalPath = `${context.backlogRoot ?? "backlog"}/${file}`;
+  const content = context.snapshot?.historicalContents[historicalPath] ?? null;
+  if (!content) {
     return null;
   }
 
   try {
-    return parseFrontmatter(result.stdout);
+    return parseFrontmatter(content);
   } catch {
     return null;
   }
+}
+
+function hasBacklogFileChangedSinceComparison(
+  context: FrontmatterGitReadContext,
+  file: string,
+): boolean {
+  const historicalPath = `${context.backlogRoot ?? "backlog"}/${file}`;
+  return context.snapshot?.changedPaths.includes(historicalPath) ?? false;
 }
 
 function isWorkManagementWorkItemSchema(
@@ -804,6 +836,7 @@ function resolveFilesToValidate(
   allBacklogFiles: string[],
   cliArgs: string[],
   backlogDir: string,
+  rootDir: string,
 ): string[] {
   if (cliArgs.length === 0) {
     return allBacklogFiles;
@@ -843,7 +876,7 @@ function resolveFilesToValidate(
 
     const absolutePath = isAbsolute(rawArg)
       ? normalize(rawArg)
-      : resolve(process.cwd(), rawArg);
+      : resolve(rootDir, rawArg);
     const relativePath = toPosixPath(relative(backlogDir, absolutePath));
 
     if (!relativePath || relativePath.startsWith("..")) {
@@ -859,7 +892,18 @@ function resolveFilesToValidate(
 /**
  * Main validation function
  */
-export function validateFrontmatter(args = process.argv.slice(2)): boolean {
+export interface ValidateFrontmatterOptions {
+  /** Overrides the invocation root for isolated tests and embedded callers. */
+  rootDir?: string;
+  /** Test-only immutable Git-read instrumentation. */
+  gitTrace?: FrontmatterGitReadTrace;
+}
+
+export async function validateFrontmatter(
+  args = process.argv.slice(2),
+  options: ValidateFrontmatterOptions = {},
+): Promise<boolean> {
+  const rootDir = resolve(options.rootDir ?? process.cwd());
   const {
     ajv,
     workManagementAjv,
@@ -868,24 +912,78 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
     transitionProfile,
     supportedTypes,
   } = loadSchemas();
-  const consumerConfig = loadConsumerSeverityConfig();
-  const backlogDir = resolve(
-    process.cwd(),
-    consumerConfig.roots?.backlog ?? "backlog",
-  );
-  const archiveDir = resolve(
-    process.cwd(),
-    consumerConfig.roots?.archive ?? "backlog/archive",
-  );
+  const consumerConfig = loadConsumerSeverityConfig(rootDir);
+  const backlogDir = resolve(rootDir, consumerConfig.roots?.backlog ?? "backlog");
+  const archiveDir = resolve(rootDir, consumerConfig.roots?.archive ?? "backlog/archive");
+  const configuredBacklogRoot = toPosixPath(relative(rootDir, backlogDir));
+  const gitBacklogRoot =
+    configuredBacklogRoot &&
+    !configuredBacklogRoot.startsWith("../") &&
+    configuredBacklogRoot !== ".." &&
+    !isAbsolute(configuredBacklogRoot)
+      ? configuredBacklogRoot
+      : null;
+  const gitReadContext: FrontmatterGitReadContext = {
+    rootDir,
+    backlogRoot: gitBacklogRoot,
+    trace: options.gitTrace,
+  };
+  await traceGitRead(gitReadContext, "selectedLocalRoot", async () => {
+    options.gitTrace?.recordSelectedLocalRoot(rootDir, gitBacklogRoot);
+    recordGitReadOutcome(gitReadContext, "selectedLocalRoot", "value");
+  });
   const { strict: strictMode, fileArgs } = parseCliArgs(args);
   const allBacklogFiles = collectBacklogMarkdownFiles(backlogDir);
-  const files = resolveFilesToValidate(allBacklogFiles, fileArgs, backlogDir);
+  const files = resolveFilesToValidate(allBacklogFiles, fileArgs, backlogDir, rootDir);
   let hasViolations = false;
   let warningCount = 0;
 
   if (files.length === 0) {
     console.log("\nNo backlog frontmatter files to validate.\n");
     return true;
+  }
+
+  const candidatePaths = allBacklogFiles.map(
+    (file) => `${gitBacklogRoot ?? "backlog"}/${file}`,
+  );
+  const snapshot = await readFrontmatterGitSnapshot({
+    rootDir,
+    backlogRoot: gitBacklogRoot,
+    candidatePaths,
+    trace: options.gitTrace
+      ? {
+          trace: (stage: FrontmatterGitSnapshotTraceStage, operation) =>
+            traceGitRead(gitReadContext, stage, operation),
+          recordOutcome: (stage, outcome) =>
+            recordGitReadOutcome(gitReadContext, stage, outcome),
+        }
+      : undefined,
+  });
+  gitReadContext.snapshot = snapshot;
+  options.gitTrace?.recordOutcomeState(
+    "comparisonRef",
+    snapshot.comparisonRef ? "resolved" : "unavailable",
+  );
+  const traceReport = getGitReadTraceReport(options.gitTrace);
+  if (snapshot.comparisonRef && traceReport) {
+    traceReport.comparisonRef = snapshot.comparisonRef;
+  }
+  if (snapshot.comparisonRef && gitBacklogRoot) {
+    options.gitTrace?.recordOutcomeState("changedSet", "value");
+    if (traceReport) {
+      traceReport.changedSet = [...snapshot.changedPaths];
+    }
+  }
+  for (const candidatePath of candidatePaths) {
+    const historicalContent = snapshot.historicalContents[candidatePath] ?? null;
+    options.gitTrace?.recordOutcomeState(
+      "historicalContent",
+      historicalContent === null ? "unavailable" : "value",
+    );
+    if (traceReport) {
+      traceReport.historicalContentReads[candidatePath] =
+        historicalContent === null ? "unavailable" : "value";
+    }
   }
 
   // First pass: Load all work-items into a map for dependency checking
@@ -995,11 +1093,12 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
         const isDefaultWorkManagementWorkItem =
           isWorkManagementWorkItemSchema(frontmatter);
         const status = frontmatter.status as string;
-        const previousFrontmatter = getPreviousFrontmatterFromGit(file);
+        const previousFrontmatter = getPreviousFrontmatterFromGit(gitReadContext, file);
         const previousStatus =
           typeof previousFrontmatter?.status === "string"
             ? previousFrontmatter.status
             : null;
+        const hasComparisonRef = gitReadContext.snapshot?.comparisonRef !== null;
         const previousReason =
           typeof previousFrontmatter?.status_reason === "string"
             ? previousFrontmatter.status_reason.trim()
@@ -1077,10 +1176,23 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
         const terminalStatuses = ["completed", "aborted"];
         const isTerminal = terminalStatuses.includes(status);
         const isEnteringTerminal =
-          isTerminal && !terminalStatuses.includes(previousStatus ?? "");
+          isTerminal &&
+          hasComparisonRef &&
+          !terminalStatuses.includes(previousStatus ?? "");
         const shouldEnforceClosedInvariants =
           isTerminal &&
-          (isEnteringTerminal || hasBacklogFileChangedSinceComparison(file));
+          (isEnteringTerminal || hasBacklogFileChangedSinceComparison(gitReadContext, file));
+        await traceGitRead(gitReadContext, "terminalDiagnosticIntegration", async () => {
+          options.gitTrace?.recordOutcomeState(
+            "terminalDiagnostics",
+            shouldEnforceClosedInvariants ? "enforced" : "not-enforced",
+          );
+          recordGitReadOutcome(
+            gitReadContext,
+            "terminalDiagnosticIntegration",
+            shouldEnforceClosedInvariants ? "value" : "unavailable",
+          );
+        });
 
         if (shouldEnforceClosedInvariants) {
           const closedStatusReason =
@@ -1207,31 +1319,34 @@ export function validateFrontmatter(args = process.argv.slice(2)): boolean {
         }
 
         if (shouldEnforceClosedInvariants && status === "completed") {
-          const uncheckedTasks = extractUncheckedChecklistItemsFromSection(
-            content,
-            "Tasks",
-          );
-          const uncheckedAcceptance = extractUncheckedChecklistItemsFromSection(
-            content,
-            "Acceptance Criteria",
-          );
+          const completion = evaluateWorkItemCompletion(content);
+          for (const scope of completion.children) {
+            const uncheckedCount = scope.children.filter(
+              (qualifier) => qualifier.status === "unmet",
+            ).length;
+            const scopeLabel =
+              scope.scope === "tasks" ? "Tasks" : "Acceptance Criteria";
+            const code =
+              scope.scope === "tasks"
+                ? "closed-unchecked-tasks"
+                : "closed-unchecked-acceptance";
 
-          if (uncheckedTasks.length > 0) {
-            diagnostics.push({
-              code: "closed-unchecked-tasks",
-              path: "/status",
-              message: `Work item is terminal but has unchecked Tasks checklist items (${uncheckedTasks.length})`,
-              severity: "error",
-            });
-          }
-
-          if (uncheckedAcceptance.length > 0) {
-            diagnostics.push({
-              code: "closed-unchecked-acceptance",
-              path: "/status",
-              message: `Work item is terminal but has unchecked Acceptance Criteria checklist items (${uncheckedAcceptance.length})`,
-              severity: "error",
-            });
+            if (uncheckedCount > 0) {
+              diagnostics.push({
+                code,
+                path: "/status",
+                message: `Work item is terminal but has unchecked ${scopeLabel} checklist items (${uncheckedCount})`,
+                severity: "error",
+              });
+            }
+            if (scope.status === "indeterminate") {
+              diagnostics.push({
+                code: "closed-indeterminate-completion",
+                path: "/status",
+                message: `Work item is terminal but its ${scopeLabel} completion scope is empty or unknown`,
+                severity: "error",
+              });
+            }
           }
         }
       }
@@ -1300,6 +1415,6 @@ if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  const success = validateFrontmatter();
+  const success = await validateFrontmatter();
   process.exit(success ? 0 : 1);
 }

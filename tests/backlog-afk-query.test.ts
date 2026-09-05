@@ -28,7 +28,7 @@ async function withTempBacklogDir(
 }
 
 describe("AFK ready eligibility query", () => {
-  it("selects only active ready work items tagged afk and not hitl", async () => {
+  it("selects active ready work items without hitl", async () => {
     await withTempBacklogDir(async (backlogDir) => {
       await writeFile(
         path.join(backlogDir, "1.ready-afk.md"),
@@ -53,13 +53,12 @@ describe("AFK ready eligibility query", () => {
 
       const report = await findReadyAfkEligibleWorkItems(backlogDir);
 
-      expect(report).toHaveLength(1);
-      expect(report[0]?.id).toBe("wi-1");
-      expect(report[0]?.tags).toEqual(["afk"]);
+      expect(report).toHaveLength(2);
+      expect(report.map((item) => item.id)).toEqual(["wi-1", "wi-4"]);
     });
   });
 
-  it("treats missing or non-matching tags as ineligible", () => {
+  it("treats only hitl and invalid lifecycle states as ineligible", () => {
     expect(
       isReadyAfkEligibleWorkItem({
         id: "wi-1",
@@ -90,6 +89,15 @@ describe("AFK ready eligibility query", () => {
     expect(
       isReadyAfkEligibleWorkItem({
         id: "wi-4",
+        type: "work-item",
+        status: "ready",
+        lifecycle: "active",
+        tags: ["backlog"],
+      }),
+    ).toBe(true);
+    expect(
+      isReadyAfkEligibleWorkItem({
+        id: "wi-5",
         type: "work-item",
         status: "ready",
         lifecycle: "unknown",

@@ -59,6 +59,8 @@ interface DuplicateIdFinding {
 interface UnresolvedWikilinkFinding {
   file: string;
   ref: string;
+  reason: "not-found" | "ambiguous" | "invalid-target";
+  candidates?: string[];
 }
 
 interface ParseErrorFinding {
@@ -119,9 +121,18 @@ const BUILTIN_PROFILES: Record<string, Partial<BacklogAuditOptions>> = {
 };
 
 function toErrorLines(errors: ErrorObject[] | null | undefined): string[] {
-  return (errors ?? []).map(
-    (e) => `${e.instancePath || "(root)"} ${e.message}`,
-  );
+  return (errors ?? []).map((error) => {
+    const additionalProperty =
+      error.keyword === "additionalProperties"
+        ? String(
+            (error.params as { additionalProperty?: unknown })
+              .additionalProperty ?? "",
+          )
+        : "";
+    return `${error.instancePath || "(root)"}${
+      additionalProperty ? `/${additionalProperty}` : ""
+    } ${error.message}`;
+  });
 }
 
 async function findMarkdownFiles(
@@ -159,6 +170,153 @@ function extractWikilinks(links: unknown): string[] {
     refs.push(match[1]);
   }
   return refs;
+}
+
+type WikilinkResolution =
+  | { target: string }
+  | {
+      target?: undefined;
+      reason: "not-found" | "ambiguous" | "invalid-target";
+      candidates?: string[];
+    };
+
+type CandidateState = "missing" | "regular" | "invalid";
+
+function isWithinRoot(rootDir: string, candidate: string): boolean {
+  const relative = path.relative(rootDir, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== "..");
+}
+
+async function candidateState(rootDir: string, candidate: string): Promise<CandidateState> {
+  if (!isWithinRoot(rootDir, candidate)) return "invalid";
+
+  const relative = path.relative(rootDir, candidate);
+  const parts = relative ? relative.split(path.sep) : [];
+  let current = rootDir;
+  try {
+    const rootStat = await fs.lstat(current);
+    if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) return "invalid";
+    for (let index = 0; index < parts.length; index += 1) {
+      current = path.join(current, parts[index]);
+      const stat = await fs.lstat(current);
+      if (stat.isSymbolicLink()) return "invalid";
+      if (index === parts.length - 1) return stat.isFile() ? "regular" : "invalid";
+      if (!stat.isDirectory()) return "invalid";
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "missing";
+    return "invalid";
+  }
+  return "invalid";
+}
+
+function hasExplicitSuffix(target: string): boolean {
+  return path.extname(path.basename(target)) !== "";
+}
+
+function candidatePaths(directory: string, target: string): string[] {
+  if (hasExplicitSuffix(target)) return [path.resolve(directory, target)];
+  return [path.resolve(directory, target), path.resolve(directory, `${target}.md`)];
+}
+
+async function resolveWikilink(
+  rootDir: string,
+  sourceFile: string,
+  ref: string,
+): Promise<WikilinkResolution> {
+  const target = normalizeRef(ref);
+  if (
+    !target ||
+    path.isAbsolute(target) ||
+    path.win32.isAbsolute(target)
+  ) {
+    return { reason: "invalid-target" };
+  }
+
+  const sourceDir = path.dirname(sourceFile);
+  const explicit =
+    target.startsWith("./") || target.startsWith("../") || target.includes("/");
+  const resolveTier = async (directory: string): Promise<WikilinkResolution | undefined> => {
+    const matches: string[] = [];
+    let invalid = false;
+    for (const candidate of candidatePaths(directory, target)) {
+      const state = await candidateState(rootDir, candidate);
+      if (state === "regular") matches.push(candidate);
+      if (state === "invalid") invalid = true;
+    }
+    if (invalid) return { reason: "invalid-target" };
+    if (matches.length === 1) {
+      return { target: matches[0] };
+    }
+    if (matches.length > 1) {
+      return {
+        reason: "ambiguous",
+        candidates: matches
+          .map((match) => path.relative(rootDir, match).replaceAll("\\", "/"))
+          .sort(),
+      };
+    }
+    return undefined;
+  };
+
+  if (explicit) {
+    return (await resolveTier(sourceDir)) ?? { reason: "not-found" };
+  }
+
+  const descendantTiers = new Map<number, string[]>();
+  async function collectDescendantDirectories(directory: string, distance: number): Promise<void> {
+    let entries: import("node:fs").Dirent[];
+    try {
+      entries = await fs.readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isSymbolicLink() || !entry.isDirectory()) continue;
+      const child = path.join(directory, entry.name);
+      const tier = descendantTiers.get(distance) ?? [];
+      tier.push(child);
+      descendantTiers.set(distance, tier);
+      await collectDescendantDirectories(child, distance + 1);
+    }
+  }
+
+  const direct = await resolveTier(sourceDir);
+  if (direct) return direct;
+  await collectDescendantDirectories(sourceDir, 1);
+  for (const distance of [...descendantTiers.keys()].sort((a, b) => a - b)) {
+    const directories = descendantTiers.get(distance) ?? [];
+    const matches: string[] = [];
+    let invalid = false;
+    for (const directory of directories) {
+      for (const candidate of candidatePaths(directory, target)) {
+        const state = await candidateState(rootDir, candidate);
+        if (state === "regular") matches.push(candidate);
+        if (state === "invalid") invalid = true;
+      }
+    }
+    if (invalid) return { reason: "invalid-target" };
+    if (matches.length === 1) {
+      return { target: matches[0] };
+    }
+    if (matches.length > 1) {
+      return {
+        reason: "ambiguous",
+        candidates: matches
+          .map((match) => path.relative(rootDir, match).replaceAll("\\", "/"))
+          .sort(),
+      };
+    }
+  }
+
+  let ancestor = path.dirname(sourceDir);
+  while (isWithinRoot(rootDir, ancestor)) {
+    const resolved = await resolveTier(ancestor);
+    if (resolved) return resolved;
+    if (ancestor === rootDir) break;
+    ancestor = path.dirname(ancestor);
+  }
+  return { reason: "not-found" };
 }
 
 function guessSchemaMap(raw: Record<string, unknown>): SchemaMapConfig {
@@ -245,12 +403,18 @@ async function addSchemaWithAliases(
   const schemaId =
     typeof resolvedSchema.$id === "string" ? resolvedSchema.$id : undefined;
 
+  if (schemaId && !ajv.getSchema(schemaId)) {
+    ajv.addSchema(resolvedSchema, schemaId);
+  }
   if (!ajv.getSchema(alias)) {
     const aliasSchema =
       schemaId && schemaId !== alias
         ? ({ ...resolvedSchema, $id: alias } as Record<string, unknown>)
         : resolvedSchema;
     ajv.addSchema(aliasSchema, alias);
+  }
+  if (schemaId?.endsWith("/base/current") && schemaPath.endsWith("/base/1.0.0.json")) {
+    ajv.addSchema({ ...resolvedSchema, $id: schemaId.replace(/\/current$/, "/1.0.0") });
   }
 }
 
@@ -447,7 +611,11 @@ export function formatAuditReportText(report: BacklogAuditReport): string {
     lines.push("");
     lines.push("Unresolved Wikilinks:");
     for (const finding of report.unresolved_wikilinks) {
-      lines.push(`- ${finding.file} -> ${finding.ref}`);
+      lines.push(
+        `- ${finding.file} -> ${finding.ref} (${finding.reason})${
+          finding.candidates ? `: ${finding.candidates.join(", ")}` : ""
+        }`,
+      );
     }
   }
   if (report.schema_violations.length) {
@@ -506,16 +674,14 @@ export async function auditBacklog(
   );
   // Keep scan scope configurable, but always include archive files in wikilink
   // resolution so links to archived work items remain resolvable.
-  const resolutionFiles = await findMarkdownFiles(options.backlogDir, true);
+  // Consumers may pass a standalone backlog directory for audit tests or
+  // integrations. In that case the backlog directory is its resolution root.
+  const resolutionRoot = isWithinRoot(options.rootDir, options.backlogDir)
+    ? options.rootDir
+    : options.backlogDir;
   const items: BacklogItem[] = [];
   const idToFiles = new Map<string, string[]>();
-  const basenameToFile = new Map<string, string>();
   const parseErrors: ParseErrorFinding[] = [];
-
-  for (const absFile of resolutionFiles) {
-    const rel = path.relative(options.rootDir, absFile).replaceAll("\\", "/");
-    basenameToFile.set(path.basename(absFile, ".md"), rel);
-  }
 
   for (const absFile of files) {
     const rel = path.relative(options.rootDir, absFile).replaceAll("\\", "/");
@@ -577,40 +743,23 @@ export async function auditBacklog(
   const unresolved: UnresolvedWikilinkFinding[] = [];
   for (const item of items) {
     for (const rawRef of item.refs) {
-      const normalized = normalizeRef(rawRef);
-      const key = normalized.replace(/\.md$/, "");
-      if (basenameToFile.has(key)) {
-        const target = basenameToFile.get(key)!;
+      const resolution = await resolveWikilink(
+        resolutionRoot,
+        path.resolve(options.rootDir, item.file),
+        rawRef,
+      );
+      if ("reason" in resolution) {
+        unresolved.push({
+          file: item.file,
+          ref: rawRef,
+          reason: resolution.reason,
+          candidates: resolution.candidates,
+        });
+      } else {
+        const target = path
+          .relative(options.rootDir, resolution.target)
+          .replaceAll("\\", "/");
         inbound.get(target)?.push(item.file);
-        continue;
-      }
-      const candidates = [
-        normalized,
-        normalized.endsWith(".md") ? "" : `${normalized}.md`,
-      ].filter(Boolean);
-      let resolved = false;
-      for (const candidate of candidates) {
-        const relCandidates = [
-          candidate,
-          path.join("backlog", candidate),
-          path.join("docs", candidate),
-          path.join("schemas", candidate),
-          path.join("schemas", "frontmatter", candidate),
-        ];
-        for (const relCandidate of relCandidates) {
-          const fullCandidate = path.resolve(options.rootDir, relCandidate);
-          try {
-            await fs.access(fullCandidate);
-            resolved = true;
-            break;
-          } catch {
-            // Continue.
-          }
-        }
-        if (resolved) break;
-      }
-      if (!resolved) {
-        unresolved.push({ file: item.file, ref: rawRef });
       }
     }
   }
@@ -651,21 +800,23 @@ export async function auditBacklog(
     // Best effort.
   }
 
-  // Pre-load support schemas for work-item validation
-  const baseSchemaPath = resolveLocalPath(
-    options.rootDir,
+  // Pre-load both versioned and current base schemas used by canonical routes.
+  for (const baseSchemaTarget of [
+    "schemas/frontmatter/support/base/1.0.0.json",
     "schemas/frontmatter/support/base/current.json",
-  );
-  try {
-    const baseSchema = await loadJson(baseSchemaPath);
-    await addSchemaWithAliases(
-      ajv,
-      options.rootDir,
-      baseSchemaPath,
-      baseSchema,
-    );
-  } catch {
-    // Best effort.
+  ]) {
+    const baseSchemaPath = resolveLocalPath(options.rootDir, baseSchemaTarget);
+    try {
+      const baseSchema = await loadJson(baseSchemaPath);
+      await addSchemaWithAliases(
+        ajv,
+        options.rootDir,
+        baseSchemaPath,
+        baseSchema,
+      );
+    } catch {
+      // Best effort.
+    }
   }
 
   // Pre-load local contract and overlay schemas so Ajv never needs the remote
@@ -679,6 +830,11 @@ export async function auditBacklog(
     ajv,
     options.rootDir,
     "schemas/frontmatter/support/overlays",
+  );
+  await preloadSchemaTree(
+    ajv,
+    options.rootDir,
+    "schemas/work-management/support",
   );
 
   async function getValidator(schemaTarget: string) {

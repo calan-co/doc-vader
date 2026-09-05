@@ -126,7 +126,13 @@ async function lintFiles(patternsToLint: string[]): Promise<LintResult[]> {
 
   for (const pattern of patternsToLint) {
     const files = await glob(pattern, {
-      ignore: ["node_modules/**", ".git/**", "dist/**", "coverage/**"],
+      ignore: [
+        "node_modules/**",
+        ".git/**",
+        "dist/**",
+        "coverage/**",
+        "backlog/archive/**",
+      ],
     });
 
     for (const file of files) {

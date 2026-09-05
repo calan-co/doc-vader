@@ -18,7 +18,6 @@ links:
     - '[[../docs/architecture/decisions/adr-005-entity-governance-primitive-model.md]]'
     - '[[../docs/architecture/decisions/adr-010-composable-evaluation-primitives.md]]'
     - '[[../schemas/work-management/CONTEXT.md]]'
-  supporting_reference:
     - '[[record-wi-60380-validation]]'
   evidence:
     - '[[record-20260624-234349-60380]]'

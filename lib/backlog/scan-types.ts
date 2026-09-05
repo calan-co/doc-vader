@@ -54,6 +54,8 @@ export interface BacklogScanOptions {
   consumerConfig?: string;
   /** Validate and archive eligible completed candidates. */
   validateArchiveCandidates?: boolean;
+  /** Exact active claim token authorizing a candidate archive mutation. */
+  claimToken?: string;
   /** Optional status to set when candidate validation fails. Use "none" to disable updates. */
   invalidCandidateStatus?: string;
 }

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -464,6 +464,80 @@ function isDirectoryPath(filePath: string): boolean {
   }
 }
 
+function canonicalFilesystemPath(inputPath: string): string {
+  const suffix: string[] = [];
+  let existingPath = path.resolve(inputPath);
+  while (!existsSync(existingPath)) {
+    const parent = path.dirname(existingPath);
+    if (parent === existingPath) {
+      return path.resolve(inputPath);
+    }
+    suffix.unshift(path.basename(existingPath));
+    existingPath = parent;
+  }
+  try {
+    return path.join(realpathSync.native(existingPath), ...suffix);
+  } catch {
+    return path.resolve(inputPath);
+  }
+}
+
+function nearestExistingDirectory(inputPath: string): string {
+  let existingPath = path.resolve(inputPath);
+  while (!existsSync(existingPath)) {
+    const parent = path.dirname(existingPath);
+    if (parent === existingPath) {
+      return existingPath;
+    }
+    existingPath = parent;
+  }
+  return isDirectoryPath(existingPath) ? existingPath : path.dirname(existingPath);
+}
+
+function gitRepositoryRootForPath(inputPath: string): string | undefined {
+  try {
+    const root = execFileSync(
+      "git",
+      ["-C", nearestExistingDirectory(inputPath), "rev-parse", "--show-toplevel"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+    return root ? canonicalFilesystemPath(root) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function relativePathWithin(rootDir: string, targetPath: string): string | undefined {
+  const relativePath = path.relative(rootDir, targetPath);
+  if (
+    !relativePath ||
+    relativePath === "." ||
+    relativePath.startsWith("..") ||
+    path.isAbsolute(relativePath)
+  ) {
+    return undefined;
+  }
+  return toPosixPath(path.normalize(relativePath));
+}
+
+/** Return only Git worktree roots registered by the shared repository. */
+function registeredGitWorktreeRoots(rootDir: string): string[] {
+  try {
+    const output = execFileSync(
+      "git",
+      ["-C", rootDir, "worktree", "list", "--porcelain"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+    return output
+      .split("\n")
+      .filter((line) => line.startsWith("worktree "))
+      .map((line) => canonicalFilesystemPath(line.slice("worktree ".length)))
+      .sort((left, right) => right.length - left.length);
+  } catch {
+    return [];
+  }
+}
+
 export function normalizeRuntimeLockPath(
   inputPath: string,
   rootDirOrOptions?: string | RuntimeLockPathNormalizationOptions,
@@ -471,17 +545,45 @@ export function normalizeRuntimeLockPath(
   const options = normalizeOptions(rootDirOrOptions);
   const { rootDir, cwd } = resolveRuntimeLockPathContext(options);
   const resolvedPath = path.resolve(cwd, inputPath);
-  const relativePath = path.relative(rootDir, resolvedPath);
+  const canonicalRootDir = canonicalFilesystemPath(rootDir);
+  const canonicalResolvedPath = canonicalFilesystemPath(resolvedPath);
+  const registeredWorktreeRoots = registeredGitWorktreeRoots(rootDir);
+  const targetRepositoryRoot = gitRepositoryRootForPath(canonicalResolvedPath);
   if (
-    !relativePath ||
-    relativePath === "." ||
-    relativePath.startsWith("..") ||
-    path.isAbsolute(relativePath)
+    targetRepositoryRoot &&
+    !new Set([canonicalRootDir, ...registeredWorktreeRoots]).has(
+      targetRepositoryRoot,
+    )
   ) {
     throw new Error(`Lock path escapes the repository root: ${inputPath}`);
   }
-  const normalizedPath = toPosixPath(path.normalize(relativePath));
-  return canonicalizeRuntimeLockPath(normalizedPath, {
+
+  const rootRelativePath = relativePathWithin(
+    canonicalRootDir,
+    canonicalResolvedPath,
+  );
+  if (rootRelativePath) {
+    return canonicalizeRuntimeLockPath(rootRelativePath, {
+      ...options,
+      rootDir,
+      cwd,
+    });
+  }
+
+  // Relative paths may not traverse into another checkout. Absolute paths are
+  // accepted only when Git registered their worktree with this authority.
+  if (!path.isAbsolute(inputPath)) {
+    throw new Error(`Lock path escapes the repository root: ${inputPath}`);
+  }
+  const worktreeRelativePath = registeredWorktreeRoots
+    .map((worktreeRoot) =>
+      relativePathWithin(worktreeRoot, canonicalResolvedPath),
+    )
+    .find((relativePath): relativePath is string => relativePath !== undefined);
+  if (!worktreeRelativePath) {
+    throw new Error(`Lock path escapes the repository root: ${inputPath}`);
+  }
+  return canonicalizeRuntimeLockPath(worktreeRelativePath, {
     ...options,
     rootDir,
     cwd,

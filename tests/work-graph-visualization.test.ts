@@ -249,7 +249,7 @@ describe("work graph visualization", () => {
         rawTarget: "[[wi-70002]]",
         resolvedTargetId: "wi:70002",
         provenance: {
-          kind: "relationships",
+          kind: "frontmatter",
           filePath: "backlog/70001-work-graph-uac-main.md",
         },
       },

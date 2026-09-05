@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -11,17 +11,16 @@ import {
   formatGenericClaimReleaseMessage,
 } from "./claim-release.js";
 import { loadSandcastlePlanningListPayload } from "../../lib/sandcastle/planning-list.js";
-import {
-  openRuntimeSqliteStore,
-  type RuntimeClaimRecord,
-} from "../../lib/runtime/index.js";
+import { createRuntimeClaimCommandApi } from "../../lib/runtime-claim/index.js";
+import type { RuntimeClaimRecord } from "../../lib/runtime/index.js";
+import { transitionWorkItem } from "../../lib/work-management/index.js";
+import { toTaskErrorPayload } from "../../lib/task/errors.js";
 import {
   collectBranchDiffPaths,
   collectChangedPaths,
 } from "../../lib/task/recovery-state.js";
 
 type JsonRecord = Record<string, unknown>;
-type RuntimeStore = ReturnType<typeof openRuntimeSqliteStore>;
 type RuntimeClaimReleaseResult = JsonRecord & { claimToken: string };
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
@@ -82,13 +81,23 @@ interface TransitionScriptInvocationResult {
 
 interface CloseCommandSettings {
   actual?: string;
-  completedDate: string;
   consumerConfigPath: string;
   backlogDir: string;
   recordType: string;
   payloadPath?: string;
   passThroughArgs: string[];
   taskContextArgs: string[];
+}
+
+class SandcastleCloseGateError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "SandcastleCloseGateError";
+  }
 }
 
 function fail(message: string): never {
@@ -240,10 +249,6 @@ function taskFrontmatter(task: JsonRecord): JsonRecord {
 
 function taskState(status: string): AdapterTask["state"] {
   return status === "completed" || status === "aborted" ? "closed" : "open";
-}
-
-function isoDateOnly(date = new Date()): string {
-  return date.toISOString().slice(0, 10);
 }
 
 function git(args: string[]): string | undefined {
@@ -408,9 +413,9 @@ function closeCommandSettings(args: string[]): CloseCommandSettings {
   if (backlogDir) {
     forwarded.push("--backlog-dir", backlogDir);
   }
+  const actual = optionValue(args, "--actual");
   return {
-    actual: optionValue(args, "--actual"),
-    completedDate: optionValue(args, "--completed-date") ?? isoDateOnly(),
+    actual,
     consumerConfigPath: consumerConfigPath ?? DEFAULT_CONSUMER_CONFIG_PATH,
     backlogDir: backlogDir ?? DEFAULT_BACKLOG_DIR,
     recordType: optionValue(args, "--record-type") ?? DEFAULT_CLOSE_RECORD_TYPE,
@@ -423,8 +428,8 @@ function closeCommandSettings(args: string[]): CloseCommandSettings {
 function resolveCloseClaim(taskId: string, args: string[]): ClaimStatus {
   const explicitClaimId = optionValue(args, "--claim");
   if (explicitClaimId) {
-    return withRuntimeStore((store) => {
-      const claim = store.getClaimByToken(explicitClaimId);
+    return (() => {
+      const claim = runtimeClaimCommands().getClaimStatus(explicitClaimId);
       if (!claim || claim.target_type !== "task") {
         fail(`No active runtime task claim found for ${explicitClaimId}.`);
       }
@@ -434,10 +439,10 @@ function resolveCloseClaim(taskId: string, args: string[]): ClaimStatus {
         );
       }
       if (claim.state !== "active") {
-        fail(`Runtime claim '${explicitClaimId}' is not active.`);
+        fail(`Runtime claim '${explicitClaimId}' is ${claim.state}; inspect or recover before close.`);
       }
       return runtimeClaimStatus(claim);
-    });
+    })();
   }
 
   const holder = claimHolder(args);
@@ -557,7 +562,6 @@ function runTransitionScript(options: {
       },
       close: {
         actual: options.settings.actual,
-        completedDate: options.settings.completedDate,
         consumerConfig: options.settings.consumerConfigPath,
         backlogDir: options.settings.backlogDir,
       },
@@ -642,15 +646,8 @@ function normalizeTaskId(taskId: string): string {
   return taskId.startsWith("wi-") ? taskId : `wi-${taskNumber(taskId)}`;
 }
 
-function withRuntimeStore<T>(
-  callback: (store: RuntimeStore) => T,
-): T {
-  const store = openRuntimeSqliteStore({ rootDir: repoRoot() });
-  try {
-    return callback(store);
-  } finally {
-    store.close();
-  }
+function runtimeClaimCommands() {
+  return createRuntimeClaimCommandApi({ rootDir: repoRoot() });
 }
 
 function runtimeClaimStatus(claim: RuntimeClaimRecord): ClaimStatus {
@@ -664,19 +661,17 @@ function runtimeClaimStatus(claim: RuntimeClaimRecord): ClaimStatus {
 
 function activeRuntimeClaimsForTask(taskId: string, holder?: string): ClaimStatus[] {
   const normalizedTaskId = normalizeTaskId(taskId);
-  return withRuntimeStore((store) =>
-    store
-      .listClaims()
-      .filter((claim) => {
-        return (
-          claim.target_type === "task" &&
-          claim.target_id === normalizedTaskId &&
-          claim.state === "active" &&
-          (!holder || claim.holder === holder)
-        );
-      })
-      .map(runtimeClaimStatus),
-  );
+  return runtimeClaimCommands()
+    .listClaims()
+    .filter((claim) => {
+      return (
+        claim.target_type === "task" &&
+        claim.target_id === normalizedTaskId &&
+        claim.state === "active" &&
+        (!holder || claim.holder === holder)
+      );
+    })
+    .map(runtimeClaimStatus);
 }
 
 function runClaimRelease(
@@ -759,8 +754,78 @@ async function claimTask(taskId: string, args: string[]): Promise<void> {
 
   await assertSandcastleSelectable(normalizedTaskId, args);
   process.stdout.write(
-    runDv(["work", "claim", normalizedTaskId, "--json", ...args.slice(1)]),
+    runDv(["work", normalizedTaskId, "claim", "--json", ...args.slice(1)]),
   );
+}
+
+async function assertSandcastleCloseGate(options: {
+  taskId: string;
+  settings: CloseCommandSettings;
+}): Promise<void> {
+  try {
+    await transitionWorkItem({
+      rootDir: repoRoot(),
+      id: options.taskId,
+      status: "completed",
+      statusReason: "completed",
+      actual: options.settings.actual ? Number(options.settings.actual) : undefined,
+      consumerConfig: options.settings.consumerConfigPath,
+      dryRun: true,
+    });
+  } catch (error) {
+    const diagnostic = toTaskErrorPayload(error).error;
+    throw new SandcastleCloseGateError(
+      diagnostic.code,
+      diagnostic.message,
+      diagnostic.details,
+    );
+  }
+}
+
+function recordTask(args: string[], input?: string): void {
+  const usage =
+    "Usage: dv-adapter.ts record --claim <claim-id> --type <record-type> --payload <json-file|->";
+  const claimToken = optionValue(args, "--claim") ?? fail(usage);
+  const recordType = optionValue(args, "--type") ?? fail(usage);
+  const payloadPath = optionValue(args, "--payload") ?? "-";
+  const payloadRaw =
+    payloadPath === "-"
+      ? (input ?? readStdin())
+      : readTextFile(path.resolve(repoRoot(), payloadPath));
+  const claim = runtimeClaimCommands().getClaimStatus(claimToken);
+  if (!claim || claim.target_type !== "task" || claim.state !== "active") {
+    fail(`No active runtime task claim found for ${claimToken}.`);
+  }
+  const preview = json<JsonRecord>(
+    [
+      "record",
+      "create",
+      "--type",
+      recordType,
+      "--payload",
+      "-",
+      "--dry-run",
+      "--json",
+    ],
+    payloadRaw,
+  );
+  const recordPath = stringValue(preview.filePath);
+  if (!recordPath) {
+    fail("Record preview did not return a file path.");
+  }
+  const task = toAdapterTask(
+    json<JsonRecord>(["work", claim.target_id, "show", "--json"]),
+  );
+  runDv([
+    "lock",
+    "create",
+    "--claim",
+    claimToken,
+    task.file,
+    asRelativeRepoPath(recordPath),
+    "--json",
+  ]);
+  process.stdout.write(runDv(["work", claim.target_id, "record", "--json", ...args], input));
 }
 
 async function closeTask(taskId: string, args: string[]): Promise<void> {
@@ -769,8 +834,8 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
   const task = toAdapterTask(
     json<JsonRecord>([
       "work",
-      "show",
       normalizedTaskId,
+      "show",
       "--json",
       ...settings.taskContextArgs,
     ]),
@@ -780,35 +845,35 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
   const transitionScriptPath = configuredTransitionScript(
     settings.consumerConfigPath,
   );
-  const transitionPlan = transitionScriptPath
-    ? runTransitionScript({
-        scriptPath: transitionScriptPath,
-        mode: "plan",
-        task,
-        claim,
-        settings,
-        record,
-      })
-    : undefined;
-  const lockPaths = uniquePaths([
+  let lockPaths = uniquePaths([
     ...currentChangedPaths(),
     task.file,
     ...(record ? [record.relativeFilePath] : []),
-    ...(transitionPlan?.lockPaths ?? []),
   ]);
 
   const preReleaseTaskSnapshot = task.file
     ? readTextFile(path.resolve(repoRoot(), task.file))
     : undefined;
+  const preReleaseRecordSnapshot = record
+    ? {
+        filePath: path.resolve(repoRoot(), record.relativeFilePath),
+        content: existsSync(path.resolve(repoRoot(), record.relativeFilePath))
+          ? readTextFile(path.resolve(repoRoot(), record.relativeFilePath))
+          : undefined,
+      }
+    : undefined;
+  let recordMutationStarted = false;
   try {
     if (lockPaths.length > 0) {
       runDv(["lock", "create", "--claim", claim.claimId, ...lockPaths, "--json"]);
     }
 
+    recordMutationStarted = Boolean(record);
     const recorded = record
       ? json<JsonRecord>(
           [
             "work",
+            normalizedTaskId,
             "record",
             "--claim",
             claim.claimId,
@@ -823,16 +888,9 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
         )
       : undefined;
 
-    const appliedScript = transitionScriptPath
-      ? runTransitionScript({
-          scriptPath: transitionScriptPath,
-          mode: "apply",
-          task,
-          claim,
-          settings,
-          record,
-        })
-      : undefined;
+    // The terminal Gate must decide before its lower-level claim-release
+    // validation or a repository transition script can plan a mutation.
+    await assertSandcastleCloseGate({ taskId: normalizedTaskId, settings });
 
     const validation = json<JsonRecord>(
       [
@@ -844,8 +902,46 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
         "--dry-run",
         "--json",
         ...settings.passThroughArgs,
+        ...(settings.actual ? ["--actual", settings.actual] : []),
       ],
     );
+
+    const transitionPlan = transitionScriptPath
+      ? runTransitionScript({
+          scriptPath: transitionScriptPath,
+          mode: "plan",
+          task,
+          claim,
+          settings,
+          record,
+        })
+      : undefined;
+    const transitionLockPaths = uniquePaths(transitionPlan?.lockPaths ?? []);
+    const additionalLockPaths = transitionLockPaths.filter(
+      (lockPath) => !lockPaths.includes(lockPath),
+    );
+    if (additionalLockPaths.length > 0) {
+      runDv([
+        "lock",
+        "create",
+        "--claim",
+        claim.claimId,
+        ...additionalLockPaths,
+        "--json",
+      ]);
+      lockPaths = uniquePaths([...lockPaths, ...additionalLockPaths]);
+    }
+
+    const appliedScript = transitionScriptPath
+      ? runTransitionScript({
+          scriptPath: transitionScriptPath,
+          mode: "apply",
+          task,
+          claim,
+          settings,
+          record,
+        })
+      : undefined;
 
     const release = json<JsonRecord>(
       [
@@ -856,6 +952,7 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
         "success",
         "--json",
         ...settings.passThroughArgs,
+        ...(settings.actual ? ["--actual", settings.actual] : []),
       ],
     );
 
@@ -897,6 +994,21 @@ async function closeTask(taskId: string, args: string[]): Promise<void> {
         // Best-effort task rollback only.
       }
     }
+    if (recordMutationStarted && preReleaseRecordSnapshot) {
+      try {
+        if (preReleaseRecordSnapshot.content === undefined) {
+          rmSync(preReleaseRecordSnapshot.filePath, { force: true });
+        } else {
+          writeFileSync(
+            preReleaseRecordSnapshot.filePath,
+            preReleaseRecordSnapshot.content,
+            "utf8",
+          );
+        }
+      } catch {
+        // Best-effort rollback only for the record this close invocation wrote.
+      }
+    }
     try {
       runDv([
         "claim",
@@ -922,8 +1034,8 @@ function releaseTask(taskId: string, args: string[]): void {
   const holder = optionValue(args, "--holder") ?? process.env.SANDCASTLE_CLAIM_HOLDER;
   const claims = explicitClaimId
     ? [
-        withRuntimeStore((store) => {
-          const claim = store.getClaimByToken(explicitClaimId);
+        (() => {
+          const claim = runtimeClaimCommands().getClaimStatus(explicitClaimId);
           if (!claim || claim.target_type !== "task") {
             fail(`No active runtime task claim found for ${explicitClaimId}.`);
           }
@@ -933,10 +1045,10 @@ function releaseTask(taskId: string, args: string[]): void {
             );
           }
           if (claim.state !== "active") {
-            fail(`Runtime claim '${explicitClaimId}' is not active.`);
+            fail(`Runtime claim '${explicitClaimId}' is ${claim.state}; inspect or recover before release.`);
           }
           return runtimeClaimStatus(claim);
-        }),
+        })(),
       ]
     : activeRuntimeClaimsForTask(taskId, holder);
   if (!holder && !explicitClaimId && claims.length > 1) {
@@ -992,11 +1104,11 @@ async function main(): Promise<void> {
     }
     case "view": {
       const taskId = args[0] ?? fail("Usage: dv-adapter.ts view <task-id>");
-      const showText = runDv(["work", "show", taskId]);
+      const showText = runDv(["work", taskId, "show"]);
       console.log(
         JSON.stringify(
           toAdapterTask(
-            json<JsonRecord>(["work", "show", taskId, "--json"]),
+            json<JsonRecord>(["work", taskId, "show", "--json"]),
             showText,
           ),
           null,
@@ -1007,7 +1119,7 @@ async function main(): Promise<void> {
     }
     case "prompt": {
       const taskId = args[0] ?? fail("Usage: dv-adapter.ts prompt <task-id>");
-      process.stdout.write(runDv(["work", "prompt", taskId]));
+      process.stdout.write(runDv(["work", taskId, "prompt"]));
       return;
     }
     case "claim": {
@@ -1023,14 +1135,12 @@ async function main(): Promise<void> {
       const payloadArgs = hasPayload ? args : [...args, "--payload", "-"];
       const input =
         !hasPayload || payloadValue === "-" ? readStdin() : undefined;
-      process.stdout.write(
-        runDv(["work", "record", "--json", ...payloadArgs], input),
-      );
+      recordTask(payloadArgs, input);
       return;
     }
     case "recover": {
       const taskId = args[0] ?? fail("Usage: dv-adapter.ts recover <task-id>");
-      process.stdout.write(runDv(["work", "recover", taskId, ...args.slice(1)]));
+      process.stdout.write(runDv(["work", taskId, "recover", ...args.slice(1)]));
       return;
     }
     case "lock-status": {
@@ -1045,10 +1155,6 @@ async function main(): Promise<void> {
       process.stdout.write(
         runDv(["lock", "status", "--claim", claimId, ...forwardedArgs]),
       );
-      return;
-    }
-    case "transition": {
-      process.stdout.write(runDv(["work-item", "transition", ...args]));
       return;
     }
     case "close": {
@@ -1102,5 +1208,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
+  if (error instanceof SandcastleCloseGateError) {
+    failJson(error.code, error.message, error.details ?? {});
+  }
   fail(error instanceof Error ? error.message : String(error));
 });

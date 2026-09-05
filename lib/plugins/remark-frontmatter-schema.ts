@@ -223,8 +223,23 @@ async function preloadSupportSchemas(
       } else if (entry.isFile() && entry.name.endsWith(".json")) {
         try {
           const schema = await loadSchemaFile(fullPath);
-          if (schema?.$id && !ajv.getSchema(schema.$id)) {
-            ajv.addSchema(schema, schema.$id);
+          const schemaId = typeof schema?.$id === "string" ? schema.$id : undefined;
+          if (!schemaId) continue;
+          if (!ajv.getSchema(schemaId)) {
+            ajv.addSchema(schema, schemaId);
+          }
+          const relativePath = path
+            .relative(supportDir, fullPath)
+            .replace(/\.json$/u, "")
+            .split(path.sep)
+            .join("/");
+          const supportMarker = "/support/";
+          const supportIndex = schemaId.indexOf(supportMarker);
+          if (supportIndex >= 0) {
+            const alias = `${schemaId.slice(0, supportIndex + supportMarker.length - 1)}/${relativePath}`;
+            if (!ajv.getSchema(alias)) {
+              ajv.addSchema({ ...schema, $id: alias }, alias);
+            }
           }
         } catch {
           // Best effort — a broken support schema should not halt all validation.

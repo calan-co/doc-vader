@@ -12,6 +12,16 @@ import { Type, type Static } from "@sinclair/typebox";
 const JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema";
 const JSON_SCHEMA_2020_12_OPTIONS = { $schema: JSON_SCHEMA_2020_12 } as const;
 
+const RoutingTokenSchema = Type.String({
+  pattern: "^[a-z][a-z0-9-]*$",
+  description: "Lowercase routing token using letters, numbers, and hyphens.",
+});
+
+const NamespaceSchema = Type.String({
+  pattern: "^[a-z0-9][a-z0-9.-]*$",
+  description: "Document-pack namespace that owns the routing vocabulary.",
+});
+
 // ---------------------------------------------------------------------------
 // SchemaMapConfigSchema
 // ---------------------------------------------------------------------------
@@ -52,6 +62,30 @@ export const SchemaMapConfigSchema = Type.Object(
 );
 
 export type SchemaMapConfig = Static<typeof SchemaMapConfigSchema>;
+
+// ---------------------------------------------------------------------------
+// DocumentRoutingConfigSchema
+// ---------------------------------------------------------------------------
+
+/**
+ * Local document routing defaults, usually declared in nested dv.yaml files.
+ */
+export const DocumentRoutingConfigSchema = Type.Object(
+  {
+    namespace: Type.Optional(NamespaceSchema),
+    defaultType: Type.Optional(RoutingTokenSchema),
+    defaultSubtype: Type.Optional(RoutingTokenSchema),
+    schemaMap: Type.Optional(SchemaMapConfigSchema),
+  },
+  {
+    ...JSON_SCHEMA_2020_12_OPTIONS,
+    additionalProperties: false,
+    description:
+      "Document routing defaults inferred from the closest merged dv.yaml config.",
+  },
+);
+
+export type DocumentRoutingConfig = Static<typeof DocumentRoutingConfigSchema>;
 
 // ---------------------------------------------------------------------------
 // ValidationConfigSchema
@@ -178,7 +212,17 @@ export const DocVaderConfigSchema = Type.Object(
           "Resolved in order; later entries override earlier ones; the local config overrides all.",
       }),
     ),
+    namespace: Type.Optional(NamespaceSchema),
+    defaultType: Type.Optional(RoutingTokenSchema),
+    defaultSubtype: Type.Optional(RoutingTokenSchema),
+    document: Type.Optional(DocumentRoutingConfigSchema),
     schemaMap: Type.Optional(SchemaMapConfigSchema),
+    documentTypePacks: Type.Optional(
+      Type.Array(Type.String(), {
+        description:
+          "Ordered document-type-pack manifest locators. Local config replaces inherited lists.",
+      }),
+    ),
     validation: Type.Optional(ValidationConfigSchema),
     backlog: Type.Optional(BacklogConfigSchema),
     vocabularies: Type.Optional(VocabularyConfigSchema),
@@ -187,7 +231,7 @@ export const DocVaderConfigSchema = Type.Object(
     ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description:
-      "Root .doc.json configuration. Supports composition via extends.",
+      "Doc-Vader configuration for dv.yaml and legacy .doc.json. Supports composition via extends.",
   },
 );
 

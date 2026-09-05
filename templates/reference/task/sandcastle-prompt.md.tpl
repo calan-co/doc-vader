@@ -36,12 +36,12 @@ Initialization and registry mapping live in `docs/how-to/sandcastle-dogfood-task
 
 ## Sandcastle Flow
 
-1. Claim this work item before execution with `dv work claim <task-id> --holder <holder> --json`, then use the returned claim token for every subsequent runtime command.
+1. Claim this work item before execution with `dv work <task-id> claim --holder <holder> --json`, then use the returned claim token for every subsequent runtime command.
 2. Acquire file ownership lazily with `dv lock create --claim <claim-token> <path...>` before mutating any non-Doc-Vader file.
 3. Clean up only unmodified resources with `dv lock rm --claim <claim-token> <path...>` after confirming the files were not changed by your branch.
 4. Let lifecycle commands enforce changed-file lock audits before record or completion; do not treat Git hooks or prompt instructions as deterministic enforcement.
 5. Route unrecoverable lock conflicts to `dv claim release <claim-token> --outcome conflict`.
-6. If the work item is blocked after a non-success release, recover it with `dv work recover <task-id>`.
+6. If the work item is blocked after a non-success release, recover it with `dv work <task-id> recover`.
 7. Keep successful claim release behind the existing validation and evidence gates.
 
 ## Source Context
@@ -56,12 +56,10 @@ Initialization and registry mapping live in `docs/how-to/sandcastle-dogfood-task
 
 Use the canonical work item JSON as the source of truth. Do not implement claims, ready selection, work records, scope graphs, artifact reservations, hosted authority, revocation, or automatic close/finalize in this slice.
 
-## Temporary Checklist and Completion Protocol
+## Checklist and Gate Protocol
 
-Until Doc-Vader has runtime-backed claim completion, maintain checklist state explicitly:
-
-1. Check `- [ ]` items only when concrete branch evidence satisfies the item.
-2. Leave unsupported, partial, or blocked items unchecked.
-3. Record evidence with `dv work record --claim` after validation passes.
-4. Do not mark the Work Item complete or closed from an implementation prompt.
-5. Output `<promise>COMPLETE</promise>` only when all required task, deliverable, and acceptance checkboxes for this slice are checked with evidence and validation has passed.
+1. Inspect current pack-discovered checklists with `dv work {{id}} checklist --json` before attempting a targeted mutation.
+2. Complete or clear only the returned revision-scoped checks through `dv work {{id}} checklist <checklist-id> check <check-id> complete|clear --claim <claim-token>`; completion also requires `--evidence`.
+3. Record evidence with `dv work {{id}} record --claim` after validation passes.
+4. Do not mark the Work Item complete or closed from an implementation prompt. The terminal Gate decides completion from checklists, evidence, lifecycle, and Runtime Claim authority.
+5. Output `<promise>COMPLETE</promise>` only after the terminal Gate permits completion and the public claim release command succeeds.

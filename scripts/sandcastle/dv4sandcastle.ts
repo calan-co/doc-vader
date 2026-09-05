@@ -9,11 +9,11 @@
  *
  * Commands:
  * - list              -> Sandcastle planning payload over `dv work ready`
- * - view <id>         -> `dv work show <id> --json`
- * - prompt <id>       -> `dv work prompt <id>`
+ * - view <id>         -> `dv work <id> show --json`
+ * - prompt <id>       -> `dv work <id> prompt`
  * - claim-task <id>   -> runtime-aware Sandcastle claim flow
  * - recover-task <id> -> runtime-aware Sandcastle recovery flow
- * - record-task       -> `dv work record`
+ * - record-task       -> `dv work <id> record`
  * - close-task <id>   -> Sandcastle close flow with transition script support
  * - lock-status       -> runtime lock status for a claim
  */
@@ -24,6 +24,10 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadSandcastlePlanningListPayload } from "../../lib/sandcastle/planning-list.js";
+import {
+  formatSandcastleAdapterUsage,
+  getSandcastleAdapterCommandContract,
+} from "./dv4sandcastle-contract.js";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,12 +46,39 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function requireTaskId(args: string[], usage: string): string {
-  return args[0] ?? fail(usage);
+function requireTaskId(
+  args: string[],
+  commandName:
+    | "view"
+    | "prompt"
+    | "claim-task"
+    | "recover-task"
+    | "close-task",
+): string {
+  return args[0] ?? fail(usageFor(commandName));
 }
 
 function optionalStdin(): string | undefined {
   return process.stdin.isTTY ? undefined : readFileSync(0, "utf8");
+}
+
+function ensureOption(args: string[], name: string): string[] {
+  return args.some((arg) => arg === name || arg.startsWith(`${name}=`))
+    ? args
+    : [...args, name];
+}
+
+function optionValue(args: string[], name: string): string | undefined {
+  const index = args.findIndex(
+    (arg) => arg === name || arg.startsWith(`${name}=`),
+  );
+  if (index < 0) {
+    return undefined;
+  }
+  const option = args[index]!;
+  return option.startsWith(`${name}=`)
+    ? option.slice(name.length + 1)
+    : args[index + 1];
 }
 
 function runTsScript(scriptPath: string, args: string[], input?: string): string {
@@ -86,7 +117,7 @@ async function main() {
   const [command, ...args] = process.argv.slice(2);
 
   if (!command) {
-    fail("Usage: dv4sandcastle <command> [args...]");
+    fail(formatSandcastleAdapterUsage());
   }
 
   try {
@@ -98,31 +129,26 @@ async function main() {
       }
 
       case "view": {
-        const taskId = requireTaskId(args, "Usage: dv4sandcastle view <task-id>");
-        process.stdout.write(runDv(["work", "show", taskId, "--json"]));
+        const taskId = requireTaskId(args, "view");
+        process.stdout.write(runDv(["work", taskId, "show", "--json"]));
         break;
       }
 
       case "prompt": {
-        const taskId = requireTaskId(args, "Usage: dv4sandcastle prompt <task-id>");
-        process.stdout.write(runDv(["work", "prompt", taskId]));
+        const taskId = requireTaskId(args, "prompt");
+        process.stdout.write(runDv(["work", taskId, "prompt"]));
         break;
       }
 
       case "claim-task": {
-        const taskId = requireTaskId(
-          args,
-          "Usage: dv4sandcastle claim-task <task-id> [claim flags]",
-        );
+        const taskId = requireTaskId(args, "claim-task");
         process.stdout.write(runSandcastleAdapter(["claim", taskId, ...args.slice(1)]));
         break;
       }
 
+
       case "recover-task": {
-        const taskId = requireTaskId(
-          args,
-          "Usage: dv4sandcastle recover-task <task-id> [recover flags]",
-        );
+        const taskId = requireTaskId(args, "recover-task");
         process.stdout.write(runSandcastleAdapter(["recover", taskId, ...args.slice(1)]));
         break;
       }
@@ -133,10 +159,7 @@ async function main() {
       }
 
       case "close-task": {
-        const taskId = requireTaskId(
-          args,
-          "Usage: dv4sandcastle close-task <task-id> [close flags]",
-        );
+        const taskId = requireTaskId(args, "close-task");
         process.stdout.write(
           runSandcastleAdapter(
             ["close-task", taskId, ...args.slice(1)],
@@ -152,7 +175,9 @@ async function main() {
       }
 
       default: {
-        fail(`Unknown dv4sandcastle command: ${command}`);
+        fail(
+          `Unknown dv4sandcastle command: ${command}\n${formatSandcastleAdapterUsage()}`,
+        );
       }
     }
   } catch (error) {
@@ -161,4 +186,20 @@ async function main() {
   }
 }
 
-main();
+function usageFor(
+  commandName:
+    | "view"
+    | "prompt"
+    | "claim-task"
+    | "recover-task"
+    | "close-task",
+): string {
+  return `Usage: ${getSandcastleAdapterCommandContract(commandName).usage}`;
+}
+
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main();
+}

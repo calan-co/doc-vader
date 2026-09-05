@@ -20,7 +20,7 @@ links:
     - '[[record-20260612-framework-readiness-pivot]]'
     - '[[record-20260612-context-coordination-pivot]]'
   reference:
-    - '[[archive/234.github-app-deployment-and-ci-plan-story]]'
+    - '[[archive/234.github-app-deployment-and-ci-plan-story.md]]'
     - '[[archive/60331-ci-adoption-and-legacy-deprecation-gate]]'
     - '[[archive/60334-framework-reconciliation-and-release-readiness-decisions]]'
     - '[[archive/60337-context-coordination-policy-and-ci-seams]]'

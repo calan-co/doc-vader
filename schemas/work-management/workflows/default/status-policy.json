@@ -82,12 +82,39 @@
       },
       "then": {
         "type": "object",
-        "required": ["actual", "links"],
+        "required": ["links"],
         "properties": {
           "links": {
             "$ref": "/work-management/support/common#/$defs/workItemLinks"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "anyOf": [
+                {
+                  "required": ["estimated"]
+                },
+                {
+                  "not": {
+                    "required": ["tags"],
+                    "properties": {
+                      "tags": {
+                        "type": "array",
+                        "contains": {
+                          "const": "afk"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "required": ["actual"]
+            }
+          }
+        ]
       }
     }
   ]
