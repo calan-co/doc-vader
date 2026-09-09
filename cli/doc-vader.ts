@@ -99,6 +99,9 @@ import {
   formatReadyPorcelain,
   formatReadyText,
   selectReadyWorkItems as selectReadyTasks,
+  discoverPublishedWorkSelectionCapabilities,
+  formatPublishedWorkSelectionCommand,
+  selectPublishedWork,
   summarizeWorkGraphProjection,
   resolveWorkRoot as resolveGitRoot,
   resolveWorkAuthority as resolveTaskAuthority,
@@ -1770,6 +1773,47 @@ function registerWorkCommandSurface(surface: Command): void {
         }
       }
     );
+
+  surface
+    .command("capabilities <work-item-id>")
+    .description("Discover publisher-owned selection capabilities for one Work Item")
+    .option("--json", "Emit machine-readable capability discovery")
+    .action((_workItemId: string, opts: { json?: boolean }) => {
+      const discovery = discoverPublishedWorkSelectionCapabilities();
+      if (opts.json) printTaskJson(discovery);
+      else console.log(discovery.capabilities.join("\n"));
+    });
+
+  surface
+    .command("select <work-item-id>")
+    .description("Execute publisher-owned selection for one Work Item from a JSON request")
+    .requiredOption("--request <json-file|->", "Selection request JSON file or stdin")
+    .option("--backlog-dir <path>", "Path to the backlog directory")
+    .option("--json", "Emit machine-readable selection response")
+    .action(async (workItemId: string, opts: { request: string; backlogDir?: string; json?: boolean }) => {
+      try {
+        const raw = opts.request === "-"
+          ? await new Promise<string>((resolve, reject) => {
+              let value = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", (chunk) => { value += chunk; });
+              process.stdin.on("end", () => resolve(value));
+              process.stdin.on("error", reject);
+            })
+          : await fs.readFile(path.resolve(opts.request), "utf8");
+        const request = JSON.parse(raw) as { request?: { workItemId?: unknown } } | null;
+        if (request?.request?.workItemId !== workItemId) {
+          throw new TaskCommandError("TASK_SELECTION_RESOURCE_MISMATCH", "The request Work Item id must match the command resource id.");
+        }
+        const response = await selectPublishedWork(request, {
+          backlogDir: path.normalize(opts.backlogDir ?? "backlog"),
+          invokedCommand: formatPublishedWorkSelectionCommand({ workItemId, request: opts.request, backlogDir: opts.backlogDir, json: opts.json }),
+        });
+        if (opts.json) printTaskJson(response); else console.log(JSON.stringify(response));
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    });
 
   surface
     .command("show")
