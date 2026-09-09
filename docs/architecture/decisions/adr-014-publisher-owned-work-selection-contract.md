@@ -1,6 +1,6 @@
 ---
 $schema: /frontmatter/document
-id: adr-14
+id: adrpubli-6047
 title: Publish a Publisher-Owned Work Selection Contract
 type: document
 subtype: generic
@@ -17,7 +17,7 @@ links:
     - "[[adr-006-task-command-surface-work-item-canonical-model.md]]"
     - "[[adr-007-local-runtime-authority-git-sqlite.md]]"
     - "[[adr-009-storage-and-format-seams.md]]"
-    - "[[../../../../backlog/60473-publish-work-result-selection-contract.md]]"
+    - "[[../../../backlog/60473-publish-work-result-selection-contract.md]]"
 ---
 
 # ADR-014: Publish a Publisher-Owned Work Selection Contract

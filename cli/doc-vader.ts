@@ -1801,8 +1801,8 @@ function registerWorkCommandSurface(surface: Command): void {
               process.stdin.on("error", reject);
             })
           : await fs.readFile(path.resolve(opts.request), "utf8");
-        const request = JSON.parse(raw) as { request?: { workItemId?: unknown } };
-        if (request.request?.workItemId !== workItemId) {
+        const request = JSON.parse(raw) as { request?: { workItemId?: unknown } } | null;
+        if (request?.request?.workItemId !== workItemId) {
           throw new TaskCommandError("TASK_SELECTION_RESOURCE_MISMATCH", "The request Work Item id must match the command resource id.");
         }
         const response = await selectPublishedWork(request, {

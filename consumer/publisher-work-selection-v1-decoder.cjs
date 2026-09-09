@@ -59,6 +59,7 @@ function decode(request, value) {
     value.capability !== CAPABILITY ||
     !record(value.outcome) ||
     !record(value.decisionArtifact) ||
+    typeof value.decisionArtifact.invokedCommand !== "string" ||
     !COMMAND.test(value.decisionArtifact.invokedCommand) ||
     !canonicalJsonBase64(value.decisionArtifact.sourceResult) ||
     value.decisionArtifact.requestedWorkItemId !== request.request.workItemId

@@ -97,6 +97,19 @@ describe("publisher work selection CLI transport", () => {
     ).toThrow();
   });
 
+  it("reports a null JSON request as a scoped-resource mismatch", async () => {
+    const root = await fixture();
+    try {
+      invoke(root, ["select", "wi-001", "--request", "-", "--json"], "null");
+      throw new Error("expected selection command to fail");
+    } catch (error) {
+      const output = error as { stdout?: unknown; stderr?: unknown };
+      expect(`${String(output.stdout)}${String(output.stderr)}`).toContain(
+        "TASK_SELECTION_RESOURCE_MISMATCH",
+      );
+    }
+  });
+
   it("selects a requested ready identity through stdin JSON and emits only the transport contract", async () => {
     const root = await fixture();
     const response = invoke(

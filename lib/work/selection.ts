@@ -208,7 +208,17 @@ export async function selectPublishedWork(
   const capability = invokedCapability(request);
   const command =
     options.invokedCommand ??
-    `dv work select ${isRecord(request) && isRecord(request.request) && typeof request.request.workItemId === "string" ? request.request.workItemId : "unknown"} --request - --json`;
+    formatPublishedWorkSelectionCommand({
+      workItemId:
+        isRecord(request) &&
+        isRecord(request.request) &&
+        typeof request.request.workItemId === "string"
+          ? request.request.workItemId
+          : "unknown",
+      request: "-",
+      backlogDir: options.backlogDir,
+      json: true,
+    });
   if (
     !isRecord(request) ||
     request.capability !== PUBLISHED_WORK_SELECTION_CAPABILITY

@@ -151,6 +151,22 @@ describe("publisher work selection contract", () => {
     },
   );
 
+  it("uses canonical fallback evidence for quoted identities and backlog directories", async () => {
+    vi.mocked(selectReadyTasks).mockResolvedValue({ ...ready, candidates: [] });
+    const quotedRequest = {
+      ...request,
+      request: { ...request.request, workItemId: "wi with spaces'" },
+    };
+    await expect(
+      selectPublishedWork(quotedRequest, { backlogDir: "custom backlog" }),
+    ).resolves.toMatchObject({
+      decisionArtifact: {
+        invokedCommand:
+          "dv work select 'wi with spaces'\"'\"'' --request - --backlog-dir 'custom backlog' --json",
+      },
+    });
+  });
+
   it("retains the exact file or stdin transport invocation as evidence", async () => {
     vi.mocked(selectReadyTasks).mockResolvedValue(ready);
     await expect(
@@ -312,6 +328,16 @@ describe("publisher work selection contract", () => {
           ...artifact,
           invokedCommand:
             "dv work select wi-001 --request fixtures/request.json --unknown",
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      portable.decode(request, {
+        capability: PUBLISHED_WORK_SELECTION_CAPABILITY,
+        outcome: { kind: "selected", workItemId: "wi-001" },
+        decisionArtifact: {
+          ...artifact,
+          invokedCommand: [artifact.invokedCommand],
         },
       }),
     ).toThrow();
