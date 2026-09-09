@@ -40,6 +40,8 @@ const WORK_COMMAND_TREE = [
   },
   { name: "list" },
   { name: "ready" },
+  { name: "capabilities" },
+  { name: "select" },
   { name: "show" },
   { name: "status" },
   { name: "prompt" },
@@ -48,9 +50,14 @@ const WORK_COMMAND_TREE = [
   { name: "record" },
 ] as const satisfies readonly WorkCommandInventoryDefinition[];
 
-export const WORK_COMMAND_ALIASES = Object.freeze(["work", "wi", "task"] as const);
+export const WORK_COMMAND_ALIASES = Object.freeze([
+  "work",
+  "wi",
+  "task",
+] as const);
 
-export const WORK_COMMAND_INVENTORY = freezeWorkCommandInventory(WORK_COMMAND_TREE);
+export const WORK_COMMAND_INVENTORY =
+  freezeWorkCommandInventory(WORK_COMMAND_TREE);
 
 export function* iterWorkCommandInventory(
   entries: readonly WorkCommandInventoryEntry[] = WORK_COMMAND_INVENTORY,

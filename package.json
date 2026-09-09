@@ -5,6 +5,7 @@
   "main": "dist/lib/index.js",
   "files": [
     "dist/",
+    "consumer/",
     "profiles/",
     "schemas/",
     "templates/",
