@@ -263,6 +263,62 @@ tags:
     ).toMatchObject({ outcome: { kind: "selected", workItemId: "wi-001" } });
   });
 
+  it("excludes audit and records graph nodes referenced by path", async () => {
+    const root = await fixture();
+    await fs.writeFile(
+      path.join(root, "backlog", "001-ready.md"),
+      `---
+id: wi-001
+title: Ready item
+summary: Transport fixture
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+tags:
+  - afk
+links:
+  depends_on:
+    - '[[audit/wi-audit.md]]'
+    - '[[records/wi-records.md]]'
+---
+`,
+      "utf8",
+    );
+    for (const [directory, fileName, id] of [
+      ["audit", "wi-audit", "wi-902"],
+      ["records", "wi-records", "wi-903"],
+    ]) {
+      await fs.mkdir(path.join(root, directory), { recursive: true });
+      await fs.writeFile(
+        path.join(root, directory, `${fileName}.md`),
+        `---
+id: ${id}
+title: Excluded ${directory}
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+tags:
+  - afk
+---
+`,
+        "utf8",
+      );
+    }
+
+    expect(
+      invoke(
+        root,
+        ["select", "wi-001", "--request", "-", "--backlog-dir", ".", "--json"],
+        JSON.stringify({
+          capability: "publisher-work-selection/v1",
+          request: { workItemId: "wi-001", invocationContext: {} },
+        }),
+      ),
+    ).toMatchObject({ outcome: { kind: "selected", workItemId: "wi-001" } });
+  });
+
   it("excludes archived graph nodes from the default backlog", async () => {
     const root = await fixture();
     await fs.writeFile(

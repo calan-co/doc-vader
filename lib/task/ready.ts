@@ -632,6 +632,7 @@ function buildGraphReadyDependencies(options: {
         {
           id: projectedNodeDependencyId(node),
           ref: `[[${projectedNodeDependencyId(node)}]]`,
+          filePath: node.source.filePath,
           satisfied: false,
           stateKnown: false,
         },
