@@ -1812,8 +1812,27 @@ function registerWorkCommandSurface(surface: Command): void {
               "The request Work Item id must match the command resource id.",
             );
           }
+          const commandRoot = await fs.realpath(process.cwd());
+          const absoluteBacklogDir =
+            opts.backlogDir && path.isAbsolute(opts.backlogDir)
+              ? await fs.realpath(path.resolve(opts.backlogDir))
+              : undefined;
+          const backlogDir = absoluteBacklogDir
+            ? path.relative(commandRoot, absoluteBacklogDir)
+            : path.normalize(opts.backlogDir ?? "backlog");
+          if (
+            absoluteBacklogDir &&
+            (backlogDir === ".." ||
+              backlogDir.startsWith(`..${path.sep}`) ||
+              path.isAbsolute(backlogDir))
+          ) {
+            throw new TaskCommandError(
+              "TASK_SELECTION_INVALID_BACKLOG_DIR",
+              "The backlog directory must resolve inside the command root.",
+            );
+          }
           const response = await selectPublishedWork(request, {
-            backlogDir: path.normalize(opts.backlogDir ?? "backlog"),
+            backlogDir,
             invokedCommand: formatPublishedWorkSelectionCommand({
               workItemId,
               request: opts.request,

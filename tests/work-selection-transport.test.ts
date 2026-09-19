@@ -126,6 +126,67 @@ describe("publisher work selection CLI transport", () => {
     ).toBe("selected wi-001\n");
   });
 
+  it("keeps body-relationship dependencies when --backlog-dir is absolute", async () => {
+    const root = await fixture();
+    await fs.writeFile(
+      path.join(root, "backlog", "002-blocking.md"),
+      `---
+id: wi-002
+title: Blocking item
+summary: Transport fixture dependency
+type: work-item
+subtype: task
+lifecycle: active
+status: in-progress
+tags:
+  - afk
+---
+`,
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(root, "backlog", "003-dependent.md"),
+      `---
+id: wi-003
+title: Dependent item
+summary: Transport fixture dependent
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+tags:
+  - afk
+---
+
+## Relationships
+
+- \`depends_on\`: [[wi-002]]
+`,
+      "utf8",
+    );
+
+    expect(
+      invoke(
+        root,
+        [
+          "select",
+          "wi-003",
+          "--request",
+          "-",
+          "--backlog-dir",
+          path.join(root, "backlog"),
+          "--json",
+        ],
+        JSON.stringify({
+          capability: "publisher-work-selection/v1",
+          request: { workItemId: "wi-003", invocationContext: {} },
+        }),
+      ),
+    ).toMatchObject({
+      outcome: { kind: "not-selected", code: "NOT_READY" },
+    });
+  });
+
   it("selects a requested ready identity through stdin JSON and emits only the transport contract", async () => {
     const root = await fixture();
     const response = invoke(
