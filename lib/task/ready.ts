@@ -160,17 +160,8 @@ export interface SelectReadyTasksOptions {
 
 const NON_TASK_PATH_PREFIXES = ["audit/", "records/"] as const;
 
-function isBacklogSubtree(
-  relativePath: string,
-  backlogDir: string,
-  directory: string,
-): boolean {
-  const prefix = `${directory}/`;
-  return (
-    relativePath.startsWith(prefix) ||
-    (normalizeBacklogDir(backlogDir) === "." &&
-      relativePath.startsWith(`backlog/${prefix}`))
-  );
+function isBacklogSubtree(relativePath: string, directory: string): boolean {
+  return relativePath.startsWith(`${directory}/`);
 }
 
 interface TaskRuntimeClaimSnapshot {
@@ -261,7 +252,7 @@ async function readReadyDocuments(
     const relativeToBacklog = toPosixPath(path.relative(backlogRoot, filePath));
     if (
       NON_TASK_PATH_PREFIXES.some((prefix) =>
-        isBacklogSubtree(relativeToBacklog, backlogDir, prefix.slice(0, -1)),
+        isBacklogSubtree(relativeToBacklog, prefix.slice(0, -1)),
       )
     ) {
       continue;
@@ -272,7 +263,7 @@ async function readReadyDocuments(
       documents.push({
         filePath,
         relativePath,
-        archived: isBacklogSubtree(relativeToBacklog, backlogDir, "archive"),
+        archived: isBacklogSubtree(relativeToBacklog, "archive"),
         body: parsed.content,
         frontmatter: (parsed.data ?? {}) as Frontmatter,
       });
@@ -280,7 +271,7 @@ async function readReadyDocuments(
       documents.push({
         filePath,
         relativePath,
-        archived: isBacklogSubtree(relativeToBacklog, backlogDir, "archive"),
+        archived: isBacklogSubtree(relativeToBacklog, "archive"),
         parseError: error instanceof Error ? error.message : String(error),
       });
     }
@@ -499,22 +490,36 @@ function normalizeBacklogDir(backlogDir: string): string {
   return toPosixPath(backlogDir).replace(/\/+$/u, "");
 }
 
-function isProjectedBacklogWorkItem(
+function backlogGraphPathPrefix(rootDir: string, backlogDir: string): string {
+  const relativeBacklogDir = toPosixPath(
+    path.relative(rootDir, path.resolve(rootDir, backlogDir)),
+  );
+  return relativeBacklogDir ? `${relativeBacklogDir}/` : "";
+}
+
+function isExcludedBacklogGraphNode(
   node: WorkGraphNode,
-  backlogDir: string,
+  backlogPathPrefix: string,
 ): boolean {
   const filePath = node.source.filePath;
-  if (node.type !== "work-item" || !filePath) {
-    return false;
-  }
+  return Boolean(
+    node.type === "work-item" &&
+      filePath &&
+      ["archive", "audit", "records"].some((directory) =>
+        filePath.startsWith(`${backlogPathPrefix}${directory}/`),
+      ),
+  );
+}
 
-  const isRootBacklog = backlogDir === ".";
-  if (!isRootBacklog && !filePath.startsWith(`${backlogDir}/`)) {
-    return false;
-  }
-
-  return !["archive", "audit", "records"].some((directory) =>
-    isBacklogSubtree(filePath, backlogDir, directory),
+function isProjectedBacklogWorkItem(
+  node: WorkGraphNode,
+  backlogPathPrefix: string,
+): boolean {
+  const filePath = node.source.filePath;
+  return Boolean(
+    node.type === "work-item" &&
+      filePath?.startsWith(backlogPathPrefix) &&
+      !isExcludedBacklogGraphNode(node, backlogPathPrefix),
   );
 }
 
@@ -598,6 +603,7 @@ function projectedNodeDependencyState(
 function buildGraphReadyDependencies(options: {
   document: ReadyDocument;
   documentsById: Map<string, ReadyDocument>;
+  excludedNodeIds: ReadonlySet<string>;
   nodeByFrontmatterId: Map<string, WorkGraphNode>;
   projection: WorkGraphProjection;
 }): ReadyTaskDependency[] {
@@ -611,14 +617,29 @@ function buildGraphReadyDependencies(options: {
     return [];
   }
 
-  const knownDependencies = options.projection
+  const outgoingDependencyNodes = options.projection
     .getOutgoingEdges(sourceNode.id)
     .filter(
       (edge): edge is WorkGraphEdge =>
         edge.authority === "formal" && edge.type === "depends_on",
     )
     .map((edge) => options.projection.findNode(edge.to))
-    .filter((node): node is WorkGraphNode => Boolean(node && node.type === "work-item"))
+    .filter((node): node is WorkGraphNode => Boolean(node && node.type === "work-item"));
+  const excludedDependencyTokens = outgoingDependencyNodes
+    .filter((node) => options.excludedNodeIds.has(node.id))
+    .map((node) =>
+      dependencyReferenceTokens(
+        {
+          id: projectedNodeDependencyId(node),
+          ref: `[[${projectedNodeDependencyId(node)}]]`,
+          satisfied: false,
+          stateKnown: false,
+        },
+        options.documentsById.get(projectedNodeDependencyId(node)),
+      ),
+    );
+  const knownDependencies = outgoingDependencyNodes
+    .filter((node) => !options.excludedNodeIds.has(node.id))
     .map((node) => {
       const dependencyId = projectedNodeDependencyId(node);
       const dependencyDocument = options.documentsById.get(dependencyId);
@@ -658,6 +679,9 @@ function buildGraphReadyDependencies(options: {
   const matchedDependencyIds = new Set<string>();
   for (const ref of authoredRefs) {
     const refTokens = referenceTokens(options.document.relativePath, ref);
+    if (excludedDependencyTokens.some((tokens) => setsIntersect(tokens, refTokens))) {
+      continue;
+    }
     let matchedDependency: ReadyTaskDependency | undefined;
     let matchesKnownDependency = false;
 
@@ -718,10 +742,17 @@ async function buildReadyGraphContext(options: {
       .map((document) => [documentTaskId(document), document] as const)
       .filter((entry): entry is readonly [string, ReadyDocument] => Boolean(entry[0])),
   );
+  const backlogPathPrefix = backlogGraphPathPrefix(options.rootDir, backlogDir);
+  const excludedNodeIds = new Set(
+    projection
+      .getNodesByType("work-item")
+      .filter((node) => isExcludedBacklogGraphNode(node, backlogPathPrefix))
+      .map((node) => node.id),
+  );
   const nodeByFrontmatterId = new Map(
     projection
       .getNodesByType("work-item")
-      .filter((node) => isProjectedBacklogWorkItem(node, backlogDir))
+      .filter((node) => isProjectedBacklogWorkItem(node, backlogPathPrefix))
       .map((node) => [
         typeof node.properties.frontmatterId === "string"
           ? node.properties.frontmatterId
@@ -741,6 +772,7 @@ async function buildReadyGraphContext(options: {
       buildGraphReadyDependencies({
         document,
         documentsById,
+        excludedNodeIds,
         nodeByFrontmatterId,
         projection,
       }),
