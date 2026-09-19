@@ -205,6 +205,44 @@ tags:
     });
   });
 
+  it("excludes configured backlog archive, audit, and records subtrees when --backlog-dir is .", async () => {
+    const root = await fixture();
+    for (const [directory, id, code] of [
+      ["archive", "wi-archive", "NOT_READY"],
+      ["audit", "wi-audit", "NOT_FOUND"],
+      ["records", "wi-records", "NOT_FOUND"],
+    ]) {
+      await fs.mkdir(path.join(root, "backlog", directory), {
+        recursive: true,
+      });
+      await fs.writeFile(
+        path.join(root, "backlog", directory, `${id}.md`),
+        `---
+id: ${id}
+title: Excluded ${directory}
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+tags:
+  - afk
+---
+`,
+        "utf8",
+      );
+      expect(
+        invoke(
+          root,
+          ["select", id, "--request", "-", "--backlog-dir", ".", "--json"],
+          JSON.stringify({
+            capability: "publisher-work-selection/v1",
+            request: { workItemId: id, invocationContext: {} },
+          }),
+        ),
+      ).toMatchObject({ outcome: { kind: "not-selected", code } });
+    }
+  });
+
   it("keeps body-relationship dependencies when --backlog-dir is absolute", async () => {
     const root = await fixture();
     await fs.writeFile(

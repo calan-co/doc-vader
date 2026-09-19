@@ -160,6 +160,19 @@ export interface SelectReadyTasksOptions {
 
 const NON_TASK_PATH_PREFIXES = ["audit/", "records/"] as const;
 
+function isBacklogSubtree(
+  relativePath: string,
+  backlogDir: string,
+  directory: string,
+): boolean {
+  const prefix = `${directory}/`;
+  return (
+    relativePath.startsWith(prefix) ||
+    (normalizeBacklogDir(backlogDir) === "." &&
+      relativePath.startsWith(`backlog/${prefix}`))
+  );
+}
+
 interface TaskRuntimeClaimSnapshot {
   claim: RuntimeClaimRecord;
   scopeLocks: RuntimeScopeLockRecord[];
@@ -246,7 +259,11 @@ async function readReadyDocuments(
   const documents: ReadyDocument[] = [];
   for (const filePath of files) {
     const relativeToBacklog = toPosixPath(path.relative(backlogRoot, filePath));
-    if (NON_TASK_PATH_PREFIXES.some((prefix) => relativeToBacklog.startsWith(prefix))) {
+    if (
+      NON_TASK_PATH_PREFIXES.some((prefix) =>
+        isBacklogSubtree(relativeToBacklog, backlogDir, prefix.slice(0, -1)),
+      )
+    ) {
       continue;
     }
     const relativePath = toPosixPath(path.relative(rootDir, filePath));
@@ -255,7 +272,7 @@ async function readReadyDocuments(
       documents.push({
         filePath,
         relativePath,
-        archived: relativeToBacklog.startsWith("archive/"),
+        archived: isBacklogSubtree(relativeToBacklog, backlogDir, "archive"),
         body: parsed.content,
         frontmatter: (parsed.data ?? {}) as Frontmatter,
       });
@@ -263,7 +280,7 @@ async function readReadyDocuments(
       documents.push({
         filePath,
         relativePath,
-        archived: relativeToBacklog.startsWith("archive/"),
+        archived: isBacklogSubtree(relativeToBacklog, backlogDir, "archive"),
         parseError: error instanceof Error ? error.message : String(error),
       });
     }
@@ -496,12 +513,8 @@ function isProjectedBacklogWorkItem(
     return false;
   }
 
-  const excludedPrefix = (directory: string) =>
-    isRootBacklog ? `${directory}/` : `${backlogDir}/${directory}/`;
-  return !(
-    filePath.startsWith(excludedPrefix("archive")) ||
-    filePath.startsWith(excludedPrefix("audit")) ||
-    filePath.startsWith(excludedPrefix("records"))
+  return !["archive", "audit", "records"].some((directory) =>
+    isBacklogSubtree(filePath, backlogDir, directory),
   );
 }
 
