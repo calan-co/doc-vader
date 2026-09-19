@@ -1816,7 +1816,8 @@ function registerWorkCommandSurface(surface: Command): void {
           const canonicalBacklogDir = await fs.realpath(
             path.resolve(commandRoot, opts.backlogDir ?? "backlog"),
           );
-          const backlogDir = path.relative(commandRoot, canonicalBacklogDir);
+          const backlogDir =
+            path.relative(commandRoot, canonicalBacklogDir) || ".";
           if (
             backlogDir === ".." ||
             backlogDir.startsWith(`..${path.sep}`) ||

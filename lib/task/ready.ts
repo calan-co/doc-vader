@@ -491,15 +491,17 @@ function isProjectedBacklogWorkItem(
     return false;
   }
 
-  const backlogRoot = `${backlogDir}/`;
-  if (!filePath.startsWith(backlogRoot)) {
+  const isRootBacklog = backlogDir === ".";
+  if (!isRootBacklog && !filePath.startsWith(`${backlogDir}/`)) {
     return false;
   }
 
+  const excludedPrefix = (directory: string) =>
+    isRootBacklog ? `${directory}/` : `${backlogDir}/${directory}/`;
   return !(
-    filePath.startsWith(`${backlogDir}/archive/`) ||
-    filePath.startsWith(`${backlogDir}/audit/`) ||
-    filePath.startsWith(`${backlogDir}/records/`)
+    filePath.startsWith(excludedPrefix("archive")) ||
+    filePath.startsWith(excludedPrefix("audit")) ||
+    filePath.startsWith(excludedPrefix("records"))
   );
 }
 
