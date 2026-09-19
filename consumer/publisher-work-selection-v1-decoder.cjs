@@ -45,7 +45,9 @@ function canonicalJsonBase64(value) {
   try {
     const bytes = Buffer.from(value, "base64");
     if (bytes.toString("base64") !== value) return false;
-    JSON.parse(bytes.toString("utf8"));
+    const text = bytes.toString("utf8");
+    if (!bytes.equals(Buffer.from(text, "utf8"))) return false;
+    JSON.parse(text);
     return true;
   } catch {
     return false;

@@ -131,7 +131,9 @@ function isCanonicalJsonBase64(value: unknown): value is string {
   try {
     const bytes = Buffer.from(value, "base64");
     if (bytes.toString("base64") !== value) return false;
-    JSON.parse(bytes.toString("utf8"));
+    const text = bytes.toString("utf8");
+    if (!bytes.equals(Buffer.from(text, "utf8"))) return false;
+    JSON.parse(text);
     return true;
   } catch {
     return false;
@@ -261,23 +263,22 @@ export async function selectPublishedWork(
     const selected = ready.candidates.filter(
       (candidate) => candidate.id === request.request.workItemId,
     );
+    const excluded = ready.exclusions.filter(
+      (candidate) => candidate.id === request.request.workItemId,
+    );
+    if (selected.length + excluded.length > 1)
+      return response(
+        capability,
+        { kind: "not-selected", code: "AMBIGUOUS" },
+        evidence,
+      );
     if (selected.length === 1)
       return response(
         capability,
         { kind: "selected", workItemId: selected[0]!.id },
         evidence,
       );
-    if (selected.length > 1)
-      return response(
-        capability,
-        { kind: "not-selected", code: "AMBIGUOUS" },
-        evidence,
-      );
-    if (
-      ready.exclusions.some(
-        (candidate) => candidate.id === request.request.workItemId,
-      )
-    ) {
+    if (excluded.length === 1) {
       return response(
         capability,
         { kind: "not-selected", code: "NOT_READY" },

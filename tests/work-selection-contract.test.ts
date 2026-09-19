@@ -90,6 +90,16 @@ describe("publisher work selection contract", () => {
     });
   });
 
+  it("fails closed when a requested identity is both ready and excluded", async () => {
+    vi.mocked(selectReadyTasks).mockResolvedValue({
+      ...ready,
+      exclusions: [{ id: "wi-001" }],
+    } as ReadyTaskSelection);
+    await expect(selectPublishedWork(request)).resolves.toMatchObject({
+      outcome: { kind: "not-selected", code: "AMBIGUOUS" },
+    });
+  });
+
   it("returns authorization and publisher availability outcomes from publisher-owned options", async () => {
     await expect(
       selectPublishedWork(request, { authorize: () => false }),
@@ -207,6 +217,30 @@ describe("publisher work selection contract", () => {
         },
       }),
     ).toThrow();
+  });
+
+  it("rejects invalid UTF-8 source evidence in both decoders", () => {
+    const require = createRequire(import.meta.url);
+    const portable =
+      require("../consumer/publisher-work-selection-v1-decoder.cjs") as {
+        decode: (request: unknown, response: unknown) => unknown;
+      };
+    const response = {
+      capability: PUBLISHED_WORK_SELECTION_CAPABILITY,
+      outcome: { kind: "selected" as const, workItemId: "wi-001" },
+      decisionArtifact: {
+        invokedCommand:
+          "dv work select wi-001 --request fixtures/request.json --json",
+        sourceResult: Buffer.from([0x22, 0x80, 0x22]).toString("base64"),
+        requestedWorkItemId: "wi-001",
+      },
+    };
+    for (const decode of [
+      decodePublishedWorkSelectionResponse,
+      portable.decode,
+    ]) {
+      expect(() => decode(request, response)).toThrow();
+    }
   });
 
   it("uses canonical shell-safe command evidence for whitespace paths", () => {
