@@ -54,18 +54,20 @@ tags:
   return root;
 }
 
-function invoke(root: string, args: string[], input?: string): unknown {
-  return JSON.parse(
-    execFileSync(
-      process.execPath,
-      ["--import", tsxImport, cliPath, "work", ...args],
-      {
-        cwd: root,
-        input,
-        encoding: "utf8",
-      },
-    ),
+function invokeText(root: string, args: string[], input?: string): string {
+  return execFileSync(
+    process.execPath,
+    ["--import", tsxImport, cliPath, "work", ...args],
+    {
+      cwd: root,
+      input,
+      encoding: "utf8",
+    },
   );
+}
+
+function invoke(root: string, args: string[], input?: string): unknown {
+  return JSON.parse(invokeText(root, args, input));
 }
 
 describe("publisher work selection CLI transport", () => {
@@ -108,6 +110,20 @@ describe("publisher work selection CLI transport", () => {
         "TASK_SELECTION_RESOURCE_MISMATCH",
       );
     }
+  });
+
+  it("renders a human selection result unless --json is requested", async () => {
+    const root = await fixture();
+    expect(
+      invokeText(
+        root,
+        ["select", "wi-001", "--request", "-"],
+        JSON.stringify({
+          capability: "publisher-work-selection/v1",
+          request: { workItemId: "wi-001", invocationContext: {} },
+        }),
+      ),
+    ).toBe("selected wi-001\n");
   });
 
   it("selects a requested ready identity through stdin JSON and emits only the transport contract", async () => {
