@@ -17,11 +17,20 @@ const CODES = new Set([
 ]);
 const SHELL_TOKEN = "(?:-|[A-Za-z0-9_./:-]+|'(?:[^']|'\"'\"')*')";
 const COMMAND = new RegExp(
-  `^dv work select ${SHELL_TOKEN} --request ${SHELL_TOKEN}(?: --backlog-dir ${SHELL_TOKEN})?(?: --json)?$`,
+  `^dv work select (${SHELL_TOKEN}) --request ${SHELL_TOKEN}(?: --backlog-dir ${SHELL_TOKEN})?(?: --json)?$`,
 );
 
 function record(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function commandWorkItemId(command) {
+  const match = COMMAND.exec(command);
+  if (!match) return null;
+  const token = match[1];
+  return token.startsWith("'")
+    ? token.slice(1, -1).replaceAll("'\"'\"'", "'")
+    : token;
 }
 
 /** Validate opaque evidence as canonical base64-encoded JSON without interpreting it. */
@@ -61,6 +70,8 @@ function decode(request, value) {
     !record(value.decisionArtifact) ||
     typeof value.decisionArtifact.invokedCommand !== "string" ||
     !COMMAND.test(value.decisionArtifact.invokedCommand) ||
+    commandWorkItemId(value.decisionArtifact.invokedCommand) !==
+      request.request.workItemId ||
     !canonicalJsonBase64(value.decisionArtifact.sourceResult) ||
     value.decisionArtifact.requestedWorkItemId !== request.request.workItemId
   ) {

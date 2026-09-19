@@ -396,6 +396,69 @@ describe("publisher work selection contract", () => {
     }
   });
 
+  it("binds the lexical command resource in both decoders", () => {
+    const require = createRequire(import.meta.url);
+    const portable =
+      require("../consumer/publisher-work-selection-v1-decoder.cjs") as {
+        decode: (request: unknown, response: unknown) => unknown;
+      };
+    const artifact = {
+      invokedCommand:
+        "dv work select wi-other --request fixtures/request.json --json",
+      sourceResult: Buffer.from("{}", "utf8").toString("base64"),
+      requestedWorkItemId: "wi-001",
+    };
+    const response = {
+      capability: PUBLISHED_WORK_SELECTION_CAPABILITY,
+      outcome: { kind: "selected" as const, workItemId: "wi-001" },
+      decisionArtifact: artifact,
+    };
+    for (const decode of [
+      decodePublishedWorkSelectionResponse,
+      portable.decode,
+    ]) {
+      expect(() => decode(request, response)).toThrow();
+    }
+
+    const quotedRequest = {
+      ...request,
+      request: { ...request.request, workItemId: "wi with spaces'" },
+    };
+    const quotedArtifact = {
+      ...artifact,
+      invokedCommand: formatPublishedWorkSelectionCommand({
+        workItemId: quotedRequest.request.workItemId,
+        request: "fixtures/request.json",
+        json: true,
+      }),
+      requestedWorkItemId: quotedRequest.request.workItemId,
+    };
+    const quotedResponse = {
+      ...response,
+      outcome: {
+        kind: "selected" as const,
+        workItemId: quotedRequest.request.workItemId,
+      },
+      decisionArtifact: quotedArtifact,
+    };
+    for (const decode of [
+      decodePublishedWorkSelectionResponse,
+      portable.decode,
+    ]) {
+      expect(() => decode(quotedRequest, quotedResponse)).not.toThrow();
+      expect(() =>
+        decode(quotedRequest, {
+          ...quotedResponse,
+          decisionArtifact: {
+            ...quotedArtifact,
+            invokedCommand:
+              "dv work select 'wi other' --request fixtures/request.json --json",
+          },
+        }),
+      ).toThrow();
+    }
+  });
+
   it("publishes discovery and explicit version mappings without exposing readiness semantics", () => {
     expect(discoverPublishedWorkSelectionCapabilities()).toEqual({
       schemaVersion: "publisher-work-selection-discovery/v1",

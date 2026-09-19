@@ -81,7 +81,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const SHELL_TOKEN = "(?:-|[A-Za-z0-9_./:-]+|'(?:[^']|'\"'\"')*')";
 const PUBLISHED_WORK_SELECTION_COMMAND = new RegExp(
-  `^dv work select ${SHELL_TOKEN} --request ${SHELL_TOKEN}(?: --backlog-dir ${SHELL_TOKEN})?(?: --json)?$`,
+  `^dv work select (${SHELL_TOKEN}) --request ${SHELL_TOKEN}(?: --backlog-dir ${SHELL_TOKEN})?(?: --json)?$`,
 );
 
 /**
@@ -92,6 +92,15 @@ function quoteCommandToken(value: string): string {
   return /^[A-Za-z0-9_./:-]+$/u.test(value)
     ? value
     : `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function commandWorkItemId(command: string): string | null {
+  const match = PUBLISHED_WORK_SELECTION_COMMAND.exec(command);
+  if (!match) return null;
+  const token = match[1]!;
+  return token.startsWith("'")
+    ? token.slice(1, -1).replaceAll("'\"'\"'", "'")
+    : token;
 }
 
 /** Render canonical, shell-safe publisher selection command evidence. */
@@ -303,6 +312,8 @@ export function decodePublishedWorkSelectionResponse(
     !isRecord(value) ||
     value.capability !== PUBLISHED_WORK_SELECTION_CAPABILITY ||
     !isArtifact(value.decisionArtifact) ||
+    commandWorkItemId(value.decisionArtifact.invokedCommand) !==
+      request.request.workItemId ||
     value.decisionArtifact.requestedWorkItemId !== request.request.workItemId ||
     !isRecord(value.outcome)
   ) {
