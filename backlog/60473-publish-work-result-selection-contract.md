@@ -11,7 +11,9 @@ priority: high
 estimated: 2
 links:
   reference:
-    - "[[../docs/reference/work-management/foundation.md]]"
+    - '[[../docs/reference/work-management/foundation.md]]'
+  evidence:
+    - '[[record-20260919-200724-60473]]'
 tags:
   - work
   - contracts
