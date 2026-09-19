@@ -263,6 +263,42 @@ tags:
     ).toMatchObject({ outcome: { kind: "selected", workItemId: "wi-001" } });
   });
 
+  it("excludes conventional backlog archive, audit, and records subtrees when --backlog-dir is .", async () => {
+    const root = await fixture();
+    for (const [directory, id, code] of [
+      ["backlog/archive", "wi-backlog-archive", "NOT_READY"],
+      ["backlog/audit", "wi-backlog-audit", "NOT_FOUND"],
+      ["backlog/records", "wi-backlog-records", "NOT_FOUND"],
+    ]) {
+      await fs.mkdir(path.join(root, directory), { recursive: true });
+      await fs.writeFile(
+        path.join(root, directory, `${id}.md`),
+        `---
+id: ${id}
+title: Excluded ${directory}
+type: work-item
+subtype: task
+lifecycle: active
+status: ready
+tags:
+  - afk
+---
+`,
+        "utf8",
+      );
+      expect(
+        invoke(
+          root,
+          ["select", id, "--request", "-", "--backlog-dir", ".", "--json"],
+          JSON.stringify({
+            capability: "publisher-work-selection/v1",
+            request: { workItemId: id, invocationContext: {} },
+          }),
+        ),
+      ).toMatchObject({ outcome: { kind: "not-selected", code } });
+    }
+  });
+
   it("excludes audit and records graph nodes referenced by path", async () => {
     const root = await fixture();
     await fs.writeFile(

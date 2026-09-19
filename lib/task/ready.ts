@@ -160,8 +160,16 @@ export interface SelectReadyTasksOptions {
 
 const NON_TASK_PATH_PREFIXES = ["audit/", "records/"] as const;
 
-function isBacklogSubtree(relativePath: string, directory: string): boolean {
-  return relativePath.startsWith(`${directory}/`);
+function isBacklogSubtree(
+  relativePath: string,
+  directory: string,
+  includeConventionalBacklog = false,
+): boolean {
+  const prefix = `${directory}/`;
+  return (
+    relativePath.startsWith(prefix) ||
+    (includeConventionalBacklog && relativePath.startsWith(`backlog/${prefix}`))
+  );
 }
 
 interface TaskRuntimeClaimSnapshot {
@@ -247,12 +255,18 @@ async function readReadyDocuments(
 ): Promise<ReadyDocument[]> {
   const backlogRoot = path.resolve(rootDir, backlogDir);
   const files = await findMarkdownFiles(backlogRoot);
+  const includeConventionalBacklog =
+    path.resolve(backlogRoot) === path.resolve(rootDir);
   const documents: ReadyDocument[] = [];
   for (const filePath of files) {
     const relativeToBacklog = toPosixPath(path.relative(backlogRoot, filePath));
     if (
       NON_TASK_PATH_PREFIXES.some((prefix) =>
-        isBacklogSubtree(relativeToBacklog, prefix.slice(0, -1)),
+        isBacklogSubtree(
+          relativeToBacklog,
+          prefix.slice(0, -1),
+          includeConventionalBacklog,
+        ),
       )
     ) {
       continue;
@@ -263,7 +277,11 @@ async function readReadyDocuments(
       documents.push({
         filePath,
         relativePath,
-        archived: isBacklogSubtree(relativeToBacklog, "archive"),
+        archived: isBacklogSubtree(
+          relativeToBacklog,
+          "archive",
+          includeConventionalBacklog,
+        ),
         body: parsed.content,
         frontmatter: (parsed.data ?? {}) as Frontmatter,
       });
@@ -271,7 +289,11 @@ async function readReadyDocuments(
       documents.push({
         filePath,
         relativePath,
-        archived: isBacklogSubtree(relativeToBacklog, "archive"),
+        archived: isBacklogSubtree(
+          relativeToBacklog,
+          "archive",
+          includeConventionalBacklog,
+        ),
         parseError: error instanceof Error ? error.message : String(error),
       });
     }
@@ -502,11 +524,19 @@ function isExcludedBacklogGraphNode(
   backlogPathPrefix: string,
 ): boolean {
   const filePath = node.source.filePath;
+  const relativePath =
+    filePath && filePath.startsWith(backlogPathPrefix)
+      ? filePath.slice(backlogPathPrefix.length)
+      : undefined;
   return Boolean(
     node.type === "work-item" &&
-      filePath &&
+      relativePath &&
       ["archive", "audit", "records"].some((directory) =>
-        filePath.startsWith(`${backlogPathPrefix}${directory}/`),
+        isBacklogSubtree(
+          relativePath,
+          directory,
+          backlogPathPrefix.length === 0,
+        ),
       ),
   );
 }
