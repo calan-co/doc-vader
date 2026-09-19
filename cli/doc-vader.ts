@@ -1813,18 +1813,14 @@ function registerWorkCommandSurface(surface: Command): void {
             );
           }
           const commandRoot = await fs.realpath(process.cwd());
-          const absoluteBacklogDir =
-            opts.backlogDir && path.isAbsolute(opts.backlogDir)
-              ? await fs.realpath(path.resolve(opts.backlogDir))
-              : undefined;
-          const backlogDir = absoluteBacklogDir
-            ? path.relative(commandRoot, absoluteBacklogDir)
-            : path.normalize(opts.backlogDir ?? "backlog");
+          const canonicalBacklogDir = await fs.realpath(
+            path.resolve(commandRoot, opts.backlogDir ?? "backlog"),
+          );
+          const backlogDir = path.relative(commandRoot, canonicalBacklogDir);
           if (
-            absoluteBacklogDir &&
-            (backlogDir === ".." ||
-              backlogDir.startsWith(`..${path.sep}`) ||
-              path.isAbsolute(backlogDir))
+            backlogDir === ".." ||
+            backlogDir.startsWith(`..${path.sep}`) ||
+            path.isAbsolute(backlogDir)
           ) {
             throw new TaskCommandError(
               "TASK_SELECTION_INVALID_BACKLOG_DIR",
@@ -1832,6 +1828,7 @@ function registerWorkCommandSurface(surface: Command): void {
             );
           }
           const response = await selectPublishedWork(request, {
+            rootDir: commandRoot,
             backlogDir,
             invokedCommand: formatPublishedWorkSelectionCommand({
               workItemId,

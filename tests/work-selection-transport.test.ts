@@ -70,6 +70,32 @@ function invoke(root: string, args: string[], input?: string): unknown {
   return JSON.parse(invokeText(root, args, input));
 }
 
+function expectInvalidBacklogDir(root: string, backlogDir: string): void {
+  let output = "";
+  try {
+    invoke(
+      root,
+      [
+        "select",
+        "wi-001",
+        "--request",
+        "-",
+        "--backlog-dir",
+        backlogDir,
+        "--json",
+      ],
+      JSON.stringify({
+        capability: "publisher-work-selection/v1",
+        request: { workItemId: "wi-001", invocationContext: {} },
+      }),
+    );
+  } catch (error) {
+    const result = error as { stdout?: unknown; stderr?: unknown };
+    output = `${String(result.stdout)}${String(result.stderr)}`;
+  }
+  expect(output).toContain("TASK_SELECTION_INVALID_BACKLOG_DIR");
+}
+
 describe("publisher work selection CLI transport", () => {
   it("discovers the versioned capability through JSON without importing Doc-Vader", async () => {
     const root = await fixture();
@@ -117,7 +143,7 @@ describe("publisher work selection CLI transport", () => {
     expect(
       invokeText(
         root,
-        ["select", "wi-001", "--request", "-"],
+        ["select", "wi-001", "--request", "-", "--backlog-dir", "backlog"],
         JSON.stringify({
           capability: "publisher-work-selection/v1",
           request: { workItemId: "wi-001", invocationContext: {} },
@@ -185,6 +211,22 @@ tags:
     ).toMatchObject({
       outcome: { kind: "not-selected", code: "NOT_READY" },
     });
+  });
+
+  it("rejects a relative --backlog-dir traversal before readiness selection", async () => {
+    const root = await fixture();
+    expectInvalidBacklogDir(root, "..");
+  });
+
+  it("rejects an in-root --backlog-dir symlink that resolves outside the command root", async () => {
+    const root = await fixture();
+    const external = await fs.mkdtemp(
+      path.join(os.tmpdir(), "dv-selection-external-"),
+    );
+    roots.push(external);
+    await fs.symlink(external, path.join(root, "external-backlog"), "dir");
+
+    expectInvalidBacklogDir(root, "external-backlog");
   });
 
   it("selects a requested ready identity through stdin JSON and emits only the transport contract", async () => {
