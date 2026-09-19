@@ -151,3 +151,17 @@ export {
   resolveTaskAuthorityFromGitContext as resolveWorkAuthorityFromGitContext,
   type TaskAuthorityGitContext as WorkAuthorityGitContext,
 } from "../task/authority.js";
+
+export {
+  PUBLISHED_WORK_SELECTION_CAPABILITY,
+  PUBLISHED_WORK_NON_SELECTION_CODES,
+  discoverPublishedWorkSelectionCapabilities,
+  formatPublishedWorkSelectionCommand,
+  decodePublishedWorkSelectionResponse,
+  selectPublishedWork,
+  type DecodedPublishedWorkSelection,
+  type PublishedWorkNonSelectionCode,
+  type PublishedWorkSelectionRequest,
+  type PublishedWorkSelectionResponse,
+  type PublishedWorkSelectionJson,
+} from "./selection.js";

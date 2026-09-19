@@ -99,6 +99,9 @@ import {
   formatReadyPorcelain,
   formatReadyText,
   selectReadyWorkItems as selectReadyTasks,
+  discoverPublishedWorkSelectionCapabilities,
+  formatPublishedWorkSelectionCommand,
+  selectPublishedWork,
   summarizeWorkGraphProjection,
   resolveWorkRoot as resolveGitRoot,
   resolveWorkAuthority as resolveTaskAuthority,
@@ -119,7 +122,7 @@ import {
 const program = new Command()
   .name("doc-vader")
   .description(
-    "Doc-Vader CLI - documentation automation, validation, and utilities"
+    "Doc-Vader CLI - documentation automation, validation, and utilities",
   )
   .version("1.0.0");
 
@@ -156,7 +159,7 @@ function failTaskCommand(error: unknown, json = false): never {
 }
 
 function parseOptionalFiniteMinutes(
-  value: string | undefined
+  value: string | undefined,
 ): number | undefined {
   if (value === undefined) {
     return undefined;
@@ -166,14 +169,14 @@ function parseOptionalFiniteMinutes(
     throw new TaskCommandError(
       "CLAIM_INVALID_TTL",
       "Claim TTL must be a finite number of minutes.",
-      { ttlMinutes: value }
+      { ttlMinutes: value },
     );
   }
   return parsedMinutes;
 }
 
 function parseRecoveryForceMode(
-  value: string | undefined
+  value: string | undefined,
 ): TaskRecoveryForceMode | undefined {
   if (value === undefined) {
     return undefined;
@@ -187,7 +190,7 @@ function parseRecoveryForceMode(
       throw new TaskCommandError(
         "TASK_RECOVERY_INVALID_FORCE_MODE",
         "Force mode must be reset or reconcile.",
-        { force: value }
+        { force: value },
       );
   }
 }
@@ -202,7 +205,7 @@ function recoveryForceHelp(): string {
 
 function parseTaskNumber(
   value: string | undefined,
-  optionName: string
+  optionName: string,
 ): number | undefined {
   if (value === undefined) {
     return undefined;
@@ -212,7 +215,7 @@ function parseTaskNumber(
     throw new TaskCommandError(
       "TASK_INVALID_NUMBER",
       `${optionName} must be a finite number.`,
-      { optionName, value }
+      { optionName, value },
     );
   }
   return parsed;
@@ -257,11 +260,9 @@ function parseGraphValues<T extends string>(
   const allowed = new Set<string>(allowedValues);
   return [...new Set(values)].map((value) => {
     if (!allowed.has(value)) {
-      throw new TaskCommandError(
-        errorCode,
-        errorMessage,
-        { [errorPayloadKey]: value },
-      );
+      throw new TaskCommandError(errorCode, errorMessage, {
+        [errorPayloadKey]: value,
+      });
     }
     return value as T;
   });
@@ -365,9 +366,10 @@ async function readWorkGraphVisualizationSource(
   return readWorkGraphExportFile(path.resolve(input));
 }
 
-function resolveBrowserOpenCommand(
-  filePath: string,
-): { command: string; args: string[] } {
+function resolveBrowserOpenCommand(filePath: string): {
+  command: string;
+  args: string[];
+} {
   switch (process.platform) {
     case "darwin":
       return { command: "open", args: [filePath] };
@@ -418,7 +420,9 @@ async function writeWorkGraphVisualizationHtml(
   await fs.writeFile(outputPath, html, "utf8");
 
   if (tryOpenWorkGraphViewer(outputPath)) {
-    reportVisualizationStatus(`Opened work graph viewer in browser: ${outputPath}`);
+    reportVisualizationStatus(
+      `Opened work graph viewer in browser: ${outputPath}`,
+    );
     return;
   }
 
@@ -474,9 +478,9 @@ function parseClaimReleaseOutcome(value: string): ClaimReleaseOutcome {
   throw new TaskCommandError(
     "CLAIM_INVALID_OUTCOME",
     `Claim release outcome must be one of ${CLAIM_RELEASE_OUTCOMES.join(
-      ", "
+      ", ",
     )}.`,
-    { outcome: value }
+    { outcome: value },
   );
 }
 
@@ -486,7 +490,7 @@ function parseTimeFilter(filter: string): Date {
     throw new TaskCommandError(
       "CLAIM_INVALID_FILTER",
       "Time filter must be one of until=now, until=24h, until=60m, or until=60s.",
-      { filter }
+      { filter },
     );
   }
   const unit = normalized.slice("until=".length);
@@ -504,7 +508,7 @@ function parseTimeFilter(filter: string): Date {
       throw new TaskCommandError(
         "CLAIM_INVALID_FILTER",
         "Time filter must be one of until=now, until=24h, until=60m, or until=60s.",
-        { filter }
+        { filter },
       );
   }
 }
@@ -520,14 +524,14 @@ function parseClaimTarget(target: string): {
     throw new TaskCommandError(
       "CLAIM_INVALID_TARGET",
       "Target must use the form <type>:<id>.",
-      { target }
+      { target },
     );
   }
   if (targetType !== "task") {
     throw new TaskCommandError(
       "CLAIM_INVALID_TARGET",
       "Only task targets are supported in the MVP.",
-      { target }
+      { target },
     );
   }
   return { targetType, targetId };
@@ -539,7 +543,7 @@ function formatRuntimeClaimLine(claim: RuntimeClaimRecord): string {
 
 function formatRuntimeClaimStatusText(
   claim: RuntimeClaimRecord | undefined,
-  claimToken?: string
+  claimToken?: string,
 ): string {
   if (!claim) {
     return claimToken ? `missing ${claimToken}` : "missing";
@@ -565,7 +569,7 @@ function formatTaskListText(tasks: TaskListEntry[]): string {
 function formatTaskListPorcelain(tasks: TaskListEntry[]): string {
   return tasks
     .map((task) =>
-      [task.id, task.status, task.title.replace(/\s+/g, " ").trim()].join("\t")
+      [task.id, task.status, task.title.replace(/\s+/g, " ").trim()].join("\t"),
     )
     .join("\n");
 }
@@ -576,7 +580,7 @@ function taskNumberFromId(taskId: string): string {
 
 function gitWorktreePathForBranch(
   rootDir: string,
-  branchName: string
+  branchName: string,
 ): string | undefined {
   let output: string;
   try {
@@ -606,7 +610,7 @@ function gitWorktreePathForBranch(
 
 function resolveTaskStatusWorktree(
   task: TaskModel,
-  rootDir: string
+  rootDir: string,
 ): string | undefined {
   const branchCandidates = [
     task.runtime?.latestExecutionLog?.branch,
@@ -622,7 +626,7 @@ function resolveTaskStatusWorktree(
 }
 
 function isRecoveryActionable(
-  state: TaskStatusReport["recovery"]["state"]
+  state: TaskStatusReport["recovery"]["state"],
 ): boolean {
   return state === "recoverable" || state === "force-required";
 }
@@ -632,7 +636,7 @@ async function resolveTaskRecoveryRootDir(
   options: {
     worktree?: string;
     backlogDir?: string;
-  } = {}
+  } = {},
 ): Promise<string | undefined> {
   if (options.worktree) {
     return path.resolve(options.worktree);
@@ -654,7 +658,7 @@ async function resolveTaskRecoveryRootDir(
 
   const resolvedWorktree = resolveTaskStatusWorktree(
     currentModel,
-    commandRootDir
+    commandRootDir,
   );
   if (!resolvedWorktree || path.resolve(resolvedWorktree) === commandRootDir) {
     return undefined;
@@ -684,7 +688,7 @@ async function recoverTaskIfSafelyRecoverable(
     worktree?: string;
     ttlMinutes?: number;
     backlogDir?: string;
-  } = {}
+  } = {},
 ): Promise<TaskModel> {
   if (task.runtime?.ready !== false) {
     return task;
@@ -728,7 +732,7 @@ async function recoverTaskIfSafelyRecoverable(
 }
 
 function formatRuntimeExecutionTerminalText(
-  result: RuntimeExecutionTerminalResult
+  result: RuntimeExecutionTerminalResult,
 ): string {
   return `${result.claimToken} ${result.executionLogEntry.state} ${result.executionLogEntry.reason}`;
 }
@@ -837,7 +841,7 @@ async function runClaimSuccessRelease(
     dryRun?: boolean;
     backlogDir?: string;
     consumerConfig?: string;
-  }
+  },
 ): Promise<void> {
   if (opts.json && opts.porcelain) {
     throw new Error("Use either --json or --porcelain, not both.");
@@ -866,7 +870,7 @@ async function runClaimSuccessRelease(
 
 function runClaimFailedRelease(
   claimToken: string,
-  opts: { json?: boolean }
+  opts: { json?: boolean },
 ): void {
   const store = claimExecutionStore(runtimeRootDir());
   try {
@@ -888,7 +892,7 @@ async function runClaimHaltedRelease(
     code: string;
     message?: string;
     json?: boolean;
-  }
+  },
 ): Promise<void> {
   const rootDir = runtimeRootDir();
   const store = claimExecutionStore(rootDir);
@@ -926,7 +930,7 @@ async function runClaimHaltedRelease(
       return;
     }
     console.log(
-      `${halted.claimToken} released ${halted.executionLogEntry.reason}`
+      `${halted.claimToken} released ${halted.executionLogEntry.reason}`,
     );
   } finally {
     store.close();
@@ -944,7 +948,7 @@ async function runTaskRecoveryCommand(
     dryRun?: boolean;
     json?: boolean;
     backlogDir?: string;
-  }
+  },
 ): Promise<void> {
   const ttlMinutes = parseOptionalFiniteMinutes(opts.ttlMinutes);
   const force = parseRecoveryForceMode(opts.force);
@@ -971,7 +975,7 @@ async function runTaskRecoveryCommand(
 }
 
 function formatRuntimeClaimCreationText(
-  result: ReturnType<RuntimeSqliteStore["acquireRuntimeClaim"]>
+  result: ReturnType<RuntimeSqliteStore["acquireRuntimeClaim"]>,
 ): string {
   return `${result.claimToken} ${result.executionLogEntry.state} ${result.executionLogEntry.reason}`;
 }
@@ -984,7 +988,7 @@ function createRuntimeClaim(
     branch?: string;
     worktree?: string;
     ttlMinutes?: number;
-  }
+  },
 ): ReturnType<RuntimeSqliteStore["acquireRuntimeClaim"]> {
   const store = claimExecutionStore(resolveGitRoot(opts.rootDir));
   try {
@@ -1033,7 +1037,7 @@ function collectChangedPaths(rootDir: string): string[] {
       }
       const rawPath = entry.slice(3).trim();
       const pathValue = rawPath.includes(" -> ")
-        ? rawPath.split(" -> ").pop() ?? ""
+        ? (rawPath.split(" -> ").pop() ?? "")
         : rawPath;
       if (!pathValue) {
         continue;
@@ -1082,13 +1086,13 @@ function buildHaltDetail(options: {
 function selectUnlockedPaths(
   claimToken: string,
   changedPaths: string[],
-  locks: readonly RuntimeLockRecord[]
+  locks: readonly RuntimeLockRecord[],
 ): string[] {
   return changedPaths.filter(
     (changedPath) =>
       !locks.some(
-        (lock) => lock.claim_token === claimToken && lock.path === changedPath
-      )
+        (lock) => lock.claim_token === claimToken && lock.path === changedPath,
+      ),
   );
 }
 
@@ -1102,7 +1106,7 @@ function haltClaimExecution(
     dirtyPaths?: string[];
     unlockedPaths?: string[];
     audit?: RuntimeChangedFileAuditResult;
-  }
+  },
 ): ReturnType<RuntimeSqliteStore["haltRuntimeExecution"]> {
   return store.haltRuntimeExecution(claimToken, {
     reason: options.reason,
@@ -1144,19 +1148,19 @@ claim
   .action(
     async (
       claimToken: string | undefined,
-      opts: { filter?: string; json?: boolean }
+      opts: { filter?: string; json?: boolean },
     ) => {
       try {
         if (!claimToken && !opts.filter) {
           throw new TaskCommandError(
             "CLAIM_INVALID_SELECTOR",
-            "Provide a claim token or --filter to inspect claims."
+            "Provide a claim token or --filter to inspect claims.",
           );
         }
         if (claimToken && opts.filter) {
           throw new TaskCommandError(
             "CLAIM_INVALID_SELECTOR",
-            "Use either a claim token or --filter, not both."
+            "Use either a claim token or --filter, not both.",
           );
         }
 
@@ -1167,7 +1171,7 @@ claim
             const claims = store
               .listClaims()
               .filter(
-                (entry) => Date.parse(entry.expires_at) <= cutoff.getTime()
+                (entry) => Date.parse(entry.expires_at) <= cutoff.getTime(),
               )
               .sort((left, right) => {
                 return (
@@ -1204,7 +1208,7 @@ claim
       } catch (error) {
         failTaskCommand(error, opts.json);
       }
-    }
+    },
   );
 
 claim
@@ -1212,7 +1216,7 @@ claim
   .description("Create a runtime claim for a task target")
   .requiredOption(
     "--target <target>",
-    "Claim target in the form task:<task-id>"
+    "Claim target in the form task:<task-id>",
   )
   .option("--holder <holder>", "Claim holder identity")
   .option("--branch <branch>", "Branch or ref context")
@@ -1256,7 +1260,7 @@ claim
       } catch (error) {
         failTaskCommand(error, opts.json);
       }
-    }
+    },
   );
 
 claim
@@ -1265,25 +1269,25 @@ claim
   .argument("<claim-token>", "Claim token to release")
   .requiredOption(
     "--outcome <outcome>",
-    `Release outcome: ${CLAIM_RELEASE_OUTCOMES.join("|")}`
+    `Release outcome: ${CLAIM_RELEASE_OUTCOMES.join("|")}`,
   )
   .option(
     "--code <code>",
     "Structured detail code for non-success outcomes",
-    "x-runtime-claim-released"
+    "x-runtime-claim-released",
   )
   .option("--message <message>", "Human-readable release detail")
   .option("--json", "Emit machine-readable JSON")
   .option("--porcelain", "Emit stable script-friendly output for success")
   .option(
     "--dry-run",
-    "Validate and render success mutation without writing files"
+    "Validate and render success mutation without writing files",
   )
   .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
   .option(
     "--consumer-config <path>",
     "Path to consumer config JSON",
-    ".doc-vader/backlog-consumer.json"
+    ".doc-vader/backlog-consumer.json",
   )
   .action(
     async (
@@ -1297,7 +1301,7 @@ claim
         dryRun?: boolean;
         backlogDir?: string;
         consumerConfig?: string;
-      }
+      },
     ) => {
       try {
         const outcome = parseClaimReleaseOutcome(opts.outcome);
@@ -1309,7 +1313,7 @@ claim
           throw new TaskCommandError(
             "CLAIM_RELEASE_OPTION_CONFLICT",
             "--porcelain and --dry-run only apply to --outcome success.",
-            { outcome }
+            { outcome },
           );
         }
         if (outcome === "failed") {
@@ -1325,7 +1329,7 @@ claim
       } catch (error) {
         failTaskCommand(error, opts.json);
       }
-    }
+    },
   );
 
 claim
@@ -1334,40 +1338,40 @@ claim
   .argument("[claim-token]", "Released or expired claim token to clean up")
   .option(
     "--expired <time-filter>",
-    "Clean up expired terminal claims matching a time filter"
+    "Clean up expired terminal claims matching a time filter",
   )
   .option("--json", "Emit machine-readable JSON")
   .action(
     async (
       claimToken: string | undefined,
-      opts: { expired?: string; json?: boolean }
+      opts: { expired?: string; json?: boolean },
     ) => {
       try {
         if (claimToken && opts.expired) {
           throw new TaskCommandError(
             "CLAIM_CLEANUP_INVALID_SELECTOR",
-            "Use either a claim token or --expired, not both."
+            "Use either a claim token or --expired, not both.",
           );
         }
         if (!claimToken && !opts.expired) {
           throw new TaskCommandError(
             "CLAIM_CLEANUP_INVALID_SELECTOR",
-            "Provide a claim token or --expired time filter."
+            "Provide a claim token or --expired time filter.",
           );
         }
 
         const result = opts.expired
           ? withClaimExecutionStore((store) =>
-              store.pruneRuntimeClaims(parseTimeFilter(opts.expired!))
+              store.pruneRuntimeClaims(parseTimeFilter(opts.expired!)),
             )
           : withClaimExecutionStore((store) =>
-              store.removeRuntimeClaim(claimToken!)
+              store.removeRuntimeClaim(claimToken!),
             );
         emitRuntimeClaimCleanupResult(result, opts.json);
       } catch (error) {
         failTaskCommand(error, opts.json);
       }
-    }
+    },
   );
 
 function runtimeStore(): RuntimeSqliteStore {
@@ -1375,7 +1379,7 @@ function runtimeStore(): RuntimeSqliteStore {
 }
 
 function withClaimExecutionStore<T>(
-  callback: (store: RuntimeSqliteStore) => T
+  callback: (store: RuntimeSqliteStore) => T,
 ): T {
   const store = claimExecutionStore(runtimeRootDir());
   try {
@@ -1398,18 +1402,18 @@ function formatRuntimeLockStatusText(result: RuntimeLockStatusResult): string {
 }
 
 function formatRuntimeLockAcquisitionConflictText(
-  conflicts: RuntimeLockConflictDetail[]
+  conflicts: RuntimeLockConflictDetail[],
 ): string {
   return conflicts
     .map(
       (conflict) =>
-        `${conflict.path}: ${conflict.owner.claim_token} (${conflict.owner.target_id})`
+        `${conflict.path}: ${conflict.owner.claim_token} (${conflict.owner.target_id})`,
     )
     .join("\n");
 }
 
 function formatRuntimeLockRemovalText(
-  result: RuntimeLockRemovalResult
+  result: RuntimeLockRemovalResult,
 ): string {
   if (result.outcome === "removed") {
     return result.removed.length > 0
@@ -1418,24 +1422,24 @@ function formatRuntimeLockRemovalText(
   }
   return result.conflicts
     .map(
-      (conflict) => `${conflict.reason} ${conflict.path} ${conflict.message}`
+      (conflict) => `${conflict.reason} ${conflict.path} ${conflict.message}`,
     )
     .join("\n");
 }
 
 function formatRuntimeClaimCleanupConflictText(
-  conflicts: RuntimeClaimCleanupConflictDetail[]
+  conflicts: RuntimeClaimCleanupConflictDetail[],
 ): string {
   return conflicts
     .map(
       (conflict) =>
-        `${conflict.reason} ${conflict.claim_token} ${conflict.message}`
+        `${conflict.reason} ${conflict.claim_token} ${conflict.message}`,
     )
     .join("\n");
 }
 
 function formatRuntimeClaimCleanupText(
-  result: RuntimeClaimCleanupResult
+  result: RuntimeClaimCleanupResult,
 ): string {
   if (result.outcome === "conflict") {
     return formatRuntimeClaimCleanupConflictText(result.conflicts);
@@ -1447,7 +1451,7 @@ function formatRuntimeClaimCleanupText(
 
 function emitRuntimeClaimCleanupResult(
   result: RuntimeClaimCleanupResult,
-  json?: boolean
+  json?: boolean,
 ): void {
   if (json) {
     printTaskJson(result);
@@ -1497,11 +1501,11 @@ workManagementSchemas
 workManagement
   .command("lint-frontmatter")
   .description(
-    "Validate backlog frontmatter against doc-vader work-management defaults"
+    "Validate backlog frontmatter against doc-vader work-management defaults",
   )
   .option(
     "--strict",
-    "Promote semantic warnings unless consumer policy masks them"
+    "Promote semantic warnings unless consumer policy masks them",
   )
   .argument("[files...]", "Optional backlog markdown files to validate")
   .action((files: string[], opts: { strict?: boolean }) => {
@@ -1522,29 +1526,21 @@ function registerWorkCommandSurface(surface: Command): void {
     .command("summary")
     .description("Summarize the projected graph")
     .addOption(createWorkGraphFormatOption(WORK_GRAPH_SUMMARY_FORMATS, "table"))
-    .action(
-      async (opts: {
-        format: WorkGraphSummaryFormat;
-      }) => {
-        await writeProjectedWorkGraph(opts.format, (projection) =>
-          summarizeWorkGraphProjection(projection),
-        );
-      },
-    );
+    .action(async (opts: { format: WorkGraphSummaryFormat }) => {
+      await writeProjectedWorkGraph(opts.format, (projection) =>
+        summarizeWorkGraphProjection(projection),
+      );
+    });
 
   graph
     .command("export")
     .description("Export the full projected graph")
     .addOption(createWorkGraphFormatOption(WORK_GRAPH_EXPORT_FORMATS, "json"))
-    .action(
-      async (opts: {
-        format: WorkGraphExportFormat;
-      }) => {
-        await writeProjectedWorkGraph(opts.format, (projection) =>
-          exportWorkGraph(projection),
-        );
-      },
-    );
+    .action(async (opts: { format: WorkGraphExportFormat }) => {
+      await writeProjectedWorkGraph(opts.format, (projection) =>
+        exportWorkGraph(projection),
+      );
+    });
 
   graph
     .command("visualize")
@@ -1559,25 +1555,20 @@ function registerWorkCommandSurface(surface: Command): void {
       "--output <html-file|->",
       "HTML output target; omit to write a temp artifact and open it in a browser",
     )
-    .action(
-      async (opts: {
-        input?: string;
-        output?: string;
-      }) => {
-        try {
-          const canonicalGraph = await readWorkGraphVisualizationSource(
-            opts.input,
-            process.stdin,
-          );
-          const html = renderStandaloneWorkGraphViewer(
-            adaptWorkGraphExportToCytoscape(canonicalGraph),
-          );
-          await writeWorkGraphVisualizationHtml(html, opts.output);
-        } catch (error) {
-          failTaskCommand(error, false);
-        }
-      },
-    );
+    .action(async (opts: { input?: string; output?: string }) => {
+      try {
+        const canonicalGraph = await readWorkGraphVisualizationSource(
+          opts.input,
+          process.stdin,
+        );
+        const html = renderStandaloneWorkGraphViewer(
+          adaptWorkGraphExportToCytoscape(canonicalGraph),
+        );
+        await writeWorkGraphVisualizationHtml(html, opts.output);
+      } catch (error) {
+        failTaskCommand(error, false);
+      }
+    });
 
   graph
     .command("nodes")
@@ -1683,7 +1674,7 @@ function registerWorkCommandSurface(surface: Command): void {
           if (opts.json && opts.porcelain) {
             throw new TaskCommandError(
               "TASK_LIST_FORMAT_CONFLICT",
-              "Use either --json or --porcelain, not both."
+              "Use either --json or --porcelain, not both.",
             );
           }
           const tasks = (
@@ -1715,7 +1706,7 @@ function registerWorkCommandSurface(surface: Command): void {
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
-      }
+      },
     );
 
   surface
@@ -1736,13 +1727,13 @@ function registerWorkCommandSurface(surface: Command): void {
           if (opts.json && opts.porcelain) {
             throw new TaskCommandError(
               "TASK_READY_FORMAT_CONFLICT",
-              "Use either --json or --porcelain, not both."
+              "Use either --json or --porcelain, not both.",
             );
           }
           if (opts.candidatesOnly && !opts.json) {
             throw new TaskCommandError(
               "TASK_READY_CANDIDATES_ONLY_REQUIRES_JSON",
-              "Use --candidates-only with --json."
+              "Use --candidates-only with --json.",
             );
           }
           const report = await selectReadyTasks({
@@ -1755,7 +1746,7 @@ function registerWorkCommandSurface(surface: Command): void {
                     schemaVersion: report.schemaVersion,
                     candidates: report.candidates,
                   }
-                : report
+                : report,
             );
             return;
           }
@@ -1768,7 +1759,96 @@ function registerWorkCommandSurface(surface: Command): void {
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
-      }
+      },
+    );
+
+  surface
+    .command("capabilities <work-item-id>")
+    .description(
+      "Discover publisher-owned selection capabilities for one Work Item",
+    )
+    .option("--json", "Emit machine-readable capability discovery")
+    .action((_workItemId: string, opts: { json?: boolean }) => {
+      const discovery = discoverPublishedWorkSelectionCapabilities();
+      if (opts.json) printTaskJson(discovery);
+      else console.log(discovery.capabilities.join("\n"));
+    });
+
+  surface
+    .command("select <work-item-id>")
+    .description(
+      "Execute publisher-owned selection for one Work Item from a JSON request",
+    )
+    .requiredOption(
+      "--request <json-file|->",
+      "Selection request JSON file or stdin",
+    )
+    .option("--backlog-dir <path>", "Path to the backlog directory")
+    .option("--json", "Emit machine-readable selection response")
+    .action(
+      async (
+        workItemId: string,
+        opts: { request: string; backlogDir?: string; json?: boolean },
+      ) => {
+        try {
+          const raw =
+            opts.request === "-"
+              ? await new Promise<string>((resolve, reject) => {
+                  let value = "";
+                  process.stdin.setEncoding("utf8");
+                  process.stdin.on("data", (chunk) => {
+                    value += chunk;
+                  });
+                  process.stdin.on("end", () => resolve(value));
+                  process.stdin.on("error", reject);
+                })
+              : await fs.readFile(path.resolve(opts.request), "utf8");
+          const request = JSON.parse(raw) as {
+            request?: { workItemId?: unknown };
+          } | null;
+          if (request?.request?.workItemId !== workItemId) {
+            throw new TaskCommandError(
+              "TASK_SELECTION_RESOURCE_MISMATCH",
+              "The request Work Item id must match the command resource id.",
+            );
+          }
+          const commandRoot = await fs.realpath(process.cwd());
+          const canonicalBacklogDir = await fs.realpath(
+            path.resolve(commandRoot, opts.backlogDir ?? "backlog"),
+          );
+          const backlogDir =
+            path.relative(commandRoot, canonicalBacklogDir) || ".";
+          if (
+            backlogDir === ".." ||
+            backlogDir.startsWith(`..${path.sep}`) ||
+            path.isAbsolute(backlogDir)
+          ) {
+            throw new TaskCommandError(
+              "TASK_SELECTION_INVALID_BACKLOG_DIR",
+              "The backlog directory must resolve inside the command root.",
+            );
+          }
+          const response = await selectPublishedWork(request, {
+            rootDir: commandRoot,
+            backlogDir,
+            invokedCommand: formatPublishedWorkSelectionCommand({
+              workItemId,
+              request: opts.request,
+              backlogDir: opts.backlogDir,
+              json: opts.json,
+            }),
+          });
+          if (opts.json) {
+            printTaskJson(response);
+          } else if (response.outcome.kind === "selected") {
+            console.log(`selected ${response.outcome.workItemId}`);
+          } else {
+            console.log(`not-selected ${response.outcome.code}`);
+          }
+        } catch (error) {
+          failTaskCommand(error, opts.json);
+        }
+      },
     );
 
   surface
@@ -1776,7 +1856,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .description("Show canonical work item context")
     .argument(
       "<task-id>",
-      "Work item id, numeric id, or work item file basename"
+      "Work item id, numeric id, or work item file basename",
     )
     .option("--json", "Emit canonical work item JSON")
     .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
@@ -1795,7 +1875,7 @@ function registerWorkCommandSurface(surface: Command): void {
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
-      }
+      },
     );
 
   surface
@@ -1803,7 +1883,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .description("Show operational work item status and recovery diagnostics")
     .argument(
       "<task-id>",
-      "Work item id, numeric id, or work item file basename"
+      "Work item id, numeric id, or work item file basename",
     )
     .option("--json", "Emit operational work item status JSON")
     .option("--worktree <path>", "Inspect status from a specific worktree")
@@ -1815,7 +1895,7 @@ function registerWorkCommandSurface(surface: Command): void {
           json?: boolean;
           worktree?: string;
           backlogDir?: string;
-        }
+        },
       ) => {
         try {
           const commandRootDir = process.cwd();
@@ -1847,17 +1927,17 @@ function registerWorkCommandSurface(surface: Command): void {
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
-      }
+      },
     );
 
   surface
     .command("prompt")
     .description(
-      "Render a Sandcastle-oriented prompt from canonical work item JSON"
+      "Render a Sandcastle-oriented prompt from canonical work item JSON",
     )
     .argument(
       "<task-id>",
-      "Work item id, numeric id, or work item file basename"
+      "Work item id, numeric id, or work item file basename",
     )
     .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
     .action(async (taskId: string, opts: { backlogDir?: string }) => {
@@ -1877,7 +1957,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .description("Create a conservative local work item claim")
     .argument(
       "<task-id>",
-      "Work item id, numeric id, or work item file basename"
+      "Work item id, numeric id, or work item file basename",
     )
     .option("--json", "Emit machine-readable JSON")
     .option("--holder <holder>", "Claim holder identity")
@@ -1895,7 +1975,7 @@ function registerWorkCommandSurface(surface: Command): void {
           worktree?: string;
           ttlMinutes?: string;
           backlogDir?: string;
-        }
+        },
       ) => {
         try {
           const ttlMinutes =
@@ -1908,7 +1988,7 @@ function registerWorkCommandSurface(surface: Command): void {
           ) {
             throw new TaskCommandError(
               "TASK_CLAIM_INVALID_TTL",
-              "Claim TTL must be a positive whole number of minutes."
+              "Claim TTL must be a positive whole number of minutes.",
             );
           }
           const initialRootDir = resolveGitRoot(opts.worktree);
@@ -1943,7 +2023,7 @@ function registerWorkCommandSurface(surface: Command): void {
               branch,
               worktree: opts.worktree,
               ttlMinutes,
-            }
+            },
           );
           if (opts.json) {
             printTaskJson(result);
@@ -1961,7 +2041,7 @@ function registerWorkCommandSurface(surface: Command): void {
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
-      }
+      },
     );
 
   surface
@@ -1969,7 +2049,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .description("Recover a halted work item and make it claimable again")
     .argument(
       "<task-id>",
-      "Work item id, numeric id, or work item file basename"
+      "Work item id, numeric id, or work item file basename",
     )
     .option("--holder <holder>", "Claim holder identity")
     .option("--branch <branch>", "Branch or ref context")
@@ -1978,7 +2058,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .option("--force <mode>", recoveryForceHelp())
     .option(
       "--dry-run",
-      "Validate recovery without acquiring claims or writing files"
+      "Validate recovery without acquiring claims or writing files",
     )
     .option("--json", "Emit machine-readable JSON")
     .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
@@ -1994,14 +2074,14 @@ function registerWorkCommandSurface(surface: Command): void {
           dryRun?: boolean;
           json?: boolean;
           backlogDir?: string;
-        }
+        },
       ) => {
         try {
           await runTaskRecoveryCommand(taskId, opts);
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
-      }
+      },
     );
 
   surface
@@ -2011,14 +2091,14 @@ function registerWorkCommandSurface(surface: Command): void {
     .requiredOption("--type <record-type>", "Record subtype, e.g. test-result")
     .requiredOption(
       "--payload <json-file|->",
-      "Record payload JSON file or stdin"
+      "Record payload JSON file or stdin",
     )
     .option("--json", "Emit machine-readable JSON")
     .option("--porcelain", "Emit stable script-friendly output")
     .option(
       "--consumer-config <path>",
       "Path to consumer config JSON",
-      ".doc-vader/backlog-consumer.json"
+      ".doc-vader/backlog-consumer.json",
     )
     .option("--dry-run", "Validate and render mutation without writing files")
     .action(
@@ -2061,7 +2141,7 @@ function registerWorkCommandSurface(surface: Command): void {
         } catch (error) {
           failTaskCommand(error, opts.json);
         }
-      }
+      },
     );
 }
 
@@ -2087,7 +2167,7 @@ lock
       opts: {
         claim: string;
         json?: boolean;
-      }
+      },
     ) => {
       const store = runtimeStore();
       try {
@@ -2101,11 +2181,11 @@ lock
           console.log(
             result.locks
               .map((lockRecord) => `locked ${lockRecord.path}`)
-              .join("\n")
+              .join("\n"),
           );
         } else {
           console.error(
-            formatRuntimeLockAcquisitionConflictText(result.conflicts)
+            formatRuntimeLockAcquisitionConflictText(result.conflicts),
           );
           process.exit(1);
         }
@@ -2114,7 +2194,7 @@ lock
       } finally {
         store.close();
       }
-    }
+    },
   );
 
 lock
@@ -2129,7 +2209,7 @@ lock
       opts: {
         claim: string;
         json?: boolean;
-      }
+      },
     ) => {
       const store = runtimeStore();
       try {
@@ -2143,7 +2223,7 @@ lock
           console.log(
             result.removed
               .map((lockRecord) => `released ${lockRecord.path}`)
-              .join("\n")
+              .join("\n"),
           );
         } else {
           console.error(formatRuntimeLockRemovalText(result));
@@ -2154,7 +2234,7 @@ lock
       } finally {
         store.close();
       }
-    }
+    },
   );
 
 lock
@@ -2265,7 +2345,7 @@ docSystem
         strict: opts.strict,
       });
       console.log(result);
-    }
+    },
   );
 
 // --- DOMAIN: backlog ---
@@ -2284,12 +2364,12 @@ backlogArchive
   .option(
     "--consumer-config <path>",
     "Path to consumer config JSON",
-    ".doc-vader/backlog-consumer.json"
+    ".doc-vader/backlog-consumer.json",
   )
   .option(
     "--fail-on <level>",
     "Fail level for exit code: error|warning",
-    "error"
+    "error",
   )
   .action(
     async (opts: {
@@ -2312,7 +2392,7 @@ backlogArchive
         console.error(error instanceof Error ? error.message : String(error));
         process.exit(1);
       }
-    }
+    },
   );
 
 backlog
@@ -2325,16 +2405,16 @@ backlog
     "--profile <nameOrPath...>",
     "Validation profile name(s) or JSON profile path(s); repeat or use comma-separated values (default|strict|ci)",
     collectCsvOption,
-    []
+    [],
   )
   .option(
     "--schema-map <path>",
-    "Optional schema-map JSON path for schema routing"
+    "Optional schema-map JSON path for schema routing",
   )
   .option(
     "--include-archive",
     "Include backlog/archive files in audit validation",
-    false
+    false,
   )
   .action(async (opts) => {
     const selectedProfiles =
@@ -2394,7 +2474,7 @@ backlog
 backlog
   .command("migrate")
   .description(
-    "Migrate a legacy backlog to canonical doc-vader work-management artifacts"
+    "Migrate a legacy backlog to canonical doc-vader work-management artifacts",
   )
   .option("-d, --dir <path>", "Path to the legacy backlog directory")
   .option("--consumer-config <path>", "Path to consumer config JSON")
@@ -2417,7 +2497,7 @@ backlog
   .description("Ingest a forge/VCS event payload and apply backlog mutations")
   .requiredOption(
     "--provider <provider>",
-    "Provider: github|gitlab|bitbucket|subversion"
+    "Provider: github|gitlab|bitbucket|subversion",
   )
   .requiredOption("--event <event>", "Event name, e.g. pull_request.closed")
   .requiredOption("--payload <path>", "Path to JSON payload file")
@@ -2441,31 +2521,31 @@ backlog
   .addOption(
     new Option("--report-format <format>", "Output format: text|json")
       .choices(["text", "json"])
-      .default("text")
+      .default("text"),
   )
   .option("--output-file <path>", "Write report to file instead of stdout")
   .option(
     "--consumer-config <path>",
     "Path to consumer config JSON",
-    ".doc-vader/backlog-consumer.json"
+    ".doc-vader/backlog-consumer.json",
   )
   .option(
     "--resolver-order <order>",
-    `Comma-separated resolver order (${DEFAULT_RESOLVER_ORDER.join(",")})`
+    `Comma-separated resolver order (${DEFAULT_RESOLVER_ORDER.join(",")})`,
   )
   .option(
     "--generate-evidence",
     "Create and link evidence records for resolved work items",
-    false
+    false,
   )
   .option(
     "--validate-archive-candidates",
     "Validate ready-for-review/closed candidates and archive eligible work items",
-    false
+    false,
   )
   .option(
     "--invalid-candidate-status <status>",
-    "Optional status to set on invalid candidates (use 'none' to disable updates)"
+    "Optional status to set on invalid candidates (use 'none' to disable updates)",
   )
   .option("--dry-run", "Preview changes without writing files", false)
   .option("--strict", "Exit 1 if any errors are found", false)
@@ -2473,7 +2553,7 @@ backlog
   .action(async (opts) => {
     if (opts.reportFormat !== "text" && opts.reportFormat !== "json") {
       throw new Error(
-        `Invalid --report-format value: ${opts.reportFormat}. Expected text or json.`
+        `Invalid --report-format value: ${opts.reportFormat}. Expected text or json.`,
       );
     }
 
@@ -2483,7 +2563,7 @@ backlog
             .split(",")
             .map((value: string) => value.trim())
             .filter(
-              (value: string) => value.length > 0
+              (value: string) => value.length > 0,
             ) as SubjectResolverName[])
         : undefined;
 
@@ -2532,7 +2612,7 @@ workItem
       const n = Number(opts.actual);
       if (!Number.isFinite(n)) {
         throw new Error(
-          `--actual must be a valid finite number, got: "${opts.actual}"`
+          `--actual must be a valid finite number, got: "${opts.actual}"`,
         );
       }
       actual = n;
@@ -2564,8 +2644,8 @@ workItem
     if (!allowedKinds.includes(kind as (typeof allowedKinds)[number])) {
       throw new Error(
         `Invalid link kind "${kind}". Must be one of: ${allowedKinds.join(
-          ", "
-        )}`
+          ", ",
+        )}`,
       );
     }
     const value = opts.url ?? opts.ref;
@@ -2616,7 +2696,7 @@ workItem
       const n = Number(opts.actual);
       if (!Number.isFinite(n)) {
         throw new Error(
-          `--actual must be a valid finite number, got: "${opts.actual}"`
+          `--actual must be a valid finite number, got: "${opts.actual}"`,
         );
       }
       actual = n;
@@ -2642,7 +2722,7 @@ record
   .requiredOption("--type <record-type>", "Record subtype, e.g. test-result")
   .requiredOption(
     "--payload <json-file|->",
-    "Record payload JSON file or stdin"
+    "Record payload JSON file or stdin",
   )
   .option("--json", "Emit machine-readable JSON")
   .option("--porcelain", "Emit stable script-friendly output")
@@ -2694,7 +2774,7 @@ record
       } catch (error) {
         failTaskCommand(error, opts.json);
       }
-    }
+    },
   );
 
 const prd = program
@@ -2708,7 +2788,7 @@ prd
   .addOption(
     new Option("--format <format>", "Output format")
       .choices(["text", "json"])
-      .default("text")
+      .default("text"),
   )
   .action(async (opts) => {
     const result = await validatePrdPayload({
@@ -2772,8 +2852,8 @@ prd
             valid: result.validation.valid,
           },
           null,
-          2
-        )
+          2,
+        ),
       );
     }
   });
@@ -2782,7 +2862,7 @@ prd
 const governance = program
   .command("governance")
   .description(
-    "Governance profiles (documentation systems and process models)"
+    "Governance profiles (documentation systems and process models)",
   );
 
 governance
@@ -2817,8 +2897,8 @@ governance
             version: p.version || "",
             category: p.category || "",
             form: p.sourceForm,
-          }))
-        )
+          })),
+        ),
       );
     }
   });
@@ -2842,7 +2922,7 @@ governance
           version: p.version || "",
           category: p.category || "",
           form: p.sourceForm,
-        }))
+        })),
       );
     } else if ("message" in (effective as any)) {
       console.log((effective as any).message);
@@ -2852,13 +2932,13 @@ governance
 governance
   .command("reconcile")
   .description(
-    "Reconcile conflicts between selected governance profiles using deterministic priority-order strategy"
+    "Reconcile conflicts between selected governance profiles using deterministic priority-order strategy",
   )
   .argument("<file>", "Markdown file path")
   .option(
     "--strategy <strategy>",
     "priority-order|prioritize|auto|deterministic",
-    "priority-order"
+    "priority-order",
   )
   .option("--dry-run", "Show plan without applying changes")
   .action(
@@ -2868,13 +2948,13 @@ governance
         dryRun: opts.dryRun,
       });
       console.log(JSON.stringify(plan, null, 2));
-    }
+    },
   );
 
 governance
   .command("migrate")
   .description(
-    "Migrate legacy governanceProfiles/reconciliation to new governance structure (placeholder)"
+    "Migrate legacy governanceProfiles/reconciliation to new governance structure (placeholder)",
   )
   .option("--write", "Apply changes (default dry-run)")
   .option("-d, --docs-dir <path>", "Path to the docs directory", "docs")
