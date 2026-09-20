@@ -13,8 +13,9 @@ validated with [Ajv 8](https://ajv.js.org/).
 schemas/
 ├── metadata/              # Canonical metadata contracts used for routing
 │   └── base.json          # namespace + type + optional subtype
-├── doc-vader/             # Doc-Vader config and document-pack manifests
+├── doc-vader/             # Doc-Vader config and pack manifests
 │   ├── config.json
+│   ├── doc-pack.json
 │   └── document-type-pack.json
 ├── frontmatter/           # Markdown-frontmatter compatibility schemas
 │   ├── document/
@@ -120,8 +121,11 @@ The runtime resolution order is (highest priority first):
 4. **Optional default** — `schemaMap.default` when configured
 
 This logic lives in [`lib/schema/resolver.ts`](../lib/schema/resolver.ts).
-New document type packs should also provide a manifest that matches
-`schemas/doc-vader/document-type-pack.json`.
+A document-type contribution should provide a manifest matching
+`schemas/doc-vader/document-type-pack.json`. An encompassing domain bundle uses
+the distinct syntax-agnostic `schemas/doc-vader/doc-pack.json` manifest; see
+[`Document Type Packs`](../docs/reference/document-type-packs.md) and the
+[doc-pack inventory](../docs/reference/doc-pack-inventory.md).
 
 ---
 
@@ -174,8 +178,9 @@ and work items) that are distinct from the low-level frontmatter schemas.
 3. Create a content schema if body structure is governed.
 4. Add templates that emit `namespace`, `type`, optional `subtype`, `$schema`,
    and `$content_schema` when applicable.
-5. Add a document-pack manifest matching
-   `schemas/doc-vader/document-type-pack.json`.
+5. Add a document-type contribution manifest matching
+   `schemas/doc-vader/document-type-pack.json`; add a separate `doc-pack`
+   manifest when bundling a domain's artifacts.
 6. Until nested `dv.yaml` discovery is implemented, emit explicit namespace and
    type metadata. A future implementation may add `dv.yaml` defaults for
    directories that intentionally infer those values.

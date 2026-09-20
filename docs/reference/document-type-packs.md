@@ -93,9 +93,42 @@ When `dv.yaml` discovery is implemented, a record in `backlog/records/` will
 inherit the namespace from `backlog/dv.yaml` and the type from the closer
 `backlog/records/dv.yaml`.
 
+## Doc-Pack Manifest and Registry
+
+A `doc-pack` is the encompassing, syntax-agnostic domain bundle. It is distinct
+from the `document-type-pack` contribution descriptor below: a doc-pack names a
+stable domain and catalogs its document-type contributions and other assets.
+Its manifest follows `schemas/doc-vader/doc-pack.json` and has these fields:
+
+- `schemaVersion`: the `doc-vader/doc-pack/v1` contract identifier.
+- `id` and `namespace`: stable pack identity and vocabulary ownership; `id` must not contain `:` because it prefixes logical references.
+- `dependencies`: stable IDs of packs that must already be registered.
+- `artifacts`: logical artifact IDs, kinds, and opaque `ref` values.
+- `documentTypePacks`: logical contribution IDs and opaque `ref` values for
+  `document-type-pack` descriptors.
+- `extensions`: embedded declarations or referenced declarations; referenced
+  declarations carry an opaque `ref` value.
+- `tests` and `fixtures`: pack-owned opaque references used by conformance
+  suites.
+
+`DocPackRegistry` is catalog-only. Its public contract is registration,
+validation/reporting, `get`, authoritative `list`, and logical catalog
+`resolve`. It validates identity, dependencies, collisions, and declared
+references without dereferencing them. It does not source, load, execute, host, activate,
+or manage lifecycle for packs or extensions. A runtime host is separately
+responsible for explicit consent before it activates executable behavior.
+
+A logical catalog reference is `<pack-id>:<declaration-id>`; resolving an
+artifact, document-type contribution, or referenced extension returns its
+declared opaque `ref`, not a loaded artifact or extension. Artifact IDs,
+document-type contribution IDs, and referenced extension IDs must not collide
+within a pack. Invalid registrations report diagnostics and do not replace a
+registered pack.
+
 ## Pack Manifest
 
-A pack manifest follows `schemas/doc-vader/document-type-pack.json`.
+A document-type contribution manifest follows
+`schemas/doc-vader/document-type-pack.json`.
 
 ```yaml
 schemaVersion: doc-vader/document-type-pack/v1

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "doc-vader/doc-pack/v1",
+  "namespace": "doc-vader.invalid",
+  "dependencies": [],
+  "artifacts": [],
+  "documentTypePacks": [],
+  "extensions": [],
+  "tests": [],
+  "fixtures": []
+}
