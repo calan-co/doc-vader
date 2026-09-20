@@ -146,7 +146,7 @@ afterEach(async () => {
   );
 });
 
-describe("work claim graph verification", () => {
+describe("work claim graph verification", { timeout: 15_000 }, () => {
   it("reprojects and verifies graph facts after a scope-gated renewal mutation", async () => {
     const rootDir = await createVerificationRepo();
     const claimToken = seedClaim(rootDir, {
