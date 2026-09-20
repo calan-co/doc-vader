@@ -176,8 +176,9 @@ and work items) that are distinct from the low-level frontmatter schemas.
    and `$content_schema` when applicable.
 5. Add a document-pack manifest matching
    `schemas/doc-vader/document-type-pack.json`.
-6. Provide nested `dv.yaml` defaults for directories that intentionally infer
-   namespace or type.
+6. Until nested `dv.yaml` discovery is implemented, emit explicit namespace and
+   type metadata. A future implementation may add `dv.yaml` defaults for
+   directories that intentionally infer those values.
 7. Add validation fixtures and focused tests.
 
 ---

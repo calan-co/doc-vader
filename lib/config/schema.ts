@@ -68,7 +68,7 @@ export type SchemaMapConfig = Static<typeof SchemaMapConfigSchema>;
 // ---------------------------------------------------------------------------
 
 /**
- * Local document routing defaults, usually declared in nested dv.yaml files.
+ * Document routing defaults for the planned nested dv.yaml discovery feature.
  */
 export const DocumentRoutingConfigSchema = Type.Object(
   {
@@ -81,7 +81,7 @@ export const DocumentRoutingConfigSchema = Type.Object(
     ...JSON_SCHEMA_2020_12_OPTIONS,
     additionalProperties: false,
     description:
-      "Document routing defaults inferred from the closest merged dv.yaml config.",
+      "Document routing defaults for planned dv.yaml discovery; runtime inference is not implemented yet.",
   },
 );
 
