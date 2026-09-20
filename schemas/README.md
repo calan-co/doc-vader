@@ -90,12 +90,12 @@ parse YAML frontmatter into canonical metadata before routing.
 
 ## Schema-map routing
 
-The `schemas/frontmatter/schema-map.json` file describes the legacy default
-routing table used when no `$schema` field is present in Markdown frontmatter:
+The `schemas/frontmatter/schema-map.json` file describes the legacy
+property-based routing table used when no `$schema` field is present in Markdown
+frontmatter:
 
 ```json
 {
-  "default": "schemas/frontmatter/by-type/document/latest.json",
   "byType": {
     "document":  "schemas/frontmatter/by-type/document/latest.json",
     "work-item": "schemas/frontmatter/by-type/work-item/latest.json"
@@ -117,7 +117,7 @@ The runtime resolution order is (highest priority first):
 1. **Inline schema** — `$inlineSchema` or `schema` field is an object
 2. **Embedded ref** — `$schema` or `schema` field is a URI string
 3. **Property-based routing** — `schemaMap.bySubtype[subtype]` → `schemaMap.byType[type]`
-4. **Default** — `schemaMap.default`
+4. **Optional default** — `schemaMap.default` when configured
 
 This logic lives in [`lib/schema/resolver.ts`](../lib/schema/resolver.ts).
 New document type packs should also provide a manifest that matches
