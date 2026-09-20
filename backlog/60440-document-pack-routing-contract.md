@@ -20,6 +20,8 @@ links:
     - '[[../docs/architecture/decisions/adr-010-composable-evaluation-primitives.md]]'
   evidence:
     - '[[record-wi-60440-validation]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/91
 tags:
   - afk
   - architecture
@@ -31,8 +33,8 @@ tags:
 
 Lock down the Doc-Vader document-pack routing contract: canonical metadata uses
 `namespace`, `type`, and optional `subtype`; `frontmatter` is treated as a
-Markdown serialization term; nested `dv.yaml` config provides local inference
-defaults; extension and document-pack authors have README-style guidance.
+Markdown serialization term; nested `dv.yaml` config defines future local
+inference defaults; extension and document-pack authors have README-style guidance.
 
 ## Background
 

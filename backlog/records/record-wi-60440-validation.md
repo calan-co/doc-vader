@@ -4,14 +4,14 @@ id: record:wi-60440-validation
 title: Validated document pack routing contract
 summary: Validated document pack routing contract
 type: record
-subtype: validation
+subtype: test-result
 lifecycle: active
 status: ready
 status_reason: recorded
 links:
   subjects:
-    - wi-60440
-    - 9f52898c
+    - '[[60440-document-pack-routing-contract.md]]'
+    - https://github.com/calan-co/doc-vader/commit/9f52898c3cc225e0084bacab3461c549bb457c6d
 ---
 
 ## Recorded At
