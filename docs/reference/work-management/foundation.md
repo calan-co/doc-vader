@@ -85,9 +85,10 @@ Its content schema follows the `templjs` backlog structure:
 - [`templates/reference/work-management/plan.tpl.md`](../../../templates/reference/work-management/plan.tpl.md)
 - [`templates/reference/work-management/record.tpl.md`](../../../templates/reference/work-management/record.tpl.md)
 
-Each template declares or intentionally inherits:
+Each template declares or expects its rendering host to supply:
 
-- `namespace` or a documented `dv.yaml` namespace default
+- a `namespace` when canonical routing is required; v1 templates do not infer it
+  from `dv.yaml`
 - `type` or `$types`
 - optional `subtype` or `$subtypes`
 - `$schema`
