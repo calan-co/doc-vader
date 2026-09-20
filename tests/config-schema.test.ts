@@ -148,5 +148,19 @@ describe("config schema", () => {
         },
       }),
     ).toBe(true);
+
+    expect(
+      validatePack({
+        schemaVersion: "doc-vader/document-type-pack/v1",
+        namespace: "example.decisions",
+        documentTypes: [
+          {
+            type: "decision",
+            metadataSchema: "schemas/example/metadata/decision.json",
+          },
+        ],
+        configDefaults: { backlog: { dir: "backlog" } },
+      }),
+    ).toBe(false);
   });
 });

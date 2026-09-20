@@ -75,7 +75,12 @@ project is in alpha. New architecture, extension APIs, and document-pack docs us
 The target Doc-Vader configuration name is `dv.yaml`. It may appear at the
 repository root and in nested document directories; when runtime discovery is
 implemented, effective configuration will merge files from the repository root to
-the document directory, with closer values overriding parent values.
+the document directory, with closer values overriding parent values. Within one
+effective configuration, `document.namespace`, `document.defaultType`, and
+`document.defaultSubtype` override their root-level legacy counterparts when
+both are present. `document.schemaMap` likewise overrides the root `schemaMap`
+as one value; its entries are not merged. Root-level routing fields remain for
+legacy `.doc.json` compatibility.
 
 Minimal document-root config examples:
 
