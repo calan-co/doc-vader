@@ -76,15 +76,17 @@ subtype: task # optional
 and should be used only for natural variants within a type. The route key is
 `namespace:type[:subtype]`.
 
-Routing precedence is:
+The target routing precedence is:
 
 1. Explicit document metadata.
 2. Explicit `$schema` resolved through the schema or document-pack registry.
 3. Merged nearest `dv.yaml` defaults.
 4. Unsupported-document diagnostic.
 
-`frontmatter` remains a Markdown serialization and compatibility term. Markdown
-format adapters parse YAML frontmatter into canonical metadata before routing.
+Nested `dv.yaml` discovery and merging are not implemented yet; supported
+compatibility loaders use explicitly supplied `.doc.json` files. `frontmatter`
+remains a Markdown serialization and compatibility term. Markdown format adapters
+parse YAML frontmatter into canonical metadata before routing.
 
 ## Schema-map routing
 
@@ -101,8 +103,8 @@ routing table used when no `$schema` field is present in Markdown frontmatter:
 }
 ```
 
-The same table can be overridden per-project in legacy `.doc.json` or in the
-canonical nested `dv.yaml` config:
+The table can be overridden per-project in legacy `.doc.json`. The following is
+the intended `dv.yaml` shape after nested discovery is implemented:
 
 ```json
 schemaMap:

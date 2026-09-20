@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "/doc-vader/config",
   "title": "doc-vader/config",
-  "description": "Doc-Vader dv.yaml configuration. Config files may be nested; effective config is merged from repository root to the document directory, with closer values overriding parent values.",
+  "description": "Schema for the planned Doc-Vader dv.yaml configuration shape. Runtime discovery and nested merging are not implemented yet.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
