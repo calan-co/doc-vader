@@ -51,15 +51,17 @@ describe("canonical schema routing surfaces", () => {
       consumerConfig.automation?.prePushValidation?.schemas?.changed,
     ).toBe("schemas/frontmatter/by-type/work-item/latest.json");
 
+    const schemaMap = JSON.parse(
+      readFileSync(path.join(repoRoot, "schemas/frontmatter/schema-map.json"), "utf8"),
+    ) as { default?: string; byType?: Record<string, string> };
     const schemaReadme = readFileSync(schemaReadmePath, "utf8");
+    expect(schemaMap.default).toBeUndefined();
+    expect(schemaReadme).not.toContain('"default":');
     expect(schemaReadme).toContain(
-      '"default": "schemas/frontmatter/by-type/document/latest.json"',
+      `"document":  "${schemaMap.byType?.document}"`,
     );
     expect(schemaReadme).toContain(
-      '"document":  "schemas/frontmatter/by-type/document/latest.json"',
-    );
-    expect(schemaReadme).toContain(
-      '"work-item": "schemas/frontmatter/by-type/work-item/latest.json"',
+      `"work-item": "${schemaMap.byType?.["work-item"]}"`,
     );
 
     const backlogOverview = readFileSync(backlogOverviewPath, "utf8");

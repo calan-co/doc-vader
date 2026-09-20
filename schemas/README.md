@@ -1,8 +1,9 @@
 # Schemas
 
 This directory contains JSON Schema definitions used by doc-vader to validate
-document and work-item frontmatter. All schemas are written for
-**JSON Schema draft-2020-12** and validated with [Ajv 8](https://ajv.js.org/).
+canonical metadata, document content, configuration, and compatibility
+frontmatter. All schemas are written for **JSON Schema draft-2020-12** and
+validated with [Ajv 8](https://ajv.js.org/).
 
 ---
 
@@ -10,17 +11,18 @@ document and work-item frontmatter. All schemas are written for
 
 ```text
 schemas/
-├── frontmatter/
-│   ├── document/          # Canonical document frontmatter schema
-│   ├── work-item/         # Canonical work-item frontmatter schema
-│   ├── by-type/           # Convenience aliases (document, work-item)
-│   ├── support/           # Shared sub-schemas
-│   │   ├── base/          # Base schema (common required fields)
-│   │   ├── contracts/     # Token-level enum contracts
-│   │   ├── overlays/      # Vocabulary overlays (human-readable labels)
-│   │   └── payloads/      # Structured payload schemas (e.g. status transitions)
-│   └── schema-map.json    # Default schema-routing table
-└── work-management/       # Content and frontmatter schemas for work-mgmt docs
+├── metadata/              # Canonical metadata contracts used for routing
+│   └── base.json          # namespace + type + optional subtype
+├── doc-vader/             # Doc-Vader config and document-pack manifests
+│   ├── config.json
+│   └── document-type-pack.json
+├── frontmatter/           # Markdown-frontmatter compatibility schemas
+│   ├── document/
+│   ├── work-item/
+│   ├── by-type/
+│   ├── support/
+│   └── schema-map.json
+└── work-management/       # Content and metadata/frontmatter schemas for work-mgmt docs
     ├── content/
     ├── frontmatter/
     └── support/
@@ -59,14 +61,41 @@ not the old templjs repository.
 
 ---
 
+## Metadata routing
+
+Doc-Vader routes documents by canonical metadata, not by Markdown frontmatter.
+The minimal metadata contract is `schemas/metadata/base.json`:
+
+```yaml
+namespace: doc-vader.work-management
+type: work-item
+subtype: task # optional
+```
+
+`namespace` and `type` are required in canonical metadata. `subtype` is optional
+and should be used only for natural variants within a type. The route key is
+`namespace:type[:subtype]`.
+
+The target routing precedence is:
+
+1. Explicit document metadata.
+2. Explicit `$schema` resolved through the schema or document-pack registry.
+3. Merged nearest `dv.yaml` defaults.
+4. Unsupported-document diagnostic.
+
+Nested `dv.yaml` discovery and merging are not implemented yet; supported
+compatibility loaders use explicitly supplied `.doc.json` files. `frontmatter`
+remains a Markdown serialization and compatibility term. Markdown format adapters
+parse YAML frontmatter into canonical metadata before routing.
+
 ## Schema-map routing
 
-The `schemas/frontmatter/schema-map.json` file describes the default routing
-table used when no `$schema` field is present in a document's frontmatter:
+The `schemas/frontmatter/schema-map.json` file describes the legacy
+property-based routing table used when no `$schema` field is present in Markdown
+frontmatter:
 
 ```json
 {
-  "default": "schemas/frontmatter/by-type/document/latest.json",
   "byType": {
     "document":  "schemas/frontmatter/by-type/document/latest.json",
     "work-item": "schemas/frontmatter/by-type/work-item/latest.json"
@@ -74,14 +103,13 @@ table used when no `$schema` field is present in a document's frontmatter:
 }
 ```
 
-The same table can be overridden per-project in `.doc.json`:
+The table can be overridden per-project in legacy `.doc.json`. The following is
+the intended `dv.yaml` shape after nested discovery is implemented:
 
 ```json
-{
-  "schemaMap": {
-    "byType": { "adr": "schemas/frontmatter/adr/current.json" }
-  }
-}
+schemaMap:
+  byType:
+    adr: schemas/frontmatter/adr/current.json
 ```
 
 The runtime resolution order is (highest priority first):
@@ -89,19 +117,26 @@ The runtime resolution order is (highest priority first):
 1. **Inline schema** — `$inlineSchema` or `schema` field is an object
 2. **Embedded ref** — `$schema` or `schema` field is a URI string
 3. **Property-based routing** — `schemaMap.bySubtype[subtype]` → `schemaMap.byType[type]`
-4. **Default** — `schemaMap.default`
+4. **Optional default** — `schemaMap.default` when configured
 
 This logic lives in [`lib/schema/resolver.ts`](../lib/schema/resolver.ts).
+New document type packs should also provide a manifest that matches
+`schemas/doc-vader/document-type-pack.json`.
 
 ---
 
 ## Support schemas
 
-### `support/base/`
+### `metadata/base.json`
 
-Provides the minimum required fields (`id`, `title`, `type`, `status`) that
-every document and work-item must satisfy.  Referenced by `$ref` from the
-document and work-item canonical schemas.
+Provides the canonical routing fields (`namespace`, `type`, optional `subtype`)
+that every routed document resolves before handler selection.
+
+### `frontmatter/support/base/`
+
+Provides compatibility fields (`id`, `title`, `type`, `status`) used by older
+Markdown frontmatter schemas. Referenced by `$ref` from the document and
+work-item compatibility schemas.
 
 ### `support/contracts/`
 
@@ -131,14 +166,20 @@ and work items) that are distinct from the low-level frontmatter schemas.
 
 ---
 
-## Adding a new schema
+## Adding a new document type
 
-1. Create a versioned file: `schemas/frontmatter/<type>/<semver>.json`
-2. Set `"$schema": "https://json-schema.org/draft/2020-12/schema"` and a
-   `$id` matching the path above.
-3. Copy or symlink the file to `current.json` (and `latest.json` if needed).
-4. Register the type in `schemas/frontmatter/schema-map.json` under `byType`.
-5. Add a validation fixture under `tests/fixtures/` and extend the test suite.
+1. Choose a stable `namespace` and `type`; add `subtype` only for natural
+   variants.
+2. Create a metadata schema that composes `schemas/metadata/base.json`.
+3. Create a content schema if body structure is governed.
+4. Add templates that emit `namespace`, `type`, optional `subtype`, `$schema`,
+   and `$content_schema` when applicable.
+5. Add a document-pack manifest matching
+   `schemas/doc-vader/document-type-pack.json`.
+6. Until nested `dv.yaml` discovery is implemented, emit explicit namespace and
+   type metadata. A future implementation may add `dv.yaml` defaults for
+   directories that intentionally infer those values.
+7. Add validation fixtures and focused tests.
 
 ---
 

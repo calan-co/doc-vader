@@ -23,7 +23,12 @@ links:
 
 ## Schema Package
 
-### Frontmatter Schemas
+### Metadata and Frontmatter Compatibility Schemas
+
+Work Management documents route as `namespace: doc-vader.work-management` plus
+their `type` and optional `subtype`. The current Markdown schemas still live
+under `frontmatter/` compatibility paths while Doc-Vader migrates terminology to
+canonical metadata.
 
 - [`schemas/work-management/frontmatter/project.json`](../../../schemas/work-management/frontmatter/project.json)
 - [`schemas/work-management/frontmatter/release.json`](../../../schemas/work-management/frontmatter/release.json)
@@ -80,8 +85,10 @@ Its content schema follows the `templjs` backlog structure:
 - [`templates/reference/work-management/plan.tpl.md`](../../../templates/reference/work-management/plan.tpl.md)
 - [`templates/reference/work-management/record.tpl.md`](../../../templates/reference/work-management/record.tpl.md)
 
-Each template declares:
+Each template declares or expects its rendering host to supply:
 
+- a `namespace` when canonical routing is required; v1 templates do not infer it
+  from `dv.yaml`
 - `type` or `$types`
 - optional `subtype` or `$subtypes`
 - `$schema`

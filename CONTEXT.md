@@ -74,6 +74,25 @@ An extension bundle that contributes entity definitions, schemas, policies,
 commands, templates, validation behavior, and documentation.
 _Avoid_: Requiring package authors to copy built-in domain internals
 
+**Metadata**:
+The canonical descriptive and routing fields for a governed artifact after any
+format adapter has parsed the source representation. Markdown frontmatter is one
+serialization of metadata, not the domain concept.
+_Avoid_: Using frontmatter when the behavior also applies to JSON, runtime,
+generated, or hosted artifacts
+
+**Document Type Pack**:
+A package-owned bundle that contributes metadata schemas, content schemas,
+templates, routing defaults, optional commands, and optional checks for one or
+more document types.
+_Avoid_: Treating Work Management schemas as the only extension model
+
+**Namespace**:
+The required metadata field that identifies the package or product vocabulary
+owner for routing. Combined with `type` and optional `subtype` to form the route
+key `namespace:type[:subtype]`.
+_Avoid_: Using unqualified type names that can collide across packages
+
 **Runtime Entity**:
 A coordination entity persisted in the runtime authority, such as a claim, lock,
 or execution log entry.
