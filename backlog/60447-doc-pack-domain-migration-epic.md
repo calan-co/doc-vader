@@ -48,7 +48,3 @@ activation, lifecycle, and business rules stay outside its interface.
       authoritative listing, and opaque reference resolution.
 - [ ] Focused tests, repository validation, docs lint, and the applicable phase
       gate pass.
-
-## Relationships
-
-- part_of: `[[60447-doc-pack-domain-migration-epic.md]]`

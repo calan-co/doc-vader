@@ -12,6 +12,7 @@ estimated: 3
 links:
   depends_on:
     - '[[60449-implement-doc-pack-registry-and-conformance.md]]'
+    - '[[60450-migrate-sdlc-core-doc-pack-pilot.md]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-pack-registry-and-domain-pack-migration-prd.md]]'
   evidence: []
