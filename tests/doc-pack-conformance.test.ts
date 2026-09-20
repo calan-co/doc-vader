@@ -21,14 +21,19 @@ describe("doc-pack manifest conformance", () => {
     expect(reference).toContain("does not source, load, execute, host, activate");
   });
 
-  it("accepts the syntax-agnostic manifest fixture with pack-owned declarations", async () => {
+  it("accepts the committed syntax-agnostic manifest fixtures", async () => {
     const schema = await loadJson("schemas/doc-vader/doc-pack.json");
-    const core = await loadJson("tests/fixtures/doc-packs/core.json");
+    const fixtures = await Promise.all([
+      loadJson("tests/fixtures/doc-packs/core.json"),
+      loadJson("tests/fixtures/doc-packs/sdlc-core.json"),
+    ]);
     const validate = new Ajv2020({ allErrors: true, strict: false }).compile(
       schema,
     );
 
-    expect(validate(core)).toBe(true);
+    for (const fixture of fixtures) {
+      expect(validate(fixture)).toBe(true);
+    }
   });
 
   it("requires stable pack identity", async () => {
