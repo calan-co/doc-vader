@@ -13,7 +13,7 @@ estimated: 3
 actual: 3
 completed_date: '2026-08-05'
 commits:
-  9f52898c: 'docs(extensibility): define document pack routing contract'
+  9f52898: 'docs(extensibility): define document pack routing contract'
 links:
   reference:
     - '[[../docs/architecture/decisions/adr-009-storage-and-format-seams.md]]'

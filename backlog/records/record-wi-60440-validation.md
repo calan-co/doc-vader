@@ -16,11 +16,15 @@ links:
 
 ## Recorded At
 
-2026-07-10
+2026-07-10T00:00:00.000Z
 
 ## Outcome
 
 pass
+
+## Subject References
+
+- wi-60440
 
 ## Observation
 
