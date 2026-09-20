@@ -14,7 +14,8 @@ links:
     - '[[60448-define-doc-pack-contract-and-inventory.md]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-pack-registry-and-domain-pack-migration-prd.md]]'
-  evidence: []
+  evidence:
+    - '[[record-20260920-224355-60449]]'
 tags:
   - afk
   - document-packs

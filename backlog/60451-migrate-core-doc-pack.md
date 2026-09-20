@@ -15,7 +15,8 @@ links:
     - '[[60450-migrate-sdlc-core-doc-pack-pilot.md]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-pack-registry-and-domain-pack-migration-prd.md]]'
-  evidence: []
+  evidence:
+    - '[[record-20260920-224355-60451]]'
 tags:
   - afk
   - document-packs

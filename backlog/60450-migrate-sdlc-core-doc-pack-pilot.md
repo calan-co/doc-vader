@@ -14,7 +14,8 @@ links:
     - '[[60449-implement-doc-pack-registry-and-conformance.md]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-pack-registry-and-domain-pack-migration-prd.md]]'
-  evidence: []
+  evidence:
+    - '[[record-20260920-224355-60450]]'
 tags:
   - afk
   - document-packs
