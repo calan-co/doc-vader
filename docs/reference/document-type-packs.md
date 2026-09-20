@@ -61,16 +61,20 @@ unsupported-document diagnostic.
 
 ## Namespace Inference
 
-Existing and generated documents may omit `namespace` when Doc-Vader can infer it
-before routing. Inference is runtime normalization; it should not silently mutate
-files.
+The target routing model allows existing and generated documents to omit
+`namespace` when Doc-Vader can infer it before routing. Inference must not
+silently mutate files.
 
-Precedence:
+The intended precedence is:
 
 1. Explicit document metadata.
 2. Explicit `$schema` resolved through the schema or pack registry.
 3. Merged nearest `dv.yaml` defaults.
 4. Unsupported-document diagnostic.
+
+`dv.yaml` discovery and merge are not implemented yet. Current templates should
+emit explicit routing metadata, and runtime compatibility loaders accept only
+explicitly supplied `.doc.json` files.
 
 Example:
 
@@ -85,8 +89,9 @@ defaultType: work-item
 defaultType: record
 ```
 
-A record in `backlog/records/` inherits the namespace from `backlog/dv.yaml` and
-the type from the closer `backlog/records/dv.yaml`.
+When `dv.yaml` discovery is implemented, a record in `backlog/records/` will
+inherit the namespace from `backlog/dv.yaml` and the type from the closer
+`backlog/records/dv.yaml`.
 
 ## Pack Manifest
 
@@ -154,8 +159,9 @@ $content_schema: schemas/example/content/decision.json
 ---
 ```
 
-If a template intentionally relies on `dv.yaml` inference, document that
-requirement in the pack README and keep the emitted `type` explicit.
+Until `dv.yaml` discovery is implemented, templates must emit explicit routing
+metadata. A future template that relies on `dv.yaml` inference must document
+that requirement in its pack README and keep the emitted `type` explicit.
 
 ## Validation Checklist
 
@@ -167,6 +173,6 @@ For a document type pack:
 - [ ] Compose metadata schemas from `schemas/metadata/base.json`.
 - [ ] Provide content schemas when Markdown body structure matters.
 - [ ] Provide templates for generated or recommended authoring.
-- [ ] Provide `dv.yaml` defaults for directories that omit explicit namespace.
+- [ ] Do not rely on `dv.yaml` defaults until runtime discovery is implemented.
 - [ ] Add extension commands only when behavior is needed.
 - [ ] Validate examples with `pnpm run docs:lint` and the relevant package gate.

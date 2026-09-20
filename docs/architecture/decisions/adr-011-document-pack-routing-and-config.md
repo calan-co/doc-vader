@@ -55,12 +55,16 @@ Lookup precedence is:
 3. Namespace fallback: `namespace:*`.
 4. Unsupported-document diagnostic.
 
-Metadata inference is allowed before routing, with deterministic provenance:
+The target metadata-inference order is deterministic:
 
 1. Explicit document metadata wins.
 2. Explicit `$schema` resolves through the schema or document-pack registry.
 3. Merged `dv.yaml` config supplies local defaults.
 4. If none of those apply, Doc-Vader emits an unsupported-document diagnostic.
+
+This release establishes the schema and authoring contract only. The current
+runtime does not yet discover or merge `dv.yaml`; compatibility loaders continue
+to accept explicitly supplied `.doc.json` files.
 
 `frontmatter` remains a compatibility and adapter term only. A Markdown format
 adapter may parse YAML frontmatter into canonical metadata, and existing schema
@@ -68,10 +72,10 @@ paths that contain `frontmatter` remain valid compatibility references while the
 project is in alpha. New architecture, extension APIs, and document-pack docs use
 `metadata` for the domain concept.
 
-Doc-Vader configuration is declared in `dv.yaml`. Config files may appear at the
-repository root and in nested document directories. Effective configuration for a
-document is computed by merging `dv.yaml` files from the repository root to the
-document directory, with closer values overriding parent values.
+The target Doc-Vader configuration name is `dv.yaml`. It may appear at the
+repository root and in nested document directories; when runtime discovery is
+implemented, effective configuration will merge files from the repository root to
+the document directory, with closer values overriding parent values.
 
 Minimal document-root config examples:
 
@@ -86,14 +90,14 @@ defaultType: work-item
 defaultType: record
 ```
 
-For `backlog/records/record-wi-60440-validation.md`, the merged config infers
-`namespace: doc-vader.work-management` from `backlog/dv.yaml` and
+When runtime discovery is implemented, `backlog/records/record-wi-60440-validation.md`
+will inherit `namespace: doc-vader.work-management` from `backlog/dv.yaml` and
 `type: record` from `backlog/records/dv.yaml` unless the document or `$schema`
 declares a more specific route.
 
-Legacy `.doc-vader/backlog-consumer.json` and `.doc.json` remain compatibility
-inputs during alpha migration, but `dv.yaml` is the canonical configuration name
-for new authoring and nested document roots.
+Legacy `.doc-vader/backlog-consumer.json` and `.doc.json` remain the supported
+runtime inputs during alpha migration. `dv.yaml` is the intended canonical name
+for the subsequent configuration-discovery implementation.
 
 ## Decision Drivers
 
@@ -113,24 +117,26 @@ Positive:
 
 - Document-pack authors can register schemas, templates, handlers, and checks by
   namespace-qualified route.
-- Existing backlog files can route through `$schema` and nested config inference.
-- Nested `dv.yaml` removes the need to list every governed path in one central
-  config file.
+- The schema contract prepares existing backlog files for a later `$schema` and
+  nested-config inference implementation.
+- Once discovery is implemented, nested `dv.yaml` will remove the need to list
+  every governed path in one central config file.
 - Metadata terminology aligns with storage and format adapter seams.
 
 Negative/Risks:
 
 - Built-in code still contains `frontmatter` names that must be migrated over
   time.
-- Nested config discovery must report provenance so inferred routes are
-  debuggable.
+- Nested config discovery is not implemented yet; its implementation must report
+  provenance so inferred routes are debuggable.
 - Config merge behavior must stay simple; complex array merge policies are
   deferred until a concrete package needs them.
 
 ## Validation
 
 - `schemas/metadata/base.json` defines the canonical routing metadata contract.
-- `schemas/doc-vader/config.json` defines `dv.yaml` routing defaults.
+- `schemas/doc-vader/config.json` defines the intended `dv.yaml` routing-default
+  shape; it does not activate file discovery.
 - `schemas/doc-vader/document-type-pack.json` defines the document-pack manifest
   shape.
 - Extension and document-pack author docs describe namespace, type, subtype,

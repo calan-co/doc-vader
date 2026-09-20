@@ -18,10 +18,11 @@ links:
 
 # Extension Authoring
 
-A Doc-Vader extension is a Node package that can register commands and package
-behavior into the `dv` command surface. A document type pack may be distributed
-as an extension when it needs commands, generators, checks, or handlers in
-addition to schemas and templates.
+A Doc-Vader extension is the planned Node-package integration shape for commands
+and package behavior in the `dv` command surface. A document type pack may be
+distributed as an extension when it needs commands, generators, checks, or
+handlers in addition to schemas and templates. The current CLI does not yet load
+extensions.
 
 ## Package Shape
 
@@ -47,8 +48,8 @@ extensions/dv-example-decisions/
 }
 ```
 
-The entrypoint may export `register`, `registerDocVaderExtension`, or a default
-registration function:
+A future extension host may support `register`, `registerDocVaderExtension`, or
+a default registration function:
 
 ```js
 export function registerDocVaderExtension(program, context) {
@@ -62,7 +63,7 @@ export function registerDocVaderExtension(program, context) {
 }
 ```
 
-The extension context includes the current working directory:
+The planned extension context includes the current working directory:
 
 ```js
 export function register(program, { cwd }) {
@@ -70,22 +71,11 @@ export function register(program, { cwd }) {
 }
 ```
 
-## Installation Manifest
+## Planned Installation Manifest
 
-Install extensions through the public command surface:
-
-```sh
-dv extensions install ./extensions/dv-example-decisions
-dv extensions list
-```
-
-Installed extensions are recorded in:
-
-```text
-.doc-vader/extensions/manifest.json
-```
-
-Manifest shape:
+The current CLI has no `dv extensions` command and does not read an extension
+manifest. Do not rely on installation or activation behavior in this release.
+The proposed manifest shape for a future extension host is:
 
 ```json
 {
@@ -132,25 +122,25 @@ adapter has parsed it.
 
 ## Configuration Responsibilities
 
-Use `dv.yaml` for workspace and nested document-root defaults:
+The intended `dv.yaml` shape for workspace and nested document-root defaults is:
 
 ```yaml
 namespace: example.decisions
 defaultType: decision
 ```
 
-Nested configs are merged from repository root to document directory. Closer
-values override parent values. Scalars replace, objects merge, and arrays replace
-unless a future package contract defines a more specific merge strategy.
+When runtime discovery is implemented, nested configs will merge from repository
+root to document directory. Closer values override parent values. Scalars replace,
+objects merge, and arrays replace unless a future package contract defines a more
+specific merge strategy.
 
-Legacy `.doc-vader/backlog-consumer.json` and `.doc.json` may still be read by
-built-in compatibility paths, but new extensions and packs should document
-`dv.yaml`.
+Legacy `.doc-vader/backlog-consumer.json` and `.doc.json` remain the supported
+runtime inputs. New extensions and packs must not require `dv.yaml` until its
+runtime discovery is implemented.
 
 ## Safety Checklist
 
-- [ ] Install through `dv extensions install` rather than hand-editing the
-      manifest.
+- [ ] Do not claim `dv extensions` installation or manifest activation support.
 - [ ] Keep commands scoped under a package-specific command family.
 - [ ] Declare whether each command is read-only or mutating.
 - [ ] Route by `namespace:type[:subtype]`.
