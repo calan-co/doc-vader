@@ -56,16 +56,15 @@ alias or fallback for the old path.
 | Current consumer | Current path family | Future logical reference family |
 | --- | --- | --- |
 | `lib/prd/index.ts` | `schemas/work-management/**`, `schemas/frontmatter/support/**`, `templates/reference/work-management/prd.md.tpl` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**`, `sdlc-core:renderer-template/work-management/prd.md.tpl` |
-| `lib/work-management/{index.ts,terminal-metadata.ts,status-reason-compatibility.ts,frontmatter-lint.ts,checklist-definitions.ts}` | `schemas/work-management/**`, `schemas/frontmatter/**` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**` |
+| `lib/work-management/{index.ts,status-reason-compatibility.ts,frontmatter-lint.ts}` | `schemas/work-management/**`, `schemas/frontmatter/**` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**` |
 | `lib/backlog/{archive-validation.ts,audit.ts,synthesis.ts}` | `schemas/work-management/**`, `schemas/frontmatter/**` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**` |
 | `lib/{frontmatter/check.ts,frontmatter/lint.ts,frontmatter/utils.ts,plugins/remark-frontmatter-schema.ts}` | `schemas/frontmatter/**` | `core:compatibility-metadata/**` |
 | `lib/{task/canonical.ts,task/render.ts,task/show.ts}` | `templates/reference/task/**` | `sdlc-core:renderer-template/task/**` |
 | `lib/schema/resolver.ts` | schema-map references supplied by callers | `core:compatibility-metadata/schema-map.json` when the legacy resolver is migrated |
 | `lib/document-type-packs/registry.ts` | `schemas/doc-vader/{document-type-pack.json,config.json}` | `core:metadata-model/{document-type-pack.json,config.json}` |
-| `lib/doc-pack/index.ts` | `schemas/doc-vader/doc-pack.json` | `core:metadata-model/doc-pack.json` |
 | `lib/controllers/docController.ts` | default repository `schemas/**` root | The selected artifact's existing `core:metadata-model/**`, `core:compatibility-metadata/**`, or `sdlc-core:metadata-model/**` reference; no implicit default |
 | `lib/controllers/frontmatterController.ts` | default `<docsDir>/schemas/**` root | A caller-selected pack metadata reference; no implicit default |
-| `scripts/{docs-remark-lint.ts,sandcastle/greenfield-harness.ts,sandcastle/init-artifacts.ts,validate-schema-lifecycle.ts,validate-work-items-pre-push.ts}` | `schemas/**`, `templates/**`, workflow paths | Corresponding logical references only when each script's consumer migration is approved |
+| `scripts/{docs-remark-lint.ts,sandcastle/init-artifacts.ts,validate-schema-lifecycle.ts,validate-work-items-pre-push.ts}` | `schemas/**`, `templates/**`, workflow paths | Corresponding logical references only when each script's consumer migration is approved |
 | `lib/plugins/tests/remark-frontmatter-schema.test.ts`, `scripts/tests/validate-changesets.test.ts` | test-only physical-path fixtures | Update alongside the owning consumer; no runtime alias |
 
 ## Extension, test, and fixture convention

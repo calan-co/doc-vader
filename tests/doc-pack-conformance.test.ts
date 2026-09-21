@@ -53,6 +53,21 @@ describe("doc-pack manifest conformance", () => {
     );
   });
 
+  it("rejects declaration IDs that collide with logical reference separators", async () => {
+    const schema = await loadJson("schemas/doc-vader/doc-pack.json");
+    const core = await loadJson("tests/fixtures/doc-packs/core.json");
+    const validate = new Ajv2020({ allErrors: true, strict: false }).compile(
+      schema,
+    );
+    const invalid = structuredClone(core) as {
+      artifacts: Array<{ id: string }>;
+    };
+
+    invalid.artifacts[0].id = "ambiguous:artifact";
+
+    expect(validate(invalid)).toBe(false);
+  });
+
   it("rejects incomplete declarations while preserving opaque references", async () => {
     const schema = await loadJson("schemas/doc-vader/doc-pack.json");
     const core = await loadJson("tests/fixtures/doc-packs/core.json");
