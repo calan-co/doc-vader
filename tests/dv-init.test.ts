@@ -184,6 +184,30 @@ describe("dv init", () => {
     await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
   });
 
+  it("discovers a valid package linked under node_modules", async () => {
+    const root = await fixture(false);
+    const packageSource = await fixture(false);
+    await fs.writeFile(path.join(packageSource, "package.json"), JSON.stringify({
+      docVader: { documentTypePacks: [{ id: "linked-package", manifest: "pack.json" }] },
+    }));
+    await fs.writeFile(path.join(packageSource, "pack.json"), JSON.stringify({
+      schemaVersion: "doc-vader/document-type-pack/v1",
+      namespace: "linked-package.example",
+      documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+      name: "Linked package",
+      init: { outputs: [{ path: "linked-package/.gitkeep", content: "" }] },
+    }));
+    await fs.mkdir(path.join(root, "node_modules"));
+    await fs.symlink(packageSource, path.join(root, "node_modules", "linked-package"));
+
+    await expect(runInit({
+      dir: root,
+      packIds: ["linked-package"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    })).resolves.toMatchObject({ applied: ["linked-package"] });
+  });
+
   it("ignores descriptor manifests symlinked outside their package root", async () => {
     const root = await fixture(false);
     const outside = path.join(await fixture(false), "external-pack.json");

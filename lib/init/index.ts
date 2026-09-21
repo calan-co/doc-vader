@@ -281,7 +281,8 @@ export async function installedInitPacks(rootDir: string): Promise<InitPack[]> {
   }
   const packs: InitPack[] = [];
   for (const packageDir of packageDirs) {
-    const packageRoot = path.join(nodeModules, packageDir);
+    const packageRoot = await fs.realpath(path.join(nodeModules, packageDir)).catch(() => undefined);
+    if (!packageRoot) continue;
     const metadata = await fs.readFile(path.join(packageRoot, "package.json"), "utf8").then(JSON.parse).catch(() => undefined) as { docVader?: { documentTypePacks?: Array<{ id: string; manifest: string }> } } | undefined;
     const descriptors = metadata?.docVader && Array.isArray(metadata.docVader.documentTypePacks)
       ? metadata.docVader.documentTypePacks
