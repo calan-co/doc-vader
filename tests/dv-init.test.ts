@@ -471,6 +471,22 @@ describe("dv init", () => {
     await expect(fs.readFile(path.join(flowRoot, "dv.yaml"), "utf8")).resolves.toBe("routing: { existing: keep, targets: { default: docs } }\n");
   });
 
+  it("preserves comment-only config and rejects linked config files", async () => {
+    const root = await fixture(false);
+    await fs.writeFile(path.join(root, "dv.yaml"), "# keep this comment\n\n");
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+    await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
+    await expect(fs.readFile(path.join(root, "dv.yaml"), "utf8")).resolves.toBe("# keep this comment\n\nbacklog:\n  dir: backlog\n");
+
+    const linkedRoot = await fixture(false);
+    const externalConfig = path.join(await fixture(false), "external.yaml");
+    await fs.writeFile(externalConfig, "namespace: outside\n");
+    await fs.link(externalConfig, path.join(linkedRoot, "dv.yaml"));
+    await expect(runInit({ dir: linkedRoot, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ failed: [{ pack: "work" }] });
+    await expect(fs.readFile(externalConfig, "utf8")).resolves.toBe("namespace: outside\n");
+    await expect(fs.lstat(path.join(linkedRoot, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("rejects duplicate pack IDs and writes text-mode failures to stderr", async () => {
     const root = await fixture(false);
     await installPack(root, "duplicate", { outputs: [] });

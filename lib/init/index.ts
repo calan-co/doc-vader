@@ -172,6 +172,11 @@ function valueAt(values: Record<string, unknown>, keys: readonly string[]): unkn
 
 async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["config"]>): Promise<void> {
   const configPath = path.join(rootDir, "dv.yaml");
+  const configStats = await fs.lstat(configPath).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return undefined;
+    throw error;
+  });
+  if (configStats && configStats.nlink > 1) throw new InitError("dv.yaml must not be a hard link.");
   const source = await fs.readFile(configPath, "utf8").catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return "";
     throw error;
@@ -181,7 +186,7 @@ async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["conf
     throw new InitError("dv.yaml must contain a YAML mapping.");
   }
   if (!document.contents) {
-    await fs.writeFile(configPath, `${yamlValue(config.values)}\n`, "utf8");
+    await fs.writeFile(configPath, `${source}${source && !source.endsWith("\n") ? "\n" : ""}${yamlValue(config.values)}\n`, "utf8");
     return;
   }
 
