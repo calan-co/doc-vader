@@ -64,7 +64,7 @@ alias or fallback for the old path.
 | `lib/document-type-packs/registry.ts` | `schemas/doc-vader/{document-type-pack.json,config.json}` | `core:metadata-model/{document-type-pack.json,config.json}` |
 | `lib/controllers/docController.ts` | default repository `schemas/**` root | The selected artifact's existing `core:metadata-model/**`, `core:compatibility-metadata/**`, or `sdlc-core:metadata-model/**` reference; no implicit default |
 | `lib/controllers/frontmatterController.ts` | default `<docsDir>/schemas/**` root | A caller-selected pack metadata reference; no implicit default |
-| `scripts/{docs-remark-lint.ts,sandcastle/init-artifacts.ts,validate-schema-lifecycle.ts,validate-work-items-pre-push.ts}` | `schemas/**`, `templates/**`, workflow paths | Corresponding logical references only when each script's consumer migration is approved |
+| `scripts/{docs-remark-lint.ts,sandcastle/init-artifacts.ts,validate-schema-lifecycle.ts,validate-work-items-pre-push.ts}` | `schemas/**`, `templates/**` | Corresponding logical references only when each script's consumer migration is approved |
 | `lib/plugins/tests/remark-frontmatter-schema.test.ts`, `scripts/tests/validate-changesets.test.ts` | test-only physical-path fixtures | Update alongside the owning consumer; no runtime alias |
 
 ## Extension, test, and fixture convention
