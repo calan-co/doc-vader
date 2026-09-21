@@ -1,3 +1,4 @@
+export * as docPack from "./doc-pack/index.js";
 export * as diataxis from "./diataxis/index.js";
 export * as frontmatter from "./frontmatter/index.js";
 export * as docs from "./docs/index.js";
