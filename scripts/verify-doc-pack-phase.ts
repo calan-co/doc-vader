@@ -2,8 +2,8 @@ import { access, readFile } from "node:fs/promises";
 
 const phase = process.argv.at(2) === "--phase" ? process.argv.at(3) : undefined;
 
-if (phase !== "1" && phase !== "2") {
-  throw new Error("Usage: verify-doc-pack-phase.ts --phase <1|2>");
+if (phase !== "1") {
+  throw new Error("Usage: verify-doc-pack-phase.ts --phase <1>");
 }
 
 const phaseOneFiles = [
@@ -79,10 +79,6 @@ async function verifyManifestContract(): Promise<void> {
 async function main(): Promise<void> {
   await Promise.all(phaseOneFiles.map(requireFile));
   await verifyManifestContract();
-
-  if (phase === "2") {
-    await requireFile("lib/doc-pack/index.ts");
-  }
 
   console.log(JSON.stringify({ phase: Number(phase), valid: true }));
 }

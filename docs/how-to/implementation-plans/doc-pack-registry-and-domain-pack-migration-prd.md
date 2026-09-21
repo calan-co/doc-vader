@@ -178,7 +178,7 @@ pnpm run typecheck
 pnpm test -- --run
 pnpm run docs:lint
 git diff --check
-pnpm exec tsx scripts/verify-doc-pack-phase.ts --phase 2
+# Extend and run the phase verifier with registry behavior checks.
 ```
 
 ### Phase 3 — `sdlc-core` pilot

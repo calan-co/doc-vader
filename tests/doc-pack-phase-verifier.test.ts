@@ -78,12 +78,12 @@ describe("doc-pack phase verifier", () => {
     expect(result.stderr).toContain("missing a required declaration field");
   });
 
-  it("fails phase 2 when the registry implementation is absent", async () => {
+  it("rejects unimplemented phase 2 verification", async () => {
     const workspace = await createPhaseWorkspace();
 
     const result = runVerifier(workspace, "2");
 
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("lib/doc-pack/index.ts");
+    expect(result.stderr).toContain("--phase <1>");
   });
 });
