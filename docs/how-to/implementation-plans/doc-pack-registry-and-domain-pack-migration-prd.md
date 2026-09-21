@@ -178,7 +178,7 @@ pnpm run typecheck
 pnpm test -- --run
 pnpm run docs:lint
 git diff --check
-pnpm exec tsx scripts/verify-doc-pack-phase.ts --phase 2
+# Extend and run the phase verifier with registry behavior checks.
 ```
 
 ### Phase 3 — `sdlc-core` pilot
@@ -197,7 +197,7 @@ pnpm run build
 pnpm test -- --run
 pnpm run docs:lint
 git diff --check
-pnpm exec tsx scripts/verify-doc-pack-phase.ts --phase 3
+# Run the Phase 3 verifier added with this migration.
 ```
 
 ### Phase 4 — Remaining domains
@@ -215,7 +215,7 @@ pnpm run build
 pnpm test -- --run
 pnpm run docs:lint
 git diff --check
-pnpm exec tsx scripts/verify-doc-pack-phase.ts --phase <n>
+# Run the domain-specific Phase 4 verifier added with this migration.
 ```
 
 ## Testing Decisions

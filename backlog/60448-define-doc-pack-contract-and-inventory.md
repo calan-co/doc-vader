@@ -6,9 +6,12 @@ summary: Define the doc-pack contract, catalog-only registry interface, and comp
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 3
+actual: 3
+completed_date: '2026-09-20'
 links:
   depends_on:
     - '[[60440-document-pack-routing-contract.md]]'
@@ -16,6 +19,7 @@ links:
     - '[[../docs/how-to/implementation-plans/doc-pack-registry-and-domain-pack-migration-prd.md]]'
   evidence:
     - '[[record-20260920-224355-60448]]'
+    - '[[record-doc-pack-contract-and-inventory-validation-passed]]'
 tags:
   - afk
   - document-packs
@@ -34,11 +38,11 @@ activation, lifecycle, and business rules stay outside its interface.
 
 ## Tasks
 
-- [ ] Add the syntax-agnostic `doc-pack` manifest contract and documentation.
-- [ ] Document the catalog-only `DocPackRegistry` interface and prohibited responsibilities.
-- [ ] Inventory every built-in artifact, its consumers and dependencies, its proposed domain owner, and its logical artifact ID.
-- [ ] Map every hard-coded internal path to its logical replacement.
-- [ ] Define embedded/referenced extension declarations, explicit activation consent, and pack-owned tests, fixtures, and Phase 1 verification output.
+- [x] Add the syntax-agnostic `doc-pack` manifest contract and documentation.
+- [x] Document the catalog-only `DocPackRegistry` interface and prohibited responsibilities.
+- [x] Inventory every built-in artifact, its consumers and dependencies, its proposed domain owner, and its logical artifact ID.
+- [x] Map every hard-coded internal path to its logical replacement.
+- [x] Define embedded/referenced extension declarations, explicit activation consent, and pack-owned tests, fixtures, and Phase 1 verification output.
 
 ## Deliverables
 
@@ -47,12 +51,14 @@ activation, lifecycle, and business rules stay outside its interface.
 
 ## Acceptance Criteria
 
-- [ ] The changed scope matches this work item and the approved PRD.
-- [ ] No registry responsibility expands beyond registration, validation,
+- [x] The changed scope matches this work item and the approved PRD.
+- [x] No registry responsibility expands beyond registration, validation,
       authoritative listing, and opaque reference resolution.
-- [ ] Focused tests, repository validation, docs lint, and the applicable phase
+- [x] Focused tests, repository validation, docs lint, and the applicable phase
       gate pass.
 
 ## Relationships
 
 - part_of: `[[60447-doc-pack-domain-migration-epic.md]]`
+
+- 2026-09-20: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.

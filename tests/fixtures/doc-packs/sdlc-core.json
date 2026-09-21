@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "doc-vader/doc-pack/v1",
+  "id": "sdlc-core",
+  "namespace": "doc-vader.sdlc-core",
+  "dependencies": ["core"],
+  "artifacts": [
+    {
+      "id": "templates/prd",
+      "kind": "renderer-template",
+      "ref": "templates/reference/work-management/prd.md.tpl"
+    }
+  ],
+  "documentTypePacks": [
+    {
+      "id": "sdlc-documents",
+      "ref": "packs/sdlc-core/document-type-pack.json"
+    }
+  ],
+  "extensions": [],
+  "tests": ["tests/prd.test.ts"],
+  "fixtures": ["tests/fixtures/doc-packs/sdlc-core.json"]
+}

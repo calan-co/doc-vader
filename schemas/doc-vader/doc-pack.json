@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/doc-vader/doc-pack",
+  "title": "doc-vader/doc-pack",
+  "description": "Syntax-agnostic catalog manifest for a Doc-Vader domain pack. References remain opaque to the registry.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "namespace",
+    "dependencies",
+    "artifacts",
+    "documentTypePacks",
+    "extensions",
+    "tests",
+    "fixtures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "doc-vader/doc-pack/v1"
+    },
+    "id": {
+      "$ref": "#/$defs/packId"
+    },
+    "namespace": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/packId"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifactDeclaration"
+      }
+    },
+    "documentTypePacks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/documentTypePackDeclaration"
+      }
+    },
+    "extensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/extensionDeclaration"
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/opaqueReference"
+      }
+    },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/opaqueReference"
+      }
+    }
+  },
+  "$defs": {
+    "packId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^:]+$"
+    },
+    "declarationId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^:]+$"
+    },
+    "opaqueReference": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifactDeclaration": {
+      "type": "object",
+      "required": ["id", "kind", "ref"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/declarationId" },
+        "kind": { "type": "string", "minLength": 1 },
+        "ref": { "$ref": "#/$defs/opaqueReference" }
+      }
+    },
+    "documentTypePackDeclaration": {
+      "type": "object",
+      "required": ["id", "ref"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/declarationId" },
+        "ref": { "$ref": "#/$defs/opaqueReference" }
+      }
+    },
+    "extensionDeclaration": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "kind", "ref"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/declarationId" },
+            "kind": { "const": "referenced" },
+            "ref": { "$ref": "#/$defs/opaqueReference" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["id", "kind", "declaration"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "$ref": "#/$defs/declarationId" },
+            "kind": { "const": "embedded" },
+            "declaration": { "type": "object" }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -97,7 +97,7 @@ The proposed manifest shape for a future extension host is:
 
 When an extension ships a document type pack, include:
 
-- a document-pack manifest matching
+- a document-type-pack manifest matching
   `schemas/doc-vader/document-type-pack.json`
 - metadata schemas composed from `schemas/metadata/base.json`
 - content schemas when body structure is governed

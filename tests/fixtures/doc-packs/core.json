@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "doc-vader/doc-pack/v1",
+  "id": "core",
+  "namespace": "doc-vader.core",
+  "dependencies": [],
+  "artifacts": [
+    {
+      "id": "metadata/base",
+      "kind": "metadata-model",
+      "ref": "schemas/metadata/base.json"
+    },
+    {
+      "id": "templates/document",
+      "kind": "renderer-template",
+      "ref": "templates/reference/document.md.tpl"
+    }
+  ],
+  "documentTypePacks": [
+    {
+      "id": "core-documents",
+      "ref": "packs/core/document-type-pack.json"
+    }
+  ],
+  "extensions": [
+    {
+      "id": "core.checklist",
+      "kind": "embedded",
+      "declaration": {
+        "name": "checklist"
+      }
+    },
+    {
+      "id": "core.lint",
+      "kind": "referenced",
+      "ref": "extensions/core-lint.json"
+    }
+  ],
+  "tests": ["tests/doc-pack-core.test.ts"],
+  "fixtures": ["tests/fixtures/doc-packs/core.json"]
+}
