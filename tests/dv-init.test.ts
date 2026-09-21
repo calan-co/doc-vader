@@ -74,7 +74,7 @@ describe("dv init", () => {
     expect(() => invoke(root, ["--dry-run", "--json"])).toThrow();
     expect(() => invoke(root, ["--pack", "work", "--json"])).toThrow();
     expect(invoke(root, ["--pack", "work", "--dry-run", "--json"])).toMatchObject({
-      rootDir: expect.stringContaining(path.basename(root)),
+      rootDir: await fs.realpath(root),
       dryRun: true,
       applied: [],
       planned: ["work"],

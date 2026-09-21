@@ -178,11 +178,6 @@ function valueAt(values: Record<string, unknown>, keys: readonly string[]): unkn
 
 async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["config"]>): Promise<void> {
   const configPath = path.join(rootDir, "dv.yaml");
-  const configStats = await fs.lstat(configPath).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") return undefined;
-    throw error;
-  });
-  if (configStats && configStats.nlink > 1) throw new InitError("dv.yaml must not be a hard link.");
   const source = await fs.readFile(configPath, "utf8").catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return "";
     throw error;
@@ -233,7 +228,7 @@ async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["conf
       if (closingBrace < parent.range[0]) throw new InitError(`Init config claim cannot be added: ${claim}`);
       const trailingWhitespace = source.slice(0, closingBrace).match(/[ \t]*$/)?.[0] ?? "";
       const start = parent.items.length ? closingBrace - trailingWhitespace.length : closingBrace;
-      edits.push({ start, end: closingBrace, text: `${parent.items.length ? ", " : ""}${missingKey}: ${yamlValue(insertionValue, true)}${parent.items.length ? trailingWhitespace : ""}` });
+      edits.push({ start, end: closingBrace, text: `${parent.items.length ? ", " : ""}${yamlValue(missingKey)}: ${yamlValue(insertionValue, true)}${parent.items.length ? trailingWhitespace : ""}` });
       continue;
     }
     const indent = (parent.srcToken as { indent?: number } | undefined)?.indent ?? 0;
@@ -306,6 +301,8 @@ async function applyPack(rootDir: string, pack: InitPack): Promise<void> {
     if (pack.init.config) {
       const configPath = path.join(rootDir, "dv.yaml");
       await assertNoSymlinkEscape(rootDir, configPath);
+      const configStats = await fs.lstat(configPath).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? undefined : Promise.reject(error));
+      if (configStats && configStats.nlink > 1) throw new InitError("dv.yaml must not be a hard link.");
       const previous = await fs.readFile(configPath).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? undefined : Promise.reject(error));
       changes.push({ path: configPath, previous });
       await writeConfig(rootDir, pack.init.config);
