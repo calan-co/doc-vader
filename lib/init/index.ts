@@ -291,6 +291,7 @@ export async function installedInitPacks(rootDir: string): Promise<InitPack[]> {
       let manifestPath: string;
       try {
         manifestPath = safePath(packageRoot, descriptor.manifest);
+        await assertNoSymlinkEscape(packageRoot, manifestPath);
       } catch {
         continue;
       }

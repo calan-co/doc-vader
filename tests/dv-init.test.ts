@@ -184,6 +184,28 @@ describe("dv init", () => {
     await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
   });
 
+  it("ignores descriptor manifests symlinked outside their package root", async () => {
+    const root = await fixture(false);
+    const outside = path.join(await fixture(false), "external-pack.json");
+    const packageRoot = path.join(root, "node_modules", "linked-descriptor");
+    await fs.mkdir(packageRoot, { recursive: true });
+    await fs.writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+      docVader: { documentTypePacks: [{ id: "linked", manifest: "link.json" }] },
+    }));
+    await fs.writeFile(outside, JSON.stringify({
+      schemaVersion: "doc-vader/document-type-pack/v1",
+      namespace: "linked.example",
+      documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+      name: "Linked",
+      init: { outputs: [{ path: "linked/.gitkeep", content: "" }] },
+    }));
+    await fs.symlink(outside, path.join(packageRoot, "link.json"));
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["linked"], yes: true, prompt })).rejects.toThrow("Unknown init pack");
+    await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
+  });
+
   it("reserves dv.yaml for Work config and rejects cross-pack ancestor outputs", async () => {
     const root = await fixture(false);
     const packageRoot = path.join(root, "node_modules", "config-interferer");
