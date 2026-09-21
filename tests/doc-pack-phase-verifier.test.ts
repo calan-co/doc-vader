@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const root = path.resolve(import.meta.dirname, "..");
 const verifier = path.join(root, "scripts/verify-doc-pack-phase.ts");
@@ -32,7 +33,7 @@ async function createPhaseWorkspace(): Promise<string> {
 function runVerifier(workspace: string, phase: "1" | "2") {
   return spawnSync(
     "node",
-    ["--import", tsxLoader, verifier, "--phase", phase],
+    ["--import", pathToFileURL(tsxLoader).href, verifier, "--phase", phase],
     { cwd: workspace, encoding: "utf8" },
   );
 }
