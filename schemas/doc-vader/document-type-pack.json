@@ -33,6 +33,9 @@
     },
     "configDefaults": {
       "$ref": "/doc-vader/config#/$defs/documentRouting"
+    },
+    "init": {
+      "$ref": "#/$defs/initRecipe"
     }
   },
   "$defs": {
@@ -73,6 +76,38 @@
         "path": { "type": "string", "minLength": 1 },
         "type": { "$ref": "#/$defs/routingToken" },
         "subtype": { "$ref": "#/$defs/routingToken" }
+      }
+    },
+    "initRecipe": {
+      "type": "object",
+      "required": ["outputs"],
+      "additionalProperties": false,
+      "properties": {
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "content"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "content": { "type": "string" }
+            }
+          }
+        },
+        "config": {
+          "type": "object",
+          "required": ["claims", "values"],
+          "additionalProperties": false,
+          "properties": {
+            "claims": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$" },
+              "uniqueItems": true
+            },
+            "values": { "type": "object" }
+          }
+        }
       }
     }
   }

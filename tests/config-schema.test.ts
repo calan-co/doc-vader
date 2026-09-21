@@ -146,6 +146,13 @@ describe("config schema", () => {
           namespace: "example.decisions",
           defaultType: "decision",
         },
+        init: {
+          outputs: [{ path: "decisions/.gitkeep", content: "" }],
+          config: {
+            claims: ["document.defaultType"],
+            values: { document: { defaultType: "decision" } },
+          },
+        },
       }),
     ).toBe(true);
 

@@ -3,6 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
+import { createInterface } from "node:readline/promises";
 import { Command, Option } from "commander";
 import os from "node:os";
 import path from "node:path";
@@ -71,6 +72,7 @@ import {
 } from "../lib/controllers/prdController.js";
 import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
+import { runInit, type InitPack } from "../lib/init/index.js";
 import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
@@ -2961,6 +2963,50 @@ governance
   .action(async (opts: { docsDir: string; write?: boolean }) => {
     const result = await governanceMigrate(opts.docsDir, !!opts.write);
     console.log(JSON.stringify(result, null, 2));
+  });
+
+// --- INITIALIZATION ---
+program
+  .command("init")
+  .description("Initialize selected bundled or installed document packs")
+  .option("--dir <path>", "Target directory; defaults to the Git root or current directory")
+  .option("--pack <id>", "Document pack to initialize (repeatable)", collectOption, [])
+  .option("--yes", "Apply without a confirmation prompt")
+  .option("--dry-run", "Show the selected packs without writing files")
+  .option("--json", "Print the result as JSON")
+  .action(async (opts: { dir?: string; pack: string[]; yes?: boolean; dryRun?: boolean; json?: boolean }) => {
+    const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
+    const prompt = {
+      isTTY: interactive,
+      async select(packs: readonly InitPack[]): Promise<string[]> {
+        const readline = createInterface({ input: process.stdin, output: process.stdout });
+        try {
+          console.log(packs.map((pack) => `${pack.id}: ${pack.name}`).join("\n"));
+          return (await readline.question("Pack IDs (comma-separated): "))
+            .split(",").map((id) => id.trim()).filter(Boolean);
+        } finally {
+          readline.close();
+        }
+      },
+      async confirm(packs: readonly InitPack[]): Promise<boolean> {
+        const readline = createInterface({ input: process.stdin, output: process.stdout });
+        try {
+          return /^(y|yes)$/i.test(await readline.question(`Initialize ${packs.map((pack) => pack.id).join(", ")}? [y/N] `));
+        } finally {
+          readline.close();
+        }
+      },
+    };
+    try {
+      const result = await runInit({ ...opts, packIds: opts.pack, prompt });
+      if (opts.json) console.log(JSON.stringify(result, null, 2));
+      else console.log(result.dryRun ? `Would initialize: ${result.planned.join(", ")}` : `Initialized: ${result.applied.join(", ")}`);
+      if (result.failed.length) process.exitCode = 1;
+    } catch (error) {
+      if (opts.json) console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+      else console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
   });
 
 // --- AGGREGATE ACTIONS ---
