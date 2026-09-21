@@ -208,6 +208,30 @@ describe("dv init", () => {
     })).resolves.toMatchObject({ applied: ["linked-package"] });
   });
 
+  it("discovers a valid scoped package linked under node_modules", async () => {
+    const root = await fixture(false);
+    const packageSource = await fixture(false);
+    await fs.writeFile(path.join(packageSource, "package.json"), JSON.stringify({
+      docVader: { documentTypePacks: [{ id: "scoped-linked-package", manifest: "pack.json" }] },
+    }));
+    await fs.writeFile(path.join(packageSource, "pack.json"), JSON.stringify({
+      schemaVersion: "doc-vader/document-type-pack/v1",
+      namespace: "scoped-linked-package.example",
+      documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+      name: "Scoped linked package",
+      init: { outputs: [{ path: "scoped-linked-package/.gitkeep", content: "" }] },
+    }));
+    await fs.mkdir(path.join(root, "node_modules", "@scope"), { recursive: true });
+    await fs.symlink(packageSource, path.join(root, "node_modules", "@scope", "pkg"));
+
+    await expect(runInit({
+      dir: root,
+      packIds: ["scoped-linked-package"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    })).resolves.toMatchObject({ applied: ["scoped-linked-package"] });
+  });
+
   it("ignores descriptor manifests symlinked outside their package root", async () => {
     const root = await fixture(false);
     const outside = path.join(await fixture(false), "external-pack.json");

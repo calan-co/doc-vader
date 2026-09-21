@@ -277,7 +277,7 @@ export async function installedInitPacks(rootDir: string): Promise<InitPack[]> {
   const packageDirs = entries.flatMap((entry) => entry.name.startsWith("@") ? [] : [entry.name]);
   for (const scope of entries.filter((entry) => entry.name.startsWith("@") && entry.isDirectory())) {
     const scoped = await fs.readdir(path.join(nodeModules, scope.name), { withFileTypes: true }).catch(() => []);
-    packageDirs.push(...scoped.filter((entry) => entry.isDirectory()).map((entry) => `${scope.name}/${entry.name}`));
+    packageDirs.push(...scoped.filter((entry) => entry.isDirectory() || entry.isSymbolicLink()).map((entry) => `${scope.name}/${entry.name}`));
   }
   const packs: InitPack[] = [];
   for (const packageDir of packageDirs) {
