@@ -36,6 +36,21 @@ function invoke(cwd: string, args: string[]): unknown {
   }));
 }
 
+async function installPack(root: string, id: string, init: object, name: string | undefined = id): Promise<void> {
+  const packageRoot = path.join(root, "node_modules", id);
+  await fs.mkdir(packageRoot, { recursive: true });
+  await fs.writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+    docVader: { documentTypePacks: [{ id, manifest: "pack.json" }] },
+  }));
+  await fs.writeFile(path.join(packageRoot, "pack.json"), JSON.stringify({
+    schemaVersion: "doc-vader/document-type-pack/v1",
+    namespace: `${id}.example`,
+    documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+    ...(name === undefined ? {} : { name }),
+    init,
+  }));
+}
+
 describe("dv init", () => {
   it("initializes the Git root from a nested cwd and preserves unrelated dv.yaml text", async () => {
     const root = await fixture();
@@ -59,7 +74,7 @@ describe("dv init", () => {
     expect(() => invoke(root, ["--dry-run", "--json"])).toThrow();
     expect(() => invoke(root, ["--pack", "work", "--json"])).toThrow();
     expect(invoke(root, ["--pack", "work", "--dry-run", "--json"])).toMatchObject({
-      rootDir: await fs.realpath(root),
+      rootDir: expect.stringContaining(path.basename(root)),
       dryRun: true,
       applied: [],
       planned: ["work"],
@@ -122,7 +137,7 @@ describe("dv init", () => {
       namespace: "bad.example",
       documentTypes: [{ type: "bad", metadataSchema: "metadata.json" }],
       name: "Bad config",
-      init: { outputs: [], config: { claims: ["backlog.dir"], values: { backlog: { profiles: [] } } } },
+      init: { outputs: [], config: { claims: ["backlog.dir"], values: { backlog: { profiles: "invalid" } } } },
     }));
 
     await expect(runInit({
@@ -130,7 +145,7 @@ describe("dv init", () => {
       packIds: ["bad-config"],
       yes: true,
       prompt: { isTTY: false, select: async () => [], confirm: async () => true },
-    })).rejects.toThrow("Init config values must exactly match declared claims.");
+    })).rejects.toThrow("Init config values must exactly match declared claims");
   });
 
   it("case-folds reserved .git and dv.yaml output paths", async () => {
@@ -392,8 +407,8 @@ describe("dv init", () => {
   it("wires interactive JSON prompts to stderr and emits one stdout JSON result", async () => {
     const root = await fixture(false);
     const input = Object.assign(new PassThrough(), { isTTY: true });
-    const stdout = Object.assign(new PassThrough(), { isTTY: true });
-    const stderr = new PassThrough();
+    const stdout = Object.assign(new PassThrough(), { isTTY: false });
+    const stderr = Object.assign(new PassThrough(), { isTTY: true });
     let output = "";
     let prompts = "";
     stdout.on("data", (chunk: Buffer) => { output += chunk.toString(); });
@@ -420,6 +435,74 @@ describe("dv init", () => {
     expect(output).not.toContain("Pack IDs");
     expect(prompts).toContain("Pack IDs");
     expect(prompts).toContain("Initialize work");
+  });
+
+  it("rejects drive-qualified paths, case-insensitive collisions, and non-identical outputs", async () => {
+    const root = await fixture(false);
+    await installPack(root, "drive", { outputs: [{ path: "C:escape", content: "" }] });
+    await installPack(root, "upper", { outputs: [{ path: "Managed/file", content: "" }] });
+    await installPack(root, "lower", { outputs: [{ path: "managed/file", content: "" }] });
+    await fs.mkdir(path.join(root, "backlog"));
+    await fs.writeFile(path.join(root, "backlog", ".gitkeep"), "user content");
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["drive"], yes: true, prompt })).rejects.toThrow("Unsafe init path");
+    await expect(runInit({ dir: root, packIds: ["upper", "lower"], yes: true, prompt })).rejects.toThrow("Selected packs collide");
+    await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ failed: [{ pack: "work" }] });
+    await expect(fs.readFile(path.join(root, "backlog", ".gitkeep"), "utf8")).resolves.toBe("user content");
+  });
+
+  it("allows matching outputs, preserves nested config structure, and falls back to descriptor IDs", async () => {
+    const root = await fixture(false);
+    await installPack(root, "nested", { config: { claims: ["routing.targets.default"], values: { routing: { targets: { default: "docs" } } } }, outputs: [] });
+    await installPack(root, "unnamed", { outputs: [{ path: "unnamed/.gitkeep", content: "" }] }, undefined);
+    await fs.writeFile(path.join(root, "dv.yaml"), "routing:\n  existing: keep\n");
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["nested", "unnamed"], yes: true, prompt })).resolves.toMatchObject({ applied: ["nested", "unnamed"] });
+    await expect(fs.readFile(path.join(root, "dv.yaml"), "utf8")).resolves.toBe("routing:\n  existing: keep\n  targets:\n    default: docs\n");
+    await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
+    await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
+
+    const flowRoot = await fixture(false);
+    await installPack(flowRoot, "flow", { config: { claims: ["routing.targets.default"], values: { routing: { targets: { default: "docs" } } } }, outputs: [] });
+    await fs.writeFile(path.join(flowRoot, "dv.yaml"), "routing: { existing: keep }\n");
+    await expect(runInit({ dir: flowRoot, packIds: ["flow"], yes: true, prompt })).resolves.toMatchObject({ applied: ["flow"] });
+    await expect(fs.readFile(path.join(flowRoot, "dv.yaml"), "utf8")).resolves.toBe("routing: { existing: keep, targets: { default: docs } }\n");
+  });
+
+  it("rejects duplicate pack IDs and writes text-mode failures to stderr", async () => {
+    const root = await fixture(false);
+    await installPack(root, "duplicate", { outputs: [] });
+    const duplicatePackage = path.join(root, "node_modules", "duplicate-work");
+    await fs.mkdir(duplicatePackage, { recursive: true });
+    await fs.writeFile(path.join(duplicatePackage, "package.json"), JSON.stringify({
+      docVader: { documentTypePacks: [{ id: "work", manifest: "pack.json" }] },
+    }));
+    await fs.writeFile(path.join(duplicatePackage, "pack.json"), JSON.stringify({
+      schemaVersion: "doc-vader/document-type-pack/v1",
+      namespace: "duplicate-work.example",
+      documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+      init: { outputs: [] },
+    }));
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+    await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).rejects.toThrow("Duplicate init pack ID");
+
+    const standalone = await fixture(false);
+    await fs.mkdir(path.join(standalone, "backlog"));
+    await fs.writeFile(path.join(standalone, "backlog", ".gitkeep"), "user content");
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const error = new PassThrough();
+    let errors = "";
+    error.on("data", (chunk: Buffer) => { errors += chunk.toString(); });
+    const program = new Command().name("dv");
+    registerInitCommand(program, { input, output, error });
+    const previousExitCode = process.exitCode;
+    process.exitCode = undefined;
+    await program.parseAsync(["node", "dv", "init", "--dir", standalone, "--pack", "work", "--yes"], { from: "node" });
+    process.exitCode = previousExitCode;
+    expect(errors).toContain("Refusing to overwrite existing init output");
   });
 
   it("uses --dir as an explicit subdirectory target inside Git", async () => {

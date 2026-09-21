@@ -78,6 +78,19 @@
         "subtype": { "$ref": "#/$defs/routingToken" }
       }
     },
+    "initConfigValue": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string", "pattern": "^[^\\r\\n]*$" },
+        { "$ref": "#/$defs/initConfigObject" }
+      ]
+    },
+    "initConfigObject": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/initConfigValue" }
+    },
     "initRecipe": {
       "type": "object",
       "required": ["outputs"],
@@ -105,7 +118,7 @@
               "items": { "type": "string", "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$" },
               "uniqueItems": true
             },
-            "values": { "type": "object" }
+            "values": { "$ref": "#/$defs/initConfigObject" }
           }
         }
       }

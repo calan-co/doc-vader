@@ -6,7 +6,7 @@ import { createTerminalInitPrompt } from "./prompt.js";
 interface InitCommandStdio {
   input: Readable & { isTTY?: boolean };
   output: Writable & { isTTY?: boolean };
-  error: Writable;
+  error: Writable & { isTTY?: boolean };
 }
 
 const collectOption = (value: string, previous: string[] = []) => [...previous, value];
@@ -31,12 +31,15 @@ export function registerInitCommand(
       const prompt = createTerminalInitPrompt(
         stdio.input,
         opts.json ? stdio.error : stdio.output,
-        Boolean(stdio.input.isTTY && stdio.output.isTTY),
+        Boolean(stdio.input.isTTY && (opts.json ? stdio.error.isTTY : stdio.output.isTTY)),
       );
       try {
         const result = await runInit({ ...opts, packIds: opts.pack, prompt });
         stdio.output.write(`${opts.json ? JSON.stringify(result, null, 2) : result.dryRun ? `Would initialize: ${result.planned.join(", ")}` : `Initialized: ${result.applied.join(", ")}`}\n`);
-        if (result.failed.length) process.exitCode = 1;
+        if (result.failed.length) {
+          if (!opts.json) result.failed.forEach(({ pack, error }) => stdio.error.write(`${pack}: ${error}\n`));
+          process.exitCode = 1;
+        }
       } catch (error) {
         stdio.error.write(`${opts.json ? JSON.stringify({ error: error instanceof Error ? error.message : String(error) }) : error instanceof Error ? error.message : String(error)}\n`);
         process.exitCode = 1;

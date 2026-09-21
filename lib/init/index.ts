@@ -75,10 +75,16 @@ function leaves(value: unknown, prefix = ""): string[] {
   return Object.entries(value).flatMap(([key, child]) => leaves(child, prefix ? `${prefix}.${key}` : key));
 }
 
+function isSafeConfigValue(value: unknown): boolean {
+  if (value === null || typeof value === "number" || typeof value === "boolean") return true;
+  if (typeof value === "string") return !/[\r\n]/.test(value);
+  return typeof value === "object" && !Array.isArray(value) && Object.values(value).every(isSafeConfigValue);
+}
+
 function canonicalRecipePath(candidate: string): string {
   const normalized = path.posix.normalize(candidate.replaceAll("\\", "/"));
   const parts = candidate.split(/[\\/]/);
-  if (!candidate || path.isAbsolute(candidate) || normalized === "." || normalized.startsWith("../") || parts.includes(".") || parts.includes("..") || parts.some((part) => part.toLowerCase() === ".git")) {
+  if (!candidate || path.isAbsolute(candidate) || path.win32.isAbsolute(candidate) || /^[A-Za-z]:/.test(candidate) || normalized === "." || normalized.startsWith("../") || parts.includes(".") || parts.includes("..") || parts.some((part) => part.toLowerCase() === ".git")) {
     throw new InitError(`Unsafe init path: ${candidate}`);
   }
   return normalized;
@@ -112,7 +118,9 @@ async function assertNoSymlinkEscape(rootDir: string, target: string): Promise<v
 }
 
 function outputPathsConflict(left: string, right: string): boolean {
-  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+  const normalizedLeft = left.toLowerCase();
+  const normalizedRight = right.toLowerCase();
+  return normalizedLeft === normalizedRight || normalizedLeft.startsWith(`${normalizedRight}/`) || normalizedRight.startsWith(`${normalizedLeft}/`);
 }
 
 function validateRecipe(recipe: InitRecipe): void {
@@ -130,8 +138,8 @@ function validateRecipe(recipe: InitRecipe): void {
   if (!recipe.config) return;
   const claims = new Set(recipe.config.claims);
   const valueLeaves = leaves(recipe.config.values);
-  if (claims.size !== recipe.config.claims.length || valueLeaves.length !== claims.size || valueLeaves.some((key) => !claims.has(key))) {
-    throw new InitError("Init config values must exactly match declared claims.");
+  if (!isSafeConfigValue(recipe.config.values) || claims.size !== recipe.config.claims.length || valueLeaves.length !== claims.size || valueLeaves.some((key) => !claims.has(key))) {
+    throw new InitError("Init config values must exactly match declared claims and use scalar leaves.");
   }
 }
 
@@ -154,8 +162,12 @@ function validateSelection(packs: readonly InitPack[]): void {
   }
 }
 
-function yamlValue(value: unknown): string {
-  return stringify(value).trimEnd();
+function yamlValue(value: unknown, flow = false): string {
+  return stringify(value, null, flow ? { collectionStyle: "flow" } : undefined).trimEnd();
+}
+
+function valueAt(values: Record<string, unknown>, keys: readonly string[]): unknown {
+  return keys.reduce<unknown>((value, key) => (value as Record<string, unknown>)[key], values);
 }
 
 async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["config"]>): Promise<void> {
@@ -168,13 +180,16 @@ async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["conf
   if (document.errors.length || (document.contents && !isMap(document.contents))) {
     throw new InitError("dv.yaml must contain a YAML mapping.");
   }
+  if (!document.contents) {
+    await fs.writeFile(configPath, `${yamlValue(config.values)}\n`, "utf8");
+    return;
+  }
 
   const edits: Array<{ start: number; end: number; text: string }> = [];
-  const missingRoots = new Set<string>();
+  const inserted = new Set<string>();
   for (const claim of config.claims) {
     const keys = claim.split(".");
-    let value: unknown = config.values;
-    for (const key of keys) value = (value as Record<string, unknown>)[key];
+    const value = valueAt(config.values, keys);
     const existing = document.getIn(keys, true);
     const range = typeof existing === "object" && existing !== null
       ? (existing as { range?: [number, number] }).range
@@ -183,27 +198,37 @@ async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["conf
       edits.push({ start: range[0], end: range[1], text: yamlValue(value) });
       continue;
     }
-    const parent = document.getIn(keys.slice(0, -1), true);
-    if (parent === undefined) {
-      missingRoots.add(keys[0]!);
-      continue;
+
+    let parent: { range: [number, number]; flow?: boolean; items: unknown[]; srcToken?: { indent?: number } } | undefined;
+    let parentKeyCount = 0;
+    for (let count = keys.length - 1; count >= 0; count -= 1) {
+      const candidate = document.getIn(keys.slice(0, count), true);
+      if (candidate === undefined) continue;
+      const map = candidate as { range?: [number, number]; flow?: boolean; items?: unknown[]; srcToken?: { indent?: number } };
+      if (!isMap(candidate) || !map.range || !map.items) throw new InitError(`Init config claim cannot be added: ${claim}`);
+      parent = { ...map, range: map.range, items: map.items };
+      parentKeyCount = count;
+      break;
     }
-    if (!isMap(parent) || !parent.range) {
-      throw new InitError(`Init config claim cannot be added: ${claim}`);
-    }
+    if (!parent) throw new InitError(`Init config claim cannot be added: ${claim}`);
+
+    const missingKey = keys[parentKeyCount]!;
+    const insertionKey = `${keys.slice(0, parentKeyCount).join(".")}:${missingKey}`;
+    if (inserted.has(insertionKey)) continue;
+    inserted.add(insertionKey);
+    const insertionValue = valueAt(config.values, keys.slice(0, parentKeyCount + 1));
     if (parent.flow) {
       const closingBrace = source.lastIndexOf("}", parent.range[1] - 1);
       if (closingBrace < parent.range[0]) throw new InitError(`Init config claim cannot be added: ${claim}`);
-      edits.push({ start: closingBrace, end: closingBrace, text: `${parent.items.length ? "," : ""} ${keys.at(-1)}: ${yamlValue(value)}` });
+      const trailingWhitespace = source.slice(0, closingBrace).match(/[ \t]*$/)?.[0] ?? "";
+      const start = parent.items.length ? closingBrace - trailingWhitespace.length : closingBrace;
+      edits.push({ start, end: closingBrace, text: `${parent.items.length ? ", " : ""}${missingKey}: ${yamlValue(insertionValue, true)}${parent.items.length ? trailingWhitespace : ""}` });
       continue;
     }
     const indent = (parent.srcToken as { indent?: number } | undefined)?.indent ?? 0;
     const prefix = source.slice(0, parent.range[1]).endsWith("\n") ? "" : "\n";
-    edits.push({ start: parent.range[1], end: parent.range[1], text: `${prefix}${" ".repeat(indent)}${keys.at(-1)}: ${yamlValue(value)}\n` });
-  }
-  for (const root of missingRoots) {
-    const value = config.values[root];
-    edits.push({ start: source.length, end: source.length, text: `${source && !source.endsWith("\n") ? "\n" : ""}${yamlValue({ [root]: value })}\n` });
+    const entry = yamlValue({ [missingKey]: insertionValue }).split("\n").map((line) => `${" ".repeat(indent)}${line}`).join("\n");
+    edits.push({ start: parent.range[1], end: parent.range[1], text: `${prefix}${entry}\n` });
   }
   const updated = edits.sort((left, right) => right.start - left.start)
     .reduce((text, edit) => `${text.slice(0, edit.start)}${edit.text}${text.slice(edit.end)}`, source);
@@ -234,9 +259,18 @@ async function writeManaged(rootDir: string, pathname: string, content: string, 
     if (error.code === "ENOENT") return undefined;
     throw error;
   });
-  changes.push({ path: pathname, previous });
+  if (previous !== undefined) {
+    if (previous.equals(Buffer.from(content))) return;
+    throw new InitError(`Refusing to overwrite existing init output: ${pathname}`);
+  }
   await ensureParentDirectories(rootDir, pathname, createdDirectories);
-  await fs.writeFile(pathname, content, "utf8");
+  try {
+    await fs.writeFile(pathname, content, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new InitError(`Refusing to overwrite existing init output: ${pathname}`);
+    throw error;
+  }
+  changes.push({ path: pathname });
 }
 
 async function rollback(changes: readonly ManagedChange[], createdDirectories: readonly string[]): Promise<void> {
@@ -297,8 +331,8 @@ export async function installedInitPacks(rootDir: string): Promise<InitPack[]> {
         continue;
       }
       const manifest = await fs.readFile(manifestPath, "utf8").then(JSON.parse).catch(() => undefined) as unknown;
-      if (isDocumentTypePack(manifest) && typeof manifest.name === "string" && isRecipe(manifest.init)) {
-        packs.push({ id: descriptor.id, name: manifest.name, init: manifest.init });
+      if (isDocumentTypePack(manifest) && isRecipe(manifest.init)) {
+        packs.push({ id: descriptor.id, name: typeof manifest.name === "string" ? manifest.name : descriptor.id, init: manifest.init });
       }
     }
   }
@@ -330,6 +364,8 @@ export async function runInit(options: {
 }): Promise<InitResult> {
   const rootDir = options.dir ? path.resolve(options.dir) : resolveGitRoot();
   const available = await availableInitPacks(rootDir);
+  const duplicate = available.find((pack, index) => available.findIndex((candidate) => candidate.id === pack.id) !== index);
+  if (duplicate) throw new InitError(`Duplicate init pack ID: ${duplicate.id}`);
   let packIds = options.packIds ?? [];
   if (packIds.length === 0) {
     if (!options.prompt.isTTY) throw new InitError("--pack is required outside an interactive terminal.");

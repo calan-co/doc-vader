@@ -158,8 +158,9 @@ A document-type pack may declare an `init` recipe. Recipes are data, never pack
 code: Doc-Vader validates their relative output paths and declared `dv.yaml`
 config claims, then core performs the writes. Paths may not be absolute, escape
 with `..`, enter `.git`, or escape through an existing symlink. A recipe's
-`config.claims` must exactly name every leaf in `config.values`; output paths
-cannot be `dv.yaml` or its descendants. Selected recipes may not claim the same config path or
+`config.claims` must exactly name every leaf in `config.values`; leaves are
+single-line scalar values (not arrays). Output paths cannot be `dv.yaml` or its descendants.
+Selected recipes may not claim the same config path or
 write the same output path. A failed pack rolls back its own managed writes
 without rolling back unrelated selected packs.
 
