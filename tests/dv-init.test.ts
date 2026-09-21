@@ -5,7 +5,9 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { PassThrough } from "node:stream";
 import { runInit } from "../lib/init/index.js";
+import { createTerminalInitPrompt } from "../lib/init/prompt.js";
 
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
@@ -127,6 +129,111 @@ describe("dv init", () => {
       yes: true,
       prompt: { isTTY: false, select: async () => [], confirm: async () => true },
     })).rejects.toThrow("Init config values must exactly match declared claims.");
+  });
+
+  it("normalizes output collisions and rejects dv.yaml descendants when config is claimed", async () => {
+    const root = await fixture(false);
+    for (const [packageName, id, output, config] of [
+      ["one", "one", "managed//file", undefined],
+      ["two", "two", "managed/file", undefined],
+      ["config-collision", "config-collision", "dv.yaml/managed", { claims: ["backlog.dir"], values: { backlog: { dir: "backlog" } } }],
+    ] as const) {
+      const packageRoot = path.join(root, "node_modules", packageName);
+      await fs.mkdir(packageRoot, { recursive: true });
+      await fs.writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+        docVader: { documentTypePacks: [{ id, manifest: "pack.json" }] },
+      }));
+      await fs.writeFile(path.join(packageRoot, "pack.json"), JSON.stringify({
+        schemaVersion: "doc-vader/document-type-pack/v1",
+        namespace: `${packageName}.example`,
+        documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+        name: packageName,
+        init: { outputs: [{ path: output, content: "" }], ...(config ? { config } : {}) },
+      }));
+    }
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["one", "two"], yes: true, prompt }))
+      .rejects.toThrow("Selected packs collide");
+    await expect(runInit({ dir: root, packIds: ["config-collision"], yes: true, prompt }))
+      .rejects.toThrow("Init config and output paths collide");
+  });
+
+  it("rejects a final output symlink without writing through it", async () => {
+    const root = await fixture(false);
+    const outside = path.join(await fixture(false), "outside");
+    await fs.mkdir(path.join(root, "backlog"));
+    await fs.writeFile(outside, "unchanged");
+    await fs.symlink(outside, path.join(root, "backlog", ".gitkeep"));
+
+    const result = await runInit({
+      dir: root,
+      packIds: ["work"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    });
+
+    expect(result.failed).toHaveLength(1);
+    await expect(fs.readFile(outside, "utf8")).resolves.toBe("unchanged");
+  });
+
+  it("rejects a dangling dv.yaml symlink and rolls back its new output directory", async () => {
+    const root = await fixture(false);
+    const outside = path.join(await fixture(false), "missing.yaml");
+    await fs.symlink(outside, path.join(root, "dv.yaml"));
+
+    const result = await runInit({
+      dir: root,
+      packIds: ["work"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    });
+
+    expect(result.failed).toHaveLength(1);
+    await expect(fs.lstat(path.join(root, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.lstat(outside)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("preserves unrelated YAML formatting byte-for-byte", async () => {
+    const root = await fixture(false);
+    const source = "# heading\nnamespace: \"example.docs\" # inline\nvalidation: { failOn: warning, allowUnknownProperties: true } # flow\nlist: [one, two]\nquoted: 'keep spaces'\n";
+    await fs.writeFile(path.join(root, "dv.yaml"), source);
+
+    await runInit({
+      dir: root,
+      packIds: ["work"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    });
+
+    await expect(fs.readFile(path.join(root, "dv.yaml"), "utf8")).resolves.toBe(`${source}backlog:\n  dir: backlog\n`);
+  });
+
+  it("keeps interactive prompt output off the JSON result stream", async () => {
+    const input = new PassThrough();
+    const promptOutput = new PassThrough();
+    let rendered = "";
+    promptOutput.on("data", (chunk: Buffer) => { rendered += chunk.toString(); });
+    const prompt = createTerminalInitPrompt(input, promptOutput, true);
+    input.write("work\n");
+    expect(await prompt.select([{ id: "work", name: "Work", init: { outputs: [] } }])).toEqual(["work"]);
+    input.write("yes\n");
+    expect(await prompt.confirm([{ id: "work", name: "Work", init: { outputs: [] } }])).toBe(true);
+    input.end();
+    expect(rendered).toContain("work: Work");
+  });
+
+  it("uses --dir as an explicit subdirectory target inside Git", async () => {
+    const root = await fixture();
+    const target = path.join(root, "nested", "target");
+    await fs.mkdir(target, { recursive: true });
+
+    expect(invoke(root, ["--dir", target, "--pack", "work", "--yes", "--json"])).toMatchObject({
+      rootDir: target,
+      applied: ["work"],
+    });
+    await expect(fs.stat(path.join(target, "backlog", ".gitkeep"))).resolves.toBeDefined();
+    await expect(fs.stat(path.join(root, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("uses --dir over Git discovery", async () => {

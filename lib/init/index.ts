@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { isMap, parseDocument } from "yaml";
+import { isMap, parseDocument, stringify } from "yaml";
 import { resolveGitRoot } from "../task/authority.js";
 
 export interface InitPrompt {
@@ -55,34 +55,38 @@ function leaves(value: unknown, prefix = ""): string[] {
   return Object.entries(value).flatMap(([key, child]) => leaves(child, prefix ? `${prefix}.${key}` : key));
 }
 
-function assertSafeRecipePath(candidate: string): void {
+function canonicalRecipePath(candidate: string): string {
+  const normalized = path.posix.normalize(candidate.replaceAll("\\", "/"));
   const parts = candidate.split(/[\\/]/);
-  if (!candidate || path.isAbsolute(candidate) || parts.includes(".") || parts.includes("..") || parts.includes(".git")) {
+  if (!candidate || path.isAbsolute(candidate) || normalized === "." || normalized.startsWith("../") || parts.includes(".") || parts.includes("..") || parts.includes(".git")) {
     throw new InitError(`Unsafe init path: ${candidate}`);
   }
+  return normalized;
 }
 
 function safePath(rootDir: string, candidate: string): string {
-  assertSafeRecipePath(candidate);
-  const absolute = path.resolve(rootDir, candidate);
+  const normalized = canonicalRecipePath(candidate);
+  const absolute = path.resolve(rootDir, normalized);
   if (path.relative(rootDir, absolute).startsWith("..")) throw new InitError(`Unsafe init path: ${candidate}`);
   return absolute;
 }
 
 async function assertNoSymlinkEscape(rootDir: string, target: string): Promise<void> {
-  const resolvedRoot = await fs.realpath(rootDir);
-  let ancestor = path.dirname(target);
-  while (true) {
+  if ((await fs.lstat(rootDir)).isSymbolicLink()) {
+    throw new InitError(`Init path escapes through a symlink: ${target}`);
+  }
+  const relative = path.relative(rootDir, target);
+  let current = rootDir;
+  for (const part of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, part);
     try {
-      const resolved = await fs.realpath(ancestor);
-      if (path.relative(resolvedRoot, resolved).startsWith("..")) {
+      if ((await fs.lstat(current)).isSymbolicLink()) {
         throw new InitError(`Init path escapes through a symlink: ${target}`);
       }
-      return;
     } catch (error) {
       if (error instanceof InitError) throw error;
-      if (ancestor === rootDir) throw error;
-      ancestor = path.dirname(ancestor);
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
     }
   }
 }
@@ -90,9 +94,9 @@ async function assertNoSymlinkEscape(rootDir: string, target: string): Promise<v
 function validateRecipe(recipe: InitRecipe): void {
   const outputPaths = new Set<string>();
   for (const output of recipe.outputs) {
-    assertSafeRecipePath(output.path);
-    if (outputPaths.has(output.path)) throw new InitError(`Duplicate init output: ${output.path}`);
-    outputPaths.add(output.path);
+    const outputPath = canonicalRecipePath(output.path);
+    if (outputPaths.has(outputPath)) throw new InitError(`Duplicate init output: ${output.path}`);
+    outputPaths.add(outputPath);
   }
   if (!recipe.config) return;
   const claims = new Set(recipe.config.claims);
@@ -100,7 +104,9 @@ function validateRecipe(recipe: InitRecipe): void {
   if (claims.size !== recipe.config.claims.length || valueLeaves.length !== claims.size || valueLeaves.some((key) => !claims.has(key))) {
     throw new InitError("Init config values must exactly match declared claims.");
   }
-  if (outputPaths.has("dv.yaml")) throw new InitError("Init config and output paths collide: dv.yaml");
+  if (Array.from(outputPaths).some((outputPath) => outputPath === "dv.yaml" || outputPath.startsWith("dv.yaml/"))) {
+    throw new InitError("Init config and output paths collide: dv.yaml");
+  }
 }
 
 function validateSelection(packs: readonly InitPack[]): void {
@@ -109,8 +115,9 @@ function validateSelection(packs: readonly InitPack[]): void {
   for (const pack of packs) {
     validateRecipe(pack.init);
     for (const output of pack.init.outputs) {
-      if (outputs.has(output.path)) throw new InitError(`Selected packs collide at ${output.path}`);
-      outputs.add(output.path);
+      const outputPath = canonicalRecipePath(output.path);
+      if (outputs.has(outputPath)) throw new InitError(`Selected packs collide at ${output.path}`);
+      outputs.add(outputPath);
     }
     for (const claim of pack.init.config?.claims ?? []) {
       if (claimed.has(claim)) throw new InitError(`Selected packs claim the same config path: ${claim}`);
@@ -119,51 +126,109 @@ function validateSelection(packs: readonly InitPack[]): void {
   }
 }
 
+function yamlValue(value: unknown): string {
+  return stringify(value).trimEnd();
+}
+
 async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["config"]>): Promise<void> {
   const configPath = path.join(rootDir, "dv.yaml");
   const source = await fs.readFile(configPath, "utf8").catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return "";
     throw error;
   });
-  const document = parseDocument(source);
+  const document = parseDocument(source, { keepSourceTokens: true });
   if (document.errors.length || (document.contents && !isMap(document.contents))) {
     throw new InitError("dv.yaml must contain a YAML mapping.");
   }
+
+  const edits: Array<{ start: number; end: number; text: string }> = [];
+  const missingRoots = new Set<string>();
   for (const claim of config.claims) {
     const keys = claim.split(".");
     let value: unknown = config.values;
     for (const key of keys) value = (value as Record<string, unknown>)[key];
-    document.setIn(keys, value);
+    const existing = document.getIn(keys, true);
+    const range = typeof existing === "object" && existing !== null
+      ? (existing as { range?: [number, number] }).range
+      : undefined;
+    if (range) {
+      edits.push({ start: range[0], end: range[1], text: yamlValue(value) });
+      continue;
+    }
+    const parent = document.getIn(keys.slice(0, -1), true);
+    if (parent === undefined) {
+      missingRoots.add(keys[0]!);
+      continue;
+    }
+    if (!isMap(parent) || !parent.range) {
+      throw new InitError(`Init config claim cannot be added: ${claim}`);
+    }
+    if (parent.flow) {
+      const closingBrace = source.lastIndexOf("}", parent.range[1] - 1);
+      if (closingBrace < parent.range[0]) throw new InitError(`Init config claim cannot be added: ${claim}`);
+      edits.push({ start: closingBrace, end: closingBrace, text: `${parent.items.length ? "," : ""} ${keys.at(-1)}: ${yamlValue(value)}` });
+      continue;
+    }
+    const indent = (parent.srcToken as { indent?: number } | undefined)?.indent ?? 0;
+    const prefix = source.slice(0, parent.range[1]).endsWith("\n") ? "" : "\n";
+    edits.push({ start: parent.range[1], end: parent.range[1], text: `${prefix}${" ".repeat(indent)}${keys.at(-1)}: ${yamlValue(value)}\n` });
   }
-  await fs.writeFile(configPath, document.toString(), "utf8");
+  for (const root of missingRoots) {
+    const value = config.values[root];
+    edits.push({ start: source.length, end: source.length, text: `${source && !source.endsWith("\n") ? "\n" : ""}${yamlValue({ [root]: value })}\n` });
+  }
+  const updated = edits.sort((left, right) => right.start - left.start)
+    .reduce((text, edit) => `${text.slice(0, edit.start)}${edit.text}${text.slice(edit.end)}`, source);
+  await fs.writeFile(configPath, updated, "utf8");
 }
 
 type ManagedChange = { path: string; previous?: Buffer };
 
-async function writeManaged(pathname: string, content: string, changes: ManagedChange[]): Promise<void> {
+async function ensureParentDirectories(rootDir: string, pathname: string, createdDirectories: string[]): Promise<void> {
+  const missing: string[] = [];
+  for (let current = path.dirname(pathname); current !== rootDir; current = path.dirname(current)) {
+    try {
+      await fs.lstat(current);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      missing.push(current);
+    }
+  }
+  for (const directory of missing.reverse()) {
+    await fs.mkdir(directory);
+    createdDirectories.push(directory);
+  }
+}
+
+async function writeManaged(rootDir: string, pathname: string, content: string, changes: ManagedChange[], createdDirectories: string[]): Promise<void> {
   const previous = await fs.readFile(pathname).catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return undefined;
     throw error;
   });
   changes.push({ path: pathname, previous });
-  await fs.mkdir(path.dirname(pathname), { recursive: true });
+  await ensureParentDirectories(rootDir, pathname, createdDirectories);
   await fs.writeFile(pathname, content, "utf8");
 }
 
-async function rollback(changes: readonly ManagedChange[]): Promise<void> {
+async function rollback(changes: readonly ManagedChange[], createdDirectories: readonly string[]): Promise<void> {
   for (const change of [...changes].reverse()) {
     if (change.previous === undefined) await fs.rm(change.path, { force: true });
     else await fs.writeFile(change.path, change.previous);
+  }
+  for (const directory of [...createdDirectories].reverse()) {
+    await fs.rmdir(directory).catch(() => undefined);
   }
 }
 
 async function applyPack(rootDir: string, pack: InitPack): Promise<void> {
   const changes: ManagedChange[] = [];
+  const createdDirectories: string[] = [];
   try {
     for (const output of pack.init.outputs) {
       const target = safePath(rootDir, output.path);
       await assertNoSymlinkEscape(rootDir, target);
-      await writeManaged(target, output.content, changes);
+      await writeManaged(rootDir, target, output.content, changes, createdDirectories);
     }
     if (pack.init.config) {
       const configPath = path.join(rootDir, "dv.yaml");
@@ -173,7 +238,7 @@ async function applyPack(rootDir: string, pack: InitPack): Promise<void> {
       await writeConfig(rootDir, pack.init.config);
     }
   } catch (error) {
-    await rollback(changes);
+    await rollback(changes, createdDirectories);
     throw error;
   }
 }
@@ -225,7 +290,7 @@ export async function runInit(options: {
   dryRun?: boolean;
   prompt: InitPrompt;
 }): Promise<InitResult> {
-  const rootDir = resolveGitRoot(options.dir);
+  const rootDir = options.dir ? path.resolve(options.dir) : resolveGitRoot();
   const available = await availableInitPacks(rootDir);
   let packIds = options.packIds ?? [];
   if (packIds.length === 0) {

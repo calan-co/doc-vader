@@ -3,7 +3,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
-import { createInterface } from "node:readline/promises";
 import { Command, Option } from "commander";
 import os from "node:os";
 import path from "node:path";
@@ -72,7 +71,8 @@ import {
 } from "../lib/controllers/prdController.js";
 import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
-import { runInit, type InitPack } from "../lib/init/index.js";
+import { runInit } from "../lib/init/index.js";
+import { createTerminalInitPrompt } from "../lib/init/prompt.js";
 import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
@@ -2976,27 +2976,11 @@ program
   .option("--json", "Print the result as JSON")
   .action(async (opts: { dir?: string; pack: string[]; yes?: boolean; dryRun?: boolean; json?: boolean }) => {
     const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
-    const prompt = {
-      isTTY: interactive,
-      async select(packs: readonly InitPack[]): Promise<string[]> {
-        const readline = createInterface({ input: process.stdin, output: process.stdout });
-        try {
-          console.log(packs.map((pack) => `${pack.id}: ${pack.name}`).join("\n"));
-          return (await readline.question("Pack IDs (comma-separated): "))
-            .split(",").map((id) => id.trim()).filter(Boolean);
-        } finally {
-          readline.close();
-        }
-      },
-      async confirm(packs: readonly InitPack[]): Promise<boolean> {
-        const readline = createInterface({ input: process.stdin, output: process.stdout });
-        try {
-          return /^(y|yes)$/i.test(await readline.question(`Initialize ${packs.map((pack) => pack.id).join(", ")}? [y/N] `));
-        } finally {
-          readline.close();
-        }
-      },
-    };
+    const prompt = createTerminalInitPrompt(
+      process.stdin,
+      opts.json ? process.stderr : process.stdout,
+      interactive,
+    );
     try {
       const result = await runInit({ ...opts, packIds: opts.pack, prompt });
       if (opts.json) console.log(JSON.stringify(result, null, 2));
