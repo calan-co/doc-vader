@@ -71,6 +71,7 @@ import {
 } from "../lib/controllers/prdController.js";
 import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
+import { registerInitCommand } from "../lib/init/command.js";
 import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
@@ -2962,6 +2963,9 @@ governance
     const result = await governanceMigrate(opts.docsDir, !!opts.write);
     console.log(JSON.stringify(result, null, 2));
   });
+
+// --- INITIALIZATION ---
+registerInitCommand(program);
 
 // --- AGGREGATE ACTIONS ---
 program

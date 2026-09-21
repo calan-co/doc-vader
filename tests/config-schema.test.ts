@@ -146,8 +146,28 @@ describe("config schema", () => {
           namespace: "example.decisions",
           defaultType: "decision",
         },
+        init: {
+          outputs: [{ path: "decisions/.gitkeep", content: "" }],
+          config: {
+            claims: ["document.defaultType"],
+            values: { document: { defaultType: "decision" } },
+          },
+        },
       }),
     ).toBe(true);
+
+    expect(
+      validatePack({
+        schemaVersion: "doc-vader/document-type-pack/v1",
+        name: "Invalid init arrays",
+        namespace: "example.decisions",
+        documentTypes: [{ type: "decision", metadataSchema: "schemas/example/metadata/decision.json" }],
+        init: {
+          outputs: [],
+          config: { claims: ["backlog.dir"], values: { backlog: { dir: ["backlog"] } } },
+        },
+      }),
+    ).toBe(false);
 
     expect(
       validatePack({

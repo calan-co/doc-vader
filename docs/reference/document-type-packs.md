@@ -152,6 +152,57 @@ configDefaults:
 The manifest names the pack-level namespace once. Each document type declares the
 schema and optional handler used for that type.
 
+## Initialization Recipes
+
+A document-type pack may declare an `init` recipe. Recipes are data, never pack
+code: Doc-Vader validates their relative output paths and declared `dv.yaml`
+config claims, then core performs the writes. Paths may not be absolute, escape
+with `..`, enter `.git`, or escape through an existing symlink. `dv.yaml`
+must not be a hard link. A recipe's
+`config.claims` must exactly name every leaf in `config.values`; leaves are
+single-line scalar values (not arrays). Output paths cannot be `dv.yaml` or its descendants.
+Selected recipes may not claim the same config path, including ancestor and descendant
+paths, or write the same output path. A failed pack rolls back its own managed writes
+without rolling back unrelated selected packs.
+
+```yaml
+init:
+  outputs:
+    - path: backlog/.gitkeep
+      content: ''
+  config:
+    claims:
+      - backlog.dir
+    values:
+      backlog:
+        dir: backlog
+```
+
+`dv init` includes the bundled `work` pack, which creates this empty tracked
+`backlog/` layout and no sample work items. From a noninteractive terminal,
+select packs with repeatable `--pack <id>` and confirm with `--yes`; `--dry-run`
+only reports the selected packs. It targets the Git root from a nested directory,
+unless `--dir` is supplied, and canonicalizes that target before writing. Otherwise it
+uses the current directory.
+
+Installed packages can contribute packs only with this static convention in
+their `package.json`; Doc-Vader reads these JSON files and manifests but never
+loads or executes package code:
+
+```json
+{
+  "docVader": {
+    "documentTypePacks": [
+      { "id": "example-decisions", "manifest": "doc-vader/decisions.json" }
+    ]
+  }
+}
+```
+
+The referenced JSON file is a document-type-pack manifest containing an `init`
+recipe. This convention discovers only already-installed packages under the
+target's `node_modules`; `dv init` never fetches, installs, or updates packages.
+
 ## Schema Authoring
 
 Create metadata schemas by composing the base routing contract:
