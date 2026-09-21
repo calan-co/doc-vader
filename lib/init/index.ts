@@ -373,7 +373,7 @@ export async function runInit(options: {
   dryRun?: boolean;
   prompt: InitPrompt;
 }): Promise<InitResult> {
-  const rootDir = options.dir ? path.resolve(options.dir) : resolveGitRoot();
+  const rootDir = await fs.realpath(options.dir ? path.resolve(options.dir) : resolveGitRoot());
   const available = await availableInitPacks(rootDir);
   const duplicate = available.find((pack, index) => available.findIndex((candidate) => candidate.id === pack.id) !== index);
   if (duplicate) throw new InitError(`Duplicate init pack ID: ${duplicate.id}`);

@@ -182,7 +182,8 @@ init:
 `backlog/` layout and no sample work items. From a noninteractive terminal,
 select packs with repeatable `--pack <id>` and confirm with `--yes`; `--dry-run`
 only reports the selected packs. It targets the Git root from a nested directory,
-unless `--dir` is supplied, and otherwise uses the current directory.
+unless `--dir` is supplied, and canonicalizes that target before writing. Otherwise it
+uses the current directory.
 
 Installed packages can contribute packs only with this static convention in
 their `package.json`; Doc-Vader reads these JSON files and manifests but never

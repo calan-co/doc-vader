@@ -532,13 +532,28 @@ describe("dv init", () => {
     expect(errors).toContain("Refusing to overwrite existing init output");
   });
 
+  it("canonicalizes a symlinked explicit target root", async () => {
+    const root = await fixture(false);
+    const target = await fixture(false);
+    const linkedTarget = path.join(root, "target");
+    await fs.symlink(target, linkedTarget);
+
+    await expect(runInit({
+      dir: linkedTarget,
+      packIds: ["work"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    })).resolves.toMatchObject({ rootDir: await fs.realpath(target), applied: ["work"] });
+    await expect(fs.stat(path.join(target, "backlog", ".gitkeep"))).resolves.toBeDefined();
+  });
+
   it("uses --dir as an explicit subdirectory target inside Git", async () => {
     const root = await fixture();
     const target = path.join(root, "nested", "target");
     await fs.mkdir(target, { recursive: true });
 
     expect(invoke(root, ["--dir", target, "--pack", "work", "--yes", "--json"])).toMatchObject({
-      rootDir: target,
+      rootDir: await fs.realpath(target),
       applied: ["work"],
     });
     await expect(fs.stat(path.join(target, "backlog", ".gitkeep"))).resolves.toBeDefined();
@@ -550,7 +565,7 @@ describe("dv init", () => {
     const target = await fixture(false);
 
     expect(invoke(gitRoot, ["--dir", target, "--pack", "work", "--yes", "--json"])).toMatchObject({
-      rootDir: target,
+      rootDir: await fs.realpath(target),
       applied: ["work"],
     });
     await expect(fs.stat(path.join(target, "backlog", ".gitkeep"))).resolves.toBeDefined();
