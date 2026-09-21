@@ -1,5 +1,7 @@
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs, readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import Ajv2020 from "ajv/dist/2020.js";
 import { isMap, parseDocument, stringify } from "yaml";
 import { resolveGitRoot } from "../task/authority.js";
 
@@ -30,6 +32,24 @@ export interface InitResult {
 
 export class InitError extends Error {}
 
+const documentTypePackSchemaPath = [
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../schemas/doc-vader/document-type-pack.json"),
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../schemas/doc-vader/document-type-pack.json"),
+].find(existsSync);
+
+if (!documentTypePackSchemaPath) {
+  throw new Error("Document-type-pack schema is unavailable.");
+}
+
+const documentTypePackAjv = new Ajv2020({ allErrors: true, strict: false });
+documentTypePackAjv.addSchema(
+  JSON.parse(readFileSync(path.join(path.dirname(documentTypePackSchemaPath), "config.json"), "utf8")),
+  "/doc-vader/config",
+);
+const validateDocumentTypePackSchema = documentTypePackAjv.compile(
+  JSON.parse(readFileSync(documentTypePackSchemaPath, "utf8")),
+);
+
 const WORK_DOCUMENT_TYPE_PACK = {
   schemaVersion: "doc-vader/document-type-pack/v1",
   name: "Work management",
@@ -58,7 +78,7 @@ function leaves(value: unknown, prefix = ""): string[] {
 function canonicalRecipePath(candidate: string): string {
   const normalized = path.posix.normalize(candidate.replaceAll("\\", "/"));
   const parts = candidate.split(/[\\/]/);
-  if (!candidate || path.isAbsolute(candidate) || normalized === "." || normalized.startsWith("../") || parts.includes(".") || parts.includes("..") || parts.includes(".git")) {
+  if (!candidate || path.isAbsolute(candidate) || normalized === "." || normalized.startsWith("../") || parts.includes(".") || parts.includes("..") || parts.some((part) => part.toLowerCase() === ".git")) {
     throw new InitError(`Unsafe init path: ${candidate}`);
   }
   return normalized;
@@ -102,7 +122,7 @@ function validateRecipe(recipe: InitRecipe): void {
     if (outputPaths.some((existing) => outputPathsConflict(existing, outputPath))) {
       throw new InitError(`Conflicting init output: ${output.path}`);
     }
-    if (outputPath === "dv.yaml" || outputPath.startsWith("dv.yaml/")) {
+    if (outputPath.toLowerCase() === "dv.yaml" || outputPath.toLowerCase().startsWith("dv.yaml/")) {
       throw new InitError("Init config and output paths collide: dv.yaml");
     }
     outputPaths.push(outputPath);
@@ -268,8 +288,13 @@ export async function installedInitPacks(rootDir: string): Promise<InitPack[]> {
       : [];
     for (const descriptor of descriptors) {
       if (!descriptor || typeof descriptor.id !== "string" || typeof descriptor.manifest !== "string") continue;
-      const manifestPath = safePath(packageRoot, descriptor.manifest);
-      const manifest = await fs.readFile(manifestPath, "utf8").then(JSON.parse).catch(() => undefined) as { schemaVersion?: unknown; namespace?: unknown; documentTypes?: unknown; name?: unknown; init?: unknown } | undefined;
+      let manifestPath: string;
+      try {
+        manifestPath = safePath(packageRoot, descriptor.manifest);
+      } catch {
+        continue;
+      }
+      const manifest = await fs.readFile(manifestPath, "utf8").then(JSON.parse).catch(() => undefined) as unknown;
       if (isDocumentTypePack(manifest) && typeof manifest.name === "string" && isRecipe(manifest.init)) {
         packs.push({ id: descriptor.id, name: manifest.name, init: manifest.init });
       }
@@ -278,9 +303,9 @@ export async function installedInitPacks(rootDir: string): Promise<InitPack[]> {
   return packs;
 }
 
-function isDocumentTypePack(value: { schemaVersion?: unknown; namespace?: unknown; documentTypes?: unknown; name?: unknown; init?: unknown } | undefined): value is { schemaVersion: "doc-vader/document-type-pack/v1"; namespace: string; documentTypes: unknown[]; name?: unknown; init?: unknown } {
-  return value?.schemaVersion === "doc-vader/document-type-pack/v1" &&
-    typeof value.namespace === "string" && Array.isArray(value.documentTypes) && value.documentTypes.length > 0;
+function isDocumentTypePack(value: unknown): value is { name?: unknown; init?: unknown } {
+  return typeof value === "object" && value !== null && !Array.isArray(value) &&
+    validateDocumentTypePackSchema(value);
 }
 
 function isRecipe(value: unknown): value is InitRecipe {

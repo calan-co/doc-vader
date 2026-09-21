@@ -133,6 +133,57 @@ describe("dv init", () => {
     })).rejects.toThrow("Init config values must exactly match declared claims.");
   });
 
+  it("case-folds reserved .git and dv.yaml output paths", async () => {
+    const root = await fixture(false);
+    for (const [packageName, id, output] of [
+      ["case-git", "case-git", ".GIT/managed"],
+      ["case-config", "case-config", "DV.YAML/managed"],
+    ]) {
+      const packageRoot = path.join(root, "node_modules", packageName);
+      await fs.mkdir(packageRoot, { recursive: true });
+      await fs.writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+        docVader: { documentTypePacks: [{ id, manifest: "pack.json" }] },
+      }));
+      await fs.writeFile(path.join(packageRoot, "pack.json"), JSON.stringify({
+        schemaVersion: "doc-vader/document-type-pack/v1",
+        namespace: `${packageName}.example`,
+        documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+        name: packageName,
+        init: { outputs: [{ path: output, content: "" }] },
+      }));
+    }
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["case-git"], yes: true, prompt })).rejects.toThrow("Unsafe init path");
+    await expect(runInit({ dir: root, packIds: ["case-config"], yes: true, prompt })).rejects.toThrow("Init config and output paths collide");
+  });
+
+  it("ignores unsafe descriptor paths and schema-invalid installed manifests", async () => {
+    const root = await fixture(false);
+    for (const [packageName, id, manifestPath, manifest] of [
+      ["unsafe-descriptor", "unsafe", "../pack.json", undefined],
+      ["invalid-manifest", "invalid", "pack.json", {
+        schemaVersion: "doc-vader/document-type-pack/v1",
+        namespace: "Invalid Namespace",
+        documentTypes: [{ type: "Invalid Type", metadataSchema: "metadata.json" }],
+        name: "Invalid",
+        init: { outputs: [{ path: "invalid/.gitkeep", content: "" }] },
+      }],
+    ] as const) {
+      const packageRoot = path.join(root, "node_modules", packageName);
+      await fs.mkdir(packageRoot, { recursive: true });
+      await fs.writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+        docVader: { documentTypePacks: [{ id, manifest: manifestPath }] },
+      }));
+      if (manifest) await fs.writeFile(path.join(packageRoot, "pack.json"), JSON.stringify(manifest));
+    }
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["unsafe"], yes: true, prompt })).rejects.toThrow("Unknown init pack");
+    await expect(runInit({ dir: root, packIds: ["invalid"], yes: true, prompt })).rejects.toThrow("Unknown init pack");
+    await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
+  });
+
   it("reserves dv.yaml for Work config and rejects cross-pack ancestor outputs", async () => {
     const root = await fixture(false);
     const packageRoot = path.join(root, "node_modules", "config-interferer");
