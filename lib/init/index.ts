@@ -91,12 +91,21 @@ async function assertNoSymlinkEscape(rootDir: string, target: string): Promise<v
   }
 }
 
+function outputPathsConflict(left: string, right: string): boolean {
+  return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+}
+
 function validateRecipe(recipe: InitRecipe): void {
-  const outputPaths = new Set<string>();
+  const outputPaths: string[] = [];
   for (const output of recipe.outputs) {
     const outputPath = canonicalRecipePath(output.path);
-    if (outputPaths.has(outputPath)) throw new InitError(`Duplicate init output: ${output.path}`);
-    outputPaths.add(outputPath);
+    if (outputPaths.some((existing) => outputPathsConflict(existing, outputPath))) {
+      throw new InitError(`Conflicting init output: ${output.path}`);
+    }
+    if (outputPath === "dv.yaml" || outputPath.startsWith("dv.yaml/")) {
+      throw new InitError("Init config and output paths collide: dv.yaml");
+    }
+    outputPaths.push(outputPath);
   }
   if (!recipe.config) return;
   const claims = new Set(recipe.config.claims);
@@ -104,20 +113,19 @@ function validateRecipe(recipe: InitRecipe): void {
   if (claims.size !== recipe.config.claims.length || valueLeaves.length !== claims.size || valueLeaves.some((key) => !claims.has(key))) {
     throw new InitError("Init config values must exactly match declared claims.");
   }
-  if (Array.from(outputPaths).some((outputPath) => outputPath === "dv.yaml" || outputPath.startsWith("dv.yaml/"))) {
-    throw new InitError("Init config and output paths collide: dv.yaml");
-  }
 }
 
 function validateSelection(packs: readonly InitPack[]): void {
   const claimed = new Set<string>();
-  const outputs = new Set<string>();
+  const outputs: string[] = [];
   for (const pack of packs) {
     validateRecipe(pack.init);
     for (const output of pack.init.outputs) {
       const outputPath = canonicalRecipePath(output.path);
-      if (outputs.has(outputPath)) throw new InitError(`Selected packs collide at ${output.path}`);
-      outputs.add(outputPath);
+      if (outputs.some((existing) => outputPathsConflict(existing, outputPath))) {
+        throw new InitError(`Selected packs collide at ${output.path}`);
+      }
+      outputs.push(outputPath);
     }
     for (const claim of pack.init.config?.claims ?? []) {
       if (claimed.has(claim)) throw new InitError(`Selected packs claim the same config path: ${claim}`);
@@ -255,7 +263,10 @@ export async function installedInitPacks(rootDir: string): Promise<InitPack[]> {
   for (const packageDir of packageDirs) {
     const packageRoot = path.join(nodeModules, packageDir);
     const metadata = await fs.readFile(path.join(packageRoot, "package.json"), "utf8").then(JSON.parse).catch(() => undefined) as { docVader?: { documentTypePacks?: Array<{ id: string; manifest: string }> } } | undefined;
-    for (const descriptor of metadata?.docVader?.documentTypePacks ?? []) {
+    const descriptors = metadata?.docVader && Array.isArray(metadata.docVader.documentTypePacks)
+      ? metadata.docVader.documentTypePacks
+      : [];
+    for (const descriptor of descriptors) {
       if (!descriptor || typeof descriptor.id !== "string" || typeof descriptor.manifest !== "string") continue;
       const manifestPath = safePath(packageRoot, descriptor.manifest);
       const manifest = await fs.readFile(manifestPath, "utf8").then(JSON.parse).catch(() => undefined) as { schemaVersion?: unknown; namespace?: unknown; documentTypes?: unknown; name?: unknown; init?: unknown } | undefined;

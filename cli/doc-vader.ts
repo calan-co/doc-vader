@@ -71,8 +71,7 @@ import {
 } from "../lib/controllers/prdController.js";
 import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
-import { runInit } from "../lib/init/index.js";
-import { createTerminalInitPrompt } from "../lib/init/prompt.js";
+import { registerInitCommand } from "../lib/init/command.js";
 import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
@@ -2966,32 +2965,7 @@ governance
   });
 
 // --- INITIALIZATION ---
-program
-  .command("init")
-  .description("Initialize selected bundled or installed document packs")
-  .option("--dir <path>", "Target directory; defaults to the Git root or current directory")
-  .option("--pack <id>", "Document pack to initialize (repeatable)", collectOption, [])
-  .option("--yes", "Apply without a confirmation prompt")
-  .option("--dry-run", "Show the selected packs without writing files")
-  .option("--json", "Print the result as JSON")
-  .action(async (opts: { dir?: string; pack: string[]; yes?: boolean; dryRun?: boolean; json?: boolean }) => {
-    const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
-    const prompt = createTerminalInitPrompt(
-      process.stdin,
-      opts.json ? process.stderr : process.stdout,
-      interactive,
-    );
-    try {
-      const result = await runInit({ ...opts, packIds: opts.pack, prompt });
-      if (opts.json) console.log(JSON.stringify(result, null, 2));
-      else console.log(result.dryRun ? `Would initialize: ${result.planned.join(", ")}` : `Initialized: ${result.applied.join(", ")}`);
-      if (result.failed.length) process.exitCode = 1;
-    } catch (error) {
-      if (opts.json) console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
-      else console.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-    }
-  });
+registerInitCommand(program);
 
 // --- AGGREGATE ACTIONS ---
 program

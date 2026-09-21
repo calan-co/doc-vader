@@ -5,9 +5,11 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { Command } from "commander";
 import { PassThrough } from "node:stream";
 import { runInit } from "../lib/init/index.js";
 import { createTerminalInitPrompt } from "../lib/init/prompt.js";
+import { registerInitCommand } from "../lib/init/command.js";
 
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
@@ -131,11 +133,34 @@ describe("dv init", () => {
     })).rejects.toThrow("Init config values must exactly match declared claims.");
   });
 
+  it("reserves dv.yaml for Work config and rejects cross-pack ancestor outputs", async () => {
+    const root = await fixture(false);
+    const packageRoot = path.join(root, "node_modules", "config-interferer");
+    await fs.mkdir(packageRoot, { recursive: true });
+    await fs.writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+      docVader: { documentTypePacks: [{ id: "interferer", manifest: "pack.json" }] },
+    }));
+    await fs.writeFile(path.join(packageRoot, "pack.json"), JSON.stringify({
+      schemaVersion: "doc-vader/document-type-pack/v1",
+      namespace: "interferer.example",
+      documentTypes: [{ type: "example", metadataSchema: "metadata.json" }],
+      name: "Interferer",
+      init: { outputs: [{ path: "dv.yaml/managed", content: "" }] },
+    }));
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["interferer", "work"], yes: true, prompt }))
+      .rejects.toThrow("Init config and output paths collide");
+    await expect(fs.lstat(path.join(root, "dv.yaml"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.lstat(path.join(root, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("normalizes output collisions and rejects dv.yaml descendants when config is claimed", async () => {
     const root = await fixture(false);
     for (const [packageName, id, output, config] of [
       ["one", "one", "managed//file", undefined],
       ["two", "two", "managed/file", undefined],
+      ["ancestor", "ancestor", "managed", undefined],
       ["config-collision", "config-collision", "dv.yaml/managed", { claims: ["backlog.dir"], values: { backlog: { dir: "backlog" } } }],
     ] as const) {
       const packageRoot = path.join(root, "node_modules", packageName);
@@ -155,8 +180,28 @@ describe("dv init", () => {
 
     await expect(runInit({ dir: root, packIds: ["one", "two"], yes: true, prompt }))
       .rejects.toThrow("Selected packs collide");
+    await expect(runInit({ dir: root, packIds: ["one", "ancestor"], yes: true, prompt }))
+      .rejects.toThrow("Selected packs collide");
     await expect(runInit({ dir: root, packIds: ["config-collision"], yes: true, prompt }))
       .rejects.toThrow("Init config and output paths collide");
+  });
+
+  it("ignores malformed installed extension descriptors", async () => {
+    const root = await fixture(false);
+    const packageRoot = path.join(root, "node_modules", "malformed");
+    await fs.mkdir(packageRoot, { recursive: true });
+    await fs.writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+      docVader: { documentTypePacks: { id: "not-an-array" } },
+    }));
+
+    const result = await runInit({
+      dir: root,
+      packIds: ["work"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    });
+
+    expect(result.applied).toEqual(["work"]);
   });
 
   it("rejects a final output symlink without writing through it", async () => {
@@ -221,6 +266,39 @@ describe("dv init", () => {
     expect(await prompt.confirm([{ id: "work", name: "Work", init: { outputs: [] } }])).toBe(true);
     input.end();
     expect(rendered).toContain("work: Work");
+  });
+
+  it("wires interactive JSON prompts to stderr and emits one stdout JSON result", async () => {
+    const root = await fixture(false);
+    const input = Object.assign(new PassThrough(), { isTTY: true });
+    const stdout = Object.assign(new PassThrough(), { isTTY: true });
+    const stderr = new PassThrough();
+    let output = "";
+    let prompts = "";
+    stdout.on("data", (chunk: Buffer) => { output += chunk.toString(); });
+    let selected = false;
+    let confirmed = false;
+    stderr.on("data", (chunk: Buffer) => {
+      prompts += chunk.toString();
+      if (!selected && prompts.includes("Pack IDs")) {
+        selected = true;
+        input.write("work\n");
+      }
+      if (!confirmed && prompts.includes("Initialize work")) {
+        confirmed = true;
+        input.write("yes\n");
+      }
+    });
+    const program = new Command().name("dv");
+    registerInitCommand(program, { input, output: stdout, error: stderr });
+
+    await program.parseAsync(["node", "dv", "init", "--dir", root, "--json"], { from: "node" });
+    input.end();
+
+    expect(JSON.parse(output)).toMatchObject({ applied: ["work"] });
+    expect(output).not.toContain("Pack IDs");
+    expect(prompts).toContain("Pack IDs");
+    expect(prompts).toContain("Initialize work");
   });
 
   it("uses --dir as an explicit subdirectory target inside Git", async () => {
