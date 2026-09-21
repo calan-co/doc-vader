@@ -161,8 +161,8 @@ with `..`, enter `.git`, or escape through an existing symlink. `dv.yaml`
 must not be a hard link. A recipe's
 `config.claims` must exactly name every leaf in `config.values`; leaves are
 single-line scalar values (not arrays). Output paths cannot be `dv.yaml` or its descendants.
-Selected recipes may not claim the same config path or
-write the same output path. A failed pack rolls back its own managed writes
+Selected recipes may not claim the same config path, including ancestor and descendant
+paths, or write the same output path. A failed pack rolls back its own managed writes
 without rolling back unrelated selected packs.
 
 ```yaml

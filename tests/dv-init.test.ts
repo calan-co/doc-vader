@@ -487,6 +487,17 @@ describe("dv init", () => {
     await expect(fs.lstat(path.join(linkedRoot, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("rejects ancestor and descendant config claims before applying any pack", async () => {
+    const root = await fixture(false);
+    await installPack(root, "root-claim", { config: { claims: ["routing"], values: { routing: "root" } }, outputs: [{ path: "root/.gitkeep", content: "" }] });
+    await installPack(root, "nested-claim", { config: { claims: ["routing.defaultType"], values: { routing: { defaultType: "work-item" } } }, outputs: [{ path: "nested/.gitkeep", content: "" }] });
+    const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
+
+    await expect(runInit({ dir: root, packIds: ["root-claim", "nested-claim"], yes: true, prompt })).rejects.toThrow("Selected packs claim overlapping config paths");
+    await expect(fs.lstat(path.join(root, "root"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(fs.lstat(path.join(root, "nested"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("rejects duplicate pack IDs and writes text-mode failures to stderr", async () => {
     const root = await fixture(false);
     await installPack(root, "duplicate", { outputs: [] });

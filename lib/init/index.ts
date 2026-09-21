@@ -123,6 +123,10 @@ function outputPathsConflict(left: string, right: string): boolean {
   return normalizedLeft === normalizedRight || normalizedLeft.startsWith(`${normalizedRight}/`) || normalizedRight.startsWith(`${normalizedLeft}/`);
 }
 
+function configPathsConflict(left: string, right: string): boolean {
+  return left === right || left.startsWith(`${right}.`) || right.startsWith(`${left}.`);
+}
+
 function validateRecipe(recipe: InitRecipe): void {
   const outputPaths: string[] = [];
   for (const output of recipe.outputs) {
@@ -156,7 +160,9 @@ function validateSelection(packs: readonly InitPack[]): void {
       outputs.push(outputPath);
     }
     for (const claim of pack.init.config?.claims ?? []) {
-      if (claimed.has(claim)) throw new InitError(`Selected packs claim the same config path: ${claim}`);
+      if ([...claimed].some((existing) => configPathsConflict(existing, claim))) {
+        throw new InitError(`Selected packs claim overlapping config paths: ${claim}`);
+      }
       claimed.add(claim);
     }
   }
