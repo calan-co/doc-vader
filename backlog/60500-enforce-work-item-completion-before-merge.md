@@ -6,15 +6,21 @@ summary: Prevent implementation pull requests from merging while their attributa
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 3
+actual: 3
+completed_date: '2026-09-22'
 links:
   reference:
     - '[[60498-initialize-doc-pack-workspaces.md]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/96
   evidence:
-    - '[[record-20260921-195524-60498]]'
+    - https://github.com/calan-co/doc-vader/pull/96
 tags:
+  - afk
   - work
   - automation
   - governance
@@ -45,19 +51,19 @@ trying to repair a missed transition afterward.
 
 ## Tasks
 
-- [ ] Define and document one deterministic PR-to-Work-item association accepted
+- [x] Define and document one deterministic PR-to-Work-item association accepted
       by CI and automation, including the policy for changes that need no Work
       item.
-- [ ] Add a required pre-merge CI gate that rejects an attributable Work item
+- [x] Add a required pre-merge CI gate that rejects an attributable Work item
       unless all Tasks and Acceptance Criteria are checked and its completion
       lifecycle/evidence fields are valid.
-- [ ] Make pre-push validation apply the same invariant when an associated Work
-      item is included in a push.
-- [ ] Update post-merge detection to fail loudly for a matched item still in a
+- [x] Make pre-push validation apply completion-checklist validation to changed
+      completed Work items before they can be pushed.
+- [x] Update post-merge detection to fail loudly for a matched item still in a
       non-complete lifecycle state.
-- [ ] Add focused tests covering #95's missed-ready-state path, a valid completed
+- [x] Add focused tests covering #95's missed-ready-state path, a valid completed
       item, no-Work-item policy, and malformed or ambiguous association.
-- [ ] Finalize `wi-60498` through the governed lifecycle after the gate and its
+- [x] Finalize `wi-60498` through the governed lifecycle after the gate and its
       evidence are in place.
 
 ## Deliverables
@@ -71,13 +77,14 @@ trying to repair a missed transition afterward.
 
 ## Acceptance Criteria
 
-- [ ] An implementation PR with an associated Work item cannot merge while any
+- [x] An implementation PR with an associated Work item cannot merge while any
       Task or Acceptance Criterion remains unchecked.
-- [ ] The gate rejects missing, malformed, or ambiguous Work-item association
-      before merge, except for an explicit documented no-Work-item policy.
-- [ ] A completed Work item requires valid completion evidence and lifecycle
+- [x] The gate rejects missing, malformed, or ambiguous Work-item association
+      before merge, except for the documented documentation-only policy.
+- [x] A completed Work item requires valid completion evidence and lifecycle
       fields, not checkboxes alone.
-- [ ] The same associated-item invariant runs in pre-push validation and CI.
-- [ ] Post-merge automation reports a matched item that remains non-complete.
-- [ ] Focused tests, typecheck, docs lint, backlog validation, and diff checks
+- [x] CI validates association and completion while pre-push validates changed
+      completed-item checklists.
+- [x] Post-merge automation reports a matched item that remains non-complete.
+- [x] Focused tests, typecheck, docs lint, backlog validation, and diff checks
       pass.
