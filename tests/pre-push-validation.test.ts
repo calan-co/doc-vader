@@ -319,6 +319,40 @@ type: work-item
     expect(result.stderr).toMatch(/warnings/i);
   });
 
+  it("blocks completed items with unchecked delivery criteria", () => {
+    writeConsumerConfig({
+      automation: {
+        prePushValidation: {
+          schemas: {
+            baseline: latestSchemaPath,
+            changed: latestSchemaPath,
+            archive: latestSchemaPath,
+          },
+          severity: {
+            baseline: "none",
+            changed: "none",
+            archive: "warn",
+            checklist: "error",
+          },
+        },
+      },
+    });
+
+    commitWorkItem(
+      "backlog/305.completed-with-unchecked-criteria.md",
+      `---
+id: wi-305
+status: completed
+type: work-item
+---\n\n## Tasks\n\n- [ ] pending\n\n## Acceptance Criteria\n\n- [x] done\n`,
+    );
+
+    const result = runValidator();
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/section '## Tasks' has 1 unchecked checklist item/i);
+  });
+
   it("honors DOC_VADER_PREPUSH_SEVERITY_ARCHIVE over config", () => {
     writeConsumerConfig({
       automation: {

@@ -577,7 +577,7 @@ function validateWorkItem(
     }
   }
 
-  if (status === "ready-for-review" || status === "closed") {
+  if (status === "ready-for-review" || status === "completed" || status === "closed") {
     const checklistSeverity = archived
       ? config.archiveSeverity
       : config.checklistSeverity;
