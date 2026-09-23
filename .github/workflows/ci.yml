@@ -16,6 +16,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ponytail: bootstrap PR #96; this distinct, PR-controlled check is not the required trusted gate.
+  work-item-merge-gate-bootstrap:
+    name: Work-item merge gate bootstrap
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.9.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run backlog:validate:pr
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DOC_VADER_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          DOC_VADER_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DOC_VADER_HEAD_SHA: ${{ github.sha }}
+
   ci:
     uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-ci.yml@v1
     with:

@@ -6,7 +6,7 @@ import path from "node:path";
 const repoRoot = path.resolve(__dirname, "..");
 
 function readWorkflow(relativePath: string): string {
-  return readFileSync(path.join(repoRoot, relativePath), "utf8");
+  return readFileSync(path.join(repoRoot, relativePath), "utf8").replace(/\r\n/g, "\n");
 }
 
 function workflowSnippet(workflow: string, start: string, end: string): string {
@@ -32,7 +32,8 @@ describe("backlog automation stale-work-item check", () => {
 
   it("ignores body and evidence PR URLs while detecting links.pull_requests", () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
-    const awkScript = workflowSnippet(workflow, "              awk '", "              ' <<<\"$frontmatter\"");
+    const match = /awk '\n(?<script>\s+\/\^\[\[:space:\]\]\*links:[\s\S]*?)\n\s+' <<<"\$frontmatter"/.exec(workflow);
+    expect(match?.groups?.script).toBeDefined();
     const workItem = `---
 links:
   pull_requests:
@@ -43,7 +44,7 @@ links:
 Evidence references https://github.com/calan-co/doc-vader/pull/103.
 `;
     const frontmatter = workItem.split("---")[1];
-    const linkedEntries = execFileSync("awk", [awkScript.replace(/^.*\n/, "")], {
+    const linkedEntries = execFileSync("awk", [match!.groups!.script!], {
       encoding: "utf8",
       input: frontmatter,
     });
@@ -51,5 +52,16 @@ Evidence references https://github.com/calan-co/doc-vader/pull/103.
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/101");
     expect(linkedEntries).not.toContain("https://github.com/calan-co/doc-vader/pull/102");
     expect(linkedEntries).not.toContain("https://github.com/calan-co/doc-vader/pull/103");
+  });
+
+  it("detects flow-style pull request links", () => {
+    const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
+    const match = /awk '\n(?<script>\s+\/\^\[\[:space:\]\]\*links:[\s\S]*?)\n\s+' <<<"\$frontmatter"/.exec(workflow);
+    const linkedEntries = execFileSync("awk", [match!.groups!.script!], {
+      encoding: "utf8",
+      input: "\nlinks:\n  pull_requests: [\"https://github.com/calan-co/doc-vader/pull/104\"]\n",
+    });
+
+    expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/104");
   });
 });

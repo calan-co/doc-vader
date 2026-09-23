@@ -54,7 +54,7 @@ function sectionBodies(markdown: string, heading: string): string[] {
   return sections;
 }
 
-function checklistErrors(filePath: string, markdown: string): string[] {
+export function checklistErrors(filePath: string, markdown: string): string[] {
   const errors: string[] = [];
   for (const heading of ["Tasks", "Acceptance Criteria"]) {
     const bodies = sectionBodies(markdown, heading);
@@ -67,7 +67,7 @@ function checklistErrors(filePath: string, markdown: string): string[] {
       continue;
     }
 
-    const checks = [...bodies[0].matchAll(/^\s*(?:[-*+]|\d+\.)\s*\[([ xX])\]\s+/gm)];
+    const checks = [...bodies[0].matchAll(/^\s*(?:[-*+]|\d+\.)[ \t]+\[([ xX])\]\s+/gm)];
     if (checks.length === 0) {
       errors.push(`${filePath}: section '## ${heading}' has no checklist items.`);
       continue;
@@ -83,12 +83,23 @@ function checklistErrors(filePath: string, markdown: string): string[] {
   return errors;
 }
 
-function stringList(value: unknown): string[] {
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-    return [];
+function isLink(value: string): boolean {
+  if (/^\[\[[^\]|\r\n]+(?:\|[^\]|\r\n]+)?\]\][^\p{P}\s]*$/u.test(value)) return true;
+  try {
+    return /^\S+:\/\/\S+$/.test(value) && new URL(value).hostname !== "";
+  } catch {
+    return false;
   }
+}
+
+function isPullRequestUrl(value: string): boolean {
+  return /^https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/[1-9]\d*$/.test(value);
+}
+
+function stringList(value: unknown, isValidEntry = isLink): string[] {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) return [];
   const entries = value.map((entry) => entry.trim());
-  return entries.some((entry) => entry === "") ? [] : entries;
+  return entries.length > 0 && entries.every(isValidEntry) ? entries : [];
 }
 
 function isValidDate(value: unknown): value is string {
@@ -142,13 +153,17 @@ export function validatePullRequestWorkItems(
   if (!implementationChange) return { errors: [] };
 
   const matches = input.workItems.flatMap(({ filePath, content }) => {
-    const parsed = matter(content);
+    const language = matter.language(content).name.trim().toLowerCase();
+    if (language && language !== "yaml") {
+      throw new Error(`${filePath}: only YAML front matter is allowed.`);
+    }
+    const parsed = matter(content, { language: "yaml" });
     const frontmatter = parsed.data as Record<string, unknown>;
     if (frontmatter.type !== "work-item" || frontmatter.lifecycle !== "active") return [];
     const links = frontmatter.links;
     const pullRequests =
       typeof links === "object" && links !== null && !Array.isArray(links)
-        ? stringList((links as Record<string, unknown>).pull_requests)
+        ? stringList((links as Record<string, unknown>).pull_requests, isPullRequestUrl)
         : [];
     return pullRequests.includes(input.pullRequestUrl)
       ? [{ filePath, frontmatter, content: parsed.content }]

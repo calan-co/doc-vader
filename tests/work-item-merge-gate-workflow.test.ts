@@ -19,14 +19,16 @@ describe("trusted Work-item merge gate workflow", () => {
       "pull-requests: read",
       "ref: ${{ github.event.pull_request.base.sha }}",
       "path: trusted",
-      "ref: refs/pull/${{ github.event.pull_request.number }}/merge",
-      "path: pr-data",
       "actions/github-script@v7",
+      "merge_commit_sha",
+      "git.getTree",
+      "git.getBlob",
+      "Pull request tree is truncated; failing closed.",
       "pulls.listFiles",
       "files.length !== context.payload.pull_request.changed_files",
       "Unable to collect every changed path",
       "previous_filename",
-      "DOC_VADER_ROOT: ${{ github.workspace }}/pr-data",
+      "DOC_VADER_ROOT: ${{ steps.work-items.outputs.root }}",
       'core.setOutput("path"',
       "DOC_VADER_CHANGED_PATHS_FILE: ${{ steps.changed-files.outputs.path }}",
       "pnpm run backlog:validate:pr",
@@ -35,10 +37,12 @@ describe("trusted Work-item merge gate workflow", () => {
     }
   });
 
-  it("does not publish a PR-local Work-item merge gate check", () => {
+  it("uses a distinct bootstrap check until the trusted workflow is available on the base branch", () => {
     const workflow = readWorkflow(".github/workflows/ci.yml");
 
-    expect(workflow).not.toContain("work-item-merge-gate:");
-    expect(workflow).not.toContain("Work-item merge gate");
+    expect(workflow).toContain("work-item-merge-gate-bootstrap:");
+    expect(workflow).toContain("name: Work-item merge gate bootstrap");
+    expect(workflow).toContain("DOC_VADER_HEAD_SHA: ${{ github.sha }}");
+    expect(workflow).not.toContain("name: Work-item merge gate\n");
   });
 });

@@ -188,6 +188,25 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
+  it("does not count ordered markers without a space", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem
+            .replace("- [x] Implement the change.", "1.[x] Implement the change.")
+            .replace("- [x] The implementation is validated.", "1.[x] The implementation is validated."),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: section '## Tasks' has no checklist items.",
+    );
+  });
+
   it("rejects duplicate checklist sections", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
@@ -224,6 +243,23 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
+  it("rejects non-link evidence", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem.replace("'[[record-20260921-195524-60498]]'", "not-a-link"),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require links.evidence.",
+    );
+  });
+
   it("rejects a malformed pull-request association", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
@@ -242,5 +278,20 @@ describe("validatePullRequestWorkItems", () => {
     expect(result.errors).toContain(
       "implementation pull requests require exactly one Work item linked through links.pull_requests.",
     );
+  });
+
+  it("rejects non-YAML front matter before parsing", () => {
+    expect(() =>
+      validatePullRequestWorkItems({
+        pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+        changedPaths: ["lib/init/command.ts"],
+        workItems: [
+          {
+            filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+            content: completedWorkItem.replace("---\n", "---js\n"),
+          },
+        ],
+      }),
+    ).toThrow("only YAML front matter is allowed");
   });
 });
