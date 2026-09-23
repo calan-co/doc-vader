@@ -115,6 +115,23 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
+  it("rejects negative actual effort", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem.replace("actual: 3", "actual: -1"),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require numeric actual effort.",
+    );
+  });
+
   it("requires non-empty evidence and a real completed date", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
