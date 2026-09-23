@@ -28,6 +28,12 @@ function run(changedPaths: string[]) {
   });
 }
 
+function git(args: string[]): string {
+  const result = spawnSync("git", args, { cwd: testDir, encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr || result.stdout);
+  return result.stdout.trim();
+}
+
 function runWithEnvironment(environment: Record<string, string>) {
   const result = spawnSync(
     process.execPath,
@@ -118,5 +124,28 @@ describe("pull-request work item validation script", () => {
 
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/validation passed/i);
+  });
+
+  it("treats an implementation-to-documentation rename as an implementation change", () => {
+    write("lib/foo.ts", "export {};\n");
+    mkdirSync(path.join(testDir, "docs"));
+    git(["init"]);
+    git(["config", "user.email", "test@example.com"]);
+    git(["config", "user.name", "Test User"]);
+    git(["add", "."]);
+    git(["commit", "-m", "initial"]);
+    const base = git(["rev-parse", "HEAD"]);
+
+    git(["mv", "lib/foo.ts", "docs/foo.ts"]);
+    git(["commit", "-m", "move source to docs"]);
+    const head = git(["rev-parse", "HEAD"]);
+
+    const result = runWithEnvironment({
+      DOC_VADER_BASE_SHA: base,
+      DOC_VADER_HEAD_SHA: head,
+    });
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/require exactly one Work item linked/i);
   });
 });
