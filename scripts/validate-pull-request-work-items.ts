@@ -99,10 +99,19 @@ function main(): void {
     changedPaths: changedPaths(),
     workItems: collectMarkdownFiles(backlogDirectory)
       .map((filePath) => ({
+        fullPath: filePath,
         filePath: path.relative(ROOT_DIR, filePath).split(path.sep).join("/"),
-        content: readFileSync(filePath, "utf8"),
       }))
-      .filter(({ filePath }) => !filePath.startsWith("backlog/archive/")),
+      .filter(
+        ({ filePath }) =>
+          !["backlog/archive/", "backlog/records/", "backlog/audit/"].some(
+            (directory) => filePath.startsWith(directory),
+          ),
+      )
+      .map(({ fullPath, filePath }) => ({
+        filePath,
+        content: readFileSync(fullPath, "utf8"),
+      })),
   }).errors;
 
   if (errors.length > 0) {

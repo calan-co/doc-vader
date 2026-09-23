@@ -19,6 +19,7 @@ describe("trusted Work-item merge gate workflow", () => {
       "pull-requests: read",
       "ref: ${{ github.event.pull_request.base.sha }}",
       "path: trusted",
+      "repository: ${{ github.event.pull_request.head.repo.full_name }}",
       "ref: ${{ github.event.pull_request.head.sha }}",
       "path: pr-data",
       "actions/github-script@v7",

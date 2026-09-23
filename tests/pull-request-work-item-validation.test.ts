@@ -114,6 +114,15 @@ describe("pull-request work item validation script", () => {
     expect(result.stderr).toMatch(/require exactly one Work item linked/i);
   });
 
+  it("does not let a record satisfy an implementation association", () => {
+    write("backlog/records/60498-record.md", completed);
+
+    const result = run(["lib/init/command.ts"]);
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/require exactly one Work item linked/i);
+  });
+
   it("accepts changed paths supplied in a JSON file", () => {
     write("backlog/60498-init.md", completed);
     write("changed-paths.json", JSON.stringify(["lib/init/command.ts"]));

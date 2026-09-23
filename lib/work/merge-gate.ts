@@ -30,8 +30,14 @@ function sectionBodies(markdown: string, heading: string): string[] {
   const headingPattern = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "i");
   const sections: string[] = [];
   let body: string[] | null = null;
+  let fenced = false;
 
   for (const line of markdown.split(/\r?\n/)) {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
     if (headingPattern.test(line)) {
       if (body !== null) sections.push(body.join("\n"));
       body = [];

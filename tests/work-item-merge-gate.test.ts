@@ -153,6 +153,25 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
+  it("ignores checklist examples inside fenced code", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem
+            .replace("## Tasks", "```md\n## Tasks\n\n- [x] Example.\n```\n\n## Tasks")
+            .replace("- [x] Implement the change.", "- [ ] Implement the change."),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: section '## Tasks' has 1 unchecked checklist item(s).",
+    );
+  });
+
   it("rejects a malformed pull-request association", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
