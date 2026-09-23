@@ -25,32 +25,43 @@ function isDocumentationOnlyPath(filePath: string): boolean {
   );
 }
 
-function sectionBody(markdown: string, heading: string): string | null {
-  const lines = markdown.split(/\r?\n/);
+function sectionBodies(markdown: string, heading: string): string[] {
   const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const headingPattern = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "i");
-  const headingIndex = lines.findIndex((line) => headingPattern.test(line));
+  const sections: string[] = [];
+  let body: string[] | null = null;
 
-  if (headingIndex < 0) return null;
-
-  const body: string[] = [];
-  for (let index = headingIndex + 1; index < lines.length; index += 1) {
-    if (/^##\s+/.test(lines[index] ?? "")) break;
-    body.push(lines[index] ?? "");
+  for (const line of markdown.split(/\r?\n/)) {
+    if (headingPattern.test(line)) {
+      if (body !== null) sections.push(body.join("\n"));
+      body = [];
+      continue;
+    }
+    if (/^##\s+/.test(line)) {
+      if (body !== null) sections.push(body.join("\n"));
+      body = null;
+      continue;
+    }
+    body?.push(line);
   }
-  return body.join("\n");
+  if (body !== null) sections.push(body.join("\n"));
+  return sections;
 }
 
 function checklistErrors(filePath: string, markdown: string): string[] {
   const errors: string[] = [];
   for (const heading of ["Tasks", "Acceptance Criteria"]) {
-    const body = sectionBody(markdown, heading);
-    if (body === null) {
+    const bodies = sectionBodies(markdown, heading);
+    if (bodies.length === 0) {
       errors.push(`${filePath}: missing section '## ${heading}'.`);
       continue;
     }
+    if (bodies.length > 1) {
+      errors.push(`${filePath}: duplicate section '## ${heading}'.`);
+      continue;
+    }
 
-    const checks = [...body.matchAll(/^\s*-\s*\[([ xX])\]\s+/gm)];
+    const checks = [...bodies[0].matchAll(/^\s*-\s*\[([ xX])\]\s+/gm)];
     if (checks.length === 0) {
       errors.push(`${filePath}: section '## ${heading}' has no checklist items.`);
       continue;
@@ -67,12 +78,11 @@ function checklistErrors(filePath: string, markdown: string): string[] {
 }
 
 function stringList(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value
-        .filter((entry): entry is string => typeof entry === "string")
-        .map((entry) => entry.trim())
-        .filter(Boolean)
-    : [];
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    return [];
+  }
+  const entries = value.map((entry) => entry.trim());
+  return entries.some((entry) => entry === "") ? [] : entries;
 }
 
 function isValidDate(value: unknown): value is string {

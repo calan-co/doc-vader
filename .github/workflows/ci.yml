@@ -40,7 +40,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           DOC_VADER_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
           DOC_VADER_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          DOC_VADER_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DOC_VADER_HEAD_SHA: ${{ github.sha }}
 
   ci:
     uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-ci.yml@v1

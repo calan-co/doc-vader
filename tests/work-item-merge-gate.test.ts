@@ -135,4 +135,41 @@ describe("validatePullRequestWorkItems", () => {
       "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require links.evidence.",
     );
   });
+
+  it("rejects duplicate checklist sections", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: `${completedWorkItem}\n## Tasks\n\n- [ ] Hide unfinished work.\n`,
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: duplicate section '## Tasks'.",
+    );
+  });
+
+  it("rejects a malformed pull-request association", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem.replace(
+            `    - https://github.com/calan-co/doc-vader/pull/95`,
+            `    - 123\n    - https://github.com/calan-co/doc-vader/pull/95`,
+          ),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "implementation pull requests require exactly one Work item linked through links.pull_requests.",
+    );
+  });
 });
