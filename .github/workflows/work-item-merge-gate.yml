@@ -40,6 +40,14 @@ jobs:
             const path = require("node:path");
             const mergeSha = context.payload.pull_request.merge_commit_sha;
             if (!mergeSha) throw new Error("Pull request merge commit is unavailable; failing closed.");
+            const { data: mergeCommit } = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: mergeSha,
+            });
+            if (mergeCommit.parents[1]?.sha !== context.payload.pull_request.head.sha) {
+              throw new Error("Pull request merge commit is stale; failing closed.");
+            }
             const root = path.join(process.env.RUNNER_TEMP, "doc-vader-pr-data");
             fs.rmSync(root, { recursive: true, force: true });
             fs.mkdirSync(root, { recursive: true });

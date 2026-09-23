@@ -29,10 +29,12 @@ GitHub checkout.
 
 GitHub runs **Work-item merge gate** from `pull_request_target`, so the
 validator, its dependencies, and its workflow definition come from the pull
-request's base revision. The workflow checks out the pull-request head only to
-read its Work-item files. It obtains changed paths through the GitHub pull
-request files API and supplies them to the trusted validator. It does not run
-code, package scripts, or actions from the pull-request head.
+request's base revision. The workflow checks out that trusted base revision,
+then reads Work-item Markdown as data from the pull request's API merge tree.
+It verifies that merge tree still includes the current pull-request head,
+obtains changed paths through the GitHub pull request files API, and supplies
+both to the trusted validator. It does not check out, run code, package scripts,
+or actions from the pull-request head.
 
 The trusted workflow is the only producer of this required status check.
 

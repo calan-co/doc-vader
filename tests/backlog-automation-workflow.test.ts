@@ -64,4 +64,22 @@ Evidence references https://github.com/calan-co/doc-vader/pull/103.
 
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/104");
   });
+
+  it("detects multiline flow-style pull request links", () => {
+    const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
+    const match = /awk '\n(?<script>\s+\/\^\[\[:space:\]\]\*links:[\s\S]*?)\n\s+' <<<"\$frontmatter"/.exec(workflow);
+    const linkedEntries = execFileSync("awk", [match!.groups!.script!], {
+      encoding: "utf8",
+      input: `
+links:
+  pull_requests: [
+    "https://github.com/calan-co/doc-vader/pull/105",
+    "https://github.com/calan-co/doc-vader/pull/106"
+  ]
+`,
+    });
+
+    expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/105");
+    expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/106");
+  });
 });
