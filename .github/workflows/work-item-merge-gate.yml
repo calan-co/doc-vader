@@ -31,11 +31,10 @@ jobs:
           path: trusted
           persist-credentials: false
 
-      - name: Check out pull request data
+      - name: Check out pull request merge data
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           path: pr-data
           persist-credentials: false
 

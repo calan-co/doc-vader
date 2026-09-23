@@ -67,7 +67,7 @@ function checklistErrors(filePath: string, markdown: string): string[] {
       continue;
     }
 
-    const checks = [...bodies[0].matchAll(/^\s*-\s*\[([ xX])\]\s+/gm)];
+    const checks = [...bodies[0].matchAll(/^\s*[-*+]\s*\[([ xX])\]\s+/gm)];
     if (checks.length === 0) {
       errors.push(`${filePath}: section '## ${heading}' has no checklist items.`);
       continue;
@@ -140,7 +140,7 @@ export function validatePullRequestWorkItems(
   const matches = input.workItems.flatMap(({ filePath, content }) => {
     const parsed = matter(content);
     const frontmatter = parsed.data as Record<string, unknown>;
-    if (frontmatter.type !== "work-item") return [];
+    if (frontmatter.type !== "work-item" || frontmatter.lifecycle !== "active") return [];
     const links = frontmatter.links;
     const pullRequests =
       typeof links === "object" && links !== null && !Array.isArray(links)

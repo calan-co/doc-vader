@@ -59,6 +59,7 @@ function runWithEnvironment(environment: Record<string, string>) {
 const completed = `---
 id: wi-60498
 type: work-item
+lifecycle: active
 status: completed
 status_reason: completed
 completed_date: '2026-09-21'

@@ -4,6 +4,7 @@ import { validatePullRequestWorkItems } from "../lib/work/merge-gate.js";
 const completedWorkItem = `---
 id: wi-60498
 type: work-item
+lifecycle: active
 status: completed
 status_reason: completed
 completed_date: '2026-09-21'
