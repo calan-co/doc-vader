@@ -67,7 +67,7 @@ function checklistErrors(filePath: string, markdown: string): string[] {
       continue;
     }
 
-    const checks = [...bodies[0].matchAll(/^\s*[-*+]\s*\[([ xX])\]\s+/gm)];
+    const checks = [...bodies[0].matchAll(/^\s*(?:[-*+]|\d+\.)\s*\[([ xX])\]\s+/gm)];
     if (checks.length === 0) {
       errors.push(`${filePath}: section '## ${heading}' has no checklist items.`);
       continue;

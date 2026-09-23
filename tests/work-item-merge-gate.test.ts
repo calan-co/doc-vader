@@ -137,6 +137,40 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
+  it("accepts ordered checked checklist items", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem
+            .replace("- [x] Implement the change.", "1. [x] Implement the change.")
+            .replace("- [x] The implementation is validated.", "1. [X] The implementation is validated."),
+        },
+      ],
+    });
+
+    expect(result.errors).toEqual([]);
+  });
+
+  it("rejects ordered unchecked checklist items", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem.replace("- [x] Implement the change.", "1. [ ] Implement the change."),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: section '## Tasks' has 1 unchecked checklist item(s).",
+    );
+  });
+
   it("rejects duplicate checklist sections", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",

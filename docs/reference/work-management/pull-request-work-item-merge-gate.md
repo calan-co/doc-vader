@@ -34,9 +34,7 @@ read its Work-item files. It obtains changed paths through the GitHub pull
 request files API and supplies them to the trusted validator. It does not run
 code, package scripts, or actions from the pull-request head.
 
-The rollout pull request keeps the prior PR-local job only until this workflow
-reaches `staging`. Its follow-up removes that bootstrap job. Later pull requests
-then receive the required status from the trusted workflow alone.
+The trusted workflow is the only producer of this required status check.
 
 ## Association rule
 

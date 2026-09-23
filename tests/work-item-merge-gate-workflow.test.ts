@@ -35,10 +35,10 @@ describe("trusted Work-item merge gate workflow", () => {
     }
   });
 
-  it("keeps the PR-local gate only as the documented bootstrap", () => {
+  it("does not publish a PR-local Work-item merge gate check", () => {
     const workflow = readWorkflow(".github/workflows/ci.yml");
 
-    expect(workflow).toContain("work-item-merge-gate:");
-    expect(workflow).toContain("bootstrap PR #96");
+    expect(workflow).not.toContain("work-item-merge-gate:");
+    expect(workflow).not.toContain("Work-item merge gate");
   });
 });

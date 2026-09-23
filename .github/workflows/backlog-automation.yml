@@ -290,6 +290,14 @@ jobs:
               }
             ' "$file")"
 
+            status="${status#"${status%%[![:space:]]*}"}"
+            status="${status%"${status##*[![:space:]]}"}"
+            case "$status" in
+              \"*\"|\'*\') status="${status:1:${#status}-2}" ;;
+            esac
+            status="${status#"${status%%[![:space:]]*}"}"
+            status="${status%"${status##*[![:space:]]}"}"
+
             file_base="$(basename "$file" .md)"
             work_item_number="$file_base"
             if [[ "$file_base" =~ ^([0-9]+(\.[0-9]+)*)\. ]]; then
@@ -304,7 +312,18 @@ jobs:
               continue
             fi
 
-            mapfile -t pr_numbers < <(grep -Eo "https://github.com/${REPO}/pull/[0-9]+" "$file" | sed -E 's#^.*/pull/##' | sort -u || true)
+            mapfile -t pr_numbers < <(
+              awk '
+                /^[[:space:]]*links:[[:space:]]*$/ { in_links=1; next }
+                in_links && /^[^[:space:]]/ { in_links=0; in_pull_requests=0 }
+                in_links && /^[[:space:]]+pull_requests:[[:space:]]*$/ { in_pull_requests=1; next }
+                in_pull_requests && /^[[:space:]]*-[[:space:]]*/ { print; next }
+                in_pull_requests && /^[[:space:]]*[^[:space:]]/ { in_pull_requests=0 }
+              ' <<<"$frontmatter" |
+                grep -Eo "https://github.com/${REPO}/pull/[0-9]+" |
+                sed -E 's#^.*/pull/##' |
+                sort -u || true
+            )
             if ((${#pr_numbers[@]} == 0)); then
               continue
             fi
