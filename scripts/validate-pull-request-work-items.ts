@@ -74,7 +74,7 @@ function main(): void {
     changedPaths: changedPaths(),
     workItems: collectMarkdownFiles(backlogDirectory)
       .map((filePath) => ({
-        filePath: path.relative(ROOT_DIR, filePath),
+        filePath: path.relative(ROOT_DIR, filePath).split(path.sep).join("/"),
         content: readFileSync(filePath, "utf8"),
       }))
       .filter(({ filePath }) => !filePath.startsWith("backlog/archive/")),
