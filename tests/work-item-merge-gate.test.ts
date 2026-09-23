@@ -101,4 +101,38 @@ describe("validatePullRequestWorkItems", () => {
 
     expect(result.errors).toEqual([]);
   });
+
+  it("does not exempt implementation files that share an exempt filename prefix", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["README.md.ts"],
+      workItems: [],
+    });
+
+    expect(result.errors).toContain(
+      "implementation pull requests require exactly one Work item linked through links.pull_requests.",
+    );
+  });
+
+  it("requires non-empty evidence and a real completed date", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem
+            .replace("completed_date: '2026-09-21'", "completed_date: '2026-99-99'")
+            .replace("'[[record-20260921-195524-60498]]'", "''"),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require a valid completed_date in YYYY-MM-DD form.",
+    );
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require links.evidence.",
+    );
+  });
 });

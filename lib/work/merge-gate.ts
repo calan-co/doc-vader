@@ -15,17 +15,13 @@ export interface PullRequestWorkItemValidationResult {
   errors: string[];
 }
 
-const DOCUMENTATION_ONLY_PATHS = [
-  "backlog/",
-  "docs/",
-  "README.md",
-  "CHANGELOG.md",
-  "LICENSE",
-];
+const DOCUMENTATION_ONLY_DIRECTORIES = ["backlog/", "docs/"];
+const DOCUMENTATION_ONLY_FILES = ["README.md", "CHANGELOG.md", "LICENSE"];
 
 function isDocumentationOnlyPath(filePath: string): boolean {
-  return DOCUMENTATION_ONLY_PATHS.some(
-    (candidate) => filePath === candidate || filePath.startsWith(candidate),
+  return (
+    DOCUMENTATION_ONLY_FILES.includes(filePath) ||
+    DOCUMENTATION_ONLY_DIRECTORIES.some((directory) => filePath.startsWith(directory))
   );
 }
 
@@ -72,8 +68,23 @@ function checklistErrors(filePath: string, markdown: string): string[] {
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
+    ? value
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
     : [];
+}
+
+function isValidDate(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return (
+    date.getUTCFullYear() === Number(match[1]) &&
+    date.getUTCMonth() === Number(match[2]) - 1 &&
+    date.getUTCDate() === Number(match[3])
+  );
 }
 
 function isCompletedWorkItem(frontmatter: Record<string, unknown>, filePath: string): string[] {
@@ -84,11 +95,8 @@ function isCompletedWorkItem(frontmatter: Record<string, unknown>, filePath: str
   if (typeof frontmatter.status_reason !== "string" || frontmatter.status_reason.trim() === "") {
     errors.push(`${filePath}: completed work items require status_reason.`);
   }
-  if (
-    typeof frontmatter.completed_date !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(frontmatter.completed_date)
-  ) {
-    errors.push(`${filePath}: completed work items require completed_date in YYYY-MM-DD form.`);
+  if (!isValidDate(frontmatter.completed_date)) {
+    errors.push(`${filePath}: completed work items require a valid completed_date in YYYY-MM-DD form.`);
   }
   if (typeof frontmatter.actual !== "number" || !Number.isFinite(frontmatter.actual)) {
     errors.push(`${filePath}: completed work items require numeric actual effort.`);

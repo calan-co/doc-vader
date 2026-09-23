@@ -43,7 +43,7 @@ function changedPaths(): string[] {
     );
   }
 
-  return execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", base, head], {
+  return execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMRD", base, head], {
     cwd: ROOT_DIR,
     encoding: "utf8",
   })
