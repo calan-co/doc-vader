@@ -9,7 +9,10 @@ import { spawnSync } from "node:child_process";
 const repoRoot = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
-const scriptPath = path.join(repoRoot, "scripts/validate-pull-request-work-items.ts");
+const scriptPath = path.join(
+  repoRoot,
+  "scripts/validate-pull-request-work-items.ts",
+);
 const pullRequestUrl = "https://github.com/calan-co/doc-vader/pull/95";
 let testDir = "";
 
@@ -20,17 +23,31 @@ function write(relativePath: string, content: string): void {
 }
 
 function run(changedPaths: string[]) {
-  const result = spawnSync(process.execPath, ["--import", tsxImport, scriptPath], {
-    cwd: repoRoot,
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      DOC_VADER_ROOT: testDir,
-      DOC_VADER_PULL_REQUEST_URL: pullRequestUrl,
-      DOC_VADER_CHANGED_PATHS: JSON.stringify(changedPaths),
-    },
+  return runWithEnvironment({
+    DOC_VADER_CHANGED_PATHS: JSON.stringify(changedPaths),
   });
-  return { code: result.status ?? 1, stdout: result.stdout || "", stderr: result.stderr || "" };
+}
+
+function runWithEnvironment(environment: Record<string, string>) {
+  const result = spawnSync(
+    process.execPath,
+    ["--import", tsxImport, scriptPath],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        DOC_VADER_ROOT: testDir,
+        DOC_VADER_PULL_REQUEST_URL: pullRequestUrl,
+        ...environment,
+      },
+    },
+  );
+  return {
+    code: result.status ?? 1,
+    stdout: result.stdout || "",
+    stderr: result.stderr || "",
+  };
 }
 
 const completed = `---
@@ -89,5 +106,17 @@ describe("pull-request work item validation script", () => {
 
     expect(result.code).toBe(1);
     expect(result.stderr).toMatch(/require exactly one Work item linked/i);
+  });
+
+  it("accepts changed paths supplied in a JSON file", () => {
+    write("backlog/60498-init.md", completed);
+    write("changed-paths.json", JSON.stringify(["lib/init/command.ts"]));
+
+    const result = runWithEnvironment({
+      DOC_VADER_CHANGED_PATHS_FILE: path.join(testDir, "changed-paths.json"),
+    });
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toMatch(/validation passed/i);
   });
 });

@@ -9,7 +9,10 @@ function value(name: string): string | undefined {
   return result || undefined;
 }
 
-const ROOT_DIR = path.resolve(value("DOC_VADER_ROOT") ?? path.join(path.dirname(fileURLToPath(import.meta.url)), ".."));
+const ROOT_DIR = path.resolve(
+  value("DOC_VADER_ROOT") ??
+    path.join(path.dirname(fileURLToPath(import.meta.url)), ".."),
+);
 
 function requiredPullRequestUrl(): string {
   const explicit = value("DOC_VADER_PULL_REQUEST_URL");
@@ -25,14 +28,32 @@ function requiredPullRequestUrl(): string {
   return `https://github.com/${repository}/pull/${number}`;
 }
 
+function parseChangedPaths(serialized: string, source: string): string[] {
+  const parsed: unknown = JSON.parse(serialized);
+  if (
+    !Array.isArray(parsed) ||
+    parsed.some((entry) => typeof entry !== "string")
+  ) {
+    throw new Error(`${source} must contain a JSON array of file paths.`);
+  }
+  return parsed;
+}
+
 function changedPaths(): string[] {
   const configured = value("DOC_VADER_CHANGED_PATHS");
-  if (configured) {
-    const parsed: unknown = JSON.parse(configured);
-    if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string")) {
-      throw new Error("DOC_VADER_CHANGED_PATHS must be a JSON array of file paths.");
-    }
-    return parsed;
+  const configuredFile = value("DOC_VADER_CHANGED_PATHS_FILE");
+  if (configured && configuredFile) {
+    throw new Error(
+      "Use either DOC_VADER_CHANGED_PATHS or DOC_VADER_CHANGED_PATHS_FILE, not both.",
+    );
+  }
+  if (configured)
+    return parseChangedPaths(configured, "DOC_VADER_CHANGED_PATHS");
+  if (configuredFile) {
+    return parseChangedPaths(
+      readFileSync(configuredFile, "utf8"),
+      "DOC_VADER_CHANGED_PATHS_FILE",
+    );
   }
 
   const base = value("DOC_VADER_BASE_SHA");
@@ -43,10 +64,14 @@ function changedPaths(): string[] {
     );
   }
 
-  return execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMRD", base, head], {
-    cwd: ROOT_DIR,
-    encoding: "utf8",
-  })
+  return execFileSync(
+    "git",
+    ["diff", "--name-only", "--diff-filter=ACMRD", base, head],
+    {
+      cwd: ROOT_DIR,
+      encoding: "utf8",
+    },
+  )
     .split("\n")
     .map((filePath) => filePath.trim())
     .filter(Boolean);

@@ -20,8 +20,23 @@ links:
 # Pull Request Work-Item Merge Gate
 
 `pnpm run backlog:validate:pr` is the pre-merge check for an implementation
-pull request. CI supplies its canonical GitHub pull-request URL and the changed
-base/head range.
+pull request. It accepts the canonical pull-request URL, a repository root that
+contains the Work items to inspect, and changed paths supplied as JSON or in a
+JSON file. Those inputs also let other CI systems run the check without a
+GitHub checkout.
+
+## Trusted GitHub workflow
+
+GitHub runs **Work-item merge gate** from `pull_request_target`, so the
+validator, its dependencies, and its workflow definition come from the pull
+request's base revision. The workflow checks out the pull-request head only to
+read its Work-item files. It obtains changed paths through the GitHub pull
+request files API and supplies them to the trusted validator. It does not run
+code, package scripts, or actions from the pull-request head.
+
+The rollout pull request keeps the prior PR-local job only until this workflow
+reaches `staging`. Its follow-up removes that bootstrap job. Later pull requests
+then receive the required status from the trusted workflow alone.
 
 ## Association rule
 
@@ -49,8 +64,9 @@ The linked Work item must have:
 - no unchecked item in either `## Tasks` or `## Acceptance Criteria`.
 
 The local pre-push validator applies the checklist requirement to changed
-completed Work items. CI is the authority for the PR URL association because it
-has the canonical pull-request event and base/head revisions.
+completed Work items. The trusted GitHub workflow is the authority for the PR
+URL association because it has the canonical pull-request event and changed
+file list.
 
 ## Post-merge backstop
 

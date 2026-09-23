@@ -16,6 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ponytail: bootstrap PR #96 until the trusted workflow is on staging; remove this job in its follow-up PR.
   work-item-merge-gate:
     name: Work-item merge gate
     if: github.event_name == 'pull_request'
