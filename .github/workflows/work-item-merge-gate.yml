@@ -10,6 +10,7 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+      - edited
 
 permissions:
   contents: read
@@ -45,6 +46,9 @@ jobs:
               repo: context.repo.repo,
               commit_sha: mergeSha,
             });
+            if (mergeCommit.parents[0]?.sha !== context.payload.pull_request.base.sha) {
+              throw new Error("Pull request merge commit has a stale base; failing closed.");
+            }
             if (mergeCommit.parents[1]?.sha !== context.payload.pull_request.head.sha) {
               throw new Error("Pull request merge commit is stale; failing closed.");
             }
@@ -54,7 +58,7 @@ jobs:
             const tree = await github.rest.git.getTree({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tree_sha: mergeSha,
+              tree_sha: mergeCommit.tree.sha,
               recursive: "1",
             });
             if (tree.data.truncated) throw new Error("Pull request tree is truncated; failing closed.");

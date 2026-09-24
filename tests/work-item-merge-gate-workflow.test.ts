@@ -15,6 +15,7 @@ describe("trusted Work-item merge gate workflow", () => {
     for (const fragment of [
       "name: Work-item merge gate",
       "pull_request_target:",
+      "      - edited",
       "contents: read",
       "pull-requests: read",
       "ref: ${{ github.event.pull_request.base.sha }}",
@@ -22,9 +23,12 @@ describe("trusted Work-item merge gate workflow", () => {
       "actions/github-script@v7",
       "merge_commit_sha",
       "git.getCommit",
+      "mergeCommit.parents[0]?.sha !== context.payload.pull_request.base.sha",
+      "Pull request merge commit has a stale base; failing closed.",
       "mergeCommit.parents[1]?.sha !== context.payload.pull_request.head.sha",
       "Pull request merge commit is stale; failing closed.",
       "git.getTree",
+      "tree_sha: mergeCommit.tree.sha",
       "git.getBlob",
       "Pull request tree is truncated; failing closed.",
       "pulls.listFiles",
@@ -46,6 +50,9 @@ describe("trusted Work-item merge gate workflow", () => {
     expect(workflow).toContain("work-item-merge-gate-bootstrap:");
     expect(workflow).toContain("name: Work-item merge gate bootstrap");
     expect(workflow).toContain("DOC_VADER_HEAD_SHA: ${{ github.sha }}");
+    expect(workflow).toMatch(
+      /work-item-merge-gate-bootstrap:[\s\S]*?fetch-depth: 0\n          persist-credentials: false/,
+    );
     expect(workflow).not.toContain("name: Work-item merge gate\n");
   });
 });
