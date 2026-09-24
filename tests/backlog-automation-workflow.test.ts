@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { integrationTestTimeoutMs } from "./helper/windows-integration-timeout.js";
 
 const repoRoot = path.resolve(__dirname, "..");
 
@@ -30,7 +31,7 @@ describe("backlog automation stale-work-item check", () => {
     }
   });
 
-  it("ignores body and evidence PR URLs while detecting links.pull_requests", () => {
+  it("ignores body and evidence PR URLs while detecting links.pull_requests", { timeout: integrationTestTimeoutMs() }, () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
     const match = /awk '\n(?<script>\s+\/\^\[\[:space:\]\]\*links:[\s\S]*?)\n\s+' <<<"\$frontmatter"/.exec(workflow);
     expect(match?.groups?.script).toBeDefined();

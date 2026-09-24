@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { integrationTestTimeoutMs } from "./helper/windows-integration-timeout.js";
 import {
   openRuntimeSqliteStore,
   RUNTIME_SCHEMA_VERSION,
@@ -132,7 +133,7 @@ afterEach(async () => {
 });
 
 describe("sandcastle planning list surface", () => {
-  it("returns only selectable candidates to Sandcastle", async () => {
+  it("returns only selectable candidates to Sandcastle", { timeout: integrationTestTimeoutMs() }, async () => {
     const rootDir = await createTempRepo();
 
     await writeTask(
