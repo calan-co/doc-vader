@@ -260,6 +260,40 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
+  it("rejects non-punctuation after wikilink evidence while allowing punctuation", () => {
+    const invalidEvidence = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem.replace(
+            "'[[record-20260921-195524-60498]]'",
+            "'[[record-20260921-195524-60498]]junk'",
+          ),
+        },
+      ],
+    });
+    expect(invalidEvidence.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require links.evidence.",
+    );
+
+    const punctuatedEvidence = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem.replace(
+            "'[[record-20260921-195524-60498]]'",
+            "'[[record-20260921-195524-60498]].'",
+          ),
+        },
+      ],
+    });
+    expect(punctuatedEvidence.errors).toEqual([]);
+  });
+
   it("rejects a malformed pull-request association", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",

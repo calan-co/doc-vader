@@ -84,7 +84,7 @@ export function checklistErrors(filePath: string, markdown: string): string[] {
 }
 
 function isLink(value: string): boolean {
-  if (/^\[\[[^\]|\r\n]+(?:\|[^\]|\r\n]+)?\]\][^\p{P}\s]*$/u.test(value)) return true;
+  if (/^\[\[[^\]|\r\n]+(?:\|[^\]|\r\n]+)?\]\][\p{P}\s]*$/u.test(value)) return true;
   try {
     return /^\S+:\/\/\S+$/.test(value) && new URL(value).hostname !== "";
   } catch {
