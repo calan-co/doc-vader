@@ -83,4 +83,25 @@ links:
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/105");
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/106");
   });
+
+  it("checks completed items for unchecked completion criteria without reporting stale status", () => {
+    const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
+    const checklistCheck = workflowSnippet(
+      workflow,
+      '              if [[ "$status" == "completed" ]] && awk ',
+      '\n\n              if [[ "$status" == "closed" ]]; then',
+    );
+    const result = execFileSync("bash", ["-c", `reasons=()\n${checklistCheck}\nprintf '%s' "\${reasons[*]}"`], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        status: "completed",
+        body: "## Tasks\n\n- [ ] Finish the change.\n\n## Acceptance Criteria\n\n- [x] Validate it.\n",
+      },
+    });
+
+    expect(result).toBe("unchecked completion checklist item");
+    expect(workflow).toContain('if [[ "$status" != "completed" ]]; then\n                reasons+=("status is');
+    expect(workflow).toContain("if ((${#reasons[@]} == 0)); then\n                continue");
+  });
 });

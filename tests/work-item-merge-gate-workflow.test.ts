@@ -5,7 +5,7 @@ import path from "node:path";
 const repoRoot = path.resolve(__dirname, "..");
 
 function readWorkflow(relativePath: string): string {
-  return readFileSync(path.join(repoRoot, relativePath), "utf8");
+  return readFileSync(path.join(repoRoot, relativePath), "utf8").replace(/\r\n/g, "\n");
 }
 
 describe("trusted Work-item merge gate workflow", () => {
