@@ -357,18 +357,17 @@ jobs:
                 reasons+=("missing numeric 'actual' effort")
               fi
 
-              if ! awk '
-                /^---$/ {delims++; next}
-                delims != 1 {next}
-                /^[[:space:]]*evidence:[[:space:]]*$/ {in_evidence=1; next}
-                in_evidence && /^[[:space:]]*-[[:space:]]*[^[:space:]].*/ {found=1; exit}
-                in_evidence && $0 !~ /^[[:space:]]+/ {in_evidence=0}
-                END {exit found ? 0 : 1}
+              if ! ruby -ryaml -e '
+                frontmatter = YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false) || {}
+                evidence = frontmatter.dig("links", "evidence")
+                exit(evidence.is_a?(Array) && evidence.any? { |entry| entry.is_a?(String) && !entry.strip.empty? } ? 0 : 1)
               ' "$file"; then
                 reasons+=("missing links.evidence entries")
               fi
 
               if [[ "$status" == "completed" ]] && awk '
+                /^[[:space:]]*```/ {fenced = !fenced; next}
+                fenced {next}
                 /^##[[:space:]]+(Tasks|Acceptance Criteria)[[:space:]]*$/ {in_completion_section=1; next}
                 /^##[[:space:]]+/ {in_completion_section=0}
                 in_completion_section && /^[[:space:]]*([-*+]|[0-9]+\.)[[:space:]]+\[[[:space:]]\]/ {found=1}
