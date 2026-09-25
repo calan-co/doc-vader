@@ -84,11 +84,15 @@ links:
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/106");
   });
 
-  it("accepts block and flow-style links.evidence entries", { timeout: integrationTestTimeoutMs() }, () => {
+  it("accepts block and flow-style links.evidence entries with unquoted dates", { timeout: integrationTestTimeoutMs() }, () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
-    const evidenceCheck = workflowSnippet(workflow, "              if ! ruby -ryaml -e '", '\n\n              if [[ "$status" == "completed" ]]');
+    const evidenceCheck = workflowSnippet(workflow, "              if ! ruby -rdate -ryaml -e '", '\n\n              if [[ "$status" == "completed" ]]');
 
-    for (const frontmatter of ["links:\n  evidence:\n    - '[[record]]'\n", "links:\n  evidence: ['[[record]]']\n"]) {
+    for (const frontmatter of [
+      "links:\n  evidence:\n    - '[[record]]'\n",
+      "links:\n  evidence: ['[[record]]']\n",
+      "completed_date: 2026-06-25\nlinks:\n  evidence:\n    - '[[record]]'\n",
+    ]) {
       const result = execFileSync("bash", ["-c", `file="$(mktemp)"\ntrap 'rm -f "$file"' EXIT\nprintf '%s' "$frontmatter" > "$file"\nreasons=()\n${evidenceCheck}\nprintf '%s' "\${reasons[*]}"`], {
         encoding: "utf8",
         env: { ...process.env, frontmatter },

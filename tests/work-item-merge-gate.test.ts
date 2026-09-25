@@ -75,6 +75,23 @@ describe("validatePullRequestWorkItems", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("rejects unquoted completed dates", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem.replace("completed_date: '2026-09-21'", "completed_date: 2026-09-21"),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require a valid completed_date in YYYY-MM-DD form.",
+    );
+  });
+
   it("rejects ambiguous associations", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",

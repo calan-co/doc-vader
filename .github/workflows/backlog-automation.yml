@@ -357,8 +357,8 @@ jobs:
                 reasons+=("missing numeric 'actual' effort")
               fi
 
-              if ! ruby -ryaml -e '
-                frontmatter = YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false) || {}
+              if ! ruby -rdate -ryaml -e '
+                frontmatter = YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [Date], aliases: false) || {}
                 evidence = frontmatter.dig("links", "evidence")
                 exit(evidence.is_a?(Array) && evidence.any? { |entry| entry.is_a?(String) && !entry.strip.empty? } ? 0 : 1)
               ' "$file"; then
