@@ -84,7 +84,7 @@ links:
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/106");
   });
 
-  it("accepts block and flow-style links.evidence entries", () => {
+  it("accepts block and flow-style links.evidence entries", { timeout: integrationTestTimeoutMs() }, () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
     const evidenceCheck = workflowSnippet(workflow, "              if ! ruby -ryaml -e '", '\n\n              if [[ "$status" == "completed" ]]');
 
