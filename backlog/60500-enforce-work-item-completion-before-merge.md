@@ -19,6 +19,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/96
   evidence:
     - https://github.com/calan-co/doc-vader/pull/96
+    - '[[record-20260925-170206-60500]]'
 tags:
   - afk
   - work
