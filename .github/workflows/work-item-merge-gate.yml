@@ -39,17 +39,25 @@ jobs:
           script: |
             const fs = require("node:fs");
             const path = require("node:path");
-            const mergeSha = context.payload.pull_request.merge_commit_sha;
+            const currentPullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+            if (currentPullRequest.data.base.sha !== context.payload.pull_request.base.sha) {
+              throw new Error("Pull request base is stale; failing closed.");
+            }
+            const mergeSha = currentPullRequest.data.merge_commit_sha;
             if (!mergeSha) throw new Error("Pull request merge commit is unavailable; failing closed.");
             const { data: mergeCommit } = await github.rest.git.getCommit({
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: mergeSha,
             });
-            if (mergeCommit.parents[0]?.sha !== context.payload.pull_request.base.sha) {
+            if (mergeCommit.parents[0]?.sha !== currentPullRequest.data.base.sha) {
               throw new Error("Pull request merge commit has a stale base; failing closed.");
             }
-            if (mergeCommit.parents[1]?.sha !== context.payload.pull_request.head.sha) {
+            if (mergeCommit.parents[1]?.sha !== currentPullRequest.data.head.sha) {
               throw new Error("Pull request merge commit is stale; failing closed.");
             }
             const root = path.join(process.env.RUNNER_TEMP, "doc-vader-pr-data");
