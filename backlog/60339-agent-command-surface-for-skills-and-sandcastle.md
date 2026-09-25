@@ -5,10 +5,12 @@ summary: Shape and then implement deterministic Doc-Vader CLI commands for confi
 type: work-item
 subtype: story
 lifecycle: active
-status: paused
-status_reason: blocked
+status: completed
+status_reason: completed
 priority: critical
 estimated: 8
+actual: 8
+completed_date: '2026-09-25'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/61
@@ -26,7 +28,10 @@ links:
     - '[[60361-git-sqlite-local-multi-agent-runtime-contract]]'
     - '[[60377-work-item-governance-kernel]]'
   evidence:
+    - https://github.com/calan-co/doc-vader/pull/61
+    - https://github.com/calan-co/doc-vader/pull/62
     - '[[record-20260614-164457-60339]]'
+    - '[[record-wi-60339-mvp-reconciliation-20260925-214920]]'
 tags:
   - agent
   - skills
@@ -105,38 +110,58 @@ Implementation is decomposed into AFK slices:
 - [[60345-claim-aware-record-and-close-commands]]
 - [[60346-sandcastle-doc-vader-task-adapter]]
 
+## Tasks
+
+- [x] Verify the command and schema foundation delivered by `wi-60333`.
+- [x] Verify AFK readiness, SQLite runtime, claims, and locks delivered by
+  `wi-60341`, `wi-60342`, `wi-60343`, `wi-60361`, `wi-60362`, `wi-60363`,
+  `wi-60373`, `wi-60374`, and `wi-60375`.
+- [x] Verify record, completion, and Sandcastle adapter delivery through
+  `wi-60345`, `wi-60346`, PR #61, and PR #62.
+- [x] Run current command-boundary, documentation, and backlog validation.
+
 ## Acceptance Criteria
 
-- [ ] Sandcastle's pinned issue tracker registry is evaluated as the authoritative adapter shape, including list, view, close, tool installation, and environment example hooks.
-- [ ] Doc-Vader's Sandcastle MVP extends the registry shape with claim ownership, file-lock ownership, readiness gates, evidence recording, and dependency-aware execution metadata.
-- [ ] Doc-Vader can be mapped into Sandcastle with either registry-compatible commands or a small Doc-Vader-aware adapter that preserves Sandcastle's existing issue tracker abstraction.
-- [ ] Beads is evaluated as the reference adapter for issue listing, viewing, dependency-aware ready selection, claiming, graph links, JSON output, setup guidance, and closing/finalization.
-- [ ] Doc-Vader command/API contract is documented before implementation, including command names, inputs, outputs, status/error shapes, and lifecycle guarantees.
-- [ ] Claim/lease semantics keep durable `owner` and `assignee` accountability separate from runtime lease state.
-- [ ] Runtime persistence is adapter-backed, with SQLite as the local MVP storage adapter and a hosted-authority-ready record shape.
-- [ ] Active lease revocation requires escalation in local and hosted modes, and actor/timestamp are not accepted as caller-supplied fields.
-- [ ] Local lease revocation uses host-native authorization such as `sudo`, `runas`, or an equivalent platform elevation mechanism instead of a self-asserted override flag.
-- [ ] Local and hosted lease revocation emit actor/timestamp as audit metadata derived from OS/elevation metadata or service-side identity claims such as OIDC, SAML, or session metadata.
-- [ ] The MVP local revocation path is deterministic and auditable without requiring the hosted service to exist.
-- [ ] A command can create a PRD JSON payload from explicit structured inputs and report missing required fields without inventing values.
-- [ ] A command can create/render/validate another configured document suite, such as ADR management, without source-code changes.
-- [ ] A command can render a PRD or other template-aligned work-management document from canonical JSON/template/config inputs with a preserved source payload.
-- [ ] A command can validate both content payload and rendered Markdown/frontmatter against the configured schema/template profile.
-- [ ] A command can progress a template-aligned document through valid lifecycle/status states using repository transition policy.
-- [ ] A Sandcastle-compatible command can list AFK-ready work items as JSON, excluding HITL, closed, archived, blocked, and invalid candidates.
-- [ ] A Sandcastle-compatible command can claim or lease one work item atomically enough to prevent concurrent agents from selecting the same item.
-- [ ] A Sandcastle-compatible command can evaluate readiness gates for a work item and report blocking policy, dependency, validation, and HITL reasons as structured data.
-- [ ] A Sandcastle-compatible command can record implementation evidence independently from final close/finalize.
-- [ ] A Sandcastle-compatible command can expose enough dependency metadata for dependency-aware selection and execution planning without implementing a full Work Graph engine in MVP.
-- [ ] A minimal work-item view is available only where needed to support MVP execution; richer view APIs can be deferred to a follow-on unless they are largely overlapping or minimally incremental.
-- [ ] A Sandcastle-compatible command can close/finalize a completed work item while preserving Doc-Vader's evidence and validation requirements.
-- [ ] Sandcastle prompts can be simplified to call Doc-Vader list, claim, lock, readiness, evidence, and completion commands instead of inline Node scripts.
-- [ ] `/to-tmpl-prd` can rely on Doc-Vader create/validate/render/progress commands for deterministic actions.
-- [ ] Tests cover the command boundary with representative PRD, work item, AFK/HITL filtering, blocked dependency, and closure-evidence cases.
+- [x] Sandcastle's pinned issue tracker registry is evaluated as the authoritative adapter shape, including list, view, close, tool installation, and environment example hooks.
+- [x] Doc-Vader's Sandcastle MVP extends the registry shape with claim ownership, file-lock ownership, readiness gates, evidence recording, and dependency-aware execution metadata.
+- [x] Doc-Vader can be mapped into Sandcastle with either registry-compatible commands or a small Doc-Vader-aware adapter that preserves Sandcastle's existing issue tracker abstraction.
+- [x] Beads is evaluated as the reference adapter for issue listing, viewing, dependency-aware ready selection, claiming, graph links, JSON output, setup guidance, and closing/finalization.
+- [x] Doc-Vader command/API contract is documented before implementation, including command names, inputs, outputs, status/error shapes, and lifecycle guarantees.
+- [x] Claim/lease semantics keep durable `owner` and `assignee` accountability separate from runtime lease state.
+- [x] Runtime persistence is adapter-backed, with SQLite as the local MVP storage adapter and a hosted-authority-ready record shape.
+- [x] Active lease revocation requires escalation in local and hosted modes, and actor/timestamp are not accepted as caller-supplied fields.
+- [x] Local lease revocation uses host-native authorization such as `sudo`, `runas`, or an equivalent platform elevation mechanism instead of a self-asserted override flag.
+- [x] Local and hosted lease revocation emit actor/timestamp as audit metadata derived from OS/elevation metadata or service-side identity claims such as OIDC, SAML, or session metadata.
+- [x] The MVP local revocation path is deterministic and auditable without requiring the hosted service to exist.
+- [x] A command can create a PRD JSON payload from explicit structured inputs and report missing required fields without inventing values.
+- [x] A command can create/render/validate another configured document suite, such as ADR management, without source-code changes.
+- [x] A command can render a PRD or other template-aligned work-management document from canonical JSON/template/config inputs with a preserved source payload.
+- [x] A command can validate both content payload and rendered Markdown/frontmatter against the configured schema/template profile.
+- [x] A command can progress a template-aligned document through valid lifecycle/status states using repository transition policy.
+- [x] A Sandcastle-compatible command can list AFK-ready work items as JSON, excluding HITL, closed, archived, blocked, and invalid candidates.
+- [x] A Sandcastle-compatible command can claim or lease one work item atomically enough to prevent concurrent agents from selecting the same item.
+- [x] A Sandcastle-compatible command can evaluate readiness gates for a work item and report blocking policy, dependency, validation, and HITL reasons as structured data.
+- [x] A Sandcastle-compatible command can record implementation evidence independently from final close/finalize.
+- [x] A Sandcastle-compatible command can expose enough dependency metadata for dependency-aware selection and execution planning without implementing a full Work Graph engine in MVP.
+- [x] A minimal work-item view is available only where needed to support MVP execution; richer view APIs can be deferred to a follow-on unless they are largely overlapping or minimally incremental.
+- [x] A Sandcastle-compatible command can close/finalize a completed work item while preserving Doc-Vader's evidence and validation requirements.
+- [x] Sandcastle prompts can be simplified to call Doc-Vader list, claim, lock, readiness, evidence, and completion commands instead of inline scripts.
+- [x] `/to-tmpl-prd` can rely on Doc-Vader create/validate/render/progress commands for deterministic actions.
+- [x] Tests cover the command boundary with representative PRD, work item, AFK/HITL filtering, blocked dependency, and closure-evidence cases.
 
-## Blocked By
+## MVP Reconciliation
 
-HITL decision review is complete for the MVP command surface captured above. This parent remains HITL as the contract record: changes that expand beyond the captured command, claim, scope, AFK, or revocation semantics require renewed human review. The linked AFK execution slices can proceed without reopening the contract.
+PR #61 and PR #62 are merged. The referenced MVP delivery items are completed.
+The local runtime uses SQLite, and the command boundary covers ready selection,
+claims, locks, records, completion, and Sandcastle integration. `wi-60338` and
+`wi-60340` remain deferred architecture decisions and are not MVP blockers.
+The reconciliation record captures the validation run and sources.
+
+## Completion Notes
+
+The prior HITL gate applied to changes that expanded the captured MVP contract.
+It does not block this reconciliation. Any later expansion of command, claim,
+scope, AFK, or revocation semantics needs a new human review.
 
 ## Priority Notes
 
