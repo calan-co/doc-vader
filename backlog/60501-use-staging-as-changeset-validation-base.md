@@ -17,6 +17,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/97
   evidence:
     - https://github.com/calan-co/doc-vader/pull/97
+    - '[[record-20260925-212626-60501]]'
 tags:
   - ci
   - changesets
