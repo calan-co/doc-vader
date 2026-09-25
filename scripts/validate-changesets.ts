@@ -65,7 +65,7 @@ function isChangesetPath(filePath: string): boolean {
   return normalized.startsWith(".changeset/") && normalized.endsWith(".md");
 }
 
-function readConfiguredBaseBranch(rootDir: string): string {
+export function readConfiguredBaseBranch(rootDir: string): string {
   const configPath = path.resolve(rootDir, ".changeset/config.json");
   if (!existsSync(configPath)) {
     return "main";

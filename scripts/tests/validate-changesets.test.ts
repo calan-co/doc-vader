@@ -3,6 +3,7 @@ import {
   changesetStatusEnv,
   evaluateChangesetRequirement,
   formatValidationErrors,
+  readConfiguredBaseBranch,
   validateChangesetFile,
 } from "../validate-changesets.js";
 
@@ -80,6 +81,12 @@ describe("validateChangesetFile", () => {
     );
 
     expect(result.errors).toEqual(["changeset has no package release entries"]);
+  });
+});
+
+describe("readConfiguredBaseBranch", () => {
+  it("uses staging as this repository's changeset base branch", () => {
+    expect(readConfiguredBaseBranch(process.cwd())).toBe("staging");
   });
 });
 
