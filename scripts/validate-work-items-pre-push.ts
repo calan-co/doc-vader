@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import { checklistErrors } from "../lib/work/merge-gate.js";
 
 type SeveritySetting = "none" | "info" | "warn" | "error";
 
@@ -325,55 +326,6 @@ function changedFilesForPush(): string[] {
     .filter((line) => line.length > 0);
 }
 
-function sectionBody(markdown: string, heading: string): string | null {
-  const lines = markdown.split(/\r?\n/);
-  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const headingPattern = new RegExp(`^##\\s+${escapedHeading}\\s*$`, "i");
-  const headingIndex = lines.findIndex((line) => headingPattern.test(line));
-
-  if (headingIndex < 0) {
-    return null;
-  }
-
-  const bodyLines: string[] = [];
-  for (let i = headingIndex + 1; i < lines.length; i += 1) {
-    if (/^##\s+/.test(lines[i] ?? "")) {
-      break;
-    }
-    bodyLines.push(lines[i] ?? "");
-  }
-
-  return bodyLines.join("\n");
-}
-
-function uncheckedChecklistMessages(filePath: string, markdown: string): string[] {
-  const errors: string[] = [];
-  const sections = ["Tasks", "Acceptance Criteria"];
-
-  for (const section of sections) {
-    const body = sectionBody(markdown, section);
-    if (body === null) {
-      errors.push(`${filePath}: missing section '## ${section}'.`);
-      continue;
-    }
-
-    const checklistMatches = [...body.matchAll(/^\s*-\s*\[([ xX])\]\s+/gm)];
-    if (checklistMatches.length === 0) {
-      errors.push(`${filePath}: section '## ${section}' has no checklist items.`);
-      continue;
-    }
-
-    const unchecked = checklistMatches.filter((match) => match[1] === " ");
-    if (unchecked.length > 0) {
-      errors.push(
-        `${filePath}: section '## ${section}' has ${unchecked.length} unchecked checklist item(s).`,
-      );
-    }
-  }
-
-  return errors;
-}
-
 function isArchiveFile(filePath: string): boolean {
   return filePath.startsWith("backlog/archive/");
 }
@@ -577,11 +529,11 @@ function validateWorkItem(
     }
   }
 
-  if (status === "ready-for-review" || status === "closed") {
+  if (status === "ready-for-review" || status === "completed" || status === "closed") {
     const checklistSeverity = archived
       ? config.archiveSeverity
       : config.checklistSeverity;
-    const checklistIssues: ValidationIssue[] = uncheckedChecklistMessages(filePath, parsed.content)
+    const checklistIssues: ValidationIssue[] = checklistErrors(filePath, parsed.content)
       .map((message) => {
         if (checklistSeverity === "none") {
           return null;

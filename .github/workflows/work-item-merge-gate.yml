@@ -1,0 +1,134 @@
+name: Work-item merge gate
+
+on:
+  pull_request_target:
+    branches:
+      - main
+      - staging
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - edited
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  work-item-merge-gate:
+    name: Work-item merge gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out trusted base revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Collect pull request Work item data
+        id: work-items
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const mergeSha = context.payload.pull_request.merge_commit_sha;
+            if (!mergeSha) throw new Error("Pull request merge commit is unavailable; failing closed.");
+            const { data: mergeCommit } = await github.rest.git.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: mergeSha,
+            });
+            if (mergeCommit.parents[0]?.sha !== context.payload.pull_request.base.sha) {
+              throw new Error("Pull request merge commit has a stale base; failing closed.");
+            }
+            if (mergeCommit.parents[1]?.sha !== context.payload.pull_request.head.sha) {
+              throw new Error("Pull request merge commit is stale; failing closed.");
+            }
+            const root = path.join(process.env.RUNNER_TEMP, "doc-vader-pr-data");
+            fs.rmSync(root, { recursive: true, force: true });
+            fs.mkdirSync(root, { recursive: true });
+            const tree = await github.rest.git.getTree({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tree_sha: mergeCommit.tree.sha,
+              recursive: "1",
+            });
+            if (tree.data.truncated) throw new Error("Pull request tree is truncated; failing closed.");
+            const files = tree.data.tree.filter(({ path: filePath, type }) =>
+              type === "blob" &&
+              filePath?.startsWith("backlog/") &&
+              filePath.endsWith(".md") &&
+              !["backlog/archive/", "backlog/records/", "backlog/audit/"].some((directory) =>
+                filePath.startsWith(directory),
+              ),
+            );
+            for (const file of files) {
+              if (!file.path || !file.sha) continue;
+              const destination = path.resolve(root, file.path);
+              if (path.relative(root, destination).startsWith("..")) {
+                throw new Error(`Unsafe pull request path '${file.path}'; failing closed.`);
+              }
+              const blob = await github.rest.git.getBlob({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                file_sha: file.sha,
+              });
+              fs.mkdirSync(path.dirname(destination), { recursive: true });
+              fs.writeFileSync(destination, Buffer.from(blob.data.content, "base64"));
+            }
+            core.setOutput("root", root);
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.9.0"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: trusted/pnpm-lock.yaml
+
+      - name: Install trusted validator dependencies
+        working-directory: trusted
+        run: pnpm install --frozen-lockfile
+
+      - name: Collect changed paths from GitHub
+        id: changed-files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            if (files.length !== context.payload.pull_request.changed_files) {
+              throw new Error(
+                "Unable to collect every changed path from the GitHub API; failing closed.",
+              );
+            }
+            const outputPath = path.join(process.env.RUNNER_TEMP, "doc-vader-pr-changed-paths.json");
+            const paths = files.flatMap(({ filename, previous_filename }) =>
+              previous_filename ? [filename, previous_filename] : [filename],
+            );
+            fs.writeFileSync(outputPath, JSON.stringify(paths));
+            core.setOutput("path", outputPath);
+
+      - name: Validate pull request Work item
+        working-directory: trusted
+        run: pnpm run backlog:validate:pr
+        env:
+          DOC_VADER_ROOT: ${{ steps.work-items.outputs.root }}
+          DOC_VADER_PULL_REQUEST_URL: ${{ github.event.pull_request.html_url }}
+          DOC_VADER_CHANGED_PATHS_FILE: ${{ steps.changed-files.outputs.path }}

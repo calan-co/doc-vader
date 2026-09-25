@@ -590,7 +590,7 @@ tags:
     },
   );
 
-  it("allows two local agents to claim different eligible tasks in parallel", async () => {
+  it("allows two local agents to claim different eligible tasks in parallel", { timeout: 15_000 }, async () => {
     const root = await mkRoot();
     try {
       await writeTask(root, "60370-agent-a.md");

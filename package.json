@@ -35,6 +35,7 @@
     "backlog:validate": "nx run doc-vader:backlog-validate",
     "backlog:validate:ci": "nx run doc-vader:backlog-validate-ci",
     "backlog:validate:ci:raw": "nx run doc-vader:backlog-validate-ci-raw",
+    "backlog:validate:pr": "node --import tsx scripts/validate-pull-request-work-items.ts",
     "hooks:commit-msg": "commitlint --edit",
     "hooks:pre-push": "pnpm run schemas:policy:check && pnpm run changeset:check && node --import tsx scripts/validate-work-items-pre-push.ts",
     "lint": "pnpm run schemas:policy:check && nx run doc-vader:lint"
