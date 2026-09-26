@@ -6,9 +6,10 @@ summary: Disable automatic CodeRabbit pull-request reviews so the repository req
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
-estimated: 1
+completed_date: '2026-09-26'
 commits:
   077f88992e251db0d0489b6e2b3f72bb1c49a8f8: 'chore(review): disable automatic CodeRabbit PR reviews'
 links:
@@ -39,10 +40,10 @@ available after automatic review is disabled.
 
 ## Tasks
 
-- [ ] Set `reviews.auto_review.enabled` to `false` in `.coderabbit.yaml`.
-- [ ] Preserve every other CodeRabbit setting, including
+- [x] Set `reviews.auto_review.enabled` to `false` in `.coderabbit.yaml`.
+- [x] Preserve every other CodeRabbit setting, including
   `request_changes_workflow`.
-- [ ] Use an explicit CodeRabbit review request only after the independent
+- [x] Use an explicit CodeRabbit review request only after the independent
   review-resolve loop is clean.
 
 ## Deliverables
@@ -52,12 +53,12 @@ available after automatic review is disabled.
 
 ## Acceptance Criteria
 
-- [ ] `.coderabbit.yaml` sets only `reviews.auto_review.enabled` from `true` to
+- [x] `.coderabbit.yaml` sets only `reviews.auto_review.enabled` from `true` to
   `false`.
-- [ ] Manual CodeRabbit review remains available.
-- [ ] No branch protection, CI workflow, or CodeRabbit
+- [x] Manual CodeRabbit review remains available.
+- [x] No branch protection, CI workflow, or CodeRabbit
   `request_changes_workflow` setting changes.
-- [ ] YAML parsing, documentation lint, backlog validation, CI-grade backlog
+- [x] YAML parsing, documentation lint, backlog validation, CI-grade backlog
   validation, and diff checks pass.
 
 ## Rollback

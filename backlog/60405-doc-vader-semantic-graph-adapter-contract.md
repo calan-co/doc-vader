@@ -8,7 +8,6 @@ lifecycle: active
 status: ready
 status_reason: auto
 priority: high
-estimated: 5
 commits:
   45c355eed796dd174f97fc52ef97225842da25f6: 'feat(work): merge sandcastle work graph updates'
 links:
@@ -20,9 +19,8 @@ links:
     - '[[../docs/architecture/decisions/adr-009-storage-and-format-seams.md]]'
     - '[[../docs/architecture/decisions/adr-010-composable-evaluation-primitives.md]]'
   evidence:
-    - '[[record-20260701-032943-60405]]'
-  pull_requests:
     - https://github.com/calan-co/doc-vader/pull/74
+    - '[[record-20260701-032943-60405]]'
 tags:
   - doc-vader
   - architecture

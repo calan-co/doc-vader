@@ -8,17 +8,15 @@ subtype: bug
 lifecycle: active
 status: ready
 priority: high
-estimated: 3
 commits:
   b291b986605aa1b00f60bde7ff7ed039ee3fa67b: 'docs(backlog): track Windows Node 22 CI flakiness'
 links:
-  pull_requests:
-    - https://github.com/calan-co/doc-vader/pull/81
-    - https://github.com/calan-co/doc-vader/pull/84
   reference:
     - https://github.com/calan-co/doc-vader/actions/runs/32993179106/job/98255894389
     - https://github.com/calan-co/doc-vader/actions/runs/32933842522/job/98231508726
   evidence:
+    - https://github.com/calan-co/doc-vader/pull/81
+    - https://github.com/calan-co/doc-vader/pull/84
     - '[[record-20260827-195058-60495]]'
 tags:
   - ci

@@ -99,13 +99,16 @@ function readCiChangesetExemptPrefixes(rootDir: string): string[] {
 export function evaluateChangesetRequirement(
   changedFiles: readonly string[],
   exemptPrefixes: readonly string[] = DEFAULT_EXEMPT_PREFIXES,
+  allowGeneratedVersioning = false,
 ): RequirementEvaluation {
   const normalizedChangedFiles = changedFiles.map(toPosix).filter(Boolean).sort();
   const releaseRelevantFiles = normalizedChangedFiles.filter(
     (filePath) => !isExemptPath(filePath, exemptPrefixes),
   );
   const changesetFiles = normalizedChangedFiles.filter(isChangesetPath);
-  const requiresChangeset = releaseRelevantFiles.length > 0;
+  const requiresChangeset =
+    releaseRelevantFiles.length > 0 &&
+    !(allowGeneratedVersioning && releaseRelevantFiles.every((filePath) => filePath === "package.json"));
   const errors: string[] = [];
 
   if (requiresChangeset && changesetFiles.length === 0) {
@@ -244,6 +247,10 @@ function resolveSinceRef(rootDir: string, baseBranch: string): string {
   );
 }
 
+function isGeneratedVersionBranch(rootDir: string, baseBranch: string): boolean {
+  return git(rootDir, ["branch", "--show-current"]) === `changeset-release/${baseBranch}`;
+}
+
 function changedFilesSince(rootDir: string, sinceRef: string): string[] {
   let base = sinceRef;
   try {
@@ -319,6 +326,7 @@ async function main(): Promise<number> {
   const requirement = evaluateChangesetRequirement(
     changedFiles,
     readCiChangesetExemptPrefixes(rootDir),
+    isGeneratedVersionBranch(rootDir, baseBranch),
   );
   const changesetFiles = listChangesetFiles(rootDir);
   const changesetValidations = validateChangesetFiles(changesetFiles, [packageName]);

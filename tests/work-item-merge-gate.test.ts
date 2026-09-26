@@ -8,6 +8,7 @@ lifecycle: active
 status: completed
 status_reason: completed
 completed_date: '2026-09-21'
+estimated: 3
 actual: 3
 links:
   pull_requests:
@@ -132,6 +133,23 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
+  it("allows a completed linked Work item without effort when no estimate exists", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem
+            .replace("estimated: 3\n", "")
+            .replace("actual: 3\n", ""),
+        },
+      ],
+    });
+
+    expect(result.errors).toEqual([]);
+  });
+
   it("rejects negative actual effort", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
@@ -145,7 +163,7 @@ describe("validatePullRequestWorkItems", () => {
     });
 
     expect(result.errors).toContain(
-      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items require numeric actual effort.",
+      "backlog/60498-initialize-doc-pack-workspaces.md: completed work items with an estimate require numeric actual effort.",
     );
   });
 

@@ -8,13 +8,11 @@ lifecycle: active
 status: paused
 status_reason: blocked
 priority: low
-estimated: 5
 commits:
   ebc011c73c333729b7ea4ae7ba95810c3f1272a0: 'chore(backlog): consolidate active work item backlog'
 links:
-  pull_requests:
-    - https://github.com/calan-co/doc-vader/pull/60
   evidence:
+    - https://github.com/calan-co/doc-vader/pull/60
     - '[[record-20260612-backlog-consolidation]]'
     - '[[record-20260612-hosted-app-pivot]]'
     - '[[record-20260612-framework-readiness-pivot]]'

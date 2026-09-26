@@ -15,8 +15,7 @@
     "lifecycle",
     "status",
     "summary",
-    "priority",
-    "estimated"
+    "priority"
   ],
   "patternProperties": {
     "^\\$[a-zA-Z0-9_]+$": {

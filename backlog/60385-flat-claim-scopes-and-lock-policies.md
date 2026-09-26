@@ -8,7 +8,6 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: high
-estimated: 5
 completed_date: '2026-06-25'
 commits:
   45c355eed796dd174f97fc52ef97225842da25f6: 'feat(work): merge sandcastle work graph updates'

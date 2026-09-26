@@ -126,11 +126,12 @@ function isCompletedWorkItem(frontmatter: Record<string, unknown>, filePath: str
     errors.push(`${filePath}: completed work items require a valid completed_date in YYYY-MM-DD form.`);
   }
   if (
-    typeof frontmatter.actual !== "number" ||
-    !Number.isFinite(frontmatter.actual) ||
-    frontmatter.actual < 0
+    typeof frontmatter.estimated === "number" &&
+    (typeof frontmatter.actual !== "number" ||
+      !Number.isFinite(frontmatter.actual) ||
+      frontmatter.actual < 0)
   ) {
-    errors.push(`${filePath}: completed work items require numeric actual effort.`);
+    errors.push(`${filePath}: completed work items with an estimate require numeric actual effort.`);
   }
 
   const links = frontmatter.links;
