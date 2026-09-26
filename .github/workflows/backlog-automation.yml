@@ -353,7 +353,8 @@ jobs:
                 reasons+=("status is '$status' ${hours_old}h after PR #$pr merged; expected 'completed'")
               fi
 
-              if ! grep -Eq '^[[:space:]]*actual:[[:space:]]*[0-9]+(\.[0-9]+)?[[:space:]]*$' <<<"$frontmatter"; then
+              if grep -Eq '^[[:space:]]*estimated:' <<<"$frontmatter" &&
+                ! grep -Eq '^[[:space:]]*actual:[[:space:]]*[0-9]+(\.[0-9]+)?[[:space:]]*$' <<<"$frontmatter"; then
                 reasons+=("missing numeric 'actual' effort")
               fi
 

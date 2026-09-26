@@ -59,6 +59,19 @@ describe("trusted Work-item merge gate workflow", () => {
 });
 
 // ponytail: text assertions cover the workflow contract without a GitHub Actions emulator.
+describe("Backlog Automation workflow", () => {
+  it("requires actual effort only for items that have an estimate", () => {
+    const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
+
+    expect(workflow).toContain(
+      `if grep -Eq '^[[:space:]]*estimated:' <<<"$frontmatter" &&`,
+    );
+    expect(workflow).toMatch(
+      /missing numeric 'actual' effort/,
+    );
+  });
+});
+
 describe("Release workflow", () => {
   it("keeps staging on the prerelease path instead of creating a version PR", () => {
     const workflow = readWorkflow(".github/workflows/release.yml");
