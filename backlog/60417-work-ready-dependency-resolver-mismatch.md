@@ -10,6 +10,8 @@ status_reason: completed
 priority: high
 estimated: 3
 completed_date: '2026-06-30'
+commits:
+  28c5bd3cf4d4d2b92f8689b828b2de682d834065: 'docs: restore wi-60417 release validation'
 links:
   blocks:
     - '[[60415-authoritative-dv4sandcastle-documentation]]'
@@ -20,6 +22,8 @@ links:
     - '[[task-record-preflight]]'
     - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
     - '[[record-validation-passed-for-wi-60417-ready-dependency-resolver-fix]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/100
 tags:
   - afk
   - bug
