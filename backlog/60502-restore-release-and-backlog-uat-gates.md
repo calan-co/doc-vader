@@ -15,6 +15,7 @@ links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/99
     - https://github.com/calan-co/doc-vader/pull/101
+    - https://github.com/calan-co/doc-vader/pull/102
   evidence:
     - '[[record-wi-60502-uat-gate-remediation]]'
   reference:
@@ -46,6 +47,7 @@ MVP UAT path without bypassing pre-push validation or fabricating actual effort.
 - [x] Reconcile stale historical work-item metadata without weakening automation.
 - [x] Validate release, backlog, documentation, and UAT-facing gates.
 - [x] Keep staging pushes on the prerelease path instead of creating version PRs.
+- [x] Apply the optional-estimate policy to Backlog Automation’s stale-item check.
 
 ## Acceptance Criteria
 
@@ -59,3 +61,4 @@ MVP UAT path without bypassing pre-push validation or fabricating actual effort.
 - [x] Pre-merge validation covers the release and CI gates; post-merge results
   are recorded as deployment evidence.
 - [x] Staging push conditions select the prerelease path and exclude version-PR creation.
+- [x] Backlog Automation requires actual effort only when an estimate is present.
