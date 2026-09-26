@@ -82,12 +82,22 @@
       },
       "then": {
         "type": "object",
-        "required": ["actual", "links"],
+        "required": ["links"],
         "properties": {
           "links": {
             "$ref": "/work-management/support/common#/$defs/workItemLinks"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "required": ["estimated"]
+            },
+            "then": {
+              "required": ["actual"]
+            }
+          }
+        ]
       }
     }
   ]

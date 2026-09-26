@@ -42,6 +42,28 @@ describe("evaluateChangesetRequirement", () => {
     expect(result.errors).toHaveLength(1);
   });
 
+  it("allows only package.json for a generated version branch", () => {
+    const result = evaluateChangesetRequirement(["package.json"], [], true);
+
+    expect(result.requiresChangeset).toBe(false);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("keeps generated version branches strict for non-version files", () => {
+    const result = evaluateChangesetRequirement(
+      ["package.json", "lib/work/merge-gate.ts"],
+      [],
+      true,
+    );
+
+    expect(result.requiresChangeset).toBe(true);
+    expect(result.releaseRelevantFiles).toEqual([
+      "lib/work/merge-gate.ts",
+      "package.json",
+    ]);
+    expect(result.errors).toHaveLength(1);
+  });
+
   it("accepts a release-relevant change when a changeset is present", () => {
     const result = evaluateChangesetRequirement([
       ".changeset/local-check.md",
