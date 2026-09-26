@@ -57,3 +57,14 @@ describe("trusted Work-item merge gate workflow", () => {
     expect(workflow).not.toContain("name: Work-item merge gate\n");
   });
 });
+
+// ponytail: text assertions cover the workflow contract without a GitHub Actions emulator.
+describe("Release workflow", () => {
+  it("keeps staging on the prerelease path instead of creating a version PR", () => {
+    const workflow = readWorkflow(".github/workflows/release.yml");
+
+    expect(workflow).toContain("github.ref_name == 'main'");
+    expect(workflow).toContain("github.ref_name == 'staging'");
+    expect(workflow).not.toContain("github.ref_name == github.event.repository.default_branch");
+  });
+});
