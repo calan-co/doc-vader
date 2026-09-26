@@ -150,6 +150,25 @@ describe("validatePullRequestWorkItems", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("rejects a malformed estimate instead of bypassing actual effort", () => {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems: [
+        {
+          filePath: "backlog/60498-initialize-doc-pack-workspaces.md",
+          content: completedWorkItem
+            .replace("estimated: 3", "estimated: unknown")
+            .replace("actual: 3\n", ""),
+        },
+      ],
+    });
+
+    expect(result.errors).toContain(
+      "backlog/60498-initialize-doc-pack-workspaces.md: estimated effort must be numeric.",
+    );
+  });
+
   it("rejects negative actual effort", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",

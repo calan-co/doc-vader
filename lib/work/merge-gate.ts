@@ -125,8 +125,16 @@ function isCompletedWorkItem(frontmatter: Record<string, unknown>, filePath: str
   if (!isValidDate(frontmatter.completed_date)) {
     errors.push(`${filePath}: completed work items require a valid completed_date in YYYY-MM-DD form.`);
   }
+  const hasEstimate = Object.hasOwn(frontmatter, "estimated");
   if (
-    typeof frontmatter.estimated === "number" &&
+    hasEstimate &&
+    (typeof frontmatter.estimated !== "number" ||
+      !Number.isFinite(frontmatter.estimated) ||
+      frontmatter.estimated < 0)
+  ) {
+    errors.push(`${filePath}: estimated effort must be numeric.`);
+  } else if (
+    hasEstimate &&
     (typeof frontmatter.actual !== "number" ||
       !Number.isFinite(frontmatter.actual) ||
       frontmatter.actual < 0)

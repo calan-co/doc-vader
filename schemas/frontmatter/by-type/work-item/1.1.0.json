@@ -547,7 +547,7 @@
     }
   },
   "unevaluatedProperties": false,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "x-statusTransitions": {
     "$ref": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/frontmatter/support/base/1.0.0#/$defs/statusTransitions"
   }
