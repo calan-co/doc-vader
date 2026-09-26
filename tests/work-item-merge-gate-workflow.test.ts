@@ -63,12 +63,9 @@ describe("Backlog Automation workflow", () => {
   it("requires actual effort only for items that have an estimate", () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
 
-    expect(workflow).toContain(
-      `if grep -Eq '^[[:space:]]*estimated:' <<<"$frontmatter" &&`,
-    );
-    expect(workflow).toMatch(
-      /missing numeric 'actual' effort/,
-    );
+    expect(workflow).toContain(`if grep -Eq '^[[:space:]]*estimated:' <<<"$frontmatter" &&
+                ! grep -Eq '^[[:space:]]*actual:[[:space:]]*[0-9]+(\\.[0-9]+)?[[:space:]]*$' <<<"$frontmatter"; then
+                reasons+=("missing numeric 'actual' effort")`);
   });
 });
 
