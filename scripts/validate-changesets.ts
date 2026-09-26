@@ -35,6 +35,8 @@ const DEFAULT_EXEMPT_PREFIXES = [
   ".github/",
   ".doc-vader/",
   "AGENTS.md",
+  "tests/",
+  "scripts/tests/",
 ];
 
 const RELEASE_TYPES = new Set(["major", "minor", "patch"]);

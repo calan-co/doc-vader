@@ -76,3 +76,26 @@ This ADR has no active implementation dependency. It should block future hosted-
 
 - Supersedes the active decision-tracking role previously carried by [[60336-github-app-deployment-and-protected-ci-wiring]].
 - Preserves the hosted authority questions recorded from [[archive/60337-context-coordination-policy-and-ci-seams]].
+
+## Decision Review (2026-09-25)
+
+The maintainer selected "defer hosted build" for the next 6-12 months. The
+local Git plus SQLite runtime and existing CI remain authoritative for MVP
+operation. A future GitHub App may add merge gates only when organization or
+repository configuration explicitly enables them.
+
+The confirmed rubric weighted MVP non-regression at 30%, security and trust
+boundaries at 35%, operational cost at 15%, and future extensibility at 20%.
+On that rubric, deferring hosted build scored 92/100, ahead of a private App
+pilot at 71/100 and immediate hosted SaaS at 43/100.
+
+Unresolved questions:
+
+- What configuration schema and administrator approval enable an App gate at
+  organization or repository scope?
+- Which permissions, events, evidence boundaries, and failure modes are needed
+  before a pilot?
+- What measured trigger justifies revisiting hosted delivery?
+
+Next action: write this ADR with the local-first decision and the configuration
+and authority constraints. Do not create hosted implementation slices yet.

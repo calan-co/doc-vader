@@ -65,3 +65,26 @@ An artifact is not necessarily a file. Future Doc-Vader claim and guard logic sh
 - Do not add section-level claim behavior to [[60339-agent-command-surface-for-skills-and-sandcastle]] before this ADR is complete.
 - Treat Markdown sections as an initial adapter target, not as the global artifact model.
 - Preserve the Sandcastle invariant that claimable work is AFK only.
+
+## Decision Review (2026-09-25)
+
+The maintainer selected an artifact-graph ADR now and deferred nested-claim
+implementation. The current MVP stays file, document, or Work-item atomic.
+
+The confirmed rubric weighted MVP non-regression at 30%, security and trust
+boundaries at 35%, operational cost at 15%, and future extensibility at 20%.
+The ADR-only option scored 91/100, ahead of deferring the ADR at 84/100 and
+immediate nested-claim implementation at 43/100.
+
+Unresolved questions:
+
+- What stable artifact-reference syntax works across Markdown, JSON, generated,
+  and hosted artifacts?
+- Which parent-child changes may run concurrently without violating file-level
+  collision checks?
+- Which classifier owns AFK/HITL normalization when an adapter is unavailable
+  or returns incomplete metadata?
+
+Next action: author the ADR. It must preserve current atomic claims and define
+an explicit trigger before any artifact-graph or nested-claim implementation
+slice begins.

@@ -21,6 +21,16 @@ describe("evaluateChangesetRequirement", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("does not require a changeset for test-only changes", () => {
+    const result = evaluateChangesetRequirement([
+      "tests/work-projection.test.ts",
+      "scripts/tests/validate-changesets.test.ts",
+    ]);
+
+    expect(result.requiresChangeset).toBe(false);
+    expect(result.errors).toEqual([]);
+  });
+
   it("requires a changeset for release-relevant files", () => {
     const result = evaluateChangesetRequirement([
       "lib/task/claims.ts",
@@ -28,10 +38,7 @@ describe("evaluateChangesetRequirement", () => {
     ]);
 
     expect(result.requiresChangeset).toBe(true);
-    expect(result.releaseRelevantFiles).toEqual([
-      "lib/task/claims.ts",
-      "tests/task-command.test.ts",
-    ]);
+    expect(result.releaseRelevantFiles).toEqual(["lib/task/claims.ts"]);
     expect(result.errors).toHaveLength(1);
   });
 
