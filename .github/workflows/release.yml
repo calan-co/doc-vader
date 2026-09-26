@@ -21,7 +21,7 @@ env:
 
 jobs:
   version:
-    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+    if: github.event_name == 'push' && github.ref_name == 'main'
     uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-version.yml@v1
     permissions:
       contents: write
