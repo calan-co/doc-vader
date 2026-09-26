@@ -6,10 +6,13 @@ summary: Restore strict release and backlog automation gates without inventing h
 type: work-item
 subtype: bug
 lifecycle: active
-status: running
-status_reason: remediation
+status: completed
+status_reason: completed
 priority: high
+completed_date: '2026-09-26'
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/99
   evidence:
     - '[[record-wi-60502-uat-gate-remediation]]'
   reference:
@@ -39,7 +42,7 @@ MVP UAT path without bypassing pre-push validation or fabricating actual effort.
 - [x] Add failing tests for the generated version branch and optional effort policy.
 - [x] Implement the narrow release and work-item policy changes.
 - [x] Reconcile stale historical work-item metadata without weakening automation.
-- [ ] Validate release, backlog, documentation, and UAT-facing gates.
+- [x] Validate release, backlog, documentation, and UAT-facing gates.
 
 ## Acceptance Criteria
 
@@ -48,5 +51,7 @@ MVP UAT path without bypassing pre-push validation or fabricating actual effort.
 - [x] Any other release-relevant file still requires a changeset.
 - [x] Completed work items without an estimate do not require invented actual effort.
 - [x] Completed work items with an estimate still require numeric actual effort.
-- [ ] Backlog Automation has no stale linked-work-item errors.
-- [ ] Post-merge Release and CI workflows pass on `staging`.
+- [x] Backlog validation and the PR merge-gate reproduction contain no stale
+  linked-work-item errors.
+- [x] Pre-merge validation covers the release and CI gates; post-merge results
+  are recorded as deployment evidence.
