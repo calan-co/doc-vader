@@ -129,10 +129,10 @@ Implementation is decomposed into AFK slices:
 - [x] Beads is evaluated as the reference adapter for issue listing, viewing, dependency-aware ready selection, claiming, graph links, JSON output, setup guidance, and closing/finalization.
 - [x] Doc-Vader command/API contract is documented before implementation, including command names, inputs, outputs, status/error shapes, and lifecycle guarantees.
 - [x] Claim/lease semantics keep durable `owner` and `assignee` accountability separate from runtime lease state.
-- [x] Runtime persistence is adapter-backed, with SQLite as the local MVP storage adapter and a hosted-authority-ready record shape.
-- [x] Active lease revocation requires escalation in local and hosted modes, and actor/timestamp are not accepted as caller-supplied fields.
+- [x] Runtime persistence is adapter-backed, with SQLite as the local MVP storage adapter and a hosted-authority-ready record shape; the hosted service is deferred.
+- [x] Local active-lease revocation requires escalation, and actor/timestamp are not accepted as caller-supplied fields; any future hosted mode must preserve that rule.
 - [x] Local lease revocation uses host-native authorization such as `sudo`, `runas`, or an equivalent platform elevation mechanism instead of a self-asserted override flag.
-- [x] Local and hosted lease revocation emit actor/timestamp as audit metadata derived from OS/elevation metadata or service-side identity claims such as OIDC, SAML, or session metadata.
+- [x] Local lease revocation emits actor/timestamp as audit metadata from OS/elevation metadata; a future hosted implementation must derive them from service-side identity claims such as OIDC, SAML, or session metadata.
 - [x] The MVP local revocation path is deterministic and auditable without requiring the hosted service to exist.
 - [x] A command can create a PRD JSON payload from explicit structured inputs and report missing required fields without inventing values.
 - [x] A command can create/render/validate another configured document suite, such as ADR management, without source-code changes.
