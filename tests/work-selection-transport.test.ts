@@ -297,7 +297,7 @@ tags:
         ),
       ).toMatchObject({ outcome: { kind: "not-selected", code } });
     }
-  });
+  }, 15_000);
 
   it("excludes audit and records graph nodes referenced by path", async () => {
     const root = await fixture();

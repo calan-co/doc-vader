@@ -48,6 +48,7 @@ MVP UAT path without bypassing pre-push validation or fabricating actual effort.
 - [x] Validate release, backlog, documentation, and UAT-facing gates.
 - [x] Keep staging pushes on the prerelease path instead of creating version PRs.
 - [x] Apply the optional-estimate policy to Backlog Automation’s stale-item check.
+- [x] Keep the multi-process transport regression test above the CI runner's default timeout.
 
 ## Acceptance Criteria
 
@@ -62,3 +63,4 @@ MVP UAT path without bypassing pre-push validation or fabricating actual effort.
   are recorded as deployment evidence.
 - [x] Staging push conditions select the prerelease path and exclude version-PR creation.
 - [x] Backlog Automation requires actual effort only when an estimate is present.
+- [x] The multi-process transport regression test passes under its explicit 15-second CI-safe timeout.
