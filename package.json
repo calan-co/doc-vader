@@ -1,6 +1,6 @@
 {
   "name": "@calan-co/doc-vader",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Documentation automation, validation, and governance CLI for Markdown-based projects.",
   "main": "dist/lib/index.js",
   "files": [
