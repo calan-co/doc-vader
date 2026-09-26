@@ -22,7 +22,9 @@ pass
 
 The remediation adds a narrow generated-version exception, preserves strict
 changeset checks for other release files, and removes unsupported historical
-effort requirements from completed work items without estimates.
+effort requirements from completed work items without estimates. `wi-60502`
+records one unit of actual effort from the recorded remediation interval so it
+also satisfies the previously deployed merge gate during this transition.
 
 ## Subject References
 

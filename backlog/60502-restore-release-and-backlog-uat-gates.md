@@ -9,6 +9,7 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: high
+actual: 1
 completed_date: '2026-09-26'
 links:
   pull_requests:
