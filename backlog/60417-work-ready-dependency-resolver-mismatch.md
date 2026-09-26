@@ -65,6 +65,10 @@ Update the ready filter's dependency evaluation to use the same resolver as the 
 - Path-form references: `[[../backlog/60414-sandcastle-init-templateargs-wiring.md]]`
 - Graph node resolution consistency across all `dv` commands
 
+## Tasks
+
+- [x] Align ready-filter dependency evaluation with the graph resolver and verify the documented ready-state behavior.
+
 ## Acceptance criteria
 
 - [x] Graph resolver and ready filter use the same dependency resolution strategy
