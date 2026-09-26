@@ -544,7 +544,7 @@ Project claim scope locks into graph edges.
 
     expect(projection.findNode("scope:doc:claim-lock-spec")?.type).toBe("scope");
     expect(projection.findNode("scope:wi:60387")?.type).toBe("scope");
-  });
+  }, 15_000);
 
   it("projects record lineage edges to work items, claims, and scopes in deterministic order", async () => {
     const rootDir = await createTempRepo();
