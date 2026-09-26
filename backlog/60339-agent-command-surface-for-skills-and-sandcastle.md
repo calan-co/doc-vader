@@ -15,6 +15,7 @@ links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/61
     - https://github.com/calan-co/doc-vader/pull/62
+    - https://github.com/calan-co/doc-vader/pull/98
   reference:
     - '[[60333-canonical-schema-profile-routing-and-fixtures]]'
     - '[[60338-hosted-saas-github-app-architecture-adr]]'
