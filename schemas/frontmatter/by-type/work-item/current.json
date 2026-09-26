@@ -14,7 +14,8 @@
     {
       "type": "object",
       "required": [
-        "priority"
+        "priority",
+        "estimated"
       ],
       "properties": {
         "type": {
