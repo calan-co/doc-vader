@@ -63,8 +63,12 @@ describe("Release workflow", () => {
   it("keeps staging on the prerelease path instead of creating a version PR", () => {
     const workflow = readWorkflow(".github/workflows/release.yml");
 
-    expect(workflow).toContain("github.ref_name == 'main'");
-    expect(workflow).toContain("github.ref_name == 'staging'");
+    expect(workflow).toMatch(
+      /version:\n\s+if: github\.event_name == 'push' && github\.ref_name == 'main'/,
+    );
+    expect(workflow).toMatch(
+      /publish-staging-prerelease:\n\s+if: github\.event_name == 'push' && github\.ref_name == 'staging'/,
+    );
     expect(workflow).not.toContain("github.ref_name == github.event.repository.default_branch");
   });
 });
