@@ -16,6 +16,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/99
     - https://github.com/calan-co/doc-vader/pull/101
     - https://github.com/calan-co/doc-vader/pull/102
+    - https://github.com/calan-co/doc-vader/pull/104
   evidence:
     - '[[record-wi-60502-uat-gate-remediation]]'
   reference:
