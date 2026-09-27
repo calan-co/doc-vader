@@ -458,7 +458,7 @@ tags:
 
   it(
     "verifies locks, releases through runtime authority, and recovers halted work",
-    { timeout: 30_000 },
+    { timeout: process.platform === "win32" ? 60_000 : 30_000 },
     async () => {
       const rootDir = await createTempRepo();
       await createCommittedTaskRepo(
