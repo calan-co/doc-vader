@@ -8,7 +8,6 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: high
-estimated: 3
 completed_date: '2026-06-30'
 commits:
   28c5bd3cf4d4d2b92f8689b828b2de682d834065: 'docs: restore wi-60417 release validation'

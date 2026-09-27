@@ -84,6 +84,26 @@ links:
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/106");
   });
 
+  it("does not require fabricated actual effort for wi-60417", () => {
+    const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
+    const actualCheck = workflowSnippet(
+      workflow,
+      "              if ! ruby -rdate -ryaml -e '",
+      "\n\n              if ! ruby -rdate -ryaml -e '",
+    );
+    const frontmatter = readFileSync(
+      path.join(repoRoot, "backlog/60417-work-ready-dependency-resolver-mismatch.md"),
+      "utf8",
+    ).split("---")[1];
+    const result = execFileSync(
+      "bash",
+      ["-c", `file="$(mktemp)"\ntrap 'rm -f "$file"' EXIT\nprintf '%s' "$frontmatter" > "$file"\nreasons=()\n${actualCheck}\nprintf '%s' "\${reasons[*]}"`],
+      { encoding: "utf8", env: { ...process.env, frontmatter } },
+    );
+
+    expect(result).toBe("");
+  });
+
   it("accepts block and flow-style links.evidence entries with unquoted dates", { timeout: integrationTestTimeoutMs() }, () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
     const evidenceCheck = workflowSnippet(workflow, "              if ! ruby -rdate -ryaml -e '", '\n\n              if [[ "$status" == "completed" ]]');
