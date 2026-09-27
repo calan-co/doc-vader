@@ -23,6 +23,7 @@ links:
     - '[[record-validation-passed-for-wi-60417-ready-dependency-resolver-fix]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/100
+    - https://github.com/calan-co/doc-vader/pull/103
 tags:
   - afk
   - bug
