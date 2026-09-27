@@ -16,6 +16,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/99
     - https://github.com/calan-co/doc-vader/pull/101
     - https://github.com/calan-co/doc-vader/pull/102
+    - https://github.com/calan-co/doc-vader/pull/104
   evidence:
     - '[[record-wi-60502-uat-gate-remediation]]'
   reference:
@@ -63,4 +64,4 @@ MVP UAT path without bypassing pre-push validation or fabricating actual effort.
   are recorded as deployment evidence.
 - [x] Staging push conditions select the prerelease path and exclude version-PR creation.
 - [x] Backlog Automation requires a finite, nonnegative actual effort only when an estimate is present.
-- [x] Slow integration regression tests pass under their explicit 15-second Windows-safe timeouts.
+- [x] Slow integration regression tests pass under explicit Windows-safe timeouts.

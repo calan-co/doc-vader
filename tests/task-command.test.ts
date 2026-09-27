@@ -284,7 +284,7 @@ function runCliJson<T>(root: string, args: string[]): T {
   return JSON.parse(runCli(root, args)) as T;
 }
 
-describe.sequential("task command surface", () => {
+describe.sequential("task command surface", { timeout: integrationTestTimeoutMs() }, () => {
   it("loads deterministic canonical task JSON", async () => {
     const root = await mkTmpRoot();
     try {
