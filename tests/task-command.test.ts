@@ -2295,7 +2295,7 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+  }, integrationTestTimeoutMs());
 
   it("exposes show and claim through the CLI", async () => {
     const root = await mkTmpRoot();

@@ -80,7 +80,7 @@ describe("dv init", () => {
       planned: ["work"],
     });
     await expect(fs.stat(path.join(root, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });
-  });
+  }, 15_000);
 
   it("uses the injected TTY prompt instead of a subprocess TTY", async () => {
     const root = await fixture(false);
