@@ -353,8 +353,15 @@ jobs:
                 reasons+=("status is '$status' ${hours_old}h after PR #$pr merged; expected 'completed'")
               fi
 
-              if grep -Eq '^[[:space:]]*estimated:' <<<"$frontmatter" &&
-                ! grep -Eq '^[[:space:]]*actual:[[:space:]]*[0-9]+(\.[0-9]+)?[[:space:]]*$' <<<"$frontmatter"; then
+              if ! ruby -rdate -ryaml -e '
+                frontmatter = YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [Date], aliases: false) || {}
+                actual = frontmatter["actual"]
+                actual = Float(actual) if actual.is_a?(String) &&
+                  actual.match?(/\A[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\z/)
+                valid = !frontmatter.key?("estimated") ||
+                  (actual.is_a?(Numeric) && actual.finite? && actual >= 0)
+                exit(valid ? 0 : 1)
+              ' "$file"; then
                 reasons+=("missing numeric 'actual' effort")
               fi
 

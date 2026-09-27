@@ -60,12 +60,16 @@ describe("trusted Work-item merge gate workflow", () => {
 
 // ponytail: text assertions cover the workflow contract without a GitHub Actions emulator.
 describe("Backlog Automation workflow", () => {
-  it("requires actual effort only for items that have an estimate", () => {
+  it("requires a finite, nonnegative actual effort only when estimated is present", () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
 
-    expect(workflow).toContain(`if grep -Eq '^[[:space:]]*estimated:' <<<"$frontmatter" &&
-                ! grep -Eq '^[[:space:]]*actual:[[:space:]]*[0-9]+(\\.[0-9]+)?[[:space:]]*$' <<<"$frontmatter"; then
-                reasons+=("missing numeric 'actual' effort")`);
+    expect(workflow).toContain(`frontmatter = YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [Date], aliases: false) || {}
+                actual = frontmatter["actual"]
+                actual = Float(actual) if actual.is_a?(String) &&
+                  actual.match?(/\\A[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\z/)
+                valid = !frontmatter.key?("estimated") ||
+                  (actual.is_a?(Numeric) && actual.finite? && actual >= 0)
+                exit(valid ? 0 : 1)`);
   });
 });
 
