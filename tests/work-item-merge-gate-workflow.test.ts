@@ -63,9 +63,14 @@ describe("Backlog Automation workflow", () => {
   it("requires a finite, nonnegative actual effort only when estimated is present", () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
 
-    expect(workflow).toContain(`frontmatter = YAML.safe_load(File.read(ARGV.fetch(0)), permitted_classes: [Date], aliases: false) || {}
+    expect(workflow).toContain(`contents = File.read(ARGV.fetch(0))
+                frontmatter = YAML.safe_load(contents, permitted_classes: [Date], aliases: false) || {}
+                mapping = YAML.parse(contents).root
+                actual_node = mapping.children.each_slice(2).reverse_each.find { |key, _| key.value == "actual" }&.last if mapping.is_a?(Psych::Nodes::Mapping)
                 actual = frontmatter["actual"]
                 actual = Float(actual) if actual.is_a?(String) &&
+                  actual_node&.style == Psych::Nodes::Scalar::PLAIN &&
+                  actual_node.tag.nil? &&
                   actual.match?(/\\A[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?\\z/)
                 valid = !frontmatter.key?("estimated") ||
                   (actual.is_a?(Numeric) && actual.finite? && actual >= 0)
