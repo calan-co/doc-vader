@@ -9,11 +9,15 @@ lifecycle: active
 status: aborted
 status_reason: cancelled
 priority: medium
+commits:
+  485d20f68296a001076812b56aa932657fb39059: 'chore(mvp): retire dv4sandcastle adapter'
 links:
   depends_on:
     - '[[60422-greenfield-sandcastle-init-to-implementation-harness]]'
   evidence:
     - '[[record-20260702-034230-60423]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/105
 tags:
   - afk
   - sandcastle

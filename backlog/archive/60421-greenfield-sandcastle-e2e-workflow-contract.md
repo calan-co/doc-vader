@@ -9,6 +9,8 @@ lifecycle: active
 status: aborted
 status_reason: cancelled
 priority: high
+commits:
+  485d20f68296a001076812b56aa932657fb39059: 'chore(mvp): retire dv4sandcastle adapter'
 links:
   depends_on:
     - '[[60414-sandcastle-init-templateargs-wiring]]'
@@ -16,6 +18,8 @@ links:
     - '[[60416-end-to-end-sandcastle-smoke-and-recovery]]'
   evidence:
     - '[[record-20260702-034230-60421]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/105
 tags:
   - afk
   - sandcastle

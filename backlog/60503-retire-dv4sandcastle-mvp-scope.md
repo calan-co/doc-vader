@@ -10,6 +10,8 @@ status: completed
 status_reason: completed
 priority: high
 completed_date: '2026-09-28'
+commits:
+  485d20f68296a001076812b56aa932657fb39059: 'chore(mvp): retire dv4sandcastle adapter'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/105
