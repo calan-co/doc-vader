@@ -186,6 +186,16 @@ describe("canonical task model", () => {
     `);
   });
 
+  it("uses packaged templates when a consumer has none", async () => {
+    const root = await mkRoot();
+    await writeWorkItem(root, "backlog/100-canonical-task-model.md", exampleWorkItem());
+    const task = await loadCanonicalTask({ rootDir: root, taskId: "wi-100" });
+
+    await expect(renderSandcastlePrompt({ rootDir: root, task })).resolves.toContain(
+      "# Work Item: wi-100",
+    );
+  });
+
   it("renders human and Sandcastle prompts from the same task JSON", async () => {
     const root = await mkRoot();
     await writeWorkItem(root, "backlog/100-canonical-task-model.md", exampleWorkItem());
