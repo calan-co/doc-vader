@@ -10,6 +10,8 @@ status: completed
 status_reason: completed
 priority: high
 completed_date: '2026-09-28'
+commits:
+  292844743eed76124c672e2f57e89e8780ae8aa9: 'fix(task): resolve packaged prompt templates'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/106
