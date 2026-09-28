@@ -8,10 +8,37 @@
   "type": "object",
   "allOf": [
     {
-      "$ref": "/work-management/workflows/default/generated/status-reason-compatibility"
+      "if": {
+        "properties": {
+          "id": {
+            "pattern": "^wi-"
+          }
+        }
+      },
+      "then": true,
+      "else": {
+        "$ref": "/work-management/workflows/default/generated/status-reason-compatibility"
+      }
     },
     {
-      "oneOf": [
+      "anyOf": [
+        {
+          "required": ["id", "lifecycle", "status"],
+          "properties": {
+            "id": { "pattern": "^wi-" },
+            "lifecycle": { "enum": ["draft", "active", "inactive"] },
+            "status": { "enum": ["draft", "ready", "paused", "completed", "closed", "aborted"] }
+          },
+          "allOf": [
+            { "if": { "properties": { "lifecycle": { "const": "draft" } } }, "then": { "properties": { "status": { "enum": ["draft", "closed"] } } } },
+            { "if": { "properties": { "lifecycle": { "const": "active" } } }, "then": { "properties": { "status": { "enum": ["ready", "paused", "completed", "closed", "aborted"] } } } },
+            { "if": { "properties": { "lifecycle": { "const": "inactive" } } }, "then": { "properties": { "status": { "const": "closed" } } } },
+            { "if": { "properties": { "status": { "const": "aborted" } } }, "then": { "required": ["status_reason"], "properties": { "status_reason": { "const": "cancelled" } } } },
+            { "if": { "properties": { "status": { "const": "closed" } } }, "then": { "required": ["status_reason"], "properties": { "status_reason": { "enum": ["completed", "obsolete", "superseded", "redundant", "cancelled"] } } } },
+            { "if": { "properties": { "status": { "const": "completed" } } }, "then": { "required": ["status_reason"], "properties": { "status_reason": { "const": "completed" } } } },
+            { "if": { "properties": { "status": { "const": "paused" } } }, "then": { "required": ["status_reason"], "properties": { "status_reason": { "const": "blocked" } } } }
+          ]
+        },
         {
           "type": "object",
           "properties": {

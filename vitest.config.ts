@@ -10,8 +10,6 @@ export default {
       "**/node_modules/**",
       "**/.pnpm-store/**",
       "**/.nx/**",
-      "**/.sandcastle/**",
-      "**/.sandcastle_bk/**",
       "**/dist/**",
     ],
   },

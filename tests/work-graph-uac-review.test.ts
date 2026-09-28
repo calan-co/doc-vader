@@ -210,7 +210,7 @@ describe("work graph UAC review fixture", () => {
     expect(canonicalOutputs.list).toContain('"id": "wi-70001"');
     expect(canonicalOutputs.show).toContain('"id": "wi-70001"');
     expect(canonicalOutputs.ready).toContain('"schemaVersion": "task-ready/v1"');
-    expect(canonicalOutputs.prompt).toContain("# Sandcastle Work Item: wi-70001");
+    expect(canonicalOutputs.prompt).toContain("# Work Item: wi-70001");
     expect(canonicalOutputs.status).toContain('"id": "wi-70001"');
 
     for (const alias of compatibilityAliases) {

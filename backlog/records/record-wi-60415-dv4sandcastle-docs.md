@@ -10,12 +10,7 @@ status: ready
 status_reason: recorded
 links:
   supporting_reference:
-    - '[[../../docs/how-to/sandcastle-dogfood-task-flow.md]]'
-    - '[[../../.sandcastle/SETUP_ISSUE_TRACKER.md]]'
-    - '[[../../.sandcastle/VALIDATION.md]]'
-    - '[[../../scripts/sandcastle/dv4sandcastle.ts]]'
     - '[[project-brief]]'
-    - '[[../../tests/task-command.test.ts]]'
 ---
 
 ## Recorded At
@@ -42,12 +37,12 @@ Updated the Sandcastle workflow guide, linked the generated issue-tracker wiring
 
 ## Supporting References
 
-- [[../../docs/how-to/sandcastle-dogfood-task-flow.md]]
-- [[../../.sandcastle/SETUP_ISSUE_TRACKER.md]]
-- [[../../.sandcastle/VALIDATION.md]]
-- [[../../scripts/sandcastle/dv4sandcastle.ts]]
+- Retired Sandcastle workflow guide: `docs/how-to/sandcastle-dogfood-task-flow.md`
+- Retired generated issue-tracker wiring: `.sandcastle/SETUP_ISSUE_TRACKER.md`
+- Retired generated validation matrix: `.sandcastle/VALIDATION.md`
+- Retired adapter: `scripts/sandcastle/dv4sandcastle.ts`
 - [[project-brief]]
-- [[../../tests/task-command.test.ts]]
+- Retired contract test: `tests/task-command.test.ts`
 
 ## Notes
 

@@ -49,9 +49,9 @@ const ROOT_DIR = process.cwd();
 const SCRIPT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const DEFAULT_CONFIG: ValidationConfig = {
-  baselineSchema: "schemas/frontmatter/work-item/1.0.0.json",
-  changedSchema: "schemas/frontmatter/by-type/work-item/latest.json",
-  archiveSchema: "schemas/frontmatter/work-item/1.0.0.json",
+  baselineSchema: "schemas/work-management/frontmatter/work-item.json",
+  changedSchema: "schemas/work-management/frontmatter/work-item.json",
+  archiveSchema: "schemas/work-management/frontmatter/work-item.json",
   baselineSeverity: "error",
   changedSeverity: "error",
   archiveSeverity: "warn",
@@ -233,17 +233,11 @@ async function preloadSupportSchemas(
 }
 
 async function buildValidators(config: ValidationConfig) {
-  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  const ajv = new Ajv2020({ allErrors: true, strict: false, validateSchema: false });
   addFormats(ajv);
 
-  // Support /frontmatter/document/1.0.0 refs used by local work-item schemas.
-  const documentSchemaPath = path.resolve(SCRIPT_ROOT, "schemas/frontmatter/document/1.0.0.json");
-  if (existsSync(documentSchemaPath)) {
-    const documentSchema = JSON.parse(readFileSync(documentSchemaPath, "utf8")) as Record<string, unknown>;
-    ajv.addSchema(documentSchema, "/frontmatter/document/1.0.0");
-  }
-
   await preloadSupportSchemas(ajv, path.resolve(SCRIPT_ROOT, "schemas/frontmatter/support"));
+  await preloadSupportSchemas(ajv, path.resolve(SCRIPT_ROOT, "schemas/work-management"));
 
   const compiled = new Map<string, ReturnType<Ajv2020["compile"]>>();
   const uniqueSpecs = new Set([
@@ -254,6 +248,9 @@ async function buildValidators(config: ValidationConfig) {
 
   for (const spec of uniqueSpecs) {
     const schema = await loadSchemaObject(spec);
+    if (typeof schema.$id === "string") {
+      ajv.removeSchema(schema.$id);
+    }
     compiled.set(spec, ajv.compile(schema));
   }
 

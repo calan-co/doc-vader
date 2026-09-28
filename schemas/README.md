@@ -99,7 +99,7 @@ frontmatter:
 {
   "byType": {
     "document":  "schemas/frontmatter/by-type/document/latest.json",
-    "work-item": "schemas/frontmatter/by-type/work-item/latest.json"
+    "work-item": "schemas/work-management/frontmatter/work-item.json"
   }
 }
 ```

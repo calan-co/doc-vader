@@ -188,7 +188,7 @@ describe("auditBacklog", () => {
     await writeFile(
       schemaMapB,
       JSON.stringify(
-        { byType: { "work-item": "schemas/frontmatter/work-item/1.0.0.json" } },
+        { byType: { "work-item": "schemas/work-management/frontmatter/work-item.json" } },
         null,
         2,
       ),

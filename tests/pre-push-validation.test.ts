@@ -1,23 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, chmodSync } from "node:fs";
-import { promises as fs } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import Ajv2020 from "ajv/dist/2020.js";
-import addFormats from "ajv-formats";
 
 const repoRoot = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 const tsxImport = pathToFileURL(require.resolve("tsx")).href;
 const scriptPath = path.join(repoRoot, "scripts/validate-work-items-pre-push.ts");
-const latestSchemaPath = path.join(
+const workManagementSchemaPath = path.join(
   repoRoot,
-  "schemas/frontmatter/by-type/work-item/latest.json",
+  "schemas/work-management/frontmatter/work-item.json",
 );
-const supportSchemaDir = path.join(repoRoot, "schemas/frontmatter/support");
 
 let testDir = "";
 
@@ -82,30 +78,6 @@ function runValidator(env?: Record<string, string>) {
   });
 }
 
-async function preloadSupportSchemas(ajv: Ajv2020) {
-  async function walk(dir: string): Promise<void> {
-    const entries: import("node:fs").Dirent[] = await fs.readdir(dir, {
-      withFileTypes: true,
-    });
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(fullPath);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
-
-      const schema = JSON.parse(await fs.readFile(fullPath, "utf8")) as Record<string, unknown>;
-      if (typeof schema.$id === "string" && !ajv.getSchema(schema.$id)) {
-        ajv.addSchema(schema, schema.$id);
-      }
-    }
-  }
-
-  await walk(supportSchemaDir);
-}
-
 beforeEach(() => {
   testDir = mkdtempSync(path.join(os.tmpdir(), "doc-vader-prepush-test-"));
   setupRepo();
@@ -116,42 +88,56 @@ afterEach(() => {
   testDir = "";
 });
 
-describe("pre-push validation unit", () => {
-  it("canonical by-type latest schema compiles and validates a ready-for-review work item", async () => {
-    const schema = JSON.parse(readFileSync(latestSchemaPath, "utf8")) as Record<string, unknown>;
-    const ajv = new Ajv2020({ allErrors: true, strict: false });
-    addFormats(ajv);
-    await preloadSupportSchemas(ajv);
-    const validate = ajv.compile(schema);
-
-    const ok = validate({
-      id: "wi-999",
-      title: "Example",
-      type: "work-item",
-      subtype: "task",
-      lifecycle: "active",
-      status: "ready-for-review",
-      priority: "high",
-      estimated: 1,
-      links: {
-        depends_on: ["[[wi-1]]"],
+describe("pre-push validation integration", () => {
+  it("accepts an aborted work item with a cancelled reason", () => {
+    writeConsumerConfig({
+      automation: {
+        prePushValidation: {
+          schemas: {
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
+          },
+          severity: {
+            baseline: "none",
+            changed: "error",
+            archive: "none",
+            checklist: "error",
+          },
+        },
       },
     });
 
-    expect(ok).toBe(true);
-    expect(validate.errors).toBeNull();
-  });
-});
+    commitWorkItem(
+      "backlog/300.cancelled.md",
+      `---
+id: wi-300
+title: Cancelled
+summary: Retire an unstarted work item.
+type: work-item
+subtype: task
+lifecycle: active
+status: aborted
+status_reason: cancelled
+priority: medium
+links:
+  reference:
+    - '[[record-cancelled]]'
+---\n`,
+    );
 
-describe("pre-push validation integration", () => {
+    const result = runValidator();
+    expect(result.code, result.stderr).toBe(0);
+  });
+
   it("fails with changed-schema severity=error", { timeout: 15000 }, () => {
     writeConsumerConfig({
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
@@ -175,7 +161,7 @@ type: work-item
     const result = runValidator();
     expect(result.code).toBe(1);
     expect(result.stderr).toMatch(/validation failed/i);
-    expect(result.stderr).toMatch(/schema .*latest\.json/i);
+    expect(result.stderr).toMatch(/schema .*work-item\.json/i);
   });
 
   it("blocks ready-for-review items whose dependencies are not closed", () => {
@@ -183,9 +169,9 @@ type: work-item
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
@@ -257,9 +243,9 @@ links:
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
@@ -291,9 +277,9 @@ type: work-item
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
@@ -324,9 +310,9 @@ type: work-item
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
@@ -358,9 +344,9 @@ type: work-item
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
@@ -389,9 +375,9 @@ type: work-item
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
@@ -426,9 +412,9 @@ describe("pre-push validation e2e", () => {
       automation: {
         prePushValidation: {
           schemas: {
-            baseline: latestSchemaPath,
-            changed: latestSchemaPath,
-            archive: latestSchemaPath,
+            baseline: workManagementSchemaPath,
+            changed: workManagementSchemaPath,
+            archive: workManagementSchemaPath,
           },
           severity: {
             baseline: "none",
