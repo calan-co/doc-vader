@@ -11,6 +11,8 @@ status_reason: completed
 priority: high
 completed_date: '2026-09-28'
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/107
   evidence:
     - '[[record-wi-60505-package-version-uat]]'
 tags:
