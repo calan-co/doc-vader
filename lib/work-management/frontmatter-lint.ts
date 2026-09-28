@@ -580,6 +580,17 @@ function loadSchemas() {
   const validators = new Map<string, ValidateFunction<unknown>>();
   const schemaValidators = new Map<string, ValidateFunction<unknown>>();
   for (const type of supportedTypes) {
+    if (type === "work-item") {
+      const validator = workManagementAjv.getSchema(
+        "/work-management/frontmatter/work-item",
+      );
+      if (!validator) {
+        throw new Error("Missing authoritative work-item schema.");
+      }
+      validators.set(type, validator);
+      continue;
+    }
+
     const latestSchemaPath = join(SCHEMA_DIR, "by-type", type, "latest.json");
     if (!existsSync(latestSchemaPath)) {
       throw new Error(

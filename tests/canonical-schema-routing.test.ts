@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const repoRoot = path.resolve(__dirname, "..");
 
 describe("canonical schema routing surfaces", () => {
-  it("keeps the backlog template and consumer profile on by-type/latest paths", () => {
+  it("routes work items through work-management schemas", () => {
     const templatePath = path.join(
       repoRoot,
       "templates/reference/backlog/precommit-validation-rules.tpl.md",
@@ -29,12 +29,19 @@ describe("canonical schema routing surfaces", () => {
       "staging/archived/scripts/lint/doc-status-transition-lint.cjs",
     );
 
+    expect(
+      existsSync(path.join(repoRoot, "schemas/frontmatter/by-type/work-item")),
+    ).toBe(false);
+    expect(
+      existsSync(path.join(repoRoot, "schemas/frontmatter/work-item")),
+    ).toBe(false);
+
     const template = readFileSync(templatePath, "utf8");
     expect(template).toContain(
       "../../schemas/frontmatter/by-type/document/latest.json",
     );
     expect(template).toContain(
-      "../../schemas/frontmatter/by-type/work-item/latest.json",
+      "../../schemas/work-management/frontmatter/work-item.json",
     );
 
     const consumerConfig = JSON.parse(readFileSync(consumerConfigPath, "utf8")) as {
@@ -49,7 +56,7 @@ describe("canonical schema routing surfaces", () => {
 
     expect(
       consumerConfig.automation?.prePushValidation?.schemas?.changed,
-    ).toBe("schemas/frontmatter/by-type/work-item/latest.json");
+    ).toBe("schemas/work-management/frontmatter/work-item.json");
 
     const schemaMap = JSON.parse(
       readFileSync(path.join(repoRoot, "schemas/frontmatter/schema-map.json"), "utf8"),
@@ -66,12 +73,12 @@ describe("canonical schema routing surfaces", () => {
 
     const backlogOverview = readFileSync(backlogOverviewPath, "utf8");
     expect(backlogOverview).toContain(
-      '"changed": "schemas/frontmatter/by-type/work-item/latest.json"',
+      '"changed": "schemas/work-management/frontmatter/work-item.json"',
     );
 
     const readme = readFileSync(readmePath, "utf8");
     expect(readme).toContain(
-      '"changed": "schemas/frontmatter/by-type/work-item/latest.json"',
+      '"changed": "schemas/work-management/frontmatter/work-item.json"',
     );
 
     const templateGenerator = readFileSync(templateGeneratorPath, "utf8");
@@ -79,7 +86,7 @@ describe("canonical schema routing surfaces", () => {
       "schemas/frontmatter/by-type/document/latest.json",
     );
     expect(templateGenerator).toContain(
-      "schemas/frontmatter/by-type/work-item/latest.json",
+      "schemas/work-management/frontmatter/work-item.json",
     );
 
     const docStatusLint = readFileSync(docStatusLintPath, "utf8");

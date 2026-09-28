@@ -6,9 +6,9 @@ summary: Establish the supported greenfield workflow from sandcastle init throug
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: aborted
+status_reason: cancelled
 priority: high
-estimated: 4
 links:
   depends_on:
     - '[[60414-sandcastle-init-templateargs-wiring]]'
@@ -84,3 +84,9 @@ own.
 - `depends_on`: `[[60415-authoritative-dv4sandcastle-documentation]]`
 - `depends_on`: `[[60416-end-to-end-sandcastle-smoke-and-recovery]]`
 - `enables`: `[[60422-greenfield-sandcastle-init-to-implementation-harness]]`
+
+## Closure Evidence
+
+- 2026-09-28: Closed as cancelled after the maintainer removed the
+  `dv4sandcastle` adapter from MVP scope; see
+  [[60503-retire-dv4sandcastle-mvp-scope]].

@@ -6,7 +6,7 @@
     "renderedViews": [
       "markdown"
     ],
-    "preservation": "Store this JSON payload next to the rendered Markdown PRD and treat the JSON as canonical for automation, AFK issue decomposition, and future Sandcastle adapter consumers."
+    "preservation": "Retain this JSON payload as historical evidence for the retired Sandcastle adapter; it is not current MVP guidance."
   },
   "contextGrounding": {
     "codebaseContext": "Doc-Vader already has schema-backed Work Items, a primary `dv work` command surface with `dv wi` shorthand, a legacy `dv task` compatibility alias, a projected Work graph, Git plus SQLite runtime authority, runtime claims, locks, execution logs, changed-file lock audits, PRD JSON rendering, and an existing Sandcastle scaffold. The current scaffold still uses ad hoc `.sandcastle` list/view scripts and prompt instructions that can bypass `dv`; the Sandcastle-facing adapter still contains legacy JSON claim-store behavior. The required next step is to make `dv work` the authoritative work selection and execution interface, expose a small `dv4sandcastle` adapter for Sandcastle's issue-tracker expectations, and keep repository-specific transition/checklist mutation behind configurable scripts rather than hard-coding them into the core CLI.",

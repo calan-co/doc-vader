@@ -6,9 +6,9 @@ summary: Preserve the init-to-implementation Sandcastle workflow with explicit e
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: aborted
+status_reason: cancelled
 priority: medium
-estimated: 5
 links:
   depends_on:
     - '[[60422-greenfield-sandcastle-init-to-implementation-harness]]'
@@ -84,3 +84,9 @@ workspace used as readiness evidence.
 ## Relationships
 
 - `depends_on`: `[[60422-greenfield-sandcastle-init-to-implementation-harness]]`
+
+## Closure Evidence
+
+- 2026-09-28: Closed as cancelled after the maintainer removed the
+  `dv4sandcastle` adapter from MVP scope; see
+  [[60503-retire-dv4sandcastle-mvp-scope]].

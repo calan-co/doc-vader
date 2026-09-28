@@ -16,7 +16,7 @@ function selectSchema(filePath, frontmatter) {
     if (typeValue === "work-item") {
       return path.resolve(
         process.cwd(),
-        "schemas/frontmatter/by-type/work-item/latest.json",
+        "schemas/work-management/frontmatter/work-item.json",
       );
     }
     
@@ -44,7 +44,7 @@ function selectSchema(filePath, frontmatter) {
     // If backlog schema exists, use it
     const backlogSchema = path.resolve(
       process.cwd(),
-      "schemas/frontmatter/by-type/work-item/latest.json",
+      "schemas/work-management/frontmatter/work-item.json",
     );
     try {
       fs.accessSync(backlogSchema);

@@ -77,7 +77,7 @@ pnpm run backlog:validate
 **Usage:**
 
 - Run in your project root.
-- Validates all backlog work item files using `schemas/frontmatter/by-type/work-item/latest.json` through the repository validation pipeline.
+- Validates all backlog work item files using `schemas/work-management/frontmatter/work-item.json` through the repository validation pipeline.
 
 ---
 

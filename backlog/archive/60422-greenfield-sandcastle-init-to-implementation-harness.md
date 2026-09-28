@@ -6,9 +6,9 @@ summary: Validate a fresh sandcastle init workflow against Doc-Vader by running 
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: aborted
+status_reason: cancelled
 priority: high
-estimated: 8
 links:
   depends_on:
     - '[[60421-greenfield-sandcastle-e2e-workflow-contract]]'
@@ -88,3 +88,9 @@ those artifacts are not present.
 - `depends_on`: `[[60421-greenfield-sandcastle-e2e-workflow-contract]]`
 - `depends_on`: `[[60419-prewarmed-validation-environment-bootstrap]]`
 - `enables`: `[[60423-preserve-greenfield-sandcastle-e2e-readiness]]`
+
+## Closure Evidence
+
+- 2026-09-28: Closed as cancelled after the maintainer removed the
+  `dv4sandcastle` adapter from MVP scope; see
+  [[60503-retire-dv4sandcastle-mvp-scope]].

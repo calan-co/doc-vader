@@ -4,17 +4,20 @@ $content_schema: schemas/work-management/content/prd.json
 $template: templates/reference/work-management/prd.md.tpl
 id: plan:doc-vader-sandcastle-ready-work-cli-prd
 title: Doc-Vader Sandcastle-Ready Work CLI PRD
-summary: Make dv work the authoritative Sandcastle-ready selection and execution CLI through a dv4sandcastle adapter, AFK-safe filtering, configurable transitions, and recovery coverage.
+summary: Historical PRD for the retired Sandcastle adapter; it is not current MVP guidance.
 type: plan
 subtype: x-prd
-lifecycle: active
-status: ready
+lifecycle: inactive
+status: closed
+status_reason: cancelled
 tags:
   - sandcastle
   - work-management
   - afk
   - dv4sandcastle
 ---
+
+> Historical record: the `dv4sandcastle` adapter was retired and is outside MVP scope.
 
 ## Artifact Strategy
 

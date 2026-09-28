@@ -84,7 +84,7 @@ links:
     expect(linkedEntries).toContain("https://github.com/calan-co/doc-vader/pull/106");
   });
 
-  it("does not require fabricated actual effort for wi-60417", () => {
+  it("does not require fabricated actual effort for wi-60417", { timeout: integrationTestTimeoutMs() }, () => {
     const workflow = readWorkflow(".github/workflows/backlog-automation.yml");
     const actualCheck = workflowSnippet(
       workflow,

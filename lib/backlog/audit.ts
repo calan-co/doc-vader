@@ -295,7 +295,7 @@ async function resolveSchemaMap(
 ): Promise<SchemaMapConfig> {
   const defaults: SchemaMapConfig = {
     byType: {
-      "work-item": "schemas/frontmatter/by-type/work-item/latest.json",
+      "work-item": "schemas/work-management/frontmatter/work-item.json",
       document: "schemas/frontmatter/by-type/document/latest.json",
     },
     default: "schemas/frontmatter/by-type/document/latest.json",

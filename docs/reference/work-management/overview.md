@@ -192,9 +192,9 @@ Enable backlog automation in `.doc-vader/backlog-consumer.json`:
     "subjectResolutionOrder": ["payload_subject_tokens", "linked_pull_requests"],
     "prePushValidation": {
       "schemas": {
-        "baseline": "schemas/frontmatter/work-item/1.0.0.json",
-        "changed": "schemas/frontmatter/by-type/work-item/latest.json",
-        "archive": "schemas/frontmatter/work-item/1.0.0.json"
+        "baseline": "schemas/work-management/frontmatter/work-item.json",
+        "changed": "schemas/work-management/frontmatter/work-item.json",
+        "archive": "schemas/work-management/frontmatter/work-item.json"
       },
       "severity": {
         "baseline": "error",

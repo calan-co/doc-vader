@@ -1,8 +1,6 @@
-# Sandcastle Work Item: {{ id }}
+# Work Item: {{ id }}
 
-Implement `{{ title }}` from `{{ filePath }}`.
-
-Initialization and registry mapping live in `docs/how-to/sandcastle-dogfood-task-flow.md`. Use that guide for environment setup, `dv work ready`, claims, locks, evidence, and terminal claim handling.
+Implement `{{ title }}` from `{{ filePath }}` using the canonical `dv work` commands for selection, claims, locks, evidence, and terminal handling.
 
 ## Current State
 
@@ -34,7 +32,7 @@ Initialization and registry mapping live in `docs/how-to/sandcastle-dogfood-task
 - {{ criterion.text }}
 {% endfor %}
 
-## Sandcastle Flow
+## Execution Flow
 
 1. Claim this work item before execution with `dv work claim <task-id> --holder <holder> --json`, then use the returned claim token for every subsequent runtime command.
 2. Acquire file ownership lazily with `dv lock create --claim <claim-token> <path...>` before mutating any non-Doc-Vader file.

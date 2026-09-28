@@ -39,9 +39,9 @@ Configure changed-file validation policy and severity.
   "automation": {
     "prePushValidation": {
       "schemas": {
-        "baseline": "schemas/frontmatter/work-item/1.0.0.json",
-        "changed": "schemas/frontmatter/by-type/work-item/latest.json",
-        "archive": "schemas/frontmatter/work-item/1.0.0.json"
+        "baseline": "schemas/work-management/frontmatter/work-item.json",
+        "changed": "schemas/work-management/frontmatter/work-item.json",
+        "archive": "schemas/work-management/frontmatter/work-item.json"
       },
       "severity": {
         "baseline": "error",
