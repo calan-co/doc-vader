@@ -1,6 +1,7 @@
 import matter from "gray-matter";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { renderTempljsTemplate } from "../template/render.js";
 import {
   loadTaskRuntimeReadiness,
@@ -131,6 +132,27 @@ function resolveRoot(rootDir?: string): string {
 
 function resolveFromRoot(rootDir: string, targetPath: string): string {
   return path.isAbsolute(targetPath) ? targetPath : path.join(rootDir, targetPath);
+}
+
+async function resolveDefaultTemplatePath(rootDir: string, targetPath: string): Promise<string> {
+  const consumerPath = resolveFromRoot(rootDir, targetPath);
+  try {
+    await fs.access(consumerPath);
+    return consumerPath;
+  } catch {
+    let directory = path.dirname(fileURLToPath(import.meta.url));
+    while (true) {
+      const candidate = path.join(directory, targetPath);
+      try {
+        await fs.access(candidate);
+        return candidate;
+      } catch {
+        if (path.dirname(directory) === directory) break;
+        directory = path.dirname(directory);
+      }
+    }
+    return consumerPath;
+  }
 }
 
 function toPosixPath(value: string): string {
@@ -443,10 +465,9 @@ async function renderCanonicalTaskTemplate(
   defaultTemplatePath: string,
 ): Promise<string> {
   const rootDir = resolveRoot(options.rootDir);
-  const templatePath = resolveFromRoot(
-    rootDir,
-    options.templatePath ?? defaultTemplatePath,
-  );
+  const templatePath = options.templatePath
+    ? resolveFromRoot(rootDir, options.templatePath)
+    : await resolveDefaultTemplatePath(rootDir, defaultTemplatePath);
   return renderTempljsTemplate(await fs.readFile(templatePath, "utf8"), {
     ...options.task,
     task: options.task,
