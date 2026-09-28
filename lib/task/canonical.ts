@@ -141,12 +141,13 @@ async function resolveDefaultTemplatePath(rootDir: string, targetPath: string): 
     return consumerPath;
   } catch {
     let directory = path.dirname(fileURLToPath(import.meta.url));
-    while (path.dirname(directory) !== directory) {
+    while (true) {
       const candidate = path.join(directory, targetPath);
       try {
         await fs.access(candidate);
         return candidate;
       } catch {
+        if (path.dirname(directory) === directory) break;
         directory = path.dirname(directory);
       }
     }
