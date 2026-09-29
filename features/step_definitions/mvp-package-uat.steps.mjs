@@ -18,8 +18,7 @@ function packageManager(...args) {
 }
 
 function npm(...args) {
-  const cli = path.resolve(path.dirname(process.execPath), "../lib/node_modules/npm/bin/npm-cli.js");
-  return run(process.execPath, [cli, ...args], { cwd: repo, encoding: "utf8" });
+  return run("npm", args, { cwd: repo, encoding: "utf8" });
 }
 
 function dv(...args) {
@@ -56,7 +55,7 @@ When("I install the packed Doc-Vader package", () => {
   packageManager("run", "build");
   packed = JSON.parse(npm("pack", "--ignore-scripts", "--json"))[0].filename;
   try {
-    run(process.execPath, [path.resolve(path.dirname(process.execPath), "../lib/node_modules/npm/bin/npm-cli.js"), "install", path.join(repo, packed)], { cwd: consumer, stdio: "inherit" });
+    run("npm", ["install", path.join(repo, packed)], { cwd: consumer, stdio: "inherit" });
     packageVersion = JSON.parse(readFileSync(path.join(consumer, "node_modules/@calan-co/doc-vader/package.json"), "utf8")).version;
   } finally {
     rmSync(path.join(repo, packed), { force: true });
