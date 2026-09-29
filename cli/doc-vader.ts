@@ -2,10 +2,11 @@
 
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { promises as fs, readFileSync } from "node:fs";
 import { Command, Option } from "commander";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   openRuntimeSqliteStore,
   getRuntimeClaimDefaultTtlMilliseconds,
@@ -120,12 +121,27 @@ import {
   toWorkErrorPayload as toTaskErrorPayload,
 } from "../lib/work/index.js";
 
+function packageVersion(): string {
+  let directory = path.dirname(fileURLToPath(import.meta.url));
+  while (true) {
+    try {
+      const manifest = JSON.parse(readFileSync(path.join(directory, "package.json"), "utf8"));
+      if (typeof manifest.version === "string") return manifest.version;
+    } catch {
+      // Keep walking to the package root.
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) throw new Error("Unable to find package version.");
+    directory = parent;
+  }
+}
+
 const program = new Command()
   .name("doc-vader")
   .description(
     "Doc-Vader CLI - documentation automation, validation, and utilities",
   )
-  .version("1.0.0");
+  .version(packageVersion());
 
 const collectOption = (value: string, previous: string[] = []) => [
   ...previous,
