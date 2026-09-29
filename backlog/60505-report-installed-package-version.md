@@ -10,6 +10,8 @@ status: completed
 status_reason: completed
 priority: high
 completed_date: '2026-09-28'
+commits:
+  b7a86b2d3b79d86be39704a78a096e498e9c07a8: 'fix(cli): report installed package version'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/107
