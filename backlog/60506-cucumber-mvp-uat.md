@@ -17,6 +17,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/108
   evidence:
     - '[[record-wi-60506-cucumber-mvp-uat]]'
+    - '[[record-20260930-063851-60506]]'
 tags:
   - mvp
   - uat
