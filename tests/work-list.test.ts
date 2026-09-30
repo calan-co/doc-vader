@@ -62,7 +62,7 @@ status: ready`,
         { id: "wi-100" },
       ]);
       expect(warning).toHaveBeenCalledWith(
-        expect.stringContaining("Skipped malformed frontmatter in docs/malformed.md"),
+        expect.stringMatching(/Skipped malformed frontmatter in docs\/malformed\.md \(at line \d+, column \d+\)/u),
       );
       expect(warning.mock.calls.flat().join("\n")).not.toContain("text: nested mapping");
     } finally {
