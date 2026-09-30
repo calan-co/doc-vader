@@ -10,6 +10,8 @@ status: completed
 status_reason: completed
 priority: high
 completed_date: '2026-09-29'
+commits:
+  574760b08dc799011bb0732ac2e84fa095314b7b: 'test(uat): add Cucumber MVP package suite'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/108
