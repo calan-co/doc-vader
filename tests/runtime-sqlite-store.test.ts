@@ -257,7 +257,7 @@ function insertActiveScopeLock(
   });
 }
 
-describe("runtime sqlite store", () => {
+describe("runtime sqlite store", { timeout: integrationTestTimeoutMs() }, () => {
   it("derives claim tokens from canonical static claim records", () => {
     const seedA = makeClaimSeed({
       entropy: "entropy-123",
