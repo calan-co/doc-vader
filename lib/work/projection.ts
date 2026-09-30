@@ -326,13 +326,21 @@ async function readMarkdownDocuments(
         continue;
       }
       const raw = await fs.readFile(filePath, "utf8");
-      const parsed = matter(raw);
-      documents.push({
-        filePath,
-        relativePath,
-        frontmatter: (parsed.data ?? {}) as JsonObject,
-        body: parsed.content,
-      });
+      try {
+        const parsed = matter(raw);
+        documents.push({
+          filePath,
+          relativePath,
+          frontmatter: (parsed.data ?? {}) as JsonObject,
+          body: parsed.content,
+        });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        const location = detail.match(/at line \d+, column \d+/u)?.[0];
+        console.warn(
+          `[dv work] Skipped malformed frontmatter in ${relativePath}${location ? ` (${location})` : ""}. Fix the file's YAML frontmatter and rerun.`,
+        );
+      }
     }
   }
   return documents;
