@@ -13,6 +13,8 @@ estimated: 1
 actual: 1
 completed_date: '2026-09-29'
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/109
   evidence:
     - https://github.com/calan-co/doc-vader/commit/9437994861980b030af3ea22898837c7c427356d
 tags:
