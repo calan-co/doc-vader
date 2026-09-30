@@ -9,6 +9,7 @@ async function mkTmpRoot(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "doc-vader-work-list-"));
   await fs.mkdir(path.join(root, "backlog"), { recursive: true });
   await fs.mkdir(path.join(root, ".doc-vader"), { recursive: true });
+  await fs.mkdir(path.join(root, "docs"), { recursive: true });
   await fs.writeFile(
     path.join(root, ".doc-vader/backlog-consumer.json"),
     JSON.stringify(
@@ -38,6 +39,38 @@ async function writeTask(root: string, fileName: string, frontmatter: string): P
 }
 
 describe("graph-backed work list", () => {
+  it("skips malformed non-work documents with an actionable warning", async () => {
+    const root = await mkTmpRoot();
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      await writeTask(
+        root,
+        "100-backlog-item.md",
+        `id: wi-100
+title: Backlog Item
+type: work-item
+lifecycle: active
+status: ready`,
+      );
+      await fs.writeFile(
+        path.join(root, "docs", "malformed.md"),
+        "---\nid: doc-malformed\ntitle: malformed\npurpose: text: nested mapping\n---\n",
+        "utf8",
+      );
+
+      await expect(listWorkModels({ rootDir: root })).resolves.toMatchObject([
+        { id: "wi-100" },
+      ]);
+      expect(warning).toHaveBeenCalledWith(
+        expect.stringContaining("Skipped malformed frontmatter in docs/malformed.md"),
+      );
+      expect(warning.mock.calls.flat().join("\n")).not.toContain("text: nested mapping");
+    } finally {
+      warning.mockRestore();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("projects the work graph before hydrating listed work items", async () => {
     const root = await mkTmpRoot();
     try {
