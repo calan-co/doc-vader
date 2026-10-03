@@ -13,6 +13,7 @@ links:
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
 tags:
+  - afk
   - documentation
   - linkity
 ---
@@ -23,6 +24,6 @@ Document the Linkity configuration and compatibility contract, including which p
 
 ## Acceptance Criteria
 
-- [ ] A policy records behavior for relative links, fragments, encoded paths, external URLs, templates, and generated artifacts.
-- [ ] The policy maps current `remark-lint-crossref` behavior to Linkity behavior and records intentional differences.
-- [ ] A migration plan identifies every lint-pipeline integration point.
+- [x] A policy records behavior for relative links, fragments, encoded paths, external URLs, templates, and generated artifacts.
+- [x] The policy maps current `remark-lint-crossref` behavior to Linkity behavior and records intentional differences.
+- [x] A migration plan identifies every lint-pipeline integration point.
