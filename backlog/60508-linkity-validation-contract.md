@@ -6,12 +6,17 @@ summary: Establish the supported link, anchor, template, generated-artifact, and
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
+status_reason: completed
 priority: high
 estimated: 4
+completed_date: '2026-10-03'
 links:
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
+  evidence:
+    - '[[task-record-preflight]]'
+    - '[[record-wi-60508-linkity-validation-contract-delivered-in-commit-d59c54dd]]'
 tags:
   - afk
   - documentation
