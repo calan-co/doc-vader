@@ -6,7 +6,7 @@ summary: Make Linkity validation the required documentation cross-reference gate
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
 priority: high
 estimated: 3
 links:
@@ -27,6 +27,6 @@ Promote the validated Linkity integration from warning-only observation to an en
 
 ## Acceptance Criteria
 
-- [ ] Local docs lint fails on Linkity-reported in-scope broken links.
-- [ ] Hosted CI runs the same Linkity gate.
-- [ ] Migration documentation explains the enforced policy and escape-hatch process.
+- [x] Local docs lint fails on Linkity-reported in-scope broken links.
+- [x] Hosted CI runs the same Linkity gate.
+- [x] Migration documentation explains the enforced policy and escape-hatch process.

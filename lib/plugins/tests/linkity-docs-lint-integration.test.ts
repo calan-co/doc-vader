@@ -21,7 +21,7 @@ describe("Linkity docs-lint integration fixtures", () => {
   it("reports broken targets and anchors through the docs-lint entrypoint", () => {
     let output = "";
     try {
-      docsLint("--fail-on", "warning", "tests/fixtures/linkity-crossref/invalid.md");
+      docsLint("--fail-on", "linkity", "tests/fixtures/linkity-crossref/invalid.md");
     } catch (err: any) {
       output = String(err.stdout);
     }
@@ -31,5 +31,6 @@ describe("Linkity docs-lint integration fixtures", () => {
     expect(payload.passed).toBe(false);
     expect(messages).toContain("Linkity missing-target: ./missing.md");
     expect(messages).toContain("Linkity missing-anchor: ./valid-target.md#nope");
+    expect(payload.summary.linkityBrokenCount).toBe(2);
   });
 });

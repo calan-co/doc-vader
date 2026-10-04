@@ -15,7 +15,7 @@ import {
 import { VFile } from "vfile";
 
 type OutputFormat = "text" | "json";
-type FailOn = "error" | "warning";
+type FailOn = "error" | "warning" | "linkity";
 
 const rawArgs = process.argv.slice(2);
 let format: OutputFormat = "text";
@@ -45,8 +45,8 @@ for (let i = 0; i < rawArgs.length; i++) {
   }
   if (arg === "--fail-on") {
     const value = rawArgs[i + 1];
-    if (!value || (value !== "error" && value !== "warning")) {
-      console.error("--fail-on must be one of: error, warning");
+    if (!value || (value !== "error" && value !== "warning" && value !== "linkity")) {
+      console.error("--fail-on must be one of: error, warning, linkity");
       process.exit(2);
     }
     failOn = value;
@@ -55,8 +55,8 @@ for (let i = 0; i < rawArgs.length; i++) {
   }
   if (arg.startsWith("--fail-on=")) {
     const value = arg.slice("--fail-on=".length);
-    if (value !== "error" && value !== "warning") {
-      console.error("--fail-on must be one of: error, warning");
+    if (value !== "error" && value !== "warning" && value !== "linkity") {
+      console.error("--fail-on must be one of: error, warning, linkity");
       process.exit(2);
     }
     failOn = value;
@@ -165,8 +165,15 @@ lintFiles(effectivePatterns)
     const errorCount = allMessages.filter(
       (msg) => msg.severity === "error",
     ).length;
+    const linkityBrokenCount = allMessages.filter(
+      (msg) => msg.message.startsWith("Linkity missing-target:") || msg.message.startsWith("Linkity missing-anchor:"),
+    ).length;
     const shouldFail =
-      failOn === "warning" ? warningCount + errorCount > 0 : errorCount > 0;
+      failOn === "warning"
+        ? warningCount + errorCount > 0
+        : failOn === "linkity"
+          ? errorCount > 0 || linkityBrokenCount > 0
+          : errorCount > 0;
 
     if (format === "json") {
       const payload = {
@@ -177,6 +184,7 @@ lintFiles(effectivePatterns)
           filesWithMessages: results.length,
           errorCount,
           warningCount,
+          linkityBrokenCount,
         },
         patterns: effectivePatterns,
         results,

@@ -95,3 +95,15 @@ formats once the adapter lands.
    generated and ignored targets.
 5. Promote the Linkity gate to the required local and hosted CI documentation
    validation path.
+
+## Enforced Gate
+
+Run the enforced migrated-scope gate locally with:
+
+```bash
+pnpm run docs:lint:linkity
+```
+
+The gate covers `docs/reference/**/*.md` and `docs/how-to/**/*.md`, matching hosted CI. It fails on Linkity `missing-target` and `missing-anchor` diagnostics. External URLs, custom schemes, generated non-Markdown artifacts, and template placeholders remain warning-only or out of scope.
+
+Escape hatch: do not add fake placeholder files. Either correct the target, remove the link, move legacy references to their real archive path, or leave an intentional template/generated reference so Linkity classifies it outside the enforced broken-link set.
