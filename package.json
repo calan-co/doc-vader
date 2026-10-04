@@ -91,6 +91,7 @@
     "unist-util-visit-parents": "^6.0.2",
     "vfile": "^6.0.3",
     "yaml": "^2.9.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "linkity": "file:vendor/linkity"
   }
 }

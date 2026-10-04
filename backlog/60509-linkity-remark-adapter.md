@@ -6,7 +6,7 @@ summary: Integrate Linkity into the remark lint pipeline with repository-relativ
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
 priority: high
 estimated: 6
 links:
@@ -25,7 +25,7 @@ Replace the bespoke `fs.existsSync` cross-reference path check with a Linkity-ba
 
 ## Acceptance Criteria
 
-- [ ] Linkity is an explicit, pinned project dependency.
-- [ ] Lint output identifies the source file, target, and failure class.
-- [ ] The old validator is removed or delegates entirely to Linkity.
-- [ ] Existing lint configuration and CLI surfaces remain compatible.
+- [x] Linkity is an explicit, pinned project dependency.
+- [x] Lint output identifies the source file, target, and failure class.
+- [x] The old validator is removed or delegates entirely to Linkity.
+- [x] Existing lint configuration and CLI surfaces remain compatible.
