@@ -6,7 +6,7 @@ summary: Cover Linkity behavior with real Markdown fixtures and integration test
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
 priority: high
 estimated: 5
 links:
@@ -26,6 +26,6 @@ Add focused fixtures for valid and invalid links so Linkity behavior is protecte
 
 ## Acceptance Criteria
 
-- [ ] Tests cover relative paths, fragments, encoded paths, external URLs, template targets, and generated-artifact policy.
-- [ ] Tests prove broken targets and missing anchors fail with actionable diagnostics.
-- [ ] Tests run through the same docs-lint integration used by CI.
+- [x] Tests cover relative paths, fragments, encoded paths, external URLs, template targets, and generated-artifact policy.
+- [x] Tests prove broken targets and missing anchors fail with actionable diagnostics.
+- [x] Tests run through the same docs-lint integration used by CI.
