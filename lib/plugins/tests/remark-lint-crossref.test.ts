@@ -32,10 +32,12 @@ afterEach(() => {
 });
 
 describe("remark-lint-crossref", () => {
-  it("uses Linkity for valid markdown paths, fragments, encoded paths, and wikilinks", async () => {
+  it("uses Linkity for valid markdown paths, fragments, encoded paths, root-relative paths, extensionless paths, and wikilinks", async () => {
     const root = fixture();
     const md = [
       "[Path](./target%20file.md#section-one)",
+      "[Extensionless](./target%20file#section-one)",
+      "[RootRelative](docs/target%20file.md#section-one)",
       "[Manual](./target%20file.md#manual-anchor)",
       "[[target-doc#section-one]]",
       "[[target file#manual-anchor|alias]]",

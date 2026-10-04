@@ -14,8 +14,8 @@ links:
   related:
     - '[[staging-scripts-inventory.md]]'
     - '[[remark-lint-unified-architecture.md]]'
-    - '[[../../backlog/180.staging-script-consolidation-epic.md]]'
-    - '[[../../backlog/230.define-epic-180-audit-scope-task.md]]'
+    - '[[../../backlog/archive/180.staging-script-consolidation-epic.md]]'
+    - '[[../../backlog/archive/230.define-epic-180-audit-scope-task.md]]'
 ---
 
 ## Purpose

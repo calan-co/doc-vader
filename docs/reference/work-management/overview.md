@@ -130,8 +130,8 @@ The greenfield pet-store set provides one authored file per entity:
 - [`release-pet-store-launch-01.md`](./examples/greenfield-pet-store/release-pet-store-launch-01.md)
 - [`milestone-pet-store-checkout-ready.md`](./examples/greenfield-pet-store/milestone-pet-store-checkout-ready.md)
 - [`work-item-pet-100.md`](./examples/greenfield-pet-store/work-item-pet-100.md)
-- [`work-item-pet-110.md`](./examples/greenfield-pet-store/work-item-pet-110.md)
-- [`work-item-pet-120.md`](./examples/greenfield-pet-store/work-item-pet-120.md)
+- [`work-item-pet-101.md`](./examples/greenfield-pet-store/work-item-pet-101.md)
+- [`work-item-pet-102.md`](./examples/greenfield-pet-store/work-item-pet-102.md)
 - [`plan-pet-store-strategy.md`](./examples/greenfield-pet-store/plan-pet-store-strategy.md)
 - [`record-pet-store-launch-dry-run.md`](./examples/greenfield-pet-store/record-pet-store-launch-dry-run.md)
 

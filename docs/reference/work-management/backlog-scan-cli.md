@@ -12,7 +12,7 @@ tags:
 links:
   reference:
     - '[[../../guide/backlog-automation-configuration.md]]'
-    - '[[../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]'
+    - '[[../../architecture/decisions/adr-004-backlog-scan-lifecycle.md]]'
 ---
 
 # Backlog Scan CLI Reference

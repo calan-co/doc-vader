@@ -6,7 +6,7 @@ summary: Correct or remove the current broken-link baseline in reference docs an
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
+status: completed
 priority: high
 estimated: 6
 links:
@@ -25,6 +25,6 @@ Repair the current broken cross-references using the approved Linkity policy; do
 
 ## Acceptance Criteria
 
-- [ ] Every current cross-reference warning is classified as repaired, intentionally ignored, or removed.
-- [ ] FAQ, work-management examples, and template links resolve to real targets or documented substitutes.
-- [ ] Documentation lint reports no broken-reference warnings in the migrated scope.
+- [x] Every current cross-reference warning is classified as repaired, intentionally ignored, or removed.
+- [x] FAQ, work-management examples, and template links resolve to real targets or documented substitutes.
+- [x] Documentation lint reports no broken-reference warnings in the migrated scope.

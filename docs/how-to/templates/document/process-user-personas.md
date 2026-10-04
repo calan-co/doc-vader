@@ -13,7 +13,7 @@ links:
   related:
     - '[[user-personas-concept.md]]'
     - '[[user-personas-template.md]]'
-    - '[[user-personas-resources.md]]'
+    - 'user-personas resources'
 ---
 
 This guide provides a full, step-by-step process and best practices for researching, drafting, and maintaining user personas.

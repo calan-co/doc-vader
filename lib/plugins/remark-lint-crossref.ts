@@ -93,7 +93,7 @@ function pointForOffset(value: string, offset = 0) {
   return { line: lines.length, column: lines.at(-1)!.length + 1 };
 }
 
-function collectCodeRanges(tree: Root): Array<{ start: number; end: number }> {
+function collectCodeRanges(tree: Root, markdown: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
   for (const type of ["code", "inlineCode"]) {
     visitParents(tree, type, (node: any) => {
@@ -101,6 +101,9 @@ function collectCodeRanges(tree: Root): Array<{ start: number; end: number }> {
       const end = node.position?.end?.offset;
       if (typeof start === "number" && typeof end === "number") ranges.push({ start, end });
     });
+  }
+  for (const match of markdown.matchAll(/`[^`\n]+`/g)) {
+    ranges.push({ start: match.index ?? 0, end: (match.index ?? 0) + match[0].length });
   }
   return ranges;
 }
@@ -126,6 +129,10 @@ function rawTarget(node: LinkNode): string {
   return node.type === "markdown" ? (node.url ?? "") : node.value;
 }
 
+function indexedPath(index: MarkdownIndex, filePath: string): MarkdownIndexEntry | undefined {
+  return index.byPath.get(filePath) ?? index.byPath.get(`${filePath}.md`);
+}
+
 function resolveTarget(node: LinkNode, sourcePath: string, rootDir: string, index: MarkdownIndex) {
   const raw = rawTarget(node).trim();
   if (!raw || hasScheme(raw)) return { kind: "external" } as const;
@@ -140,9 +147,10 @@ function resolveTarget(node: LinkNode, sourcePath: string, rootDir: string, inde
   }
 
   if (target.startsWith("./") || target.startsWith("../") || target.includes("/")) {
-    const sourceDir = sourcePath ? path.dirname(sourcePath) : rootDir;
-    const resolved = path.resolve(sourceDir, target);
-    return { kind: "resolved", entry: index.byPath.get(resolved), fragment, raw } as const;
+    const rootRelative = /^(backlog|docs|templates)\//.test(target);
+    const baseDir = rootRelative ? rootDir : sourcePath ? path.dirname(sourcePath) : rootDir;
+    const resolved = path.resolve(baseDir, target);
+    return { kind: "resolved", entry: indexedPath(index, resolved), fragment, raw } as const;
   }
 
   return { kind: "resolved", entry: index.byKey.get(target.replace(/\.md$/i, "")) ?? index.byKey.get(target), fragment, raw } as const;
@@ -174,7 +182,7 @@ const remarkLintCrossref = function (options?: Options) {
     const rootDir = path.resolve(parsedOptions.rootDir || process.cwd());
     const sourcePath = file.path ? path.resolve(file.path) : "";
     const markdown = String(file.value ?? "");
-    const codeRanges = collectCodeRanges(tree);
+    const codeRanges = collectCodeRanges(tree, markdown);
     const index = markdownIndex(rootDir);
 
     for (const link of parseLinks(markdown, { enableMarkdown: true, enableUrl: true, enableWikilink: true })) {
