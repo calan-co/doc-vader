@@ -8,7 +8,6 @@ subtype: task
 lifecycle: active
 status: completed
 priority: high
-estimated: 3
 links:
   depends_on:
     - '[[60510-linkity-cross-reference-fixtures]]'
@@ -24,6 +23,12 @@ tags:
 ## Statement
 
 Promote the validated Linkity integration from warning-only observation to an enforced documentation quality gate.
+
+## Tasks
+
+- [x] Make local docs lint fail on in-scope Linkity failures.
+- [x] Run the equivalent Linkity documentation gate in hosted CI.
+- [x] Document the enforcement policy and escape-hatch process.
 
 ## Acceptance Criteria
 

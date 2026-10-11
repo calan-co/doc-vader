@@ -8,7 +8,6 @@ subtype: task
 lifecycle: active
 status: completed
 priority: high
-estimated: 6
 links:
   depends_on:
     - '[[60508-linkity-validation-contract]]'
@@ -22,6 +21,12 @@ tags:
 ## Statement
 
 Replace the bespoke `fs.existsSync` cross-reference path check with a Linkity-backed remark adapter.
+
+## Tasks
+
+- [x] Add the explicit Linkity runtime dependency and replace the cross-reference adapter.
+- [x] Preserve compatible lint and CLI output while emitting actionable Linkity diagnostics.
+- [x] Cover adapter behavior with focused regression tests.
 
 ## Acceptance Criteria
 

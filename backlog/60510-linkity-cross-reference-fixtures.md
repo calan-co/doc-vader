@@ -8,7 +8,6 @@ subtype: task
 lifecycle: active
 status: completed
 priority: high
-estimated: 5
 links:
   depends_on:
     - '[[60509-linkity-remark-adapter]]'
@@ -23,6 +22,11 @@ tags:
 ## Statement
 
 Add focused fixtures for valid and invalid links so Linkity behavior is protected independently of the current documentation corpus.
+
+## Tasks
+
+- [x] Add fixtures for relative, fragment, encoded, external, template, and generated targets.
+- [x] Exercise broken-target and missing-anchor diagnostics through docs-lint integration.
 
 ## Acceptance Criteria
 

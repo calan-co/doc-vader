@@ -9,8 +9,6 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: high
-estimated: 24
-actual: 24
 completed_date: '2026-10-11'
 links:
   evidence:
@@ -26,6 +24,12 @@ tags:
   - linkity
   - quality
 ---
+
+## Tasks
+
+- [x] Audit the existing cross-reference validator and define the Linkity cutover boundary.
+- [x] Integrate the Linkity adapter, fixtures, reference repairs, and documentation gate.
+- [x] Validate the cutover against the repository documentation scope and CI-equivalent checks.
 
 ## Description
 

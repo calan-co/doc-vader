@@ -8,7 +8,6 @@ subtype: task
 lifecycle: active
 status: completed
 priority: high
-estimated: 6
 links:
   depends_on:
     - '[[60508-linkity-validation-contract]]'
@@ -22,6 +21,12 @@ tags:
 ## Statement
 
 Repair the current broken cross-references using the approved Linkity policy; do not preserve nonexistent targets merely to silence lint.
+
+## Tasks
+
+- [x] Classify the existing reference warnings and repair valid documentation targets.
+- [x] Document intentional template and generated-artifact exceptions.
+- [x] Verify the migrated scope has no broken-reference warnings.
 
 ## Acceptance Criteria
 
