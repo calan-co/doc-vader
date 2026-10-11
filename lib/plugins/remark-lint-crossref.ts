@@ -86,12 +86,20 @@ function readIndexEntry(rootDir: string, filePath: string): MarkdownIndexEntry {
   };
 }
 
+function decodeTargetComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function splitTarget(rawTarget: string): { target: string; fragment: string } {
   const [beforeHash = "", afterHash = ""] = rawTarget.split("#", 2);
   const [withoutQuery = ""] = beforeHash.split("?", 1);
   return {
-    target: decodeURIComponent(withoutQuery),
-    fragment: decodeURIComponent(afterHash),
+    target: decodeTargetComponent(withoutQuery),
+    fragment: decodeTargetComponent(afterHash),
   };
 }
 

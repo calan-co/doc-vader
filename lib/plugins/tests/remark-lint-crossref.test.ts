@@ -90,6 +90,16 @@ describe("remark-lint-crossref", () => {
     expect(result.messages.every((message) => message.fatal)).toBe(false);
   });
 
+  it("reports malformed percent encodings and continues linting", async () => {
+    const root = fixture();
+    const result = await run("[Bad](bad%ZZ.md)\n[Missing](missing.md)", root);
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: bad%ZZ.md",
+      "Linkity missing-target: missing.md",
+    ]);
+  });
+
   it("keeps templates visible without failing and ignores code spans", async () => {
     const root = fixture();
     const result = await run(
