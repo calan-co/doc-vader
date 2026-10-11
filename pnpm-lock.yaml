@@ -36,8 +36,8 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0
       linkity:
-        specifier: file:vendor/linkity
-        version: file:vendor/linkity
+        specifier: https://github.com/calan-co/linkity.git#v0.1.1
+        version: https://codeload.github.com/calan-co/linkity/tar.gz/c2af7c747c17dfc36037b12de70a589d29e35677
       minimatch:
         specifier: ^10.2.5
         version: 10.2.5
@@ -1381,6 +1381,10 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
+  detect-newline@4.0.1:
+    resolution: {integrity: sha512-qE3Veg1YXzGHQhlA6jzebZN2qVf6NX+A7m7qlhCGG30dJixrAQhYOsJjsnBjJkCSmuOPpCk30145fr8FV0bzog==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
@@ -2131,8 +2135,10 @@ packages:
     resolution: {integrity: sha512-cNOjgCnLB+FnvWWtyRTzmB3POJ+cXxTA81LoW7u8JdmhfXzriropYwpjShnz1QLLWsQwY7nIxoDmcPTwphDK9w==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  linkity@file:vendor/linkity:
-    resolution: {directory: vendor/linkity, type: directory}
+  linkity@https://codeload.github.com/calan-co/linkity/tar.gz/c2af7c747c17dfc36037b12de70a589d29e35677:
+    resolution: {gitHosted: true, integrity: sha512-cbm90sxfQn8OJhZqKws3l4KzEWZ/JClHQN4JjokRV3uyuXq8DANl/zD5pwDOf9ujmlPwHXkJGaL/NwRW6JVnWw==, tarball: https://codeload.github.com/calan-co/linkity/tar.gz/c2af7c747c17dfc36037b12de70a589d29e35677}
+    version: 0.1.1
+    engines: {node: '>=18'}
 
   locate-path@3.0.0:
     resolution: {integrity: sha512-7AO748wWnIhNqAuaty2ZWHkQHRSNfPVIsPIfwEOWO22AmaoVrWavlOcMR5nzTLNYvp36X220/maaRsrec1G65A==}
@@ -4617,6 +4623,8 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
+  detect-newline@4.0.1: {}
+
   devlop@1.1.0:
     dependencies:
       dequal: 2.0.3
@@ -5331,7 +5339,9 @@ snapshots:
 
   lines-and-columns@2.0.3: {}
 
-  linkity@file:vendor/linkity: {}
+  linkity@https://codeload.github.com/calan-co/linkity/tar.gz/c2af7c747c17dfc36037b12de70a589d29e35677:
+    dependencies:
+      detect-newline: 4.0.1
 
   locate-path@3.0.0:
     dependencies:

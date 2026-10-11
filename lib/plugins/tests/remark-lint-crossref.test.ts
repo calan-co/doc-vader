@@ -13,7 +13,7 @@ function fixture() {
   fs.mkdirSync(path.join(root, "docs"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "docs", "target file.md"),
-    "---\nid: target-doc\n---\n\n# Section One\n<a id=\"manual-anchor\"></a>\n",
+    "---\nid: target-doc\ntitle: Start Here\n---\n\n# Section One\n<a id=\"manual-anchor\"></a>\n",
   );
   fs.writeFileSync(path.join(root, "docs", "source.md"), "");
   return root;
@@ -44,6 +44,24 @@ describe("remark-lint-crossref", () => {
     ].join("\n");
 
     const result = await run(md, root);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
+  it("resolves duplicate filenames relative to the source through Linkity's file index", async () => {
+    const root = fixture();
+    fs.writeFileSync(path.join(root, "docs", "target.md"), "# Root Heading\n");
+    fs.mkdirSync(path.join(root, "docs", "nested"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", "nested", "target.md"), "# Nested Heading\n");
+
+    const result = await run("[Root](target.md#root-heading)", root);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
+  it("resolves wikilink titles from Linkity's file index", async () => {
+    const root = fixture();
+    const result = await run("[[Start Here#section-one]]", root);
 
     expect(result.messages).toHaveLength(0);
   });

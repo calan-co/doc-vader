@@ -1,6 +1,16 @@
 import fs from "fs";
 import path from "path";
-import { parseLinks, type LinkNode } from "linkity";
+import {
+  createSyntaxRegistry,
+  gfmSyntax,
+  parseLink,
+  type Ast,
+  type FileIndex,
+  type ParseContext,
+  type Syntax,
+  urlSyntax,
+  wikilinkSyntax,
+} from "linkity";
 import type { Root } from "mdast";
 import { Plugin } from "unified";
 import { visitParents } from "unist-util-visit-parents";
@@ -13,17 +23,21 @@ export const optionsSchema = z.object({
 
 export type Options = z.input<typeof optionsSchema>;
 
-type MarkdownIndexEntry = {
-  path: string;
+type MarkdownIndexEntry = NonNullable<FileIndex["files"]>[number] & {
+  absolutePath: string;
   anchors: Set<string>;
 };
 
 type MarkdownIndex = {
   byKey: Map<string, MarkdownIndexEntry>;
   byPath: Map<string, MarkdownIndexEntry>;
+  byRelativePath: Map<string, MarkdownIndexEntry>;
+  fileIndex: FileIndex;
 };
 
 const indexCache = new Map<string, MarkdownIndex>();
+const syntaxRegistry = createSyntaxRegistry([gfmSyntax, wikilinkSyntax, urlSyntax]);
+const syntaxes = syntaxRegistry.list();
 
 function slug(value: string): string {
   return value
@@ -50,18 +64,51 @@ function walkMarkdownFiles(dir: string): string[] {
   return files;
 }
 
-function readAnchors(filePath: string): Set<string> {
+function readIndexEntry(rootDir: string, filePath: string): MarkdownIndexEntry {
   const content = fs.readFileSync(filePath, "utf8");
   const anchors = new Set<string>();
-  const idMatch = content.match(/^id:\s*["']?([^"'\n]+)["']?/m);
-  if (idMatch?.[1]) anchors.add(idMatch[1].trim());
+  const id = content.match(/^id:\s*["']?([^"'\n]+)["']?/m)?.[1]?.trim();
+  const title = content.match(/^title:\s*["']?([^"'\n]+)["']?/m)?.[1]?.trim();
+  if (id) anchors.add(id);
   for (const match of content.matchAll(/^#{1,6}\s+(.+)$/gm)) {
     if (match[1]) anchors.add(slug(match[1]));
   }
   for (const match of content.matchAll(/<a\s+[^>]*(?:id|name)=["']([^"']+)["'][^>]*>/gi)) {
     if (match[1]) anchors.add(match[1]);
   }
-  return anchors;
+
+  return {
+    path: path.relative(rootDir, filePath).replaceAll(path.sep, "/"),
+    absolutePath: filePath,
+    ...(title ? { title } : {}),
+    ...(id ? { aliases: [id] } : {}),
+    headings: [...anchors],
+    anchors,
+  };
+}
+
+function splitTarget(rawTarget: string): { target: string; fragment: string } {
+  const [beforeHash = "", afterHash = ""] = rawTarget.split("#", 2);
+  const [withoutQuery = ""] = beforeHash.split("?", 1);
+  return {
+    target: decodeURIComponent(withoutQuery),
+    fragment: decodeURIComponent(afterHash),
+  };
+}
+
+function fileIndexFor(entries: MarkdownIndexEntry[]): FileIndex {
+  const byRelativePath = new Map(entries.map((entry) => [entry.path, entry]));
+  return {
+    files: entries,
+    resolvePath(target, sourcePath) {
+      const { target: targetPath } = splitTarget(target);
+      const baseDir = sourcePath ? path.posix.dirname(sourcePath) : "";
+      const rootRelative = /^(backlog|docs|templates)\//.test(targetPath);
+      const relativePath = rootRelative ? targetPath : path.posix.join(baseDir, targetPath);
+      const normalizedPath = path.posix.normalize(relativePath).replace(/^\.\//, "");
+      return byRelativePath.get(normalizedPath)?.path ?? byRelativePath.get(`${normalizedPath}.md`)?.path;
+    },
+  };
 }
 
 function markdownIndex(rootDir: string): MarkdownIndex {
@@ -71,18 +118,21 @@ function markdownIndex(rootDir: string): MarkdownIndex {
 
   const byKey = new Map<string, MarkdownIndexEntry>();
   const byPath = new Map<string, MarkdownIndexEntry>();
-  for (const filePath of walkMarkdownFiles(key)) {
-    const relative = path.relative(key, filePath).replaceAll(path.sep, "/");
-    const entry = { path: filePath, anchors: readAnchors(filePath) };
-    byPath.set(path.resolve(filePath), entry);
-    byKey.set(relative, entry);
-    byKey.set(relative.replace(/\.md$/i, ""), entry);
-    byKey.set(path.basename(relative, ".md"), entry);
-    const id = entry.anchors.values().next().value;
-    if (id) byKey.set(id, entry);
+  const entries = walkMarkdownFiles(key).map((filePath) => readIndexEntry(key, filePath));
+  for (const entry of entries) {
+    byPath.set(path.resolve(entry.absolutePath), entry);
+    byKey.set(entry.path, entry);
+    byKey.set(entry.path.replace(/\.md$/i, ""), entry);
+    byKey.set(path.basename(entry.path, ".md"), entry);
+    for (const alias of entry.aliases ?? []) byKey.set(alias, entry);
   }
 
-  const index = { byKey, byPath };
+  const index = {
+    byKey,
+    byPath,
+    byRelativePath: new Map(entries.map((entry) => [entry.path, entry])),
+    fileIndex: fileIndexFor(entries),
+  };
   indexCache.set(key, index);
   return index;
 }
@@ -112,48 +162,83 @@ function inRange(offset: number | undefined, ranges: Array<{ start: number; end:
   return typeof offset === "number" && ranges.some((range) => offset >= range.start && offset < range.end);
 }
 
-function splitTarget(rawTarget: string): { target: string; fragment: string } {
-  const [beforeHash = "", afterHash = ""] = rawTarget.split("#", 2);
-  const [withoutQuery = ""] = beforeHash.split("?", 1);
-  return {
-    target: decodeURIComponent(withoutQuery),
-    fragment: decodeURIComponent(afterHash),
-  };
-}
-
 function hasScheme(value: string): boolean {
   return /^[a-z][a-z0-9+.-]*:/i.test(value);
 }
 
-function rawTarget(node: LinkNode): string {
-  return node.type === "markdown" ? (node.url ?? "") : node.value;
+function pathTarget(ast: Ast): string {
+  if (!ast.path) return "";
+  const separator = ast.path.separator ?? "/";
+  const parts = [...(ast.path.containers ?? [])];
+  const resource = `${ast.path.resource ?? ""}${ast.path.extension ? `.${ast.path.extension}` : ""}`;
+  if (resource) parts.push(resource);
+  return `${ast.path.absolute ? separator : ""}${parts.join(separator)}`;
+}
+
+function rawTarget(ast: Ast): string {
+  const authority = ast.scheme ? `${ast.scheme}://${ast.authority ?? ""}` : "";
+  const query = ast.query
+    ? `?${Object.entries(ast.query)
+        .flatMap(([key, value]) =>
+          Array.isArray(value)
+            ? value.map((item) => `${encodeURIComponent(key)}=${encodeURIComponent(item)}`)
+            : [value === true ? encodeURIComponent(key) : `${encodeURIComponent(key)}=${encodeURIComponent(value)}`],
+        )
+        .join("&")}`
+    : "";
+  const fragment = ast.block ? `#^${ast.block}` : ast.anchor ? `#${ast.anchor}` : "";
+  return `${authority}${pathTarget(ast)}${query}${fragment}`;
+}
+
+function parseDocumentLinks(markdown: string, context: ParseContext): Ast[] {
+  const links: Ast[] = [];
+  let startIndex = 0;
+
+  while (startIndex < markdown.length) {
+    const candidate = syntaxes
+      .map((syntax) => ({ syntax, match: syntax.match(markdown, { startIndex }) }))
+      .filter((candidate): candidate is { syntax: Syntax; match: NonNullable<typeof candidate.match> } => Boolean(candidate.match))
+      .sort((left, right) => left.match.span.start - right.match.span.start)[0];
+    if (!candidate) break;
+
+    const raw = candidate.match.raw;
+    try {
+      links.push({ ...parseLink(raw, candidate.syntax, context), span: candidate.match.span });
+    } catch {
+      links.push({ ...parseLink(raw, candidate.syntax), span: candidate.match.span });
+    }
+    const nextIndex = candidate.match.span.end;
+    startIndex = nextIndex > startIndex ? nextIndex : startIndex + 1;
+  }
+
+  return links;
 }
 
 function indexedPath(index: MarkdownIndex, filePath: string): MarkdownIndexEntry | undefined {
   return index.byPath.get(filePath) ?? index.byPath.get(`${filePath}.md`);
 }
 
-function resolveTarget(node: LinkNode, sourcePath: string, rootDir: string, index: MarkdownIndex) {
-  const raw = rawTarget(node).trim();
-  if (!raw || hasScheme(raw)) return { kind: "external" } as const;
+function resolveTarget(ast: Ast, sourcePath: string, rootDir: string, index: MarkdownIndex) {
+  const raw = rawTarget(ast).trim();
+  if (!raw || ast.scheme || hasScheme(raw)) return { kind: "external" } as const;
   if (/{{|}}|<%|%>|\$\{/.test(raw)) return { kind: "template-target", raw } as const;
 
   const { target, fragment } = splitTarget(raw);
   if (!target && fragment) {
     return { kind: "resolved", entry: index.byPath.get(path.resolve(sourcePath)), fragment, raw } as const;
   }
-  if (target && !target.endsWith(".md") && (node.type === "markdown" || path.extname(target))) {
+  if (target && !target.endsWith(".md") && ast.provenance?.syntax === gfmSyntax.id && path.extname(target)) {
     return { kind: "external" } as const;
   }
 
-  if (target.startsWith("./") || target.startsWith("../") || target.includes("/")) {
-    const rootRelative = /^(backlog|docs|templates)\//.test(target);
-    const baseDir = rootRelative ? rootDir : sourcePath ? path.dirname(sourcePath) : rootDir;
-    const resolved = path.resolve(baseDir, target);
-    return { kind: "resolved", entry: indexedPath(index, resolved), fragment, raw } as const;
-  }
-
-  return { kind: "resolved", entry: index.byKey.get(target.replace(/\.md$/i, "")) ?? index.byKey.get(target), fragment, raw } as const;
+  const sourceRelativePath = sourcePath ? path.relative(rootDir, sourcePath).replaceAll(path.sep, "/") : undefined;
+  const resolvedPath = index.fileIndex.resolvePath?.(target, sourceRelativePath);
+  const entry = resolvedPath
+    ? index.byRelativePath.get(resolvedPath)
+    : target.includes("/")
+      ? indexedPath(index, path.resolve(rootDir, target))
+      : index.byKey.get(target.replace(/\.md$/i, "")) ?? index.byKey.get(target);
+  return { kind: "resolved", entry, fragment, raw } as const;
 }
 
 const SOURCE = "remark-lint";
@@ -184,12 +269,16 @@ const remarkLintCrossref = function (options?: Options) {
     const markdown = String(file.value ?? "");
     const codeRanges = collectCodeRanges(tree, markdown);
     const index = markdownIndex(rootDir);
+    const context = {
+      sourcePath: sourcePath ? path.relative(rootDir, sourcePath).replaceAll(path.sep, "/") : undefined,
+      fileIndex: index.fileIndex,
+    };
 
-    for (const link of parseLinks(markdown, { enableMarkdown: true, enableUrl: true, enableWikilink: true })) {
-      if (inRange(link.position?.start, codeRanges)) continue;
+    for (const link of parseDocumentLinks(markdown, context)) {
+      if (inRange(link.span?.start, codeRanges)) continue;
       const resolved = resolveTarget(link, sourcePath, rootDir, index);
       if (resolved.kind === "external") continue;
-      const point = pointForOffset(markdown, link.position?.start);
+      const point = pointForOffset(markdown, link.span?.start);
       const target = rawTarget(link);
       if (resolved.kind === "template-target") {
         emit(`Linkity template-target: ${target}`, point);
