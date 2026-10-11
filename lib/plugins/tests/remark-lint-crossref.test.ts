@@ -103,6 +103,32 @@ describe("remark-lint-crossref", () => {
     expect(result.messages[0].fatal).toBeFalsy();
   });
 
+  it("reports generated and ignored targets without treating them as missing", async () => {
+    const root = fixture();
+    fs.writeFileSync(path.join(root, "docs", "generated.graph.json"), "{}");
+
+    const result = await run(
+      "[[generated.graph.json]]\n[Ignored](../node_modules/generated.md)",
+      root,
+    );
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity generated-target: generated.graph.json",
+      "Linkity ignored-target: ../node_modules/generated.md",
+    ]);
+    expect(result.messages.every((message) => !message.fatal)).toBe(true);
+  });
+
+  it("rebuilds the file index after filesystem changes", async () => {
+    const root = fixture();
+
+    expect((await run("[Later](./later.md)", root)).messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: ./later.md",
+    ]);
+    fs.writeFileSync(path.join(root, "docs", "later.md"), "# Later\n");
+    expect((await run("[Later](./later.md)", root)).messages).toHaveLength(0);
+  });
+
   it("validates options with zod", () => {
     expect(() => optionsSchema.parse({ enabled: true })).not.toThrow();
   });

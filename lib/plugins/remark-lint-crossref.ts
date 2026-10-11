@@ -35,7 +35,7 @@ type MarkdownIndex = {
   fileIndex: FileIndex;
 };
 
-const indexCache = new Map<string, MarkdownIndex>();
+const ignoredDirectoryNames = new Set([".git", "node_modules", "dist", "coverage"]);
 const syntaxRegistry = createSyntaxRegistry([gfmSyntax, wikilinkSyntax, urlSyntax]);
 const syntaxes = syntaxRegistry.list();
 
@@ -50,13 +50,12 @@ function slug(value: string): string {
 }
 
 function walkMarkdownFiles(dir: string): string[] {
-  const ignored = new Set([".git", "node_modules", "dist", "coverage"]);
   const entries = fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : [];
   const files: string[] = [];
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!ignored.has(entry.name)) files.push(...walkMarkdownFiles(fullPath));
+      if (!ignoredDirectoryNames.has(entry.name)) files.push(...walkMarkdownFiles(fullPath));
     } else if (entry.isFile() && entry.name.endsWith(".md")) {
       files.push(fullPath);
     }
@@ -112,13 +111,10 @@ function fileIndexFor(entries: MarkdownIndexEntry[]): FileIndex {
 }
 
 function markdownIndex(rootDir: string): MarkdownIndex {
-  const key = path.resolve(rootDir);
-  const cached = indexCache.get(key);
-  if (cached) return cached;
-
+  const root = path.resolve(rootDir);
   const byKey = new Map<string, MarkdownIndexEntry>();
   const byPath = new Map<string, MarkdownIndexEntry>();
-  const entries = walkMarkdownFiles(key).map((filePath) => readIndexEntry(key, filePath));
+  const entries = walkMarkdownFiles(root).map((filePath) => readIndexEntry(root, filePath));
   for (const entry of entries) {
     byPath.set(path.resolve(entry.absolutePath), entry);
     byKey.set(entry.path, entry);
@@ -127,14 +123,12 @@ function markdownIndex(rootDir: string): MarkdownIndex {
     for (const alias of entry.aliases ?? []) byKey.set(alias, entry);
   }
 
-  const index = {
+  return {
     byKey,
     byPath,
     byRelativePath: new Map(entries.map((entry) => [entry.path, entry])),
     fileIndex: fileIndexFor(entries),
   };
-  indexCache.set(key, index);
-  return index;
 }
 
 function pointForOffset(value: string, offset = 0) {
@@ -224,8 +218,17 @@ function resolveTarget(ast: Ast, sourcePath: string, rootDir: string, index: Mar
   if (/{{|}}|<%|%>|\$\{/.test(raw)) return { kind: "template-target", raw } as const;
 
   const { target, fragment } = splitTarget(raw);
+  if (target.split(/[\\/]/).some((segment) => ignoredDirectoryNames.has(segment))) {
+    return { kind: "ignored-target", raw } as const;
+  }
   if (!target && fragment) {
     return { kind: "resolved", entry: index.byPath.get(path.resolve(sourcePath)), fragment, raw } as const;
+  }
+
+  const rootRelative = /^(backlog|docs|templates)\//.test(target);
+  const targetPath = path.resolve(rootRelative ? rootDir : path.dirname(sourcePath || rootDir), target);
+  if (target.endsWith(".graph.json") && fs.existsSync(targetPath)) {
+    return { kind: "generated-target", raw } as const;
   }
   if (target && !target.endsWith(".md") && ast.provenance?.syntax === gfmSyntax.id && path.extname(target)) {
     return { kind: "external" } as const;
@@ -280,8 +283,8 @@ const remarkLintCrossref = function (options?: Options) {
       if (resolved.kind === "external") continue;
       const point = pointForOffset(markdown, link.span?.start);
       const target = rawTarget(link);
-      if (resolved.kind === "template-target") {
-        emit(`Linkity template-target: ${target}`, point);
+      if (resolved.kind === "template-target" || resolved.kind === "generated-target" || resolved.kind === "ignored-target") {
+        emit(`Linkity ${resolved.kind}: ${target}`, point);
         continue;
       }
       if (!resolved.entry) {
