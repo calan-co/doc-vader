@@ -69,8 +69,13 @@ function readIndexEntry(rootDir: string, filePath: string): MarkdownIndexEntry {
   const id = content.match(/^id:\s*["']?([^"'\n]+)["']?/m)?.[1]?.trim();
   const title = content.match(/^title:\s*["']?([^"'\n]+)["']?/m)?.[1]?.trim();
   if (id) anchors.add(id);
+  const headingCounts = new Map<string, number>();
   for (const match of content.matchAll(/^#{1,6}\s+(.+)$/gm)) {
-    if (match[1]) anchors.add(slug(match[1]));
+    if (!match[1]) continue;
+    const base = slug(match[1]);
+    const count = headingCounts.get(base) ?? 0;
+    anchors.add(count ? `${base}-${count}` : base);
+    headingCounts.set(base, count + 1);
   }
   for (const match of content.matchAll(/<a\s+[^>]*(?:id|name)=["']([^"']+)["'][^>]*>/gi)) {
     if (match[1]) anchors.add(match[1]);
@@ -248,7 +253,9 @@ function resolveTarget(ast: Ast, sourcePath: string, rootDir: string, index: Mar
     ? index.byRelativePath.get(resolvedPath)
     : target.includes("/")
       ? indexedPath(index, path.resolve(rootDir, target))
-      : index.byKey.get(target.replace(/\.md$/i, "")) ?? index.byKey.get(target);
+      : ast.provenance?.syntax === wikilinkSyntax.id
+        ? index.byKey.get(target.replace(/\.md$/i, "")) ?? index.byKey.get(target)
+        : undefined;
   return { kind: "resolved", entry, fragment, raw } as const;
 }
 

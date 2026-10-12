@@ -26,7 +26,7 @@ Enable every Linkity parser Doc-Vader needs for Markdown documentation:
 
 | Linkity type | Examples | Validation policy |
 | --- | --- | --- |
-| `wikilink` | `[[target]]`, `[[target#section]]`, `[[target|label]]` | Resolve as Doc-Vader cross-references. Validate file/id targets and fragments after normalizing the target path. |
+| `wikilink` | `[[target]]`, `[[target#section]]`, `[[target\|label]]` | Resolve as Doc-Vader cross-references. Validate file/id targets and fragments after normalizing the target path. |
 | `markdown` | `[label](target.md)`, `[label](target.md#section)`, `[label](../guide/file.md)` | Resolve relative to the source document. Validate files and fragments. |
 | `url` | `https://example.com`, `http://example.com/path` | Treat as external. Syntax is in scope; network reachability is out of scope. |
 | `custom` | `mailto:team@example.com`, `vscode://file/path`, `obsidian://open?vault=docs` | Treat as external unless a Doc-Vader resolver explicitly owns the scheme. |

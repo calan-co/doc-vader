@@ -124,7 +124,8 @@ babysitter task:list "$RUNS_DIR/<run-id>" --pending --json
 babysitter run:events "$RUNS_DIR/<run-id>" --json
 ```
 
-Reject an effect that writes to `$GLOBAL_DV_ROOT`, the base checkout, another
+Allow effects to read or execute `$DV_BIN`, but reject any effect that writes to
+`$DV_BIN`, `$GLOBAL_DV_ROOT`, the base checkout, another
 `/private/tmp/doc-vader-*` directory, or an unapproved shared run directory.
 
 ## Concurrent worktrees

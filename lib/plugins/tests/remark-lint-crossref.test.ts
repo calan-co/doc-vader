@@ -66,6 +66,25 @@ describe("remark-lint-crossref", () => {
     expect(result.messages).toHaveLength(0);
   });
 
+  it("indexes duplicate heading slugs", async () => {
+    const root = fixture();
+    fs.writeFileSync(path.join(root, "docs", "duplicate.md"), "## Setup\n\n## Setup\n");
+
+    const result = await run("[Duplicate](./duplicate.md#setup-1)", root);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
+  it("does not resolve Markdown links by a global basename", async () => {
+    const root = fixture();
+    fs.mkdirSync(path.join(root, "docs", "elsewhere"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", "elsewhere", "target.md"), "# Target\n");
+
+    const result = await run("[Wrong sibling](target.md)", root, "docs/nested/source.md");
+
+    expect(result.messages.map((message) => message.message)).toEqual(["Linkity missing-target: target.md"]);
+  });
+
   it("treats external URLs and custom schemes as out of scope", async () => {
     const root = fixture();
     const result = await run(
