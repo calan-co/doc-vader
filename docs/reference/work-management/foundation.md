@@ -78,12 +78,12 @@ Its content schema follows the `templjs` backlog structure:
 
 ## Template Package
 
-- [`templates/reference/work-management/project.tpl.md`](../../../templates/reference/work-management/project.tpl.md)
-- [`templates/reference/work-management/release.tpl.md`](../../../templates/reference/work-management/release.tpl.md)
-- [`templates/reference/work-management/milestone.tpl.md`](../../../templates/reference/work-management/milestone.tpl.md)
-- [`templates/reference/work-management/work-item.tpl.md`](../../../templates/reference/work-management/work-item.tpl.md)
-- [`templates/reference/work-management/plan.tpl.md`](../../../templates/reference/work-management/plan.tpl.md)
-- [`templates/reference/work-management/record.tpl.md`](../../../templates/reference/work-management/record.tpl.md)
+- [`templates/reference/work-management/project.md.tpl`](../../../templates/reference/work-management/project.md.tpl)
+- [`templates/reference/work-management/release.md.tpl`](../../../templates/reference/work-management/release.md.tpl)
+- [`templates/reference/work-management/milestone.md.tpl`](../../../templates/reference/work-management/milestone.md.tpl)
+- [`templates/reference/work-management/work-item.md.tpl`](../../../templates/reference/work-management/work-item.md.tpl)
+- [`templates/reference/work-management/plan.md.tpl`](../../../templates/reference/work-management/plan.md.tpl)
+- [`templates/reference/work-management/record.md.tpl`](../../../templates/reference/work-management/record.md.tpl)
 
 Each template declares or expects its rendering host to supply:
 
@@ -111,8 +111,8 @@ Authored examples:
 - [`release-pet-store-launch-01.md`](./examples/greenfield-pet-store/release-pet-store-launch-01.md)
 - [`milestone-pet-store-checkout-ready.md`](./examples/greenfield-pet-store/milestone-pet-store-checkout-ready.md)
 - [`work-item-pet-100.md`](./examples/greenfield-pet-store/work-item-pet-100.md)
-- [`work-item-pet-110.md`](./examples/greenfield-pet-store/work-item-pet-110.md)
-- [`work-item-pet-120.md`](./examples/greenfield-pet-store/work-item-pet-120.md)
+- [`work-item-pet-101.md`](./examples/greenfield-pet-store/work-item-pet-101.md)
+- [`work-item-pet-102.md`](./examples/greenfield-pet-store/work-item-pet-102.md)
 - [`plan-pet-store-strategy.md`](./examples/greenfield-pet-store/plan-pet-store-strategy.md)
 - [`record-pet-store-launch-dry-run.md`](./examples/greenfield-pet-store/record-pet-store-launch-dry-run.md)
 

@@ -16,7 +16,7 @@ tags:
   - storefront
 links:
   machine_output:
-    - '[[greenfield-pet-store-website.graph.json]]'
+    - '[[../greenfield-pet-store-website.graph.json]]'
 ---
 
 ## Release Objective
@@ -46,7 +46,7 @@ traffic.
 
 - `part_of`: [[project-pet-store-website]]
 - `includes`: [[work-item-pet-100]]
-- `includes`: [[work-item-pet-120]]
+- `includes`: [[work-item-pet-102]]
 - `targets`: [[milestone-pet-store-checkout-ready]]
 
 ## Notes

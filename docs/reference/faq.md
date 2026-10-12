@@ -20,7 +20,7 @@ lifecycle: active
 
 - **How do I install doc-vader?**
 
-  - See [Getting Started](./getting-started.md) for installation instructions.
+  - See [Getting Started](../how-to/getting-started.md) for installation instructions.
 
 - **What are the system requirements?**
 
@@ -44,4 +44,4 @@ lifecycle: active
 
 ## Troubleshooting
 
-- **See [Troubleshooting](./troubleshooting.md) for common error messages and fixes.**
+- **See [Troubleshooting](../how-to/troubleshooting.md) for common error messages and fixes.**

@@ -69,7 +69,7 @@ See the [README](../../README.md) for the full CLI reference and API details.
 
 6. **Next Steps**
 
-   - See [FAQ](./faq.md) for common questions
+   - See [FAQ](../reference/faq.md) for common questions
    - See [Troubleshooting](./troubleshooting.md) for help
    - Explore [Example Files](../../examples/README.md)
 

@@ -39,7 +39,8 @@
     "backlog:validate:pr": "node --import tsx scripts/validate-pull-request-work-items.ts",
     "hooks:commit-msg": "commitlint --edit",
     "hooks:pre-push": "pnpm run schemas:policy:check && pnpm run changeset:check && node --import tsx scripts/validate-work-items-pre-push.ts",
-    "lint": "pnpm run schemas:policy:check && nx run doc-vader:lint"
+    "lint": "pnpm run schemas:policy:check && nx run doc-vader:lint",
+    "docs:lint:linkity": "node --import tsx/esm scripts/docs-remark-lint.ts --fail-on linkity \"docs/reference/**/*.md\" \"docs/how-to/**/*.md\""
   },
   "keywords": [],
   "author": "",
@@ -91,6 +92,7 @@
     "unist-util-visit-parents": "^6.0.2",
     "vfile": "^6.0.3",
     "yaml": "^2.9.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "linkity": "https://codeload.github.com/calan-co/linkity/tar.gz/c2af7c747c17dfc36037b12de70a589d29e35677"
   }
 }

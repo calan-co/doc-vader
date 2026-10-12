@@ -13,8 +13,8 @@ tags:
 links:
   related:
     - '[[remark-lint-unified-architecture.md]]'
-    - '[[../../backlog/228.design-cross-file-registry-model-story.md]]'
-    - '[[../../backlog/174.cross-file-graph-and-naming-feature.md]]'
+    - '[[../../backlog/archive/228.design-cross-file-registry-model-story.md]]'
+    - '[[../../backlog/archive/174.cross-file-graph-and-naming-feature.md]]'
 ---
 
 ## Purpose

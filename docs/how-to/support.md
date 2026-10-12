@@ -9,7 +9,7 @@ status: proposed
 
 ## Getting Help
 
-- Check [[faq]] and [[Troubleshooting]]
+- Check [[faq]] and [[troubleshooting]]
 - Open a GitHub Issue for bugs or feature requests
 - Contact maintainers for security concerns
 - For urgent issues, email the project owner (see repository contact)

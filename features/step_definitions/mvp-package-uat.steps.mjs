@@ -53,7 +53,12 @@ tags:
 
 When("I install the packed Doc-Vader package", () => {
   packageManager("run", "build");
-  packed = JSON.parse(npm("pack", "--ignore-scripts", "--json"))[0].filename;
+  const pack = JSON.parse(npm("pack", "--ignore-scripts", "--json"));
+  packed = (Array.isArray(pack) ? pack[0] : Object.values(pack)[0]).filename;
+  const packageJson = JSON.parse(run("tar", ["-xOf", packed, "package/package.json"], { cwd: repo, encoding: "utf8" }));
+  if (packageJson.dependencies.linkity !== "https://codeload.github.com/calan-co/linkity/tar.gz/c2af7c747c17dfc36037b12de70a589d29e35677") {
+    throw new Error("packed package does not use the pinned Linkity codeload tarball");
+  }
   try {
     run("npm", ["install", path.join(repo, packed)], { cwd: consumer, stdio: "inherit" });
     packageVersion = JSON.parse(readFileSync(path.join(consumer, "node_modules/@calan-co/doc-vader/package.json"), "utf8")).version;
