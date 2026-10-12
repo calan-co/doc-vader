@@ -11,6 +11,8 @@ status_reason: completed
 priority: high
 completed_date: '2026-10-11'
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/111
   evidence:
     - https://github.com/calan-co/doc-vader/commit/73b5c57
   reference:
