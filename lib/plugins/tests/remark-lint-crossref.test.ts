@@ -72,6 +72,31 @@ describe("remark-lint-crossref", () => {
     expect(result.messages.every((message) => message.fatal)).toBe(false);
   });
 
+  it("does not resolve heading slugs as bare wikilink targets", async () => {
+    const root = fixture();
+    fs.writeFileSync(path.join(root, "docs", "intro.md"), "# Introduction\n");
+
+    const result = await run("[[introduction]]", root);
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: introduction",
+    ]);
+  });
+
+  it("reports ignored targets and keeps linting malformed percent escapes", async () => {
+    const root = fixture();
+    fs.mkdirSync(path.join(root, "dist"), { recursive: true });
+    fs.writeFileSync(path.join(root, "dist", "generated.md"), "# Generated\n");
+
+    const result = await run("[Generated](../dist/generated.md)\n[Bad](50%.md)", root);
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity ignored-target: ../dist/generated.md",
+      "Linkity missing-target: 50%.md",
+    ]);
+    expect(result.messages.every((message) => message.fatal)).toBe(false);
+  });
+
   it("keeps templates visible without failing and ignores code spans", async () => {
     const root = fixture();
     const result = await run(

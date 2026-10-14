@@ -15,6 +15,7 @@ export type Options = z.input<typeof optionsSchema>;
 
 type MarkdownIndexEntry = {
   path: string;
+  id?: string;
   anchors: Set<string>;
 };
 
@@ -23,6 +24,7 @@ type MarkdownIndex = {
   byPath: Map<string, MarkdownIndexEntry>;
 };
 
+const IGNORED_DIRS = new Set([".git", "node_modules", "dist", "coverage"]);
 const indexCache = new Map<string, MarkdownIndex>();
 
 function slug(value: string): string {
@@ -36,13 +38,12 @@ function slug(value: string): string {
 }
 
 function walkMarkdownFiles(dir: string): string[] {
-  const ignored = new Set([".git", "node_modules", "dist", "coverage"]);
   const entries = fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }) : [];
   const files: string[] = [];
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!ignored.has(entry.name)) files.push(...walkMarkdownFiles(fullPath));
+      if (!IGNORED_DIRS.has(entry.name)) files.push(...walkMarkdownFiles(fullPath));
     } else if (entry.isFile() && entry.name.endsWith(".md")) {
       files.push(fullPath);
     }
@@ -50,18 +51,22 @@ function walkMarkdownFiles(dir: string): string[] {
   return files;
 }
 
-function readAnchors(filePath: string): Set<string> {
+function isIgnoredPath(rootDir: string, filePath: string): boolean {
+  return path.relative(rootDir, filePath).split(path.sep).some((part) => IGNORED_DIRS.has(part));
+}
+
+function readMarkdownMetadata(filePath: string): { id?: string; anchors: Set<string> } {
   const content = fs.readFileSync(filePath, "utf8");
   const anchors = new Set<string>();
-  const idMatch = content.match(/^id:\s*["']?([^"'\n]+)["']?/m);
-  if (idMatch?.[1]) anchors.add(idMatch[1].trim());
+  const id = content.match(/^id:\s*["']?([^"'\n]+)["']?/m)?.[1]?.trim();
+  if (id) anchors.add(id);
   for (const match of content.matchAll(/^#{1,6}\s+(.+)$/gm)) {
     if (match[1]) anchors.add(slug(match[1]));
   }
   for (const match of content.matchAll(/<a\s+[^>]*(?:id|name)=["']([^"']+)["'][^>]*>/gi)) {
     if (match[1]) anchors.add(match[1]);
   }
-  return anchors;
+  return { id, anchors };
 }
 
 function markdownIndex(rootDir: string): MarkdownIndex {
@@ -73,13 +78,12 @@ function markdownIndex(rootDir: string): MarkdownIndex {
   const byPath = new Map<string, MarkdownIndexEntry>();
   for (const filePath of walkMarkdownFiles(key)) {
     const relative = path.relative(key, filePath).replaceAll(path.sep, "/");
-    const entry = { path: filePath, anchors: readAnchors(filePath) };
+    const entry = { path: filePath, ...readMarkdownMetadata(filePath) };
     byPath.set(path.resolve(filePath), entry);
     byKey.set(relative, entry);
     byKey.set(relative.replace(/\.md$/i, ""), entry);
     byKey.set(path.basename(relative, ".md"), entry);
-    const id = entry.anchors.values().next().value;
-    if (id) byKey.set(id, entry);
+    if (entry.id) byKey.set(entry.id, entry);
   }
 
   const index = { byKey, byPath };
@@ -112,12 +116,20 @@ function inRange(offset: number | undefined, ranges: Array<{ start: number; end:
   return typeof offset === "number" && ranges.some((range) => offset >= range.start && offset < range.end);
 }
 
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function splitTarget(rawTarget: string): { target: string; fragment: string } {
   const [beforeHash = "", afterHash = ""] = rawTarget.split("#", 2);
   const [withoutQuery = ""] = beforeHash.split("?", 1);
   return {
-    target: decodeURIComponent(withoutQuery),
-    fragment: decodeURIComponent(afterHash),
+    target: safeDecode(withoutQuery),
+    fragment: safeDecode(afterHash),
   };
 }
 
@@ -150,6 +162,7 @@ function resolveTarget(node: LinkNode, sourcePath: string, rootDir: string, inde
     const rootRelative = /^(backlog|docs|templates)\//.test(target);
     const baseDir = rootRelative ? rootDir : sourcePath ? path.dirname(sourcePath) : rootDir;
     const resolved = path.resolve(baseDir, target);
+    if (isIgnoredPath(rootDir, resolved)) return { kind: "ignored-target", raw } as const;
     return { kind: "resolved", entry: indexedPath(index, resolved), fragment, raw } as const;
   }
 
@@ -193,6 +206,10 @@ const remarkLintCrossref = function (options?: Options) {
       const target = rawTarget(link);
       if (resolved.kind === "template-target") {
         emit(`Linkity template-target: ${target}`, point);
+        continue;
+      }
+      if (resolved.kind === "ignored-target") {
+        emit(`Linkity ignored-target: ${target}`, point);
         continue;
       }
       if (!resolved.entry) {

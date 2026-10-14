@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 
 function docsLint(...args: string[]) {
-  if (!process.env.npm_execpath) throw new Error("npm_execpath is required to run pnpm");
   return execFileSync(
     process.execPath,
-    [process.env.npm_execpath, "exec", "tsx", "scripts/docs-remark-lint.ts", "--format", "json", ...args],
+    ["--import", "tsx/esm", "scripts/docs-remark-lint.ts", "--format", "json", ...args],
     { encoding: "utf8" },
   );
 }
