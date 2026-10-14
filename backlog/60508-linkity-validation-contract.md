@@ -10,6 +10,7 @@ status: completed
 status_reason: completed
 priority: high
 estimated: 4
+actual: 4
 completed_date: '2026-10-03'
 links:
   reference:
@@ -26,6 +27,10 @@ tags:
 ## Statement
 
 Document the Linkity configuration and compatibility contract, including which paths are in scope and how ignored/generated targets are represented.
+
+## Tasks
+
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 

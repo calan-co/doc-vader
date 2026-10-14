@@ -93,6 +93,6 @@
     "vfile": "^6.0.3",
     "yaml": "^2.9.0",
     "zod": "^4.4.3",
-    "linkity": "file:vendor/linkity"
+    "linkity": "https://github.com/calan-co/linkity/releases/download/v0.2.0/linkity-0.2.0.tgz"
   }
 }

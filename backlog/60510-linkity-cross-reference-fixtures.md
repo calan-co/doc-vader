@@ -7,13 +7,18 @@ type: work-item
 subtype: task
 lifecycle: active
 status: completed
+status_reason: completed
 priority: high
 estimated: 5
+actual: 5
+completed_date: '2026-10-14'
 links:
   depends_on:
     - '[[60509-linkity-remark-adapter]]'
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
+  evidence:
+    - '[[../docs/reference/linkity-validation-contract.md]]'
 tags:
   - documentation
   - linkity
@@ -23,6 +28,10 @@ tags:
 ## Statement
 
 Add focused fixtures for valid and invalid links so Linkity behavior is protected independently of the current documentation corpus.
+
+## Tasks
+
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 

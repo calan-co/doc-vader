@@ -7,13 +7,18 @@ type: work-item
 subtype: task
 lifecycle: active
 status: completed
+status_reason: completed
 priority: high
 estimated: 6
+actual: 6
+completed_date: '2026-10-14'
 links:
   depends_on:
     - '[[60508-linkity-validation-contract]]'
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
+  evidence:
+    - '[[../docs/reference/linkity-validation-contract.md]]'
 tags:
   - documentation
   - linkity
@@ -22,6 +27,10 @@ tags:
 ## Statement
 
 Replace the bespoke `fs.existsSync` cross-reference path check with a Linkity-backed remark adapter.
+
+## Tasks
+
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 

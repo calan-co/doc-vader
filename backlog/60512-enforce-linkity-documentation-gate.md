@@ -7,14 +7,21 @@ type: work-item
 subtype: task
 lifecycle: active
 status: completed
+status_reason: completed
 priority: high
 estimated: 3
+actual: 3
+completed_date: '2026-10-14'
 links:
   depends_on:
     - '[[60510-linkity-cross-reference-fixtures]]'
     - '[[60511-repair-reference-documentation-links]]'
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
+  evidence:
+    - '[[../docs/reference/linkity-validation-contract.md]]'
+  pull_requests:
+    - 'https://github.com/calan-co/doc-vader/pull/110'
 tags:
   - documentation
   - linkity
@@ -24,6 +31,10 @@ tags:
 ## Statement
 
 Promote the validated Linkity integration from warning-only observation to an enforced documentation quality gate.
+
+## Tasks
+
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 
