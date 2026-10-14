@@ -40,4 +40,4 @@ estimated: 4
 
 ## More Help
 
-- See [FAQ](./faq.md) or [Support](./support.md).
+- See [FAQ](../reference/faq.md) or [Support](./support.md).

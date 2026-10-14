@@ -31,7 +31,10 @@ function dv(...args) {
 Given("a clean consumer project with a ready work item", () => {
   consumer = mkdtempSync(path.join(os.tmpdir(), "doc-vader-cucumber-"));
   mkdirSync(path.join(consumer, "backlog"));
-  writeFileSync(path.join(consumer, ".npmrc"), "registry=https://registry.npmjs.org/\n@calan-co:registry=https://npm.pkg.github.com/\n");
+  writeFileSync(
+    path.join(consumer, ".npmrc"),
+    "registry=https://registry.npmjs.org/\n@calan-co:registry=https://npm.pkg.github.com/\nallow-git=all\nallow-remote=all\n",
+  );
   writeFileSync(path.join(consumer, "package.json"), '{"name":"mvp-uat","private":true}\n');
   writeFileSync(path.join(consumer, "backlog/100-mvp-uat.md"), `---
 id: wi-100
@@ -53,7 +56,9 @@ tags:
 
 When("I install the packed Doc-Vader package", () => {
   packageManager("run", "build");
-  packed = JSON.parse(npm("pack", "--ignore-scripts", "--json"))[0].filename;
+  const packResult = JSON.parse(npm("pack", "--ignore-scripts", "--json"));
+  packed = (Array.isArray(packResult) ? packResult[0] : Object.values(packResult)[0])?.filename;
+  if (!packed) throw new Error("npm pack did not report a tarball filename");
   try {
     run("npm", ["install", path.join(repo, packed)], { cwd: consumer, stdio: "inherit" });
     packageVersion = JSON.parse(readFileSync(path.join(consumer, "node_modules/@calan-co/doc-vader/package.json"), "utf8")).version;

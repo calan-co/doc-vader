@@ -13,9 +13,9 @@ tags:
 links:
   related:
     - "[[staging-scripts-audit-scope.md]]"
-    - "[[../../backlog/188.task-create-staging-inventory.md]]"
-    - "[[../../backlog/184.story-inventory-staging-scripts.md]]"
-    - "[[../../backlog/180.staging-script-consolidation-epic.md]]"
+    - "[[../../backlog/archive/188.task-create-staging-inventory.md]]"
+    - "[[../../backlog/archive/184.story-inventory-staging-scripts.md]]"
+    - "[[../../backlog/archive/180.staging-script-consolidation-epic.md]]"
 ---
 
 ## Purpose

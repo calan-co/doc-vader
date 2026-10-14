@@ -43,6 +43,25 @@ jobs:
           DOC_VADER_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           DOC_VADER_HEAD_SHA: ${{ github.sha }}
 
+  linkity-docs-gate:
+    name: Linkity docs gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.9.0'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run docs:lint:linkity
+
   ci:
     uses: calan-co/cicd-shared-pipeline/.github/workflows/reusable-node-package-ci.yml@v1
     with:

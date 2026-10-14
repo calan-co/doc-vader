@@ -7,7 +7,7 @@ lifecycle: draft
 status: proposed
 links:
   howTo:
-    - '[[how-to/process-user-personas]]'
+    - '[[process-user-personas]]'
   reference:
     - '[[templates/document/user-personas.tpl]]'
   explanation:
@@ -29,7 +29,7 @@ This document defines the structure and required fields for user personas.
 - Use case
 - Thinking pattern
 
-See the [[how-to/process-user-personas|How-to Guide]] for instructions on using this template.
+See the [[process-user-personas|How-to Guide]] for instructions on using this template.
 
 ## Related Documents
 
