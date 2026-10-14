@@ -20,8 +20,9 @@ links:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
   evidence:
     - '[[../docs/reference/linkity-validation-contract.md]]'
+    - '[[record-20261014-044754-60512]]'
   pull_requests:
-    - 'https://github.com/calan-co/doc-vader/pull/110'
+    - https://github.com/calan-co/doc-vader/pull/110
 tags:
   - documentation
   - linkity

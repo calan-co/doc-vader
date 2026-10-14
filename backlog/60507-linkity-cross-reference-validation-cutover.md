@@ -16,6 +16,8 @@ links:
     - '[[60510-linkity-cross-reference-fixtures]]'
     - '[[60511-repair-reference-documentation-links]]'
     - '[[60512-enforce-linkity-documentation-gate]]'
+  evidence:
+    - '[[record-20261014-044753-60507]]'
 tags:
   - documentation
   - linkity

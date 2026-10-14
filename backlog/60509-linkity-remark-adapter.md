@@ -19,6 +19,7 @@ links:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
   evidence:
     - '[[../docs/reference/linkity-validation-contract.md]]'
+    - '[[record-20261014-044753-60509]]'
 tags:
   - documentation
   - linkity
