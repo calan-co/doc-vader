@@ -62,7 +62,7 @@ CLI display text:
 ```sh
 GLOBAL_PNPM_ROOT="$(pnpm root -g)"
 GLOBAL_DV_PACKAGE="$(
-  find "$GLOBAL_PNPM_ROOT" -type f \
+  find -L "$GLOBAL_PNPM_ROOT" -type f \
     \( -path '*/node_modules/@calan-co/doc-vader/package.json' \
        -o -path '*/@calan-co/doc-vader/package.json' \) \
     -print -quit
