@@ -60,9 +60,15 @@ In the current terminal, the expected executable is
 CLI display text:
 
 ```sh
-GLOBAL_DV_ROOT="$(pnpm root -g)/@calan-co/doc-vader"
-test -f "$GLOBAL_DV_ROOT/package.json"
-node -p "require('$GLOBAL_DV_ROOT/package.json').version"
+GLOBAL_PNPM_ROOT="$(pnpm root -g)"
+GLOBAL_DV_PACKAGE="$(
+  find "$GLOBAL_PNPM_ROOT" -type f \
+    \( -path '*/node_modules/@calan-co/doc-vader/package.json' \
+       -o -path '*/@calan-co/doc-vader/package.json' \) \
+    -print -quit
+)"
+test -n "$GLOBAL_DV_PACKAGE"
+node -p "require('$GLOBAL_DV_PACKAGE').version"
 ```
 
 Before every task, confirm that `dv` is global but its project context is the
