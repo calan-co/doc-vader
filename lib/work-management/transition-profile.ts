@@ -35,11 +35,18 @@ interface LookupTable {
   map: Record<string, unknown>;
 }
 
+export interface WorkflowAction {
+  verb: string;
+  status: string;
+  reason: string;
+}
+
 export interface TransitionProfile {
   version: string;
   sourceDimensions: Record<DimensionName, SourceDimension>;
   derivedDimensions: Record<DimensionName, LookupDerivedDimension>;
   lookupTables: Record<string, LookupTable>;
+  actions?: readonly WorkflowAction[];
   transitions: TransitionContract;
 }
 
@@ -67,6 +74,7 @@ export interface CompiledTransitionProfile {
   derivedDimensions: Record<DimensionName, LookupDerivedDimension>;
   derivedDimensionOrder: readonly DimensionName[];
   lookupTables: Record<string, CompiledLookupTable>;
+  actions: readonly WorkflowAction[];
   transitions: TransitionContract;
 }
 
@@ -550,6 +558,60 @@ function readSelectorValues(value: string | readonly string[]): readonly string[
   return typeof value === 'string' ? [value] : value;
 }
 
+function validateActions(
+  profile: TransitionProfile,
+  sourceDimensions: Readonly<Record<DimensionName, CompiledSourceDimension>>,
+  derivedDimensionOrder: readonly DimensionName[],
+  lookupTables: Readonly<Record<string, CompiledLookupTable>>,
+  diagnostics: TransitionProfileDiagnostic[]
+): void {
+  const verbs = new Set<string>();
+  const status = sourceDimensions.status?.domain;
+  const reason = sourceDimensions.reason?.domainBy;
+
+  for (const [index, action] of (profile.actions ?? []).entries()) {
+    const path = `/actions/${index}`;
+    if (verbs.has(action.verb)) {
+      addDiagnostic(diagnostics, `${path}/verb`, `duplicate action verb '${action.verb}'`);
+    }
+    verbs.add(action.verb);
+    if (!status?.valueSet.has(action.status)) {
+      addDiagnostic(diagnostics, `${path}/status`, `unknown status '${action.status}'`);
+      continue;
+    }
+    const reasons = reason?.cases[action.status];
+    if (!reasons?.valueSet.has(action.reason)) {
+      addDiagnostic(
+        diagnostics,
+        `${path}/reason`,
+        `unknown reason '${action.reason}' for status '${action.status}'`
+      );
+      continue;
+    }
+
+    const target = resolveStateVector(
+      {
+        sourceDimensions: sourceDimensions as Record<DimensionName, CompiledSourceDimension>,
+        derivedDimensions: profile.derivedDimensions,
+        derivedDimensionOrder,
+        lookupTables: lookupTables as Record<string, CompiledLookupTable>,
+        actions: [],
+        transitions: profile.transitions,
+      },
+      { status: action.status, status_reason: action.reason }
+    );
+    const hasTargetRule = profile.transitions.rules.some((rule) =>
+      Object.entries(rule.to).every(([dimension, value]) => {
+        const values = readSelectorValues(value);
+        return values.includes('*') || values.includes(target[dimension] ?? '');
+      })
+    );
+    if (!hasTargetRule) {
+      addDiagnostic(diagnostics, path, 'does not map to an allowed transition target');
+    }
+  }
+}
+
 function selectorAssignments(selector: TransitionSelector): Record<DimensionName, ScalarValue> {
   return Object.fromEntries(
     Object.entries(selector).flatMap(([dimensionName, value]) => {
@@ -703,6 +765,14 @@ export function compileTransitionProfile(
     );
   }
 
+  validateActions(
+    typedProfile,
+    sourceDimensions,
+    derivedDimensionOrder,
+    lookupTables,
+    diagnostics,
+  );
+
   if (diagnostics.length > 0) {
     throw new TransitionProfileError(diagnostics);
   }
@@ -712,6 +782,7 @@ export function compileTransitionProfile(
     derivedDimensions: typedProfile.derivedDimensions,
     derivedDimensionOrder,
     lookupTables,
+    actions: typedProfile.actions ?? [],
     transitions: typedProfile.transitions,
   };
 }

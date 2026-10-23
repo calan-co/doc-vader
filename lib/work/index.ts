@@ -140,6 +140,7 @@ export {
 export {
   recoverTaskClaim as recoverWorkClaim,
 } from "../task/recover.js";
+export { transitionTask as transitionWork } from "../task/transition.js";
 export { selectReadyTasks as selectReadyWorkItems } from "../task/ready.js";
 export {
   formatReadyPorcelain,

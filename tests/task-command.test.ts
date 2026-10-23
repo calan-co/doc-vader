@@ -4825,6 +4825,7 @@ tags:
       expect(help).toContain("prompt");
       expect(help).toContain("claim");
       expect(help).toContain("record");
+      expect(help).toContain("complete");
       expect(help).not.toMatch(/^\s+claim-for\b/m);
       expect(help).not.toMatch(/^\s+claims\b/m);
       expect(help).not.toMatch(/^\s+release\b/m);
@@ -4833,6 +4834,98 @@ tags:
       expect(help).not.toMatch(/^\s+link\b/m);
       expect(help).not.toMatch(/^\s+record-commit\b/m);
       expect(help).not.toMatch(/^\s+finalize\b/m);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("drives schema-defined Work actions through the public CLI", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "209-work-actions.md",
+        `id: wi-209-work-actions
+title: Work Actions
+type: work-item
+lifecycle: active
+status: running
+status_reason: implementation
+tags:
+  - afk`,
+      );
+      const claim = await claimTask("wi-209-work-actions", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+
+      const policy = runCliJson<{
+        integrity: { valid: boolean; issues: unknown[] };
+        actions: Array<{ verb: string; status: string; reason?: string }>;
+      }>(root, ["work", "status", "--json"]);
+      expect(policy.integrity).toEqual({ valid: true, issues: [] });
+      expect(policy.actions).toEqual(
+        expect.arrayContaining([
+          { verb: "pause", status: "paused", reason: "blocked" },
+          { verb: "abort", status: "aborted", reason: "cancelled" },
+        ]),
+      );
+
+      const paused = runCliJson<{
+        taskId: string;
+        toStatus: string;
+        workItem: { frontmatter: { status_reason: string; links: { evidence: string[] } } };
+      }>(root, [
+        "work",
+        "pause",
+        "wi-209-work-actions",
+        "--claim",
+        claim.claimId,
+        "--evidence",
+        "record-one",
+        "--evidence",
+        "[[record-two]]",
+        "--json",
+      ]);
+      expect(paused).toMatchObject({
+        taskId: "wi-209-work-actions",
+        toStatus: "paused",
+        workItem: {
+          frontmatter: {
+            status_reason: "blocked",
+            links: { evidence: ["[[record-one]]", "[[record-two]]"] },
+          },
+        },
+      });
+
+      const dryRun = runCliJson<{ toStatus: string; workItem: { dryRun: boolean } }>(
+        root,
+        [
+          "work",
+          "resume",
+          "wi-209-work-actions",
+          "--claim",
+          claim.claimId,
+          "--dry-run",
+          "--json",
+        ],
+      );
+      expect(dryRun).toEqual(expect.objectContaining({ toStatus: "running" }));
+      expect(dryRun.workItem.dryRun).toBe(true);
+      expect(
+        await fs.readFile(path.join(root, "backlog/209-work-actions.md"), "utf8"),
+      ).toContain("status: paused");
+
+      expect(() =>
+        runCli(root, [
+          "work",
+          "complete",
+          "wi-209-work-actions",
+          "--claim",
+          claim.claimId,
+        ]),
+      ).toThrow(/TASK_TRANSITION_DISALLOWED/);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

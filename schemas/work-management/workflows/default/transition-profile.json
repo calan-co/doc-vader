@@ -114,6 +114,33 @@
       }
     }
   },
+  "actions": [
+    {
+      "verb": "start",
+      "status": "running",
+      "reason": "implementation"
+    },
+    {
+      "verb": "pause",
+      "status": "paused",
+      "reason": "blocked"
+    },
+    {
+      "verb": "resume",
+      "status": "running",
+      "reason": "implementation"
+    },
+    {
+      "verb": "complete",
+      "status": "completed",
+      "reason": "completed"
+    },
+    {
+      "verb": "abort",
+      "status": "aborted",
+      "reason": "cancelled"
+    }
+  ],
   "transitions": {
     "precedence": [
       "reason",

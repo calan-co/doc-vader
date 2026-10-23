@@ -34,6 +34,7 @@ export interface TaskTransitionOptions {
   actual?: number;
   assignee?: string;
   completedDate?: string;
+  evidence?: string[];
   rootDir?: string;
   claimStorePath?: string;
   backlogDir?: string;
@@ -194,13 +195,15 @@ function normalizeStatus(value: string): string {
 async function assertCompletedHasEvidence(
   rootDir: string,
   relativeFilePath: string,
+  proposedEvidence: readonly string[] = [],
 ): Promise<void> {
   const raw = await fs.readFile(path.resolve(rootDir, relativeFilePath), "utf8");
   const parsed = matter(raw);
   const evidence = parsed.data?.links?.evidence;
   if (
-    !Array.isArray(evidence) ||
-    !evidence.some((entry) => typeof entry === "string" && entry.trim())
+    (!Array.isArray(evidence) ||
+      !evidence.some((entry) => typeof entry === "string" && entry.trim())) &&
+    !proposedEvidence.some((entry) => entry.trim())
   ) {
     throw new TaskCommandError(
       "TASK_TRANSITION_MISSING_EVIDENCE",
@@ -220,6 +223,7 @@ async function applyTaskTransition(options: {
   actual?: number;
   assignee?: string;
   completedDate?: string;
+  evidence?: string[];
   dryRun?: boolean;
 }): Promise<Omit<TaskTransitionResult, "claimId">> {
   const toStatus = normalizeStatus(options.status);
@@ -245,7 +249,6 @@ async function applyTaskTransition(options: {
     status: toStatus,
     status_reason: toStatusReason ?? null,
   };
-
   let evaluation: ReturnType<typeof evaluateTransition>;
   try {
     evaluation = evaluateTransition(previous, current);
@@ -265,7 +268,11 @@ async function applyTaskTransition(options: {
   }
 
   if (toStatus === "completed") {
-    await assertCompletedHasEvidence(options.rootDir, options.task.filePath);
+    await assertCompletedHasEvidence(
+      options.rootDir,
+      options.task.filePath,
+      options.evidence,
+    );
     const audit = runRuntimeClaimCoverageAudit({
       rootDir: options.rootDir,
       taskId: options.task.id,
@@ -289,6 +296,7 @@ async function applyTaskTransition(options: {
     actual: options.actual,
     assignee: options.assignee,
     completedDate: options.completedDate,
+    evidence: options.evidence,
     dryRun: options.dryRun,
   });
 
@@ -361,6 +369,7 @@ export async function transitionTask(
     actual: options.actual,
     assignee: options.assignee,
     completedDate: options.completedDate,
+    evidence: options.evidence,
     dryRun: options.dryRun,
   });
 

@@ -21,6 +21,7 @@ import {
   compileTransitionProfile,
   resolveStateVector,
   type CompiledTransitionProfile,
+  type WorkflowAction,
 } from "./transition-profile.js";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -245,6 +246,32 @@ function normalizeDefaultTransitionInput(
   }
 
   return snapshot as Parameters<typeof evaluateTransitionCore>[0];
+}
+
+export interface WorkActionPolicyReport {
+  actions: readonly WorkflowAction[];
+  integrity: {
+    valid: boolean;
+    issues: string[];
+  };
+}
+
+export function inspectWorkActionPolicy(): WorkActionPolicyReport {
+  try {
+    const profile = getDefaultTransitionProfile();
+    return {
+      actions: profile.actions,
+      integrity: { valid: true, issues: [] },
+    };
+  } catch (error) {
+    return {
+      actions: [],
+      integrity: {
+        valid: false,
+        issues: [error instanceof Error ? error.message : String(error)],
+      },
+    };
+  }
 }
 
 export function evaluateTransition(

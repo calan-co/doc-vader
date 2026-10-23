@@ -84,6 +84,7 @@ export interface TransitionWorkItemOptions {
   actual?: number;
   assignee?: string;
   completedDate?: string;
+  evidence?: string[];
   dryRun?: boolean;
 }
 
@@ -981,6 +982,17 @@ export async function transitionWorkItem(
   const lifecycle = ["completed", "aborted"].includes(status)
     ? "active"
     : inferLifecycle(status, false);
+
+  if (options.evidence && options.evidence.length > 0) {
+    const evidence = options.evidence.map((value) => {
+      if (typeof value !== "string" || value.trim().length === 0) {
+        throw new Error("Evidence references must be non-empty strings");
+      }
+      return normalizeLink("evidence", value);
+    });
+    const links = ensureWorkItemLinks(document.frontmatter);
+    links.evidence = unique([...ensureArray(links.evidence), ...evidence]);
+  }
 
   document.frontmatter.status = status;
   document.frontmatter.status_reason =
