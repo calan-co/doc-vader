@@ -4849,8 +4849,8 @@ tags:
 title: Work Actions
 type: work-item
 lifecycle: active
-status: running
-status_reason: implementation
+status: ready
+status_reason: auto
 tags:
   - afk`,
       );
@@ -4862,15 +4862,46 @@ tags:
 
       const policy = runCliJson<{
         integrity: { valid: boolean; issues: unknown[] };
-        actions: Array<{ verb: string; status: string; reason?: string }>;
+        actions: Array<{
+          verb: string;
+          from: string[];
+          status: string;
+          reason?: string;
+        }>;
       }>(root, ["work", "status", "--json"]);
       expect(policy.integrity).toEqual({ valid: true, issues: [] });
       expect(policy.actions).toEqual(
         expect.arrayContaining([
-          { verb: "pause", status: "paused", reason: "blocked" },
-          { verb: "abort", status: "aborted", reason: "cancelled" },
+          {
+            verb: "start",
+            from: ["ready"],
+            status: "running",
+            reason: "implementation",
+          },
+          {
+            verb: "pause",
+            from: ["running"],
+            status: "paused",
+            reason: "blocked",
+          },
+          {
+            verb: "abort",
+            from: ["draft", "ready", "running", "paused"],
+            status: "aborted",
+            reason: "cancelled",
+          },
         ]),
       );
+
+      const started = runCliJson<{ toStatus: string }>(root, [
+        "work",
+        "start",
+        "wi-209-work-actions",
+        "--claim",
+        claim.claimId,
+        "--json",
+      ]);
+      expect(started).toEqual(expect.objectContaining({ toStatus: "running" }));
 
       const paused = runCliJson<{
         taskId: string;
@@ -4920,12 +4951,62 @@ tags:
       expect(() =>
         runCli(root, [
           "work",
-          "complete",
+          "start",
           "wi-209-work-actions",
           "--claim",
           claim.claimId,
         ]),
-      ).toThrow(/TASK_TRANSITION_DISALLOWED/);
+      ).toThrow(/TASK_TRANSITION_FROM_STATUS_MISMATCH/);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, integrationTestTimeoutMs());
+
+  it("rejects a claim for another work item before mutating it", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "209-claimed.md",
+        `id: wi-209-claimed
+title: Claimed Work
+type: work-item
+lifecycle: active
+status: running
+status_reason: implementation
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "209-requested.md",
+        `id: wi-209-requested
+title: Requested Work
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk`,
+      );
+      const claim = await claimTask("wi-209-claimed", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+
+      expect(() =>
+        runCli(root, [
+          "work",
+          "pause",
+          "wi-209-requested",
+          "--claim",
+          claim.claimId,
+        ]),
+      ).toThrow(/TASK_TRANSITION_CLAIM_MISMATCH/);
+      expect(
+        await fs.readFile(path.join(root, "backlog/209-claimed.md"), "utf8"),
+      ).toContain("status: running");
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

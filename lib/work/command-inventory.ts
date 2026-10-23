@@ -47,6 +47,11 @@ const WORK_COMMAND_TREE = [
   { name: "prompt" },
   { name: "claim" },
   { name: "recover" },
+  { name: "start" },
+  { name: "pause" },
+  { name: "resume" },
+  { name: "complete" },
+  { name: "abort" },
   { name: "record" },
 ] as const satisfies readonly WorkCommandInventoryDefinition[];
 

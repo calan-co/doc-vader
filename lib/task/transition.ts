@@ -28,8 +28,10 @@ export interface TaskTransitionPayload {
 
 export interface TaskTransitionOptions {
   claimId: string;
+  taskId?: string;
   status: string;
   expectedFromStatus?: string;
+  expectedFromStatuses?: readonly string[];
   statusReason?: string;
   actual?: number;
   assignee?: string;
@@ -219,6 +221,7 @@ async function applyTaskTransition(options: {
   consumerConfig: string;
   status: string;
   expectedFromStatus?: string;
+  expectedFromStatuses?: readonly string[];
   statusReason?: string;
   actual?: number;
   assignee?: string;
@@ -228,14 +231,18 @@ async function applyTaskTransition(options: {
 }): Promise<Omit<TaskTransitionResult, "claimId">> {
   const toStatus = normalizeStatus(options.status);
   const fromStatus = normalizeStatus(options.task.status);
+  const expectedFromStatuses = [
+    ...(options.expectedFromStatus ? [options.expectedFromStatus] : []),
+    ...(options.expectedFromStatuses ?? []),
+  ].map(normalizeStatus);
   if (
-    options.expectedFromStatus &&
-    normalizeStatus(options.expectedFromStatus) !== fromStatus
+    expectedFromStatuses.length > 0 &&
+    !expectedFromStatuses.includes(fromStatus)
   ) {
     throw new TaskCommandError(
       "TASK_TRANSITION_FROM_STATUS_MISMATCH",
-      `Expected from status '${options.expectedFromStatus}' does not match current status '${fromStatus}'.`,
-      { expectedFromStatus: options.expectedFromStatus, currentStatus: fromStatus },
+      `Expected from status '${expectedFromStatuses.join("' or '")}' does not match current status '${fromStatus}'.`,
+      { expectedFromStatuses, currentStatus: fromStatus },
     );
   }
   const toStatusReason =
@@ -347,7 +354,7 @@ export async function transitionTask(
     );
   }
 
-  const task = await loadTaskModel(claim.taskId, {
+  const task = await loadTaskModel(options.taskId ?? claim.taskId, {
     rootDir,
     backlogDir: options.backlogDir,
   });
@@ -365,6 +372,7 @@ export async function transitionTask(
     consumerConfig,
     status: options.status,
     expectedFromStatus: options.expectedFromStatus,
+    expectedFromStatuses: options.expectedFromStatuses,
     statusReason: options.statusReason,
     actual: options.actual,
     assignee: options.assignee,

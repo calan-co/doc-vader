@@ -1,5 +1,6 @@
 import Ajv from 'ajv/dist/2020.js';
 import type { ErrorObject } from 'ajv';
+import { evaluateTransition as evaluateTransitionCore } from './state-transition-evaluator.js';
 import type {
   DimensionName,
   ScalarValue,
@@ -37,6 +38,7 @@ interface LookupTable {
 
 export interface WorkflowAction {
   verb: string;
+  from: readonly string[];
   status: string;
   reason: string;
 }
@@ -579,6 +581,10 @@ function validateActions(
       addDiagnostic(diagnostics, `${path}/status`, `unknown status '${action.status}'`);
       continue;
     }
+    if (action.from.some((fromStatus) => !status.valueSet.has(fromStatus))) {
+      addDiagnostic(diagnostics, `${path}/from`, 'contains an unknown source status');
+      continue;
+    }
     const reasons = reason?.cases[action.status];
     if (!reasons?.valueSet.has(action.reason)) {
       addDiagnostic(
@@ -589,25 +595,29 @@ function validateActions(
       continue;
     }
 
-    const target = resolveStateVector(
-      {
-        sourceDimensions: sourceDimensions as Record<DimensionName, CompiledSourceDimension>,
-        derivedDimensions: profile.derivedDimensions,
-        derivedDimensionOrder,
-        lookupTables: lookupTables as Record<string, CompiledLookupTable>,
-        actions: [],
-        transitions: profile.transitions,
-      },
-      { status: action.status, status_reason: action.reason }
+    const compiledProfile: CompiledTransitionProfile = {
+      sourceDimensions: sourceDimensions as Record<DimensionName, CompiledSourceDimension>,
+      derivedDimensions: profile.derivedDimensions,
+      derivedDimensionOrder,
+      lookupTables: lookupTables as Record<string, CompiledLookupTable>,
+      actions: [],
+      transitions: profile.transitions,
+    };
+    const target = resolveStateVector(compiledProfile, {
+      status: action.status,
+      status_reason: action.reason,
+    });
+    const mapsToAllowedTransition = action.from.some((fromStatus) =>
+      (reason?.cases[fromStatus]?.values ?? []).some((fromReason) => {
+        const source = resolveStateVector(compiledProfile, {
+          status: fromStatus,
+          status_reason: fromReason,
+        });
+        return evaluateTransitionCore(source, target, profile.transitions).allowed;
+      }),
     );
-    const hasTargetRule = profile.transitions.rules.some((rule) =>
-      Object.entries(rule.to).every(([dimension, value]) => {
-        const values = readSelectorValues(value);
-        return values.includes('*') || values.includes(target[dimension] ?? '');
-      })
-    );
-    if (!hasTargetRule) {
-      addDiagnostic(diagnostics, path, 'does not map to an allowed transition target');
+    if (!mapsToAllowedTransition) {
+      addDiagnostic(diagnostics, path, 'does not map to an allowed transition');
     }
   }
 }

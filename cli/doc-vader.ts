@@ -2135,7 +2135,9 @@ function registerWorkCommandSurface(surface: Command): void {
         try {
           const result = await transitionTask({
             claimId: opts.claim,
+            taskId,
             status: action.status,
+            expectedFromStatuses: action.from,
             statusReason: opts.reason ?? action.reason,
             evidence: opts.evidence,
             dryRun: opts.dryRun,
