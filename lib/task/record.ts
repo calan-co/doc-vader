@@ -295,15 +295,6 @@ export async function recordTaskEvidence(options: {
     );
   }
 
-  const workItemPreflight = await linkWorkItem({
-    rootDir,
-    consumerConfig,
-    id: claim.taskId,
-    kind: "evidence",
-    value: "[[task-record-preflight]]",
-    dryRun: true,
-  });
-
   const recordOptions = buildCreateRecordOptions({
     payload: options.payload,
     type: options.type,
@@ -320,6 +311,16 @@ export async function recordTaskEvidence(options: {
   const recordPreflight = await createRecord({
     rootDir,
     ...recordOptions,
+    dryRun: true,
+  });
+
+  const evidenceLink = `[[${path.basename(recordPreflight.filePath, ".md")}]]`;
+  const workItemPreflight = await linkWorkItem({
+    rootDir,
+    consumerConfig,
+    id: claim.taskId,
+    kind: "evidence",
+    value: evidenceLink,
     dryRun: true,
   });
 
@@ -344,7 +345,6 @@ export async function recordTaskEvidence(options: {
     ...recordOptions,
     dryRun: options.dryRun,
   });
-  const evidenceLink = `[[${path.basename(record.filePath, ".md")}]]`;
   await linkWorkItem({
     rootDir,
     consumerConfig,

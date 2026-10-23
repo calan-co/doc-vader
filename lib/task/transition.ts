@@ -194,29 +194,95 @@ function normalizeStatus(value: string): string {
   return status;
 }
 
+function evidenceRecordBasename(reference: string): string | undefined {
+  const target = reference
+    .trim()
+    .replace(/^\[\[|\]\]$/g, "")
+    .split("|", 1)[0]
+    ?.split("#", 1)[0]
+    ?.trim()
+    .replace(/\.md$/, "");
+  if (!target || target.includes("/") || target.includes("\\")) {
+    return undefined;
+  }
+  return target.startsWith("record:")
+    ? `record-${target.slice("record:".length)}`
+    : target;
+}
+
+function hasEvidenceAssociation(
+  body: string,
+  taskId: string,
+  claimId: string,
+): boolean {
+  const escaped = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    `^\\s*-\\s+(?:${escaped(taskId)}|claim:${escaped(claimId)})\\s*$`,
+    "m",
+  ).test(body);
+}
+
 async function assertCompletedHasEvidence(
   rootDir: string,
-  relativeFilePath: string,
+  task: Awaited<ReturnType<typeof loadTaskModel>>,
+  claimId: string,
   proposedEvidence: readonly string[] = [],
 ): Promise<void> {
-  const raw = await fs.readFile(path.resolve(rootDir, relativeFilePath), "utf8");
+  const raw = await fs.readFile(path.resolve(rootDir, task.filePath), "utf8");
   const parsed = matter(raw);
-  const evidence = parsed.data?.links?.evidence;
-  if (
-    (!Array.isArray(evidence) ||
-      !evidence.some((entry) => typeof entry === "string" && entry.trim())) &&
-    !proposedEvidence.some((entry) => entry.trim())
-  ) {
+  const existingEvidence: string[] = (
+    Array.isArray(parsed.data?.links?.evidence)
+      ? (parsed.data.links.evidence as unknown[])
+      : []
+  ).filter(
+    (entry): entry is string =>
+      typeof entry === "string" && entry.trim().length > 0,
+  );
+  const evidence = [...existingEvidence, ...proposedEvidence.filter((entry) => entry.trim())];
+  if (evidence.length === 0) {
     throw new TaskCommandError(
       "TASK_TRANSITION_MISSING_EVIDENCE",
       "Task completion requires at least one linked evidence record.",
-      { path: relativeFilePath },
+      { path: task.filePath },
     );
+  }
+
+  const recordsDir = path.resolve(rootDir, path.dirname(task.filePath), "records");
+  for (const reference of evidence) {
+    const basename = evidenceRecordBasename(reference);
+    if (!basename) {
+      throw new TaskCommandError(
+        "TASK_TRANSITION_INVALID_EVIDENCE",
+        `Evidence reference '${reference}' is not a record reference.`,
+        { evidence: reference },
+      );
+    }
+    let record: ReturnType<typeof matter>;
+    try {
+      record = matter(await fs.readFile(path.join(recordsDir, `${basename}.md`), "utf8"));
+    } catch {
+      throw new TaskCommandError(
+        "TASK_TRANSITION_INVALID_EVIDENCE",
+        `Evidence record '${reference}' does not exist.`,
+        { evidence: reference },
+      );
+    }
+    if (
+      record.data?.type !== "record" ||
+      !hasEvidenceAssociation(record.content, task.id, claimId)
+    ) {
+      throw new TaskCommandError(
+        "TASK_TRANSITION_INVALID_EVIDENCE",
+        `Evidence record '${reference}' is not associated with task '${task.id}' or claim '${claimId}'.`,
+        { evidence: reference, taskId: task.id, claimId },
+      );
+    }
   }
 }
 
 async function applyTaskTransition(options: {
   task: Awaited<ReturnType<typeof loadTaskModel>>;
+  claimId: string;
   rootDir: string;
   consumerConfig: string;
   status: string;
@@ -277,7 +343,8 @@ async function applyTaskTransition(options: {
   if (toStatus === "completed") {
     await assertCompletedHasEvidence(
       options.rootDir,
-      options.task.filePath,
+      options.task,
+      options.claimId,
       options.evidence,
     );
     const audit = runRuntimeClaimCoverageAudit({
@@ -368,6 +435,7 @@ export async function transitionTask(
 
   const result = await applyTaskTransition({
     task,
+    claimId: options.claimId,
     rootDir,
     consumerConfig,
     status: options.status,

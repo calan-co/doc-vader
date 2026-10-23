@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
@@ -282,6 +282,28 @@ function runCli(
 
 function runCliJson<T>(root: string, args: string[]): T {
   return JSON.parse(runCli(root, args)) as T;
+}
+
+async function writeWorkspaceTransitionProfile(
+  root: string,
+  update: (profile: Record<string, unknown>) => void,
+): Promise<void> {
+  const profile = JSON.parse(
+    await fs.readFile(
+      path.resolve(
+        __dirname,
+        "../schemas/work-management/workflows/default/transition-profile.json",
+      ),
+      "utf8",
+    ),
+  ) as Record<string, unknown>;
+  update(profile);
+  const profilePath = path.join(
+    root,
+    "schemas/work-management/workflows/default/transition-profile.json",
+  );
+  await fs.mkdir(path.dirname(profilePath), { recursive: true });
+  await fs.writeFile(profilePath, JSON.stringify(profile, null, 2));
 }
 
 describe.sequential("task command surface", { timeout: integrationTestTimeoutMs() }, () => {
@@ -4859,6 +4881,13 @@ tags:
         claimStorePath: claimStorePath(root),
         holder: "agent-a",
       });
+      await fs.mkdir(path.join(root, "backlog/records"), { recursive: true });
+      for (const recordId of ["record-one", "record-two"]) {
+        await fs.writeFile(
+          path.join(root, "backlog/records", `${recordId}.md`),
+          `---\nid: record:${recordId}\ntype: record\n---\n\n## Subject References\n\n- wi-209-work-actions\n`,
+        );
+      }
 
       const policy = runCliJson<{
         integrity: { valid: boolean; issues: unknown[] };
@@ -5012,6 +5041,51 @@ tags:
     }
   });
 
+  it("loads schema-defined workspace action verbs without duplicate profile IDs", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeWorkspaceTransitionProfile(root, (profile) => {
+        profile.actions = (profile.actions as Array<Record<string, unknown>>).map(
+          (action) =>
+            action.verb === "pause" ? { ...action, verb: "hold" } : action,
+        );
+      });
+
+      const policy = runCliJson<{
+        integrity: { valid: boolean; issues: string[] };
+        actions: Array<{ verb: string }>;
+      }>(root, ["work", "status", "--json"]);
+      expect(policy.integrity).toEqual({ valid: true, issues: [] });
+      expect(policy.actions).toContainEqual(expect.objectContaining({ verb: "hold" }));
+      expect(runCli(root, ["work", "--help"])).toContain("hold");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, integrationTestTimeoutMs());
+
+  it("rejects reserved workspace action verbs before Commander registration", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeWorkspaceTransitionProfile(root, (profile) => {
+        (profile.actions as Array<Record<string, unknown>>)[0].verb = "status";
+      });
+
+      const result = spawnSync(
+        "node",
+        ["--import", tsxImport, cliPath, "work", "status", "--json"],
+        { cwd: root, encoding: "utf8" },
+      );
+      expect(result.status).toBe(1);
+      const policy = JSON.parse(result.stdout) as {
+        integrity: { valid: boolean; issues: string[] };
+      };
+      expect(policy.integrity.valid).toBe(false);
+      expect(policy.integrity.issues.join("\n")).toMatch(/reserved/i);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, integrationTestTimeoutMs());
+
   it("fails task completion without claim evidence", async () => {
     const root = await mkTmpRoot();
     try {
@@ -5051,6 +5125,54 @@ tags:
         "utf8",
       );
       expect(workItem).toContain("status: ready");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects nonexistent or unassociated completion evidence", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "209-invalid-evidence.md",
+        `id: wi-209-invalid-evidence
+title: Invalid Evidence
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk`,
+        "## Acceptance Criteria\n\n- [x] Do the thing\n",
+      );
+      const claim = await claimTask("wi-209-invalid-evidence", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(root, "wi-209-invalid-evidence", [
+        path.join(root, "backlog", "209-invalid-evidence.md"),
+      ]);
+      await fs.mkdir(path.join(root, "backlog/records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog/records/record-unrelated.md"),
+        "---\nid: record:unrelated\ntype: record\n---\n\n## Subject References\n\n- wi-other\n",
+      );
+
+      for (const evidence of ["record-missing", "[[record-unrelated]]"]) {
+        await expect(
+          transitionTask({
+            rootDir: root,
+            claimStorePath: claimStorePath(root),
+            claimId: claim.claimId,
+            status: "completed",
+            statusReason: "completed",
+            evidence: [evidence],
+            dryRun: true,
+          }),
+        ).rejects.toMatchObject({ code: "TASK_TRANSITION_INVALID_EVIDENCE" });
+      }
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -5176,6 +5298,11 @@ tags:
 links:
   evidence:
     - '[[record-wi-214-completion]]'`,
+      );
+      await fs.mkdir(path.join(root, "backlog/records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog/records/record-wi-214-completion.md"),
+        "---\nid: record:wi-214-completion\ntype: record\n---\n\n## Subject References\n\n- wi-214\n",
       );
       const claim = await claimTask("wi-214", {
         rootDir: root,

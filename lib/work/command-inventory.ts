@@ -1,3 +1,5 @@
+import { inspectWorkActionPolicy } from "../work-management/frontmatter-lint.js";
+
 export interface WorkCommandInventoryEntry {
   readonly name: string;
   readonly children: readonly WorkCommandInventoryEntry[];
@@ -26,6 +28,10 @@ function freezeWorkCommandInventory(
   );
 }
 
+const WORK_ACTION_COMMANDS = inspectWorkActionPolicy().actions.map((action) => ({
+  name: action.verb,
+}));
+
 const WORK_COMMAND_TREE = [
   {
     name: "graph",
@@ -47,13 +53,9 @@ const WORK_COMMAND_TREE = [
   { name: "prompt" },
   { name: "claim" },
   { name: "recover" },
-  { name: "start" },
-  { name: "pause" },
-  { name: "resume" },
-  { name: "complete" },
-  { name: "abort" },
+  ...WORK_ACTION_COMMANDS,
   { name: "record" },
-] as const satisfies readonly WorkCommandInventoryDefinition[];
+] satisfies readonly WorkCommandInventoryDefinition[];
 
 export const WORK_COMMAND_ALIASES = Object.freeze([
   "work",

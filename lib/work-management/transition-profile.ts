@@ -11,6 +11,24 @@ import type {
 
 const PROFILE_PATH = 'transitionProfile';
 
+export const RESERVED_WORK_ACTION_VERBS = new Set([
+  'work',
+  'wi',
+  'task',
+  'graph',
+  'list',
+  'ready',
+  'capabilities',
+  'select',
+  'show',
+  'status',
+  'prompt',
+  'claim',
+  'recover',
+  'record',
+  'help',
+]);
+
 interface SourceDimension {
   path: string;
   domain?: string;
@@ -575,6 +593,9 @@ function validateActions(
     const path = `/actions/${index}`;
     if (verbs.has(action.verb)) {
       addDiagnostic(diagnostics, `${path}/verb`, `duplicate action verb '${action.verb}'`);
+    }
+    if (RESERVED_WORK_ACTION_VERBS.has(action.verb)) {
+      addDiagnostic(diagnostics, `${path}/verb`, `reserved Work subcommand '${action.verb}'`);
     }
     verbs.add(action.verb);
     if (!status?.valueSet.has(action.status)) {
