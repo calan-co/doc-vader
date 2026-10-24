@@ -10,6 +10,7 @@ import {
   openRuntimeSqliteStore,
   RUNTIME_SCHEMA_VERSION,
 } from "../lib/runtime/sqlite-store.js";
+import { integrationTestTimeoutMs } from "./helper/windows-integration-timeout.js";
 
 const tempDirs: string[] = [];
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -92,7 +93,10 @@ function acquireRuntimeTaskClaim(
   }
 }
 
-describe.sequential("claim command surface", () => {
+describe.sequential(
+  "claim command surface",
+  { timeout: integrationTestTimeoutMs() },
+  () => {
   it("creates, reports, completes, and fails runtime claims with claim-scoped completion", { timeout: 30_000 }, async () => {
     const root = await mkRoot();
     try {
