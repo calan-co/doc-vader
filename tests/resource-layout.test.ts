@@ -1,7 +1,14 @@
 import { promises as fs } from "node:fs";
+import { access } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const original = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...original, access: vi.fn(original.access) };
+});
+
 import {
   resolveDefaultConfigPath,
   resolveDefaultResourcePath,
@@ -51,13 +58,12 @@ describe("resource layout migration", () => {
   it("propagates errors accessing the current resource path", async () => {
     const root = await fixture();
     const relativePath = "templates/example.md.tpl";
+    const error = Object.assign(new Error("access denied"), { code: "EACCES" });
     await fs.mkdir(path.join(root, "templates"), { recursive: true });
     await fs.writeFile(path.join(root, relativePath), "legacy");
-    await fs.symlink(".dv", path.join(root, ".dv"));
+    vi.mocked(access).mockRejectedValueOnce(error);
 
-    await expect(resolveDefaultResourcePath(root, relativePath)).rejects.toMatchObject({
-      code: "ELOOP",
-    });
+    await expect(resolveDefaultResourcePath(root, relativePath)).rejects.toBe(error);
   });
 
   it("uses legacy root resources and dv.yaml with deprecation warnings", async () => {
