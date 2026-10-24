@@ -15,6 +15,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/111
   evidence:
     - https://github.com/calan-co/doc-vader/commit/73b5c57
+    - '[[record-20261024-153826-60507]]'
   reference:
     - '[[60508-linkity-validation-contract]]'
     - '[[60509-linkity-remark-adapter]]'
