@@ -13,7 +13,13 @@ function warnLegacy(legacyPath: string, replacement: string): void {
 }
 
 async function exists(filePath: string): Promise<boolean> {
-  return access(filePath).then(() => true, () => false);
+  return access(filePath).then(
+    () => true,
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT" || error.code === "ENOTDIR") return false;
+      throw error;
+    },
+  );
 }
 
 export async function resolveDefaultResourcePath(rootDir: string, relativePath: string): Promise<string> {

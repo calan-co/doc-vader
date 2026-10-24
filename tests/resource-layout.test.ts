@@ -34,6 +34,32 @@ describe("resource layout migration", () => {
     );
   });
 
+  it("falls back to legacy resources when the .dv path is not a directory", async () => {
+    const root = await fixture();
+    const relativePath = "templates/example.md.tpl";
+    await fs.writeFile(path.join(root, ".dv"), "not a directory");
+    await fs.mkdir(path.join(root, "templates"), { recursive: true });
+    await fs.writeFile(path.join(root, relativePath), "legacy");
+    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => process);
+
+    await expect(resolveDefaultResourcePath(root, relativePath)).resolves.toBe(
+      path.join(root, relativePath),
+    );
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("propagates errors accessing the current resource path", async () => {
+    const root = await fixture();
+    const relativePath = "templates/example.md.tpl";
+    await fs.mkdir(path.join(root, "templates"), { recursive: true });
+    await fs.writeFile(path.join(root, relativePath), "legacy");
+    await fs.symlink(".dv", path.join(root, ".dv"));
+
+    await expect(resolveDefaultResourcePath(root, relativePath)).rejects.toMatchObject({
+      code: "ELOOP",
+    });
+  });
+
   it("uses legacy root resources and dv.yaml with deprecation warnings", async () => {
     const root = await fixture();
     const relativePath = "templates/example.md.tpl";

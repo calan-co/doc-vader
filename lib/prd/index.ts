@@ -427,11 +427,14 @@ function renderTemplate(template: string, payload: JsonObject): string {
   return `${collapseBlankLinesOutsideFences(markdown)}\n`;
 }
 
-function buildFrontmatter(options: RenderPrdOptions): JsonObject {
+function buildFrontmatter(
+  options: RenderPrdOptions,
+  resolvedDefaultTemplatePath = DEFAULT_TEMPLATE_PATH,
+): JsonObject {
   return {
     $schema: "schemas/work-management/frontmatter/prd.json",
     $content_schema: "schemas/work-management/content/prd.json",
-    $template: options.templatePath ?? DEFAULT_TEMPLATE_PATH,
+    $template: options.templatePath ?? resolvedDefaultTemplatePath,
     id: options.id,
     title: options.title,
     summary: options.summary,
@@ -486,7 +489,12 @@ export async function renderPrd(
     readJson(payloadPath),
     fs.readFile(templatePath, "utf8"),
   ]);
-  const frontmatter = pruneUndefined(buildFrontmatter(options));
+  const frontmatter = pruneUndefined(
+    buildFrontmatter(
+      options,
+      path.relative(rootDir, templatePath).split(path.sep).join("/"),
+    ),
+  );
   await validatePrdFrontmatter(rootDir, frontmatter);
 
   const markdown = formatMarkdown(frontmatter, renderTemplate(template, payload));
