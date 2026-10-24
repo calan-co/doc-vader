@@ -60,6 +60,13 @@
     },
     "transitions": {
       "$ref": "#/$defs/transitionContract"
+    },
+    "actions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/action"
+      }
     }
   },
   "$defs": {
@@ -267,6 +274,34 @@
         },
         "note": {
           "type": "string"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verb", "from", "status", "reason"],
+      "properties": {
+        "verb": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "from": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

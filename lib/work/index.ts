@@ -1,7 +1,7 @@
 export { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
 export {
   WORK_COMMAND_ALIASES,
-  WORK_COMMAND_INVENTORY,
+  getWorkCommandInventory,
   iterWorkCommandInventory,
   type WorkCommandInventoryEntry,
   type WorkCommandInventoryNode,
@@ -140,6 +140,7 @@ export {
 export {
   recoverTaskClaim as recoverWorkClaim,
 } from "../task/recover.js";
+export { transitionTask as transitionWork } from "../task/transition.js";
 export { selectReadyTasks as selectReadyWorkItems } from "../task/ready.js";
 export {
   formatReadyPorcelain,

@@ -8,13 +8,14 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: high
-estimated: 6
 completed_date: '2026-06-30'
 links:
   depends_on:
     - '[[60412-sandcastle-claim-and-recovery-surface]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/112
   evidence:
     - '[[task-record-preflight|2026-06-30: Closed as completed with evidence in backlog/audit/auditing-backlog-report.json.]]'
     - '[[record-20260701-054535-60413]]'

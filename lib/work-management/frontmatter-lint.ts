@@ -21,6 +21,7 @@ import {
   compileTransitionProfile,
   resolveStateVector,
   type CompiledTransitionProfile,
+  type WorkflowAction,
 } from "./transition-profile.js";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -247,6 +248,32 @@ function normalizeDefaultTransitionInput(
   return snapshot as Parameters<typeof evaluateTransitionCore>[0];
 }
 
+export interface WorkActionPolicyReport {
+  actions: readonly WorkflowAction[];
+  integrity: {
+    valid: boolean;
+    issues: string[];
+  };
+}
+
+export function inspectWorkActionPolicy(): WorkActionPolicyReport {
+  try {
+    const profile = getDefaultTransitionProfile();
+    return {
+      actions: profile.actions,
+      integrity: { valid: true, issues: [] },
+    };
+  } catch (error) {
+    return {
+      actions: [],
+      integrity: {
+        valid: false,
+        issues: [error instanceof Error ? error.message : String(error)],
+      },
+    };
+  }
+}
+
 export function evaluateTransition(
   previous: Parameters<typeof evaluateTransitionCore>[0],
   current: Parameters<typeof evaluateTransitionCore>[1],
@@ -392,6 +419,20 @@ function collectSchemaFiles(dirPath: string): string[] {
   return files;
 }
 
+function collectSchemaFilesWithWorkspaceOverrides(
+  workspaceDir: string,
+  packagedDir: string,
+): string[] {
+  const files = new Map<string, string>();
+  for (const filePath of collectSchemaFiles(packagedDir)) {
+    files.set(toPosixPath(relative(packagedDir, filePath)), filePath);
+  }
+  for (const filePath of collectSchemaFiles(workspaceDir)) {
+    files.set(toPosixPath(relative(workspaceDir, filePath)), filePath);
+  }
+  return [...files.values()];
+}
+
 function extractCanonicalRelationshipDependencies(content: string): string[] {
   const sectionMatch = content.match(
     /^## Relationships\s*\n([\s\S]*?)(?=^##\s|$)/m,
@@ -510,12 +551,14 @@ function loadSchemas() {
     "work-management",
   );
   const schemaFiles = [
-    ...new Set([
-      ...collectSchemaFiles(workspaceFrontmatterSchemaDir),
-      ...collectSchemaFiles(workspaceWorkManagementSchemaDir),
-      ...collectSchemaFiles(SCHEMA_DIR),
-      ...collectSchemaFiles(WORK_MANAGEMENT_SCHEMA_DIR),
-    ]),
+    ...collectSchemaFilesWithWorkspaceOverrides(
+      workspaceFrontmatterSchemaDir,
+      SCHEMA_DIR,
+    ),
+    ...collectSchemaFilesWithWorkspaceOverrides(
+      workspaceWorkManagementSchemaDir,
+      WORK_MANAGEMENT_SCHEMA_DIR,
+    ),
   ].sort();
   const schemasToRegister: Record<string, unknown>[] = [];
   const workManagementSchemas: Record<string, unknown>[] = [];

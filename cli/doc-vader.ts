@@ -70,7 +70,10 @@ import {
   validate as validatePrdPayload,
   render as renderPrd,
 } from "../lib/controllers/prdController.js";
-import { validateFrontmatter as validateWorkManagementFrontmatter } from "../lib/work-management/frontmatter-lint.js";
+import {
+  inspectWorkActionPolicy,
+  validateFrontmatter as validateWorkManagementFrontmatter,
+} from "../lib/work-management/frontmatter-lint.js";
 import { main as runStatusReasonCompatibility } from "../lib/work-management/status-reason-compatibility.js";
 import { registerInitCommand } from "../lib/init/command.js";
 import {
@@ -95,6 +98,7 @@ import {
   readWorkGraphExportFile,
   recoverWorkClaim as recoverTaskClaim,
   recordWorkEvidence as recordTaskEvidence,
+  transitionWork as transitionTask,
   renderStandaloneWorkGraphViewer,
   renderHumanWorkShow as renderHumanTaskShow,
   renderSandcastleWorkPrompt as renderSandcastlePrompt,
@@ -1899,7 +1903,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .command("status")
     .description("Show operational work item status and recovery diagnostics")
     .argument(
-      "<task-id>",
+      "[task-id]",
       "Work item id, numeric id, or work item file basename",
     )
     .option("--json", "Emit operational work item status JSON")
@@ -1907,7 +1911,7 @@ function registerWorkCommandSurface(surface: Command): void {
     .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
     .action(
       async (
-        taskId: string,
+        taskId: string | undefined,
         opts: {
           json?: boolean;
           worktree?: string;
@@ -1915,6 +1919,20 @@ function registerWorkCommandSurface(surface: Command): void {
         },
       ) => {
         try {
+          if (!taskId) {
+            const policy = inspectWorkActionPolicy();
+            if (!policy.integrity.valid) {
+              process.exitCode = 1;
+            }
+            if (opts.json) {
+              printTaskJson(policy);
+            } else if (policy.integrity.valid) {
+              console.log(`Work action policy: ${policy.actions.map((action) => action.verb).join(", ")}`);
+            } else {
+              console.error(`Work action policy integrity failed: ${policy.integrity.issues.join("; ")}`);
+            }
+            return;
+          }
           const commandRootDir = process.cwd();
           const initialRootDir = opts.worktree
             ? path.resolve(opts.worktree)
@@ -2100,6 +2118,38 @@ function registerWorkCommandSurface(surface: Command): void {
         }
       },
     );
+
+  const actionPolicy = inspectWorkActionPolicy();
+  for (const action of actionPolicy.actions) {
+    surface
+      .command(action.verb)
+      .description(`Transition a work item to ${action.status} when the workflow policy permits it`)
+      .argument("<task-id>", "Work item id")
+      .requiredOption("--claim <claim-id>", "Active claim id")
+      .option("--evidence <reference>", "Link evidence before transitioning", collectOption, [])
+      .option("--reason <reason>", "Status reason; defaults from the workflow policy")
+      .option("--dry-run", "Validate the proposed transition without writing files")
+      .option("--json", "Emit machine-readable JSON")
+      .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+      .action(async (taskId: string, opts: { claim: string; evidence: string[]; reason?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
+        try {
+          const result = await transitionTask({
+            claimId: opts.claim,
+            taskId,
+            status: action.status,
+            expectedFromStatuses: action.from,
+            statusReason: opts.reason ?? action.reason,
+            evidence: opts.evidence,
+            dryRun: opts.dryRun,
+            backlogDir: opts.backlogDir,
+          });
+          if (opts.json) printTaskJson(result);
+          else console.log(`${opts.dryRun ? "would" : "did"} ${action.verb} ${result.taskId}`);
+        } catch (error) {
+          failTaskCommand(error, opts.json);
+        }
+      });
+  }
 
   surface
     .command("record")

@@ -12,6 +12,7 @@ import {
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
+import { integrationTestTimeoutMs } from "./helper/windows-integration-timeout.js";
 
 const tempDirs: string[] = [];
 
@@ -72,7 +73,10 @@ afterEach(async () => {
   );
 });
 
-describe("work projection port", () => {
+describe(
+  "work projection port",
+  { timeout: integrationTestTimeoutMs() },
+  () => {
   it("classifies helper documents with non-canonical generic ids without failing live projection", async () => {
     const rootDir = await createTempRepo();
     await writeMarkdown(

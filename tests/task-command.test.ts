@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
@@ -282,6 +282,28 @@ function runCli(
 
 function runCliJson<T>(root: string, args: string[]): T {
   return JSON.parse(runCli(root, args)) as T;
+}
+
+async function writeWorkspaceTransitionProfile(
+  root: string,
+  update: (profile: Record<string, unknown>) => void,
+): Promise<void> {
+  const profile = JSON.parse(
+    await fs.readFile(
+      path.resolve(
+        __dirname,
+        "../schemas/work-management/workflows/default/transition-profile.json",
+      ),
+      "utf8",
+    ),
+  ) as Record<string, unknown>;
+  update(profile);
+  const profilePath = path.join(
+    root,
+    "schemas/work-management/workflows/default/transition-profile.json",
+  );
+  await fs.mkdir(path.dirname(profilePath), { recursive: true });
+  await fs.writeFile(profilePath, JSON.stringify(profile, null, 2));
 }
 
 describe.sequential("task command surface", { timeout: integrationTestTimeoutMs() }, () => {
@@ -4825,6 +4847,7 @@ tags:
       expect(help).toContain("prompt");
       expect(help).toContain("claim");
       expect(help).toContain("record");
+      expect(help).toContain("complete");
       expect(help).not.toMatch(/^\s+claim-for\b/m);
       expect(help).not.toMatch(/^\s+claims\b/m);
       expect(help).not.toMatch(/^\s+release\b/m);
@@ -4837,6 +4860,231 @@ tags:
       await fs.rm(root, { recursive: true, force: true });
     }
   });
+
+  it("drives schema-defined Work actions through the public CLI", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "209-work-actions.md",
+        `id: wi-209-work-actions
+title: Work Actions
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk`,
+      );
+      const claim = await claimTask("wi-209-work-actions", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      await fs.mkdir(path.join(root, "backlog/records"), { recursive: true });
+      for (const recordId of ["record-one", "record-two"]) {
+        await fs.writeFile(
+          path.join(root, "backlog/records", `${recordId}.md`),
+          `---\nid: record:${recordId}\ntype: record\n---\n\n## Subject References\n\n- wi-209-work-actions\n`,
+        );
+      }
+
+      const policy = runCliJson<{
+        integrity: { valid: boolean; issues: unknown[] };
+        actions: Array<{
+          verb: string;
+          from: string[];
+          status: string;
+          reason?: string;
+        }>;
+      }>(root, ["work", "status", "--json"]);
+      expect(policy.integrity).toEqual({ valid: true, issues: [] });
+      expect(policy.actions).toEqual(
+        expect.arrayContaining([
+          {
+            verb: "start",
+            from: ["ready"],
+            status: "running",
+            reason: "implementation",
+          },
+          {
+            verb: "pause",
+            from: ["running"],
+            status: "paused",
+            reason: "blocked",
+          },
+          {
+            verb: "abort",
+            from: ["draft", "ready", "running", "paused"],
+            status: "aborted",
+            reason: "cancelled",
+          },
+        ]),
+      );
+
+      const started = runCliJson<{ toStatus: string }>(root, [
+        "work",
+        "start",
+        "209-work-actions",
+        "--claim",
+        claim.claimId,
+        "--json",
+      ]);
+      expect(started).toEqual(expect.objectContaining({ toStatus: "running" }));
+
+      const paused = runCliJson<{
+        taskId: string;
+        toStatus: string;
+        workItem: { frontmatter: { status_reason: string; links: { evidence: string[] } } };
+      }>(root, [
+        "work",
+        "pause",
+        "wi-209-work-actions",
+        "--claim",
+        claim.claimId,
+        "--evidence",
+        "record-one",
+        "--evidence",
+        "[[record-two]]",
+        "--json",
+      ]);
+      expect(paused).toMatchObject({
+        taskId: "wi-209-work-actions",
+        toStatus: "paused",
+        workItem: {
+          frontmatter: {
+            status_reason: "blocked",
+            links: { evidence: ["[[record-one]]", "[[record-two]]"] },
+          },
+        },
+      });
+
+      const dryRun = runCliJson<{ toStatus: string; workItem: { dryRun: boolean } }>(
+        root,
+        [
+          "work",
+          "resume",
+          "wi-209-work-actions",
+          "--claim",
+          claim.claimId,
+          "--dry-run",
+          "--json",
+        ],
+      );
+      expect(dryRun).toEqual(expect.objectContaining({ toStatus: "running" }));
+      expect(dryRun.workItem.dryRun).toBe(true);
+      expect(
+        await fs.readFile(path.join(root, "backlog/209-work-actions.md"), "utf8"),
+      ).toContain("status: paused");
+
+      expect(() =>
+        runCli(root, [
+          "work",
+          "start",
+          "wi-209-work-actions",
+          "--claim",
+          claim.claimId,
+        ]),
+      ).toThrow(/TASK_TRANSITION_FROM_STATUS_MISMATCH/);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, 15_000);
+
+  it("rejects a claim for another work item before mutating it", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "209-claimed.md",
+        `id: wi-209-claimed
+title: Claimed Work
+type: work-item
+lifecycle: active
+status: running
+status_reason: implementation
+tags:
+  - afk`,
+      );
+      await writeTask(
+        root,
+        "209-requested.md",
+        `id: wi-209-requested
+title: Requested Work
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk`,
+      );
+      const claim = await claimTask("wi-209-claimed", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+
+      expect(() =>
+        runCli(root, [
+          "work",
+          "pause",
+          "wi-209-requested",
+          "--claim",
+          claim.claimId,
+        ]),
+      ).toThrow(/TASK_TRANSITION_CLAIM_MISMATCH/);
+      expect(
+        await fs.readFile(path.join(root, "backlog/209-claimed.md"), "utf8"),
+      ).toContain("status: running");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("loads schema-defined workspace action verbs without duplicate profile IDs", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeWorkspaceTransitionProfile(root, (profile) => {
+        profile.actions = (profile.actions as Array<Record<string, unknown>>).map(
+          (action) =>
+            action.verb === "pause" ? { ...action, verb: "hold" } : action,
+        );
+      });
+
+      const policy = runCliJson<{
+        integrity: { valid: boolean; issues: string[] };
+        actions: Array<{ verb: string }>;
+      }>(root, ["work", "status", "--json"]);
+      expect(policy.integrity).toEqual({ valid: true, issues: [] });
+      expect(policy.actions).toContainEqual(expect.objectContaining({ verb: "hold" }));
+      expect(runCli(root, ["work", "--help"])).toContain("hold");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, integrationTestTimeoutMs());
+
+  it("rejects reserved workspace action verbs before Commander registration", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeWorkspaceTransitionProfile(root, (profile) => {
+        (profile.actions as Array<Record<string, unknown>>)[0].verb = "status";
+      });
+
+      const result = spawnSync(
+        "node",
+        ["--import", tsxImport, cliPath, "work", "status", "--json"],
+        { cwd: root, encoding: "utf8" },
+      );
+      expect(result.status).toBe(1);
+      const policy = JSON.parse(result.stdout) as {
+        integrity: { valid: boolean; issues: string[] };
+      };
+      expect(policy.integrity.valid).toBe(false);
+      expect(policy.integrity.issues.join("\n")).toMatch(/reserved/i);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, integrationTestTimeoutMs());
 
   it("fails task completion without claim evidence", async () => {
     const root = await mkTmpRoot();
@@ -4877,6 +5125,125 @@ tags:
         "utf8",
       );
       expect(workItem).toContain("status: ready");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects nonexistent or unassociated completion evidence", async () => {
+    const root = await mkTmpRoot();
+    try {
+      await writeTask(
+        root,
+        "209-invalid-evidence.md",
+        `id: wi-209-invalid-evidence
+title: Invalid Evidence
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk`,
+        "## Acceptance Criteria\n\n- [x] Do the thing\n",
+      );
+      const claim = await claimTask("wi-209-invalid-evidence", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(root, "wi-209-invalid-evidence", [
+        path.join(root, "backlog", "209-invalid-evidence.md"),
+      ]);
+      await fs.mkdir(path.join(root, "backlog/records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog/records/record-unrelated.md"),
+        "---\nid: record:unrelated\ntype: record\n---\n\n## Subject References\n\n- wi-other\n",
+      );
+
+      for (const evidence of ["record-missing", "[[record-unrelated]]"]) {
+        await expect(
+          transitionTask({
+            rootDir: root,
+            claimStorePath: claimStorePath(root),
+            claimId: claim.claimId,
+            status: "completed",
+            statusReason: "completed",
+            evidence: [evidence],
+            dryRun: true,
+          }),
+        ).rejects.toMatchObject({ code: "TASK_TRANSITION_INVALID_EVIDENCE" });
+      }
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses the configured records root for completion evidence", async () => {
+    const root = await mkTmpRoot();
+    try {
+      const configPath = path.join(root, ".doc-vader/backlog-consumer.json");
+      const config = JSON.parse(await fs.readFile(configPath, "utf8")) as {
+        roots: Record<string, string>;
+      };
+      config.roots.records = "evidence";
+      await fs.writeFile(configPath, JSON.stringify(config), "utf8");
+      await writeTask(
+        root,
+        "211-configured-records.md",
+        `id: wi-211
+title: Configured Records
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk`,
+        "## Acceptance Criteria\n\n- [x] Validate configured evidence.\n",
+      );
+      const claim = await claimTask("wi-211", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(root, "wi-211", [
+        path.join(root, "backlog", "211-configured-records.md"),
+      ]);
+      const recordPath = path.join(root, "evidence", "record-configured.md");
+      await fs.mkdir(path.dirname(recordPath), { recursive: true });
+      await fs.writeFile(
+        recordPath,
+        "---\nid: record:configured\ntype: record\n---\n\n## Subject References\n\n- wi-211\n",
+      );
+      const completed = await transitionTask({
+        rootDir: root,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+        claimStorePath: claimStorePath(root),
+        claimId: claim.claimId,
+        status: "completed",
+        statusReason: "completed",
+        evidence: ["record:configured"],
+        dryRun: true,
+      });
+      expect(completed).toMatchObject({
+        taskId: "wi-211",
+        toStatus: "completed",
+        workItem: { frontmatter: { links: { evidence: ["[[record-configured]]"] } } },
+      });
+
+      await fs.rm(recordPath);
+      await fs.mkdir(recordPath);
+      await expect(
+        transitionTask({
+          rootDir: root,
+          consumerConfig: ".doc-vader/backlog-consumer.json",
+          claimStorePath: claimStorePath(root),
+          claimId: claim.claimId,
+          status: "completed",
+          statusReason: "completed",
+          evidence: ["record-configured"],
+          dryRun: true,
+        }),
+      ).rejects.toMatchObject({ code: "EISDIR" });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
@@ -5002,6 +5369,11 @@ tags:
 links:
   evidence:
     - '[[record-wi-214-completion]]'`,
+      );
+      await fs.mkdir(path.join(root, "backlog/records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog/records/record-wi-214-completion.md"),
+        "---\nid: record:wi-214-completion\ntype: record\n---\n\n## Subject References\n\n- wi-214\n",
       );
       const claim = await claimTask("wi-214", {
         rootDir: root,
