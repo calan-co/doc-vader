@@ -2,6 +2,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import yaml from "js-yaml";
 import { promises as fs } from "node:fs";
+import { resolveDefaultResourcePath } from "../resource-layout.js";
 import * as path from "node:path";
 
 type JsonObject = Record<string, unknown>;
@@ -464,10 +465,9 @@ export async function renderPrd(
 ): Promise<RenderPrdResult> {
   const rootDir = resolveRoot(options.rootDir);
   const payloadPath = resolveFromRoot(rootDir, options.payloadPath);
-  const templatePath = resolveFromRoot(
-    rootDir,
-    options.templatePath ?? DEFAULT_TEMPLATE_PATH,
-  );
+  const templatePath = options.templatePath
+    ? resolveFromRoot(rootDir, options.templatePath)
+    : await resolveDefaultResourcePath(rootDir, DEFAULT_TEMPLATE_PATH);
   const validation = await validatePrdPayload({
     rootDir,
     payloadPath,

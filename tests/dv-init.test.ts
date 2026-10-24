@@ -52,20 +52,39 @@ async function installPack(root: string, id: string, init: object, name: string 
 }
 
 describe("dv init", () => {
-  it("initializes the Git root from a nested cwd and preserves unrelated dv.yaml text", async () => {
+  it("initializes the Git root from a nested cwd and preserves unrelated .dv.yaml text", async () => {
     const root = await fixture();
     const nested = path.join(root, "nested", "cwd");
     await fs.mkdir(nested, { recursive: true });
-    await fs.writeFile(path.join(root, "dv.yaml"), "# keep this comment\nnamespace: example.docs\n", "utf8");
+    await fs.writeFile(path.join(root, ".dv.yaml"), "# keep this comment\nnamespace: example.docs\n", "utf8");
 
     expect(invoke(nested, ["--pack", "work", "--yes", "--json"])).toMatchObject({
       rootDir: await fs.realpath(root),
       applied: ["work"],
     });
-    expect(await fs.readFile(path.join(root, "dv.yaml"), "utf8")).toBe(
+    expect(await fs.readFile(path.join(root, ".dv.yaml"), "utf8")).toBe(
       "# keep this comment\nnamespace: example.docs\nbacklog:\n  dir: backlog\n",
     );
+    expect(await fs.stat(path.join(root, ".dv", ".gitkeep"))).toBeDefined();
     expect(await fs.stat(path.join(root, "backlog", ".gitkeep"))).toBeDefined();
+  });
+
+  it("migrates legacy dv.yaml into .dv.yaml without rewriting the legacy file", async () => {
+    const root = await fixture(false);
+    const legacy = "# legacy\nnamespace: example.docs\n";
+    await fs.writeFile(path.join(root, "dv.yaml"), legacy, "utf8");
+
+    await expect(runInit({
+      dir: root,
+      packIds: ["work"],
+      yes: true,
+      prompt: { isTTY: false, select: async () => [], confirm: async () => true },
+    })).resolves.toMatchObject({ applied: ["work"] });
+
+    await expect(fs.readFile(path.join(root, ".dv.yaml"), "utf8")).resolves.toBe(
+      `${legacy}backlog:\n  dir: backlog\n`,
+    );
+    await expect(fs.readFile(path.join(root, "dv.yaml"), "utf8")).resolves.toBe(legacy);
   });
 
   it("requires an explicit pack outside a TTY and previews without writes", async () => {
@@ -358,10 +377,10 @@ describe("dv init", () => {
     await expect(fs.readFile(outside, "utf8")).resolves.toBe("unchanged");
   });
 
-  it("rejects a dangling dv.yaml symlink and rolls back its new output directory", async () => {
+  it("rejects a dangling .dv.yaml symlink and rolls back its new output directory", async () => {
     const root = await fixture(false);
     const outside = path.join(await fixture(false), "missing.yaml");
-    await fs.symlink(outside, path.join(root, "dv.yaml"));
+    await fs.symlink(outside, path.join(root, ".dv.yaml"));
 
     const result = await runInit({
       dir: root,
@@ -378,7 +397,7 @@ describe("dv init", () => {
   it("preserves unrelated YAML formatting byte-for-byte", async () => {
     const root = await fixture(false);
     const source = "# heading\nnamespace: \"example.docs\" # inline\nvalidation: { failOn: warning, allowUnknownProperties: true } # flow\nlist: [one, two]\nquoted: 'keep spaces'\n";
-    await fs.writeFile(path.join(root, "dv.yaml"), source);
+    await fs.writeFile(path.join(root, ".dv.yaml"), source);
 
     await runInit({
       dir: root,
@@ -387,7 +406,7 @@ describe("dv init", () => {
       prompt: { isTTY: false, select: async () => [], confirm: async () => true },
     });
 
-    await expect(fs.readFile(path.join(root, "dv.yaml"), "utf8")).resolves.toBe(`${source}backlog:\n  dir: backlog\n`);
+    await expect(fs.readFile(path.join(root, ".dv.yaml"), "utf8")).resolves.toBe(`${source}backlog:\n  dir: backlog\n`);
   });
 
   it("keeps interactive prompt output off the JSON result stream", async () => {
@@ -456,32 +475,32 @@ describe("dv init", () => {
     const root = await fixture(false);
     await installPack(root, "nested", { config: { claims: ["routing.targets.default"], values: { routing: { targets: { default: "docs" } } } }, outputs: [] });
     await installPack(root, "unnamed", { outputs: [{ path: "unnamed/.gitkeep", content: "" }] }, undefined);
-    await fs.writeFile(path.join(root, "dv.yaml"), "routing:\n  existing: keep\n");
+    await fs.writeFile(path.join(root, ".dv.yaml"), "routing:\n  existing: keep\n");
     const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
 
     await expect(runInit({ dir: root, packIds: ["nested", "unnamed"], yes: true, prompt })).resolves.toMatchObject({ applied: ["nested", "unnamed"] });
-    await expect(fs.readFile(path.join(root, "dv.yaml"), "utf8")).resolves.toBe("routing:\n  existing: keep\n  targets:\n    default: docs\n");
+    await expect(fs.readFile(path.join(root, ".dv.yaml"), "utf8")).resolves.toBe("routing:\n  existing: keep\n  targets:\n    default: docs\n");
     await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
     await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
 
     const flowRoot = await fixture(false);
     await installPack(flowRoot, "flow", { config: { claims: ["routing.targets.default"], values: { routing: { targets: { default: "docs" } } } }, outputs: [] });
-    await fs.writeFile(path.join(flowRoot, "dv.yaml"), "routing: { existing: keep }\n");
+    await fs.writeFile(path.join(flowRoot, ".dv.yaml"), "routing: { existing: keep }\n");
     await expect(runInit({ dir: flowRoot, packIds: ["flow"], yes: true, prompt })).resolves.toMatchObject({ applied: ["flow"] });
-    await expect(fs.readFile(path.join(flowRoot, "dv.yaml"), "utf8")).resolves.toBe("routing: { existing: keep, targets: { default: docs } }\n");
+    await expect(fs.readFile(path.join(flowRoot, ".dv.yaml"), "utf8")).resolves.toBe("routing: { existing: keep, targets: { default: docs } }\n");
   });
 
   it("preserves comment-only config and rejects linked config files", async () => {
     const root = await fixture(false);
-    await fs.writeFile(path.join(root, "dv.yaml"), "# keep this comment\n\n");
+    await fs.writeFile(path.join(root, ".dv.yaml"), "# keep this comment\n\n");
     const prompt = { isTTY: false, select: async () => [], confirm: async () => true };
     await expect(runInit({ dir: root, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ applied: ["work"] });
-    await expect(fs.readFile(path.join(root, "dv.yaml"), "utf8")).resolves.toBe("# keep this comment\n\nbacklog:\n  dir: backlog\n");
+    await expect(fs.readFile(path.join(root, ".dv.yaml"), "utf8")).resolves.toBe("# keep this comment\n\nbacklog:\n  dir: backlog\n");
 
     const linkedRoot = await fixture(false);
     const externalConfig = path.join(await fixture(false), "external.yaml");
     await fs.writeFile(externalConfig, "namespace: outside\n");
-    await fs.link(externalConfig, path.join(linkedRoot, "dv.yaml"));
+    await fs.link(externalConfig, path.join(linkedRoot, ".dv.yaml"));
     await expect(runInit({ dir: linkedRoot, packIds: ["work"], yes: true, prompt })).resolves.toMatchObject({ failed: [{ pack: "work" }] });
     await expect(fs.readFile(externalConfig, "utf8")).resolves.toBe("namespace: outside\n");
     await expect(fs.lstat(path.join(linkedRoot, "backlog"))).rejects.toMatchObject({ code: "ENOENT" });

@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/record.json
-$template: templates/reference/work-management/record.tpl.md
+$template: .dv/templates/reference/work-management/record.tpl.md
 id: recordpe-9277
 title: Checkout Dry Run Before Launch
 summary: Test-result record capturing the final dry-run purchase flow before launch.

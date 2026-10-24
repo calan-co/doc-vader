@@ -78,12 +78,12 @@ Its content schema follows the `templjs` backlog structure:
 
 ## Template Package
 
-- [`templates/reference/work-management/project.md.tpl`](../../../templates/reference/work-management/project.md.tpl)
-- [`templates/reference/work-management/release.md.tpl`](../../../templates/reference/work-management/release.md.tpl)
-- [`templates/reference/work-management/milestone.md.tpl`](../../../templates/reference/work-management/milestone.md.tpl)
-- [`templates/reference/work-management/work-item.md.tpl`](../../../templates/reference/work-management/work-item.md.tpl)
-- [`templates/reference/work-management/plan.md.tpl`](../../../templates/reference/work-management/plan.md.tpl)
-- [`templates/reference/work-management/record.md.tpl`](../../../templates/reference/work-management/record.md.tpl)
+- [`.dv/templates/reference/work-management/project.md.tpl`](../../../.dv/templates/reference/work-management/project.md.tpl)
+- [`.dv/templates/reference/work-management/release.md.tpl`](../../../.dv/templates/reference/work-management/release.md.tpl)
+- [`.dv/templates/reference/work-management/milestone.md.tpl`](../../../.dv/templates/reference/work-management/milestone.md.tpl)
+- [`.dv/templates/reference/work-management/work-item.md.tpl`](../../../.dv/templates/reference/work-management/work-item.md.tpl)
+- [`.dv/templates/reference/work-management/plan.md.tpl`](../../../.dv/templates/reference/work-management/plan.md.tpl)
+- [`.dv/templates/reference/work-management/record.md.tpl`](../../../.dv/templates/reference/work-management/record.md.tpl)
 
 Each template declares or expects its rendering host to supply:
 

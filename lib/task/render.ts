@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { resolveDefaultResourcePath } from "../resource-layout.js";
 import { renderTempljsTemplate } from "../template/render.js";
 import type { TaskModel } from "./model.js";
 
@@ -11,10 +12,9 @@ export async function renderTaskView(
   options: { rootDir?: string; templatePath?: string } = {},
 ): Promise<string> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
-  const templatePath = path.resolve(
-    rootDir,
-    options.templatePath ?? HUMAN_TEMPLATE_PATH,
-  );
+  const templatePath = options.templatePath
+    ? path.resolve(rootDir, options.templatePath)
+    : await resolveDefaultResourcePath(rootDir, HUMAN_TEMPLATE_PATH);
   return renderTempljsTemplate(await fs.readFile(templatePath, "utf8"), {
     ...(task as unknown as Record<string, unknown>),
     task,
@@ -26,10 +26,9 @@ export async function renderTaskPrompt(
   options: { rootDir?: string; templatePath?: string } = {},
 ): Promise<string> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
-  const templatePath = path.resolve(
-    rootDir,
-    options.templatePath ?? PROMPT_TEMPLATE_PATH,
-  );
+  const templatePath = options.templatePath
+    ? path.resolve(rootDir, options.templatePath)
+    : await resolveDefaultResourcePath(rootDir, PROMPT_TEMPLATE_PATH);
   return renderTempljsTemplate(await fs.readFile(templatePath, "utf8"), {
     ...(task as unknown as Record<string, unknown>),
     task,

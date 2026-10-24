@@ -8,7 +8,7 @@ describe("canonical schema routing surfaces", () => {
   it("routes work items through work-management schemas", () => {
     const templatePath = path.join(
       repoRoot,
-      "templates/reference/backlog/precommit-validation-rules.tpl.md",
+      ".dv/templates/reference/backlog/precommit-validation-rules.tpl.md",
     );
     const consumerConfigPath = path.join(
       repoRoot,

@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/plan.json
-$template: templates/reference/work-management/plan.tpl.md
+$template: .dv/templates/reference/work-management/plan.tpl.md
 id: planpets-1399
 title: Pet Store Launch Strategy
 summary: Strategic launch view showing the release anchor, checkout gate, and the work that determines launch credibility.

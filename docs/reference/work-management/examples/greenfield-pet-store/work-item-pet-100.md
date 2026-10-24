@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/work-item.json
-$template: templates/reference/work-management/work-item.tpl.md
+$template: .dv/templates/reference/work-management/work-item.tpl.md
 id: wi-100
 title: Launch Pet Store Website MVP
 summary: Coordinate the minimum viable storefront launch across design, delivery, and launch readiness work.

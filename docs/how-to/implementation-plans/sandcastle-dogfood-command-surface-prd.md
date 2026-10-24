@@ -1,7 +1,7 @@
 ---
 $schema: schemas/work-management/frontmatter/prd.json
 $content_schema: schemas/work-management/content/prd.json
-$template: templates/reference/work-management/prd.md.tpl
+$template: .dv/templates/reference/work-management/prd.md.tpl
 id: plan:sandcastle-dogfood-command-surface-prd
 title: Sandcastle Dogfood Command Surface PRD
 summary: Fail-closed dv task command surface for safely dogfooding Doc-Vader improvements with Sandcastle over the entity-governance runtime.

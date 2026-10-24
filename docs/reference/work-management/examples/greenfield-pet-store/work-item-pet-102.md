@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/work-item.json
-$template: templates/reference/work-management/work-item.tpl.md
+$template: .dv/templates/reference/work-management/work-item.tpl.md
 id: wi-102
 title: Deliver Checkout-Ready Purchase Path
 summary: Complete the browse-to-cart and checkout path needed for launch readiness.

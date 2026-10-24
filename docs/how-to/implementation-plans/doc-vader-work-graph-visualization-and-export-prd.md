@@ -1,7 +1,7 @@
 ---
 $schema: schemas/work-management/frontmatter/prd.json
 $content_schema: schemas/work-management/content/prd.json
-$template: templates/reference/work-management/prd.md.tpl
+$template: .dv/templates/reference/work-management/prd.md.tpl
 id: plan:doc-vader-work-graph-visualization-and-export-prd
 title: doc-vader Work Graph Visualization and Export PRD
 summary: Add a summary surface, canonical full-graph export, and a Cytoscape-backed standalone viewer for the projected Work graph.

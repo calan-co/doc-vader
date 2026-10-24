@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/work-item.json
-$template: templates/reference/work-management/work-item.tpl.md
+$template: .dv/templates/reference/work-management/work-item.tpl.md
 id: wi-101
 title: Establish Storefront Foundation
 summary: Set up the storefront shell, deployment baseline, and launch-ready design primitives.
