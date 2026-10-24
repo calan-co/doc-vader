@@ -16,7 +16,7 @@ tags:
   - storefront
 links:
   machine_output:
-    - '[[greenfield-pet-store-website.graph.json]]'
+    - '[[../greenfield-pet-store-website.graph.json]]'
 ---
 
 ## Release Objective

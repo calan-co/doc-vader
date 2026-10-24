@@ -13,7 +13,7 @@ function fixture() {
   fs.mkdirSync(path.join(root, "docs"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "docs", "target file.md"),
-    "---\nid: target-doc\n---\n\n# Section One\n<a id=\"manual-anchor\"></a>\n",
+    "---\nid: target-doc\ntitle: Start Here\n---\n\n# Section One\n<a id=\"manual-anchor\"></a>\n",
   );
   fs.writeFileSync(path.join(root, "docs", "source.md"), "");
   return root;
@@ -48,6 +48,43 @@ describe("remark-lint-crossref", () => {
     expect(result.messages).toHaveLength(0);
   });
 
+  it("resolves duplicate filenames relative to the source through Linkity's file index", async () => {
+    const root = fixture();
+    fs.writeFileSync(path.join(root, "docs", "target.md"), "# Root Heading\n");
+    fs.mkdirSync(path.join(root, "docs", "nested"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", "nested", "target.md"), "# Nested Heading\n");
+
+    const result = await run("[Root](target.md#root-heading)", root);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
+  it("resolves wikilink titles from Linkity's file index", async () => {
+    const root = fixture();
+    const result = await run("[[Start Here#section-one]]", root);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
+  it("indexes duplicate heading slugs", async () => {
+    const root = fixture();
+    fs.writeFileSync(path.join(root, "docs", "duplicate.md"), "## Setup\n\n## Setup\n");
+
+    const result = await run("[Duplicate](./duplicate.md#setup-1)", root);
+
+    expect(result.messages).toHaveLength(0);
+  });
+
+  it("does not resolve Markdown links by a global basename", async () => {
+    const root = fixture();
+    fs.mkdirSync(path.join(root, "docs", "elsewhere"), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", "elsewhere", "target.md"), "# Target\n");
+
+    const result = await run("[Wrong sibling](target.md)", root, "docs/nested/source.md");
+
+    expect(result.messages.map((message) => message.message)).toEqual(["Linkity missing-target: target.md"]);
+  });
+
   it("treats external URLs and custom schemes as out of scope", async () => {
     const root = fixture();
     const result = await run(
@@ -72,29 +109,14 @@ describe("remark-lint-crossref", () => {
     expect(result.messages.every((message) => message.fatal)).toBe(false);
   });
 
-  it("does not resolve heading slugs as bare wikilink targets", async () => {
+  it("reports malformed percent encodings and continues linting", async () => {
     const root = fixture();
-    fs.writeFileSync(path.join(root, "docs", "intro.md"), "# Introduction\n");
-
-    const result = await run("[[introduction]]", root);
+    const result = await run("[Bad](bad%ZZ.md)\n[Missing](missing.md)", root);
 
     expect(result.messages.map((message) => message.message)).toEqual([
-      "Linkity missing-target: introduction",
+      "Linkity missing-target: bad%ZZ.md",
+      "Linkity missing-target: missing.md",
     ]);
-  });
-
-  it("reports ignored targets and keeps linting malformed percent escapes", async () => {
-    const root = fixture();
-    fs.mkdirSync(path.join(root, "dist"), { recursive: true });
-    fs.writeFileSync(path.join(root, "dist", "generated.md"), "# Generated\n");
-
-    const result = await run("[Generated](../dist/generated.md)\n[Bad](50%.md)", root);
-
-    expect(result.messages.map((message) => message.message)).toEqual([
-      "Linkity ignored-target: ../dist/generated.md",
-      "Linkity missing-target: 50%.md",
-    ]);
-    expect(result.messages.every((message) => message.fatal)).toBe(false);
   });
 
   it("keeps templates visible without failing and ignores code spans", async () => {
@@ -108,6 +130,54 @@ describe("remark-lint-crossref", () => {
       "Linkity template-target: {{target}}.md",
     ]);
     expect(result.messages[0].fatal).toBeFalsy();
+  });
+
+  it("reports generated and ignored targets without treating them as missing", async () => {
+    const root = fixture();
+    fs.writeFileSync(path.join(root, "docs", "generated.graph.json"), "{}");
+
+    const result = await run(
+      "[[generated.graph.json]]\n[Ignored](../node_modules/generated.md)",
+      root,
+    );
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity generated-target: generated.graph.json",
+      "Linkity ignored-target: ../node_modules/generated.md",
+    ]);
+    expect(result.messages.every((message) => !message.fatal)).toBe(true);
+  });
+
+  it("reports missing generated targets as broken Markdown links", async () => {
+    const root = fixture();
+
+    const result = await run("[Missing generated](missing.graph.json)", root);
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: missing.graph.json",
+    ]);
+  });
+
+  it("does not resolve nested Markdown links from the repository root", async () => {
+    const root = fixture();
+    fs.mkdirSync(path.join(root, "features"), { recursive: true });
+    fs.writeFileSync(path.join(root, "features", "target.md"), "# Root-only target\n");
+
+    const result = await run("[Wrong root target](features/target.md)", root, "docs/nested/source.md");
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: features/target.md",
+    ]);
+  });
+
+  it("rebuilds the file index after filesystem changes", async () => {
+    const root = fixture();
+
+    expect((await run("[Later](./later.md)", root)).messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: ./later.md",
+    ]);
+    fs.writeFileSync(path.join(root, "docs", "later.md"), "# Later\n");
+    expect((await run("[Later](./later.md)", root)).messages).toHaveLength(0);
   });
 
   it("validates options with zod", () => {
