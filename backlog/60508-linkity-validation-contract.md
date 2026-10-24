@@ -9,6 +9,8 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: high
+estimated: 4
+actual: 4
 completed_date: '2026-10-03'
 links:
   reference:
@@ -28,9 +30,7 @@ Document the Linkity configuration and compatibility contract, including which p
 
 ## Tasks
 
-- [x] Document relative-link, fragment, encoded-path, external, template, and generated-artifact policy.
-- [x] Map existing cross-reference behavior to Linkity diagnostics and record intentional differences.
-- [x] Identify docs-lint integration points for the migration.
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 

@@ -7,12 +7,19 @@ type: work-item
 subtype: task
 lifecycle: active
 status: completed
+status_reason: completed
 priority: high
+estimated: 6
+actual: 6
+completed_date: '2026-10-14'
 links:
   depends_on:
     - '[[60508-linkity-validation-contract]]'
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
+  evidence:
+    - '[[../docs/reference/linkity-validation-contract.md]]'
+    - '[[record-20261014-044754-60511]]'
 tags:
   - documentation
   - linkity
@@ -24,9 +31,7 @@ Repair the current broken cross-references using the approved Linkity policy; do
 
 ## Tasks
 
-- [x] Classify the existing reference warnings and repair valid documentation targets.
-- [x] Document intentional template and generated-artifact exceptions.
-- [x] Verify the migrated scope has no broken-reference warnings.
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 

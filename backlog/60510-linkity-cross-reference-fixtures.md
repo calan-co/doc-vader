@@ -7,12 +7,19 @@ type: work-item
 subtype: task
 lifecycle: active
 status: completed
+status_reason: completed
 priority: high
+estimated: 5
+actual: 5
+completed_date: '2026-10-14'
 links:
   depends_on:
     - '[[60509-linkity-remark-adapter]]'
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
+  evidence:
+    - '[[../docs/reference/linkity-validation-contract.md]]'
+    - '[[record-20261014-044753-60510]]'
 tags:
   - documentation
   - linkity
@@ -25,8 +32,7 @@ Add focused fixtures for valid and invalid links so Linkity behavior is protecte
 
 ## Tasks
 
-- [x] Add fixtures for relative, fragment, encoded, external, template, and generated targets.
-- [x] Exercise broken-target and missing-anchor diagnostics through docs-lint integration.
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 

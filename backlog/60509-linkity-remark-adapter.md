@@ -7,12 +7,19 @@ type: work-item
 subtype: task
 lifecycle: active
 status: completed
+status_reason: completed
 priority: high
+estimated: 6
+actual: 6
+completed_date: '2026-10-14'
 links:
   depends_on:
     - '[[60508-linkity-validation-contract]]'
   reference:
     - '[[60507-linkity-cross-reference-validation-cutover]]'
+  evidence:
+    - '[[../docs/reference/linkity-validation-contract.md]]'
+    - '[[record-20261014-044753-60509]]'
 tags:
   - documentation
   - linkity
@@ -24,9 +31,7 @@ Replace the bespoke `fs.existsSync` cross-reference path check with a Linkity-ba
 
 ## Tasks
 
-- [x] Add the explicit Linkity runtime dependency and replace the cross-reference adapter.
-- [x] Preserve compatible lint and CLI output while emitting actionable Linkity diagnostics.
-- [x] Cover adapter behavior with focused regression tests.
+- [x] Deliver the scoped Linkity PR #110 implementation and validation.
 
 ## Acceptance Criteria
 
