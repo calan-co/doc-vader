@@ -4989,7 +4989,7 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  }, integrationTestTimeoutMs());
+  }, 15_000);
 
   it("rejects a claim for another work item before mutating it", async () => {
     const root = await mkTmpRoot();
