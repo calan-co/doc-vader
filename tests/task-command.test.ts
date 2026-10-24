@@ -5214,18 +5214,21 @@ tags:
         recordPath,
         "---\nid: record:configured\ntype: record\n---\n\n## Subject References\n\n- wi-211\n",
       );
-      await expect(
-        transitionTask({
-          rootDir: root,
-          consumerConfig: ".doc-vader/backlog-consumer.json",
-          claimStorePath: claimStorePath(root),
-          claimId: claim.claimId,
-          status: "completed",
-          statusReason: "completed",
-          evidence: ["record-configured"],
-          dryRun: true,
-        }),
-      ).resolves.toMatchObject({ taskId: "wi-211", toStatus: "completed" });
+      const completed = await transitionTask({
+        rootDir: root,
+        consumerConfig: ".doc-vader/backlog-consumer.json",
+        claimStorePath: claimStorePath(root),
+        claimId: claim.claimId,
+        status: "completed",
+        statusReason: "completed",
+        evidence: ["record:configured"],
+        dryRun: true,
+      });
+      expect(completed).toMatchObject({
+        taskId: "wi-211",
+        toStatus: "completed",
+        workItem: { frontmatter: { links: { evidence: ["[[record-configured]]"] } } },
+      });
 
       await fs.rm(recordPath);
       await fs.mkdir(recordPath);

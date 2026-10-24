@@ -211,6 +211,19 @@ function evidenceRecordBasename(reference: string): string | undefined {
     : target;
 }
 
+function normalizeEvidenceReference(reference: string): string {
+  const target = reference
+    .trim()
+    .replace(/^\[\[|\]\]$/g, "")
+    .split("|", 1)[0]
+    ?.split("#", 1)[0]
+    ?.trim();
+  const basename = evidenceRecordBasename(reference);
+  return target?.startsWith("record:") && basename
+    ? `[[${basename}]]`
+    : reference;
+}
+
 function hasEvidenceAssociation(
   body: string,
   taskId: string,
@@ -350,13 +363,14 @@ async function applyTaskTransition(options: {
     );
   }
 
+  const evidence = options.evidence?.map(normalizeEvidenceReference);
   if (toStatus === "completed") {
     await assertCompletedHasEvidence(
       options.rootDir,
       options.consumerConfig,
       options.task,
       options.claimId,
-      options.evidence,
+      evidence,
     );
     const audit = runRuntimeClaimCoverageAudit({
       rootDir: options.rootDir,
@@ -381,7 +395,7 @@ async function applyTaskTransition(options: {
     actual: options.actual,
     assignee: options.assignee,
     completedDate: options.completedDate,
-    evidence: options.evidence,
+    evidence,
     dryRun: options.dryRun,
   });
 
