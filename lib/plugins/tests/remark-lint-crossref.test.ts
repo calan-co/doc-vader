@@ -148,6 +148,28 @@ describe("remark-lint-crossref", () => {
     expect(result.messages.every((message) => !message.fatal)).toBe(true);
   });
 
+  it("reports missing generated targets as broken Markdown links", async () => {
+    const root = fixture();
+
+    const result = await run("[Missing generated](missing.graph.json)", root);
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: missing.graph.json",
+    ]);
+  });
+
+  it("does not resolve nested Markdown links from the repository root", async () => {
+    const root = fixture();
+    fs.mkdirSync(path.join(root, "features"), { recursive: true });
+    fs.writeFileSync(path.join(root, "features", "target.md"), "# Root-only target\n");
+
+    const result = await run("[Wrong root target](features/target.md)", root, "docs/nested/source.md");
+
+    expect(result.messages.map((message) => message.message)).toEqual([
+      "Linkity missing-target: features/target.md",
+    ]);
+  });
+
   it("rebuilds the file index after filesystem changes", async () => {
     const root = fixture();
 

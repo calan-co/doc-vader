@@ -243,7 +243,7 @@ function resolveTarget(ast: Ast, sourcePath: string, rootDir: string, index: Mar
   if (target.endsWith(".graph.json") && fs.existsSync(targetPath)) {
     return { kind: "generated-target", raw } as const;
   }
-  if (target && !target.endsWith(".md") && ast.provenance?.syntax === gfmSyntax.id && path.extname(target)) {
+  if (target && !target.endsWith(".md") && !target.endsWith(".graph.json") && ast.provenance?.syntax === gfmSyntax.id && path.extname(target)) {
     return { kind: "external" } as const;
   }
 
@@ -251,11 +251,11 @@ function resolveTarget(ast: Ast, sourcePath: string, rootDir: string, index: Mar
   const resolvedPath = index.fileIndex.resolvePath?.(target, sourceRelativePath);
   const entry = resolvedPath
     ? index.byRelativePath.get(resolvedPath)
-    : target.includes("/")
-      ? indexedPath(index, path.resolve(rootDir, target))
-      : ast.provenance?.syntax === wikilinkSyntax.id
-        ? index.byKey.get(target.replace(/\.md$/i, "")) ?? index.byKey.get(target)
-        : undefined;
+    : ast.provenance?.syntax !== wikilinkSyntax.id
+      ? undefined
+      : target.includes("/")
+        ? indexedPath(index, path.resolve(rootDir, target))
+        : index.byKey.get(target.replace(/\.md$/i, "")) ?? index.byKey.get(target);
   return { kind: "resolved", entry, fragment, raw } as const;
 }
 
