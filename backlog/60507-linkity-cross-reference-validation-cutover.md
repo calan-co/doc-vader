@@ -10,6 +10,8 @@ status: completed
 status_reason: completed
 priority: high
 completed_date: '2026-10-11'
+commits:
+  c10bbb6c5932b406da1e795298fc0e968c35d2d1: 'fix(linkity): migrate crossref adapter to Ast API'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/111
