@@ -28,34 +28,40 @@ function freezeWorkCommandInventory(
   );
 }
 
-const WORK_ACTION_COMMANDS = inspectWorkActionPolicy().actions.map((action) => ({
-  name: action.verb,
-}));
-
-const WORK_COMMAND_TREE = [
-  {
-    name: "graph",
-    children: [
-      { name: "summary" },
-      { name: "export" },
-      { name: "visualize" },
-      { name: "nodes" },
-      { name: "edges" },
-      { name: "inspect" },
-    ],
-  },
-  { name: "list" },
-  { name: "ready" },
-  { name: "capabilities" },
-  { name: "select" },
-  { name: "show" },
-  { name: "status" },
-  { name: "prompt" },
-  { name: "claim" },
-  { name: "recover" },
-  ...WORK_ACTION_COMMANDS,
-  { name: "record" },
-] satisfies readonly WorkCommandInventoryDefinition[];
+function workCommandTree(): readonly WorkCommandInventoryDefinition[] {
+  let actions: { name: string }[] = [];
+  try {
+    actions = inspectWorkActionPolicy().actions.map((action) => ({
+      name: action.verb,
+    }));
+  } catch {
+    // ponytail: inventory remains useful when optional action policy loading fails.
+  }
+  return [
+    {
+      name: "graph",
+      children: [
+        { name: "summary" },
+        { name: "export" },
+        { name: "visualize" },
+        { name: "nodes" },
+        { name: "edges" },
+        { name: "inspect" },
+      ],
+    },
+    { name: "list" },
+    { name: "ready" },
+    { name: "capabilities" },
+    { name: "select" },
+    { name: "show" },
+    { name: "status" },
+    { name: "prompt" },
+    { name: "claim" },
+    { name: "recover" },
+    ...actions,
+    { name: "record" },
+  ];
+}
 
 export const WORK_COMMAND_ALIASES = Object.freeze([
   "work",
@@ -63,11 +69,14 @@ export const WORK_COMMAND_ALIASES = Object.freeze([
   "task",
 ] as const);
 
-export const WORK_COMMAND_INVENTORY =
-  freezeWorkCommandInventory(WORK_COMMAND_TREE);
+let workCommandInventory: readonly WorkCommandInventoryEntry[] | undefined;
+
+export function getWorkCommandInventory(): readonly WorkCommandInventoryEntry[] {
+  return (workCommandInventory ??= freezeWorkCommandInventory(workCommandTree()));
+}
 
 export function* iterWorkCommandInventory(
-  entries: readonly WorkCommandInventoryEntry[] = WORK_COMMAND_INVENTORY,
+  entries: readonly WorkCommandInventoryEntry[] = getWorkCommandInventory(),
   prefix: readonly string[] = [],
 ): Generator<WorkCommandInventoryNode> {
   for (const entry of entries) {

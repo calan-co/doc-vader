@@ -2143,9 +2143,6 @@ function registerWorkCommandSurface(surface: Command): void {
             dryRun: opts.dryRun,
             backlogDir: opts.backlogDir,
           });
-          if (result.taskId !== taskId) {
-            throw new TaskCommandError("TASK_TRANSITION_CLAIM_MISMATCH", `Claim '${opts.claim}' does not belong to '${taskId}'.`);
-          }
           if (opts.json) printTaskJson(result);
           else console.log(`${opts.dryRun ? "would" : "did"} ${action.verb} ${result.taskId}`);
         } catch (error) {

@@ -1,7 +1,7 @@
 export { canonicalizeScopeRef, canonicalizeWorkItemScopeRef } from "./scope-ref.js";
 export {
   WORK_COMMAND_ALIASES,
-  WORK_COMMAND_INVENTORY,
+  getWorkCommandInventory,
   iterWorkCommandInventory,
   type WorkCommandInventoryEntry,
   type WorkCommandInventoryNode,

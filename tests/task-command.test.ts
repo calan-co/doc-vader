@@ -4925,7 +4925,7 @@ tags:
       const started = runCliJson<{ toStatus: string }>(root, [
         "work",
         "start",
-        "wi-209-work-actions",
+        "209-work-actions",
         "--claim",
         claim.claimId,
         "--json",
@@ -5173,6 +5173,74 @@ tags:
           }),
         ).rejects.toMatchObject({ code: "TASK_TRANSITION_INVALID_EVIDENCE" });
       }
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("uses the configured records root for completion evidence", async () => {
+    const root = await mkTmpRoot();
+    try {
+      const configPath = path.join(root, ".doc-vader/backlog-consumer.json");
+      const config = JSON.parse(await fs.readFile(configPath, "utf8")) as {
+        roots: Record<string, string>;
+      };
+      config.roots.records = "evidence";
+      await fs.writeFile(configPath, JSON.stringify(config), "utf8");
+      await writeTask(
+        root,
+        "211-configured-records.md",
+        `id: wi-211
+title: Configured Records
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+tags:
+  - afk`,
+        "## Acceptance Criteria\n\n- [x] Validate configured evidence.\n",
+      );
+      const claim = await claimTask("wi-211", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(root, "wi-211", [
+        path.join(root, "backlog", "211-configured-records.md"),
+      ]);
+      const recordPath = path.join(root, "evidence", "record-configured.md");
+      await fs.mkdir(path.dirname(recordPath), { recursive: true });
+      await fs.writeFile(
+        recordPath,
+        "---\nid: record:configured\ntype: record\n---\n\n## Subject References\n\n- wi-211\n",
+      );
+      await expect(
+        transitionTask({
+          rootDir: root,
+          consumerConfig: ".doc-vader/backlog-consumer.json",
+          claimStorePath: claimStorePath(root),
+          claimId: claim.claimId,
+          status: "completed",
+          statusReason: "completed",
+          evidence: ["record-configured"],
+          dryRun: true,
+        }),
+      ).resolves.toMatchObject({ taskId: "wi-211", toStatus: "completed" });
+
+      await fs.rm(recordPath);
+      await fs.mkdir(recordPath);
+      await expect(
+        transitionTask({
+          rootDir: root,
+          consumerConfig: ".doc-vader/backlog-consumer.json",
+          claimStorePath: claimStorePath(root),
+          claimId: claim.claimId,
+          status: "completed",
+          statusReason: "completed",
+          evidence: ["record-configured"],
+          dryRun: true,
+        }),
+      ).rejects.toMatchObject({ code: "EISDIR" });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

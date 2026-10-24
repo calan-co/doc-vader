@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   WORK_COMMAND_ALIASES,
-  WORK_COMMAND_INVENTORY,
+  getWorkCommandInventory,
   iterWorkCommandInventory,
   type WorkCommandInventoryEntry,
 } from "../lib/work/command-inventory.js";
@@ -18,7 +18,9 @@ const cliPath = path.resolve(repoRoot, "cli/doc-vader.ts");
 const commandPathSeparator = "\u0000";
 const commandsSectionPattern = /\nCommands:\n([\s\S]*?)(?:\n\n|$)/u;
 const immediateCommandPattern = /^ {2}([a-z][a-z-]*)\b/gm;
-const rootCommandNames = WORK_COMMAND_INVENTORY.map((entry) => entry.name);
+function rootCommandNames(): string[] {
+  return getWorkCommandInventory().map((entry) => entry.name);
+}
 const helpOutputCache = new Map<string, string>();
 
 function runHelp(commandPath: readonly string[]): string {
@@ -82,7 +84,7 @@ function expectHelpSnapshot(
 describe.sequential("work command inventory parity", () => {
   it("freezes the work command inventory and alias list", () => {
     expect(Object.isFrozen(WORK_COMMAND_ALIASES)).toBe(true);
-    expectFrozenInventory(WORK_COMMAND_INVENTORY);
+    expectFrozenInventory(getWorkCommandInventory());
   });
 
   it(
@@ -90,9 +92,9 @@ describe.sequential("work command inventory parity", () => {
     { timeout: 90_000 },
     () => {
       const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
-      const rootHelp = expectHelpSnapshot([canonicalAlias], rootCommandNames);
+      const rootHelp = expectHelpSnapshot([canonicalAlias], rootCommandNames());
       for (const alias of compatibilityAliases) {
-        expect(expectHelpSnapshot([alias], rootCommandNames)).toBe(rootHelp);
+        expect(expectHelpSnapshot([alias], rootCommandNames())).toBe(rootHelp);
       }
 
       for (const entry of iterWorkCommandInventory()) {

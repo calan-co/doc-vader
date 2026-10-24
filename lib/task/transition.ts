@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   transitionWorkItem,
   runRuntimeClaimCoverageAudit,
+  loadConsumerConfig,
   type TransitionWorkItemResult,
 } from "../work-management/index.js";
 import { evaluateTransition } from "../work-management/frontmatter-lint.js";
@@ -224,6 +225,7 @@ function hasEvidenceAssociation(
 
 async function assertCompletedHasEvidence(
   rootDir: string,
+  consumerConfig: string,
   task: Awaited<ReturnType<typeof loadTaskModel>>,
   claimId: string,
   proposedEvidence: readonly string[] = [],
@@ -247,7 +249,8 @@ async function assertCompletedHasEvidence(
     );
   }
 
-  const recordsDir = path.resolve(rootDir, path.dirname(task.filePath), "records");
+  const config = await loadConsumerConfig(rootDir, consumerConfig);
+  const recordsDir = path.resolve(rootDir, config.roots.records);
   for (const reference of evidence) {
     const basename = evidenceRecordBasename(reference);
     if (!basename) {
@@ -260,7 +263,14 @@ async function assertCompletedHasEvidence(
     let record: ReturnType<typeof matter>;
     try {
       record = matter(await fs.readFile(path.join(recordsDir, `${basename}.md`), "utf8"));
-    } catch {
+    } catch (error) {
+      if (
+        typeof error !== "object" ||
+        error === null ||
+        (error as NodeJS.ErrnoException).code !== "ENOENT"
+      ) {
+        throw error;
+      }
       throw new TaskCommandError(
         "TASK_TRANSITION_INVALID_EVIDENCE",
         `Evidence record '${reference}' does not exist.`,
@@ -343,6 +353,7 @@ async function applyTaskTransition(options: {
   if (toStatus === "completed") {
     await assertCompletedHasEvidence(
       options.rootDir,
+      options.consumerConfig,
       options.task,
       options.claimId,
       options.evidence,
