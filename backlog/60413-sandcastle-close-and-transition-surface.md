@@ -9,6 +9,8 @@ status: completed
 status_reason: completed
 priority: high
 completed_date: '2026-06-30'
+commits:
+  68031ec4024780612f50970d1bcbf3fdafca632f: 'feat(work): add schema-driven lifecycle actions'
 links:
   depends_on:
     - '[[60412-sandcastle-claim-and-recovery-surface]]'
