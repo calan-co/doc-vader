@@ -3,9 +3,9 @@ import { execFileSync } from "node:child_process";
 
 function docsLint(...args: string[]) {
   return execFileSync(
-    process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    "pnpm",
     ["exec", "tsx", "scripts/docs-remark-lint.ts", "--format", "json", ...args],
-    { encoding: "utf8" },
+    { encoding: "utf8", shell: process.platform === "win32" },
   );
 }
 
