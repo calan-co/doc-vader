@@ -53,13 +53,13 @@ for syntax parsing. Template placeholders inside link targets are not resolved;
 report them as `template-target` so template authors can decide whether the
 placeholder is intentional.
 
-Generated files are not link failures when they are declared in the documentation
-build inventory. The adapter must report them as `generated-target` so the CI gate
-can distinguish them from missing files.
+An existing local `*.graph.json` target is a generated artifact. The adapter
+reports it as `generated-target`; a missing target remains `missing-target` and
+still fails the Linkity gate.
 
-Ignored paths remain out of scope when they match the existing docs lint ignore
-configuration. A link from an in-scope document to an ignored target must report
-`ignored-target`, not `missing-target`.
+Ignored paths remain out of scope when any segment is `.git`, `node_modules`,
+`dist`, or `coverage`, matching the docs lint traversal. A link from an in-scope
+document to an ignored target reports `ignored-target`, not `missing-target`.
 
 ## Remark Crossref Mapping
 

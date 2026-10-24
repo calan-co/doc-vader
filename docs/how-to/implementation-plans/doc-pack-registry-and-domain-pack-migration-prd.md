@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/work-management/frontmatter/prd.json
 "$schema": "https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/work-management/frontmatter/prd"
 "$content_schema": schemas/work-management/content/prd.json
-"$template": templates/reference/work-management/prd.md.tpl
+"$template": .dv/templates/reference/work-management/prd.md.tpl
 "type": plan
 "subtype": x-prd
 "id": "plan:doc-pack-registry-and-domain-pack-migration-prd"

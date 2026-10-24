@@ -9,7 +9,7 @@ links:
   howTo:
     - '[[process-user-personas]]'
   reference:
-    - '[[templates/document/user-personas.tpl]]'
+    - '[[.dv/templates/reference/document/user-personas.tpl]]'
   explanation:
     - '[[user-personas-concept]]'
 ---

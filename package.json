@@ -8,7 +8,7 @@
     "consumer/",
     "profiles/",
     "schemas/",
-    "templates/",
+    ".dv/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -93,6 +93,6 @@
     "vfile": "^6.0.3",
     "yaml": "^2.9.0",
     "zod": "^4.4.3",
-    "linkity": "https://github.com/calan-co/linkity/releases/download/v0.2.0/linkity-0.2.0.tgz"
+    "linkity": "https://codeload.github.com/calan-co/linkity/tar.gz/c2af7c747c17dfc36037b12de70a589d29e35677"
   }
 }

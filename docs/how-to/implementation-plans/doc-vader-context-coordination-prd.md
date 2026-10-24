@@ -2,7 +2,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/work-management/frontmatter/prd.json
 "$schema": https://raw.githubusercontent.com/calan-co/doc-vader/main/schemas/work-management/frontmatter/prd
 "$content_schema": schemas/work-management/content/prd.json
-"$template": templates/reference/work-management/prd.md.tpl
+"$template": .dv/templates/reference/work-management/prd.md.tpl
 "type": plan
 "subtype": x-prd
 "id": "prd-doc-vader-context-coordination"
@@ -60,7 +60,7 @@ This PRD predates the entity-governance ADR set and remains a broader future-dir
 - Conversation-derived requirements and locked decisions across status model, CCQ gating, policy composition, manifest identity, and replay scope limits.
 - schemas/work-management/frontmatter/prd.json
 - schemas/work-management/content/prd.json
-- templates/reference/work-management/prd.md.tpl
+- .dv/templates/reference/work-management/prd.md.tpl
 
 ## Problem Statement
 

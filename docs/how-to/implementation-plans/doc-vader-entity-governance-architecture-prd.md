@@ -1,7 +1,7 @@
 ---
 $schema: schemas/work-management/frontmatter/prd.json
 $content_schema: schemas/work-management/content/prd.json
-$template: templates/reference/work-management/prd.md.tpl
+$template: .dv/templates/reference/work-management/prd.md.tpl
 id: plan:doc-vader-entity-governance-architecture-prd
 title: Doc-Vader Entity Governance Architecture PRD
 summary: Align Doc-Vader around entity governance, Work Item kernel extraction, and the local runtime entity spine.

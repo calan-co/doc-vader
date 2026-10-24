@@ -2,6 +2,7 @@ import matter from "gray-matter";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveDefaultResourcePath } from "../resource-layout.js";
 import { renderTempljsTemplate } from "../template/render.js";
 import {
   loadTaskRuntimeReadiness,
@@ -135,14 +136,14 @@ function resolveFromRoot(rootDir: string, targetPath: string): string {
 }
 
 async function resolveDefaultTemplatePath(rootDir: string, targetPath: string): Promise<string> {
-  const consumerPath = resolveFromRoot(rootDir, targetPath);
+  const consumerPath = await resolveDefaultResourcePath(rootDir, targetPath);
   try {
     await fs.access(consumerPath);
     return consumerPath;
   } catch {
     let directory = path.dirname(fileURLToPath(import.meta.url));
     while (true) {
-      const candidate = path.join(directory, targetPath);
+      const candidate = await resolveDefaultResourcePath(directory, targetPath);
       try {
         await fs.access(candidate);
         return candidate;

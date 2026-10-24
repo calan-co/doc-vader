@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/release.json
-$template: templates/reference/work-management/release.tpl.md
+$template: .dv/templates/reference/work-management/release.tpl.md
 id: releasep-2713
 title: Pet Store Launch 01
 summary: First public launch boundary for browsing products and completing checkout online.
@@ -16,7 +16,7 @@ tags:
   - storefront
 links:
   machine_output:
-    - '[[greenfield-pet-store-website.graph.json]]'
+    - '[[../greenfield-pet-store-website.graph.json]]'
 ---
 
 ## Release Objective

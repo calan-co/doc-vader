@@ -102,23 +102,23 @@ async function mkTmpRoot(): Promise<string> {
     ),
     "utf8",
   );
-  await fs.mkdir(path.join(root, "templates/reference/task"), {
+  await fs.mkdir(path.join(root, ".dv/templates/reference/task"), {
     recursive: true,
   });
   await fs.copyFile(
-    path.resolve(__dirname, "../templates/reference/task/show.md.tpl"),
-    path.join(root, "templates/reference/task/show.md.tpl"),
+    path.resolve(__dirname, "../.dv/templates/reference/task/show.md.tpl"),
+    path.join(root, ".dv/templates/reference/task/show.md.tpl"),
   );
   await fs.copyFile(
-    path.resolve(__dirname, "../templates/reference/task/prompt.md.tpl"),
-    path.join(root, "templates/reference/task/prompt.md.tpl"),
+    path.resolve(__dirname, "../.dv/templates/reference/task/prompt.md.tpl"),
+    path.join(root, ".dv/templates/reference/task/prompt.md.tpl"),
   );
   await fs.copyFile(
     path.resolve(
       __dirname,
-      "../templates/reference/task/sandcastle-prompt.md.tpl",
+      "../.dv/templates/reference/task/sandcastle-prompt.md.tpl",
     ),
-    path.join(root, "templates/reference/task/sandcastle-prompt.md.tpl"),
+    path.join(root, ".dv/templates/reference/task/sandcastle-prompt.md.tpl"),
   );
   return root;
 }

@@ -80,7 +80,7 @@ async function stagePromptTemplate(rootDir: string): Promise<void> {
   const templateDir = path.join(rootDir, "templates", "reference", "task");
   await mkdir(templateDir, { recursive: true });
   await copyFile(
-    path.resolve(__dirname, "../templates/reference/task/sandcastle-prompt.md.tpl"),
+    path.resolve(__dirname, "../.dv/templates/reference/task/sandcastle-prompt.md.tpl"),
     path.join(templateDir, "sandcastle-prompt.md.tpl"),
   );
 }

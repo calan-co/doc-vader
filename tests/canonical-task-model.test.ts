@@ -49,7 +49,7 @@ status_reason: auto
 priority: critical
 $schema: schemas/work-management/frontmatter/work-item.json
 $content_schema: schemas/work-management/content/work-item.json
-$template: templates/reference/work-management/work-item.md.tpl
+$template: .dv/templates/reference/work-management/work-item.md.tpl
 links:
   depends_on:
     - '[[wi-099]]'
@@ -167,7 +167,7 @@ describe("canonical task model", () => {
           "statusReason": "auto",
           "schema": "schemas/work-management/frontmatter/work-item.json",
           "contentSchema": "schemas/work-management/content/work-item.json",
-          "template": "templates/reference/work-management/work-item.md.tpl",
+          "template": ".dv/templates/reference/work-management/work-item.md.tpl",
           "links": {
             "depends_on": [
               "[[wi-099]]"

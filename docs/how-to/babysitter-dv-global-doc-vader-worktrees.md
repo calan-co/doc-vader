@@ -60,9 +60,15 @@ In the current terminal, the expected executable is
 CLI display text:
 
 ```sh
-GLOBAL_DV_ROOT="$(pnpm root -g)/@calan-co/doc-vader"
-test -f "$GLOBAL_DV_ROOT/package.json"
-node -p "require('$GLOBAL_DV_ROOT/package.json').version"
+GLOBAL_PNPM_ROOT="$(pnpm root -g)"
+GLOBAL_DV_PACKAGE="$(
+  find -L "$GLOBAL_PNPM_ROOT" -type f \
+    \( -path '*/node_modules/@calan-co/doc-vader/package.json' \
+       -o -path '*/@calan-co/doc-vader/package.json' \) \
+    -print -quit
+)"
+test -n "$GLOBAL_DV_PACKAGE"
+node -p "require('$GLOBAL_DV_PACKAGE').version"
 ```
 
 Before every task, confirm that `dv` is global but its project context is the
@@ -124,7 +130,8 @@ babysitter task:list "$RUNS_DIR/<run-id>" --pending --json
 babysitter run:events "$RUNS_DIR/<run-id>" --json
 ```
 
-Reject an effect that writes to `$GLOBAL_DV_ROOT`, the base checkout, another
+Allow effects to read or execute `$DV_BIN`, but reject any effect that writes to
+`$DV_BIN`, `$GLOBAL_DV_ROOT`, the base checkout, another
 `/private/tmp/doc-vader-*` directory, or an unapproved shared run directory.
 
 ## Concurrent worktrees

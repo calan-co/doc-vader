@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import { isMap, parseDocument, stringify } from "yaml";
+import { CONFIG_FILE, resolveDefaultConfigPath } from "../resource-layout.js";
 import { resolveGitRoot } from "../task/authority.js";
 
 export interface InitPrompt {
@@ -59,7 +60,7 @@ const WORK_DOCUMENT_TYPE_PACK = {
     metadataSchema: "schemas/work-management/frontmatter/work-item.json",
   }],
   init: {
-    outputs: [{ path: "backlog/.gitkeep", content: "" }],
+    outputs: [{ path: ".dv/.gitkeep", content: "" }, { path: "backlog/.gitkeep", content: "" }],
     config: { claims: ["backlog.dir"], values: { backlog: { dir: "backlog" } } },
   },
 };
@@ -134,8 +135,9 @@ function validateRecipe(recipe: InitRecipe): void {
     if (outputPaths.some((existing) => outputPathsConflict(existing, outputPath))) {
       throw new InitError(`Conflicting init output: ${output.path}`);
     }
-    if (outputPath.toLowerCase() === "dv.yaml" || outputPath.toLowerCase().startsWith("dv.yaml/")) {
-      throw new InitError("Init config and output paths collide: dv.yaml");
+    const normalizedOutputPath = outputPath.toLowerCase();
+    if ([CONFIG_FILE, "dv.yaml"].some((configFile) => normalizedOutputPath === configFile || normalizedOutputPath.startsWith(`${configFile}/`))) {
+      throw new InitError(`Init config and output paths collide: ${CONFIG_FILE}`);
     }
     outputPaths.push(outputPath);
   }
@@ -177,8 +179,10 @@ function valueAt(values: Record<string, unknown>, keys: readonly string[]): unkn
 }
 
 async function writeConfig(rootDir: string, config: NonNullable<InitRecipe["config"]>): Promise<void> {
-  const configPath = path.join(rootDir, "dv.yaml");
-  const source = await fs.readFile(configPath, "utf8").catch((error: NodeJS.ErrnoException) => {
+  const configPath = path.join(rootDir, CONFIG_FILE);
+  const sourcePath = await resolveDefaultConfigPath(rootDir);
+  await assertNoSymlinkEscape(rootDir, sourcePath);
+  const source = await fs.readFile(sourcePath, "utf8").catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return "";
     throw error;
   });
@@ -299,10 +303,10 @@ async function applyPack(rootDir: string, pack: InitPack): Promise<void> {
       await writeManaged(rootDir, target, output.content, changes, createdDirectories);
     }
     if (pack.init.config) {
-      const configPath = path.join(rootDir, "dv.yaml");
+      const configPath = path.join(rootDir, CONFIG_FILE);
       await assertNoSymlinkEscape(rootDir, configPath);
       const configStats = await fs.lstat(configPath).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? undefined : Promise.reject(error));
-      if (configStats && configStats.nlink > 1) throw new InitError("dv.yaml must not be a hard link.");
+      if (configStats && configStats.nlink > 1) throw new InitError(`${CONFIG_FILE} must not be a hard link.`);
       const previous = await fs.readFile(configPath).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? undefined : Promise.reject(error));
       changes.push({ path: configPath, previous });
       await writeConfig(rootDir, pack.init.config);
