@@ -32,11 +32,11 @@ The logical reference format is `<owner>:<artifact-id>`.
 | `schemas/metadata/base.json` | `core` | `metadata-model/base.json` | Canonical metadata route schemas. |
 | `schemas/frontmatter/**/*.json` | `core` | `compatibility-metadata/{path}` | Frontmatter adapters, audit, synthesis, and work-item validation. |
 | `schemas/work-management/**/*.json` | `sdlc-core` | `metadata-model/{path}` | Work-management, PRD, backlog synthesis, and terminal metadata. |
-| `templates/reference/document/*.tpl.md` | `diataxis` | `renderer-template/{path}` | Document authoring templates. |
-| `templates/reference/work-management/*.md.tpl` | `sdlc-core` | `renderer-template/work-management/{path}` | PRD and work-management rendering. |
-| `templates/reference/backlog/*.tpl.md` | `sdlc-core` | `renderer-template/{path}` | Backlog authoring and synthesis. |
-| `templates/reference/task/*.md.tpl` | `sdlc-core` | `renderer-template/task/{path}` | Task display and prompt rendering. |
-| `templates/reference/meta/*` | `core` | `renderer-template/{path}` | Meta authoring assets. |
+| `.dv/templates/reference/document/*.tpl.md` | `diataxis` | `renderer-template/{path}` | Document authoring templates. |
+| `.dv/templates/reference/work-management/*.md.tpl` | `sdlc-core` | `renderer-template/work-management/{path}` | PRD and work-management rendering. |
+| `.dv/templates/reference/backlog/*.tpl.md` | `sdlc-core` | `renderer-template/{path}` | Backlog authoring and synthesis. |
+| `.dv/templates/reference/task/*.md.tpl` | `sdlc-core` | `renderer-template/task/{path}` | Task display and prompt rendering. |
+| `.dv/templates/reference/meta/*` | `core` | `renderer-template/{path}` | Meta authoring assets. |
 | `contexts/{base.context.json,dublin-core.context.json,schema-org.context.json,document.context.json,document.jsonld}` | `core` | `semantic-context/{path}` | Optional shared/document semantic contexts. |
 | `contexts/{work-item.context.json,work-item.jsonld}` | `sdlc-core` | `semantic-context/{path}` | Work-item semantic contexts. |
 | `profiles/backlog-ci.json` | `sdlc-core` | `review-profile/backlog-ci.json` | Backlog CI validation. |
@@ -55,11 +55,11 @@ alias or fallback for the old path.
 
 | Current consumer | Current path family | Future logical reference family |
 | --- | --- | --- |
-| `lib/prd/index.ts` | `schemas/work-management/**`, `schemas/frontmatter/support/**`, `templates/reference/work-management/prd.md.tpl` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**`, `sdlc-core:renderer-template/work-management/prd.md.tpl` |
+| `lib/prd/index.ts` | `schemas/work-management/**`, `schemas/frontmatter/support/**`, `.dv/templates/reference/work-management/prd.md.tpl` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**`, `sdlc-core:renderer-template/work-management/prd.md.tpl` |
 | `lib/work-management/{index.ts,status-reason-compatibility.ts,frontmatter-lint.ts}` | `schemas/work-management/**`, `schemas/frontmatter/**` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**` |
 | `lib/backlog/{archive-validation.ts,audit.ts,synthesis.ts}` | `schemas/work-management/**`, `schemas/frontmatter/**` | `sdlc-core:metadata-model/**`, `core:compatibility-metadata/**` |
 | `lib/{frontmatter/check.ts,frontmatter/lint.ts,frontmatter/utils.ts,plugins/remark-frontmatter-schema.ts}` | `schemas/frontmatter/**` | `core:compatibility-metadata/**` |
-| `lib/{task/canonical.ts,task/render.ts,task/show.ts}` | `templates/reference/task/**` | `sdlc-core:renderer-template/task/**` |
+| `lib/{task/canonical.ts,task/render.ts,task/show.ts}` | `.dv/templates/reference/task/**` | `sdlc-core:renderer-template/task/**` |
 | `lib/schema/resolver.ts` | schema-map references supplied by callers | `core:compatibility-metadata/schema-map.json` when the legacy resolver is migrated |
 | `lib/document-type-packs/registry.ts` | `schemas/doc-vader/{document-type-pack.json,config.json}` | `core:metadata-model/{document-type-pack.json,config.json}` |
 | `lib/controllers/docController.ts` | default repository `schemas/**` root | The selected artifact's existing `core:metadata-model/**`, `core:compatibility-metadata/**`, or `sdlc-core:metadata-model/**` reference; no implicit default |

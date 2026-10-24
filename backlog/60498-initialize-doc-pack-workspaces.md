@@ -17,6 +17,7 @@ links:
     - '[[60449-implement-doc-pack-registry-and-conformance.md]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/95
+    - https://github.com/calan-co/doc-vader/pull/113
   reference:
     - '[[../docs/how-to/implementation-plans/doc-pack-registry-and-domain-pack-migration-prd.md]]'
   evidence:

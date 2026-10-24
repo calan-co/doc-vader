@@ -8,7 +8,7 @@
     "consumer/",
     "profiles/",
     "schemas/",
-    "templates/",
+    ".dv/",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

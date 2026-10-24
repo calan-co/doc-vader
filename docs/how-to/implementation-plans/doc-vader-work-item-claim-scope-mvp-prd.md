@@ -1,7 +1,7 @@
 ---
 $schema: schemas/work-management/frontmatter/prd.json
 $content_schema: schemas/work-management/content/prd.json
-$template: templates/reference/work-management/prd.md.tpl
+$template: .dv/templates/reference/work-management/prd.md.tpl
 id: plan:doc-vader-work-item-claim-scope-mvp-prd
 title: Doc-Vader Work Item Claim Scope MVP PRD
 summary: Define the narrow Work, Claim, and Scope MVP for graph-informed runtime governance.

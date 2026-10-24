@@ -141,7 +141,7 @@ documentTypes:
     metadataSchema: schemas/example/metadata/decision.json
     contentSchema: schemas/example/content/decision.json
 templates:
-  - path: templates/example/decision.md.tpl
+  - path: .dv/templates/example/decision.md.tpl
     type: decision
     subtype: adr
 configDefaults:
@@ -155,19 +155,23 @@ schema and optional handler used for that type.
 ## Initialization Recipes
 
 A document-type pack may declare an `init` recipe. Recipes are data, never pack
-code: Doc-Vader validates their relative output paths and declared `dv.yaml`
+code: Doc-Vader validates their relative output paths and declared `.dv.yaml`
 config claims, then core performs the writes. Paths may not be absolute, escape
-with `..`, enter `.git`, or escape through an existing symlink. `dv.yaml`
-must not be a hard link. A recipe's
+with `..`, enter `.git`, or escape through an existing symlink. `.dv.yaml`
+must not be a hard link. A legacy root `dv.yaml` is read only for compatibility
+and emits a migration warning; `dv init` writes `.dv.yaml`. A recipe's
 `config.claims` must exactly name every leaf in `config.values`; leaves are
-single-line scalar values (not arrays). Output paths cannot be `dv.yaml` or its descendants.
-Selected recipes may not claim the same config path, including ancestor and descendant
-paths, or write the same output path. A failed pack rolls back its own managed writes
-without rolling back unrelated selected packs.
+single-line scalar values (not arrays). Output paths cannot be `.dv.yaml`,
+`dv.yaml`, or their descendants. Selected recipes may not claim the same config
+path, including ancestor and descendant paths, or write the same output path. A
+failed pack rolls back its own managed writes without rolling back unrelated
+selected packs.
 
 ```yaml
 init:
   outputs:
+    - path: .dv/.gitkeep
+      content: ''
     - path: backlog/.gitkeep
       content: ''
   config:
@@ -178,8 +182,10 @@ init:
         dir: backlog
 ```
 
-`dv init` includes the bundled `work` pack, which creates this empty tracked
-`backlog/` layout and no sample work items. From a noninteractive terminal,
+`dv init` includes the bundled `work` pack, which creates the `.dv/` resource
+root, `.dv.yaml` configuration, and this empty tracked `backlog/` layout with no
+sample work items. Default templates load from `.dv/templates/`; root-level
+`templates/` remains readable with a migration warning. From a noninteractive terminal,
 select packs with repeatable `--pack <id>` and confirm with `--yes`; `--dry-run`
 only reports the selected packs. It targets the Git root from a nested directory,
 unless `--dir` is supplied, and canonicalizes that target before writing. Otherwise it

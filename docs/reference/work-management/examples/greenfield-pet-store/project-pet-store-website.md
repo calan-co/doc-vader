@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/project.json
-$template: templates/reference/work-management/project.tpl.md
+$template: .dv/templates/reference/work-management/project.tpl.md
 id: projectp-7638
 title: Greenfield Pet Store Website
 summary: Launch the first public ecommerce experience for a neighborhood pet store.

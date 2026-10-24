@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { resolveDefaultResourcePath } from "../resource-layout.js";
 import { renderTempljsTemplate } from "../template/render.js";
 import type { CanonicalTaskModel } from "./canonical.js";
 import { loadCanonicalTask } from "./canonical.js";
@@ -194,10 +195,9 @@ export async function renderHumanTaskShow(
   options: RenderTaskShowOptions,
 ): Promise<string> {
   const rootDir = resolveRoot(options.rootDir);
-  const templatePath = resolveFromRoot(
-    rootDir,
-    options.templatePath ?? HUMAN_TEMPLATE_PATH,
-  );
+  const templatePath = options.templatePath
+    ? resolveFromRoot(rootDir, options.templatePath)
+    : await resolveDefaultResourcePath(rootDir, HUMAN_TEMPLATE_PATH);
   return renderTempljsTemplate(await fs.readFile(templatePath, "utf8"), {
     ...options.task,
     task: options.task,

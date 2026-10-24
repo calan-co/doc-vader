@@ -1,7 +1,7 @@
 ---
 $schema: schemas/work-management/frontmatter/prd.json
 $content_schema: schemas/work-management/content/prd.json
-$template: templates/reference/work-management/prd.md.tpl
+$template: .dv/templates/reference/work-management/prd.md.tpl
 id: plan:doc-vader-sandcastle-ready-work-cli-prd
 title: Doc-Vader Sandcastle-Ready Work CLI PRD
 summary: Historical PRD for the retired Sandcastle adapter; it is not current MVP guidance.
@@ -107,7 +107,7 @@ Aligned with ADR-005 entity governance, ADR-006 Work Item canonicality and Sandc
 
 - Current code observation: `scripts/sandcastle/dv-adapter.ts` still reads and writes `.doc-vader/runtime/task-claims` JSON state.
 
-- Current code observation: `templates/reference/task/sandcastle-prompt.md.tpl` already uses much of the newer `dv work` vocabulary but still contains temporary checklist language.
+- Current code observation: `.dv/templates/reference/task/sandcastle-prompt.md.tpl` already uses much of the newer `dv work` vocabulary but still contains temporary checklist language.
 
 - Sandcastle InitService observation: built-in issue tracker template arguments are `LIST_TASKS_COMMAND`, `VIEW_TASK_COMMAND`, `CLOSE_TASK_COMMAND`, and `ISSUE_TRACKER_TOOLS`; the built-in issue-tracker shape is too small to own `dv` claim, lock, record, release, and recovery semantics directly.
 

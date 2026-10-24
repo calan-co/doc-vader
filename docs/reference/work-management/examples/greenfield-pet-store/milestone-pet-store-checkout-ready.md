@@ -1,6 +1,6 @@
 ---
 $schema: schemas/work-management/frontmatter/milestone.json
-$template: templates/reference/work-management/milestone.tpl.md
+$template: .dv/templates/reference/work-management/milestone.tpl.md
 id: mileston-1784
 title: Checkout Ready For Launch
 summary: Capability gate showing the purchase path is ready to support the first public release.

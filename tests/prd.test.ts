@@ -47,6 +47,22 @@ describe("PRD lifecycle", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("emits the resolved default .dv template path in frontmatter", async () => {
+    const payloadPath = await writeExamplePayload();
+
+    const result = await renderPrd({
+      rootDir,
+      payloadPath,
+      id: "plan:sample-prd",
+      title: "Sample PRD",
+      summary: "Sample rendered PRD.",
+    });
+
+    expect(result.markdown).toContain(
+      "$template: .dv/templates/reference/work-management/prd.md.tpl",
+    );
+  });
+
   it("renders Markdown and preserves the JSON payload sidecar", async () => {
     const payloadPath = await writeExamplePayload();
     const outputDir = await mkdtemp(path.join(os.tmpdir(), "doc-vader-prd-render-"));
