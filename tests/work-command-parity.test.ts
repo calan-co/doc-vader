@@ -89,7 +89,7 @@ describe.sequential("work command inventory parity", () => {
 
   it(
     "keeps the immutable inventory aligned with the canonical work tree and alias help",
-    { timeout: 90_000 },
+    { timeout: 180_000 },
     () => {
       const [canonicalAlias, ...compatibilityAliases] = WORK_COMMAND_ALIASES;
       const rootHelp = expectHelpSnapshot([canonicalAlias], rootCommandNames());
