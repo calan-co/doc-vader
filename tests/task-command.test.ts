@@ -5106,13 +5106,14 @@ type: record
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
-      await fs.writeFile(path.join(root, "owned.ts"), "export const value = 1;\n");
+      const ownedFile = " owned.ts ";
+      await fs.writeFile(path.join(root, ownedFile), "export const value = 1;\n");
       await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 1;\n");
       execFileSync("git", ["add", "."], { cwd: root });
       execFileSync("git", ["commit", "-m", "baseline"], { cwd: root, stdio: "ignore" });
-      await fs.writeFile(path.join(root, "owned.ts"), "export const value = 2;\n");
+      await fs.writeFile(path.join(root, ownedFile), "export const value = 2;\n");
       await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 2;\n");
-      execFileSync("git", ["add", "owned.ts", "foreign.ts"], { cwd: root });
+      execFileSync("git", ["add", ownedFile, "foreign.ts"], { cwd: root });
       execFileSync("git", ["commit", "-m", "historical implementation"], { cwd: root, stdio: "ignore" });
       const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
       const pr = "https://github.com/example/vita/pull/7";
@@ -5137,7 +5138,7 @@ type: record
       const command = [
         "work", "reconcile-merged", "wi-059", "--pr", pr, "--commit", commit,
         "--published-ref", "HEAD", "--evidence", "record-ci", "--evidence", "record-review",
-        "--changed-file", "owned.ts", "--changed-file", "foreign.ts", "--actual", "1",
+        "--changed-file", ownedFile, "--changed-file", "foreign.ts", "--actual", "1",
         "--completed-date", "2026-10-25", "--json",
       ];
       const publishedRef = execFileSync("git", ["rev-parse", `${commit}^1`], { cwd: root, encoding: "utf8" }).trim();

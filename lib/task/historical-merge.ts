@@ -148,7 +148,7 @@ function gitStatus(rootDir: string, args: string[]): string[] {
 }
 
 function validatePath(value: string): string {
-  if (!value || value.trim() !== value || value.startsWith("/") || value.split("/").includes("..")) {
+  if (!value || value.startsWith("/") || value.split("/").includes("..")) {
     throw new TaskCommandError(
       "TASK_HISTORICAL_MERGE_INVALID_CHANGED_FILE",
       `Changed file '${value}' must be a repository-relative path.`,
