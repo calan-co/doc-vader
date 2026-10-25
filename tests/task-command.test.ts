@@ -5102,6 +5102,61 @@ type: record
     }
   }, 15_000);
 
+  it("reconciles a historically merged work item without retroactive locks", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(path.join(root, "owned.ts"), "export const value = 1;\n");
+      await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 1;\n");
+      execFileSync("git", ["add", "."], { cwd: root });
+      execFileSync("git", ["commit", "-m", "baseline"], { cwd: root, stdio: "ignore" });
+      await fs.writeFile(path.join(root, "owned.ts"), "export const value = 2;\n");
+      await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 2;\n");
+      execFileSync("git", ["add", "owned.ts", "foreign.ts"], { cwd: root });
+      execFileSync("git", ["commit", "-m", "historical implementation"], { cwd: root, stdio: "ignore" });
+      const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+      const pr = "https://github.com/example/vita/pull/7";
+      await fs.mkdir(path.join(root, "backlog", "records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog", "records", "record-ci.md"),
+        `---\nid: record:ci\ntype: record\nsubtype: test-result\n---\n\n## Outcome\n\npass\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${pr}\n- ${commit}\n`,
+      );
+      await fs.writeFile(
+        path.join(root, "backlog", "records", "record-review.md"),
+        `---\nid: record:review\ntype: record\nsubtype: approval\n---\n\n## Outcome\n\napproved\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${pr}\n- ${commit}\n`,
+      );
+      await writeTask(
+        root,
+        "059-historical.md",
+        `id: wi-059\ntitle: Historical merge\ntype: work-item\nlifecycle: active\nstatus: ready\nstatus_reason: auto\nestimated: 1\ncommits:\n  ${commit}: Historical implementation\nlinks:\n  pull_requests:\n    - ${pr}\n  evidence:\n    - '[[record-ci]]'\n    - '[[record-review]]'`,
+        "## Tasks\n\n- [x] Reconcile the verified merge\n\n## Acceptance Criteria\n\n- [x] Complete only with verified historical evidence\n",
+      );
+      execFileSync("git", ["add", "."], { cwd: root });
+      execFileSync("git", ["commit", "-m", "record historical evidence"], { cwd: root, stdio: "ignore" });
+
+      const command = [
+        "work", "reconcile-merged", "wi-059", "--pr", pr, "--commit", commit,
+        "--published-ref", "HEAD", "--evidence", "record-ci", "--evidence", "record-review",
+        "--changed-file", "owned.ts", "--changed-file", "foreign.ts", "--actual", "1",
+        "--completed-date", "2026-10-25", "--json",
+      ];
+      const publishedRef = execFileSync("git", ["rev-parse", `${commit}^1`], { cwd: root, encoding: "utf8" }).trim();
+      execFileSync("git", ["branch", "published-before", publishedRef], { cwd: root });
+      const publishedRefIndex = command.indexOf("HEAD");
+      expect(() => runCli(root, command.map((value, index) => index === publishedRefIndex ? "published-before" : value))).toThrow("TASK_HISTORICAL_MERGE_COMMIT_NOT_PUBLISHED");
+      const reviewIndex = command.indexOf("record-review");
+      expect(() => runCli(root, command.filter((_, index) => index !== reviewIndex - 1 && index !== reviewIndex))).toThrow("TASK_HISTORICAL_MERGE_MISSING_EVIDENCE");
+      const foreignIndex = command.indexOf("foreign.ts");
+      expect(() => runCli(root, command.filter((_, index) => index !== foreignIndex - 1 && index !== foreignIndex))).toThrow("TASK_HISTORICAL_MERGE_UNATTRIBUTED_CHANGED_FILE");
+      const result = runCliJson<{ taskId: string; toStatus: string }>(root, command);
+
+      expect(result).toMatchObject({ taskId: "wi-059", toStatus: "completed" });
+      expect(await fs.readFile(path.join(root, "backlog", "059-historical.md"), "utf8")).toContain("status: completed");
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, 15_000);
+
   it("rejects a claim for another work item before mutating it", async () => {
     const root = await mkTmpRoot();
     try {

@@ -79,6 +79,7 @@ import { registerInitCommand } from "../lib/init/command.js";
 import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
+  reconcileHistoricalWorkMerge,
   assertWorkClaimable as assertTaskClaimable,
   adaptWorkGraphExportToCytoscape,
   assertWorkGraphExportResult,
@@ -2118,6 +2119,49 @@ function registerWorkCommandSurface(surface: Command): void {
         }
       },
     );
+
+  surface
+    .command("reconcile-merged")
+    .description("Complete a verified historical merge without retroactive claim locks")
+    .argument("<task-id>", "Work item id")
+    .requiredOption("--pr <url>", "Linked merged pull request URL")
+    .requiredOption("--commit <sha>", "Immutable merged commit SHA")
+    .requiredOption("--published-ref <ref>", "Published ref containing the commit")
+    .requiredOption("--evidence <reference>", "Linked CI, review, or supporting record", collectOption)
+    .requiredOption("--changed-file <path>", "Historical commit file attributed to this work item", collectOption)
+    .requiredOption("--completed-date <date>", "Historical completion date")
+    .option("--actual <effort>", "Actual effort when the work item has an estimate")
+    .option("--dry-run", "Validate without writing files")
+    .option("--json", "Emit machine-readable JSON")
+    .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
+    .action(async (taskId: string, opts: { pr: string; commit: string; publishedRef: string; evidence: string[]; changedFile: string[]; completedDate: string; actual?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
+      try {
+        const actual = opts.actual === undefined ? undefined : Number(opts.actual);
+        if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual) || actual < 0)) {
+          throw new TaskCommandError("TASK_HISTORICAL_MERGE_INVALID_ACTUAL", "Actual effort must be a non-negative finite number.");
+        }
+        const parsed = new Date(`${opts.completedDate}T00:00:00.000Z`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.completedDate) || Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== opts.completedDate) {
+          throw new TaskCommandError("TASK_HISTORICAL_MERGE_INVALID_COMPLETED_DATE", "Completion date must be a valid ISO date.");
+        }
+        const result = await reconcileHistoricalWorkMerge({
+          taskId,
+          pr: opts.pr,
+          commit: opts.commit,
+          publishedRef: opts.publishedRef,
+          evidence: opts.evidence,
+          changedFiles: opts.changedFile,
+          actual,
+          completedDate: opts.completedDate,
+          dryRun: opts.dryRun,
+          backlogDir: opts.backlogDir,
+        });
+        if (opts.json) printTaskJson(result);
+        else console.log(`${opts.dryRun ? "would" : "did"} reconcile historical merge ${result.taskId}`);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    });
 
   const actionPolicy = inspectWorkActionPolicy();
   for (const action of actionPolicy.actions) {
