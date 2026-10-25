@@ -1,8 +1,8 @@
 ---
 $schema: schemas/work-management/frontmatter/work-item.json
 id: wi-60514
-title: Register Historical Merge Command Inventory
-summary: Repair the Work command inventory parity regression for historical merge reconciliation.
+title: Resolve Historical Merge Review Feedback
+summary: Repair Work command inventory parity and fail-closed historical merge review findings.
 type: work-item
 subtype: task
 lifecycle: active
@@ -18,14 +18,17 @@ tags:
 
 ## Goal
 
-Keep the published Work command inventory aligned with the historical merge reconciliation CLI command.
+Resolve review findings for the published historical merge reconciliation CLI without weakening its fail-closed checks.
 
 ## Tasks
 
 - [x] Add the missing command inventory entry.
-- [x] Run the parity test and CI-relevant validation.
+- [ ] Resolve verified historical merge review findings.
+- [ ] Run focused and CI-relevant validation.
 
 ## Acceptance Criteria
 
 - [x] `dv work --help` and the immutable inventory list the same commands.
-- [x] The Node 22 and Node 24 command parity validation passes.
+- [ ] Policy loading works from both the source tree and packaged layout.
+- [ ] Evidence references, commit links, and changed paths remain fail-closed.
+- [ ] The Node 22 and Node 24 test suites pass.
