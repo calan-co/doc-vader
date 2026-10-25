@@ -2133,8 +2133,9 @@ function registerWorkCommandSurface(surface: Command): void {
     .option("--actual <effort>", "Actual effort when the work item has an estimate")
     .option("--dry-run", "Validate without writing files")
     .option("--json", "Emit machine-readable JSON")
-    .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
-    .action(async (taskId: string, opts: { pr: string; commit: string; publishedRef: string; evidence: string[]; changedFile: string[]; completedDate: string; actual?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
+    .option("--backlog-dir <path>", "Path to the backlog directory")
+    .option("--consumer-config <path>", "Path to consumer config JSON")
+    .action(async (taskId: string, opts: { pr: string; commit: string; publishedRef: string; evidence: string[]; changedFile: string[]; completedDate: string; actual?: string; dryRun?: boolean; json?: boolean; backlogDir?: string; consumerConfig?: string }) => {
       try {
         const actual = opts.actual === undefined ? undefined : Number(opts.actual);
         if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual) || actual < 0)) {
@@ -2155,6 +2156,7 @@ function registerWorkCommandSurface(surface: Command): void {
           completedDate: opts.completedDate,
           dryRun: opts.dryRun,
           backlogDir: opts.backlogDir,
+          consumerConfig: opts.consumerConfig,
         });
         if (opts.json) printTaskJson(result);
         else console.log(`${opts.dryRun ? "would" : "did"} reconcile historical merge ${result.taskId}`);

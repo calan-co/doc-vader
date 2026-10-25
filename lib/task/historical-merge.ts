@@ -51,8 +51,15 @@ function policyPath(rootDir: string): string {
     rootDir,
     "schemas/work-management/workflows/default/historical-merge-reconciliation.json",
   );
-  return existsSync(repositoryPolicy)
-    ? repositoryPolicy
+  if (existsSync(repositoryPolicy)) return repositoryPolicy;
+  const packagedPolicy = fileURLToPath(
+    new URL(
+      "../../../schemas/work-management/workflows/default/historical-merge-reconciliation.json",
+      import.meta.url,
+    ),
+  );
+  return existsSync(packagedPolicy)
+    ? packagedPolicy
     : fileURLToPath(
         new URL(
           "../../schemas/work-management/workflows/default/historical-merge-reconciliation.json",
@@ -62,9 +69,17 @@ function policyPath(rootDir: string): string {
 }
 
 async function loadPolicy(rootDir: string): Promise<HistoricalMergePolicy> {
-  const document = JSON.parse(await fs.readFile(policyPath(rootDir), "utf8")) as {
-    "x-historical-merge-reconciliation"?: HistoricalMergePolicy;
-  };
+  const policyFile = policyPath(rootDir);
+  let document: { "x-historical-merge-reconciliation"?: HistoricalMergePolicy };
+  try {
+    document = JSON.parse(await fs.readFile(policyFile, "utf8")) as typeof document;
+  } catch (error) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_MERGE_INVALID_POLICY",
+      "Historical merge reconciliation policy cannot be read.",
+      { path: policyFile, error: error instanceof Error ? error.message : String(error) },
+    );
+  }
   const policy = document["x-historical-merge-reconciliation"];
   if (
     !policy ||
@@ -103,11 +118,31 @@ function assertAncestor(rootDir: string, commit: string, publishedRef: string): 
       cwd: rootDir,
       stdio: "ignore",
     });
-  } catch {
+  } catch (error) {
+    if ((error as { status?: number | null }).status !== 1) {
+      throw new TaskCommandError(
+        "TASK_HISTORICAL_MERGE_GIT_VERIFICATION_FAILED",
+        `Unable to verify ancestry of '${commit}' in '${publishedRef}'.`,
+        { commit, publishedRef, error: error instanceof Error ? error.message : String(error) },
+      );
+    }
     throw new TaskCommandError(
       "TASK_HISTORICAL_MERGE_COMMIT_NOT_PUBLISHED",
       `Commit '${commit}' is not an ancestor of published ref '${publishedRef}'.`,
       { commit, publishedRef },
+    );
+  }
+}
+
+function gitStatus(rootDir: string, args: string[]): string[] {
+  try {
+    const output = execFileSync("git", args, { cwd: rootDir });
+    return output.toString("utf8").split("\0").filter(Boolean);
+  } catch (error) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_MERGE_GIT_VERIFICATION_FAILED",
+      `Unable to verify historical merge with git ${args.join(" ")}.`,
+      { args, error: error instanceof Error ? error.message : String(error) },
     );
   }
 }
@@ -148,6 +183,11 @@ function hasOutcome(body: string, outcome: string): boolean {
   return new RegExp(`^##\\s+Outcome\\s*\\n\\s*${outcome}\\s*$`, "mi").test(body);
 }
 
+function mentionsExactly(body: string, value: string): boolean {
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`).test(body);
+}
+
 function hasTaskAssociation(body: string, taskId: string): boolean {
   const escaped = taskId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`^\\s*-\\s+(?:\\[\\[)?${escaped}(?:\\]\\])?\\s*$`, "m").test(body);
@@ -174,8 +214,8 @@ async function readEvidence(
   if (
     record.data?.type !== "record" ||
     !hasTaskAssociation(record.content, taskId) ||
-    !record.content.includes(pr) ||
-    !record.content.includes(commit)
+    !mentionsExactly(record.content, pr) ||
+    !mentionsExactly(record.content, commit)
   ) {
     throw new TaskCommandError(
       "TASK_HISTORICAL_MERGE_UNATTRIBUTED_EVIDENCE",
@@ -190,8 +230,17 @@ export async function reconcileHistoricalMerge(
   options: ReconcileHistoricalMergeOptions,
 ): Promise<ReconcileHistoricalMergeResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const backlogDir = options.backlogDir ?? config.roots.backlog;
+  if (path.resolve(rootDir, backlogDir) !== path.resolve(rootDir, config.roots.backlog)) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_MERGE_BACKLOG_ROOT_MISMATCH",
+      "Historical merge reconciliation requires --backlog-dir to match the consumer configuration.",
+      { backlogDir, configuredBacklogDir: config.roots.backlog },
+    );
+  }
   const policy = await loadPolicy(rootDir);
-  const task = await loadTaskModel(options.taskId, { rootDir, backlogDir: options.backlogDir });
+  const task = await loadTaskModel(options.taskId, { rootDir, backlogDir });
   if (!policy.from.includes(task.status)) {
     throw new TaskCommandError(
       "TASK_HISTORICAL_MERGE_STATUS_MISMATCH",
@@ -224,7 +273,10 @@ export async function reconcileHistoricalMerge(
   if (
     typeof commits !== "object" ||
     commits === null ||
-    !Object.keys(commits as Record<string, unknown>).some((sha) => commit.startsWith(sha.toLowerCase()))
+    Array.isArray(commits) ||
+    !Object.keys(commits as Record<string, unknown>).some(
+      (sha) => /^[0-9a-f]{7,40}$/i.test(sha) && commit.startsWith(sha.toLowerCase()),
+    )
   ) {
     throw new TaskCommandError(
       "TASK_HISTORICAL_MERGE_COMMIT_NOT_LINKED",
@@ -234,12 +286,27 @@ export async function reconcileHistoricalMerge(
   }
 
   const parent = git(rootDir, ["rev-parse", "--verify", `${commit}^1`]);
-  const changedFiles = new Set(
-    git(rootDir, ["diff", "--name-only", parent, commit])
-      .split("\n")
-      .filter(Boolean)
-      .map(normalizePath),
-  );
+  const diff = gitStatus(rootDir, ["diff", "--name-status", "--find-renames", "-z", parent, commit]);
+  const changedFiles = new Set<string>();
+  for (let index = 0; index < diff.length;) {
+    const status = diff[index++]!;
+    if (status.startsWith("R") || status.startsWith("C")) {
+      throw new TaskCommandError(
+        "TASK_HISTORICAL_MERGE_RENAME_NOT_SUPPORTED",
+        "Historical merge reconciliation rejects renamed or copied files.",
+        { status },
+      );
+    }
+    const filePath = diff[index++];
+    if (!filePath) {
+      throw new TaskCommandError(
+        "TASK_HISTORICAL_MERGE_GIT_VERIFICATION_FAILED",
+        "Historical merge changed-file output is malformed.",
+        { status },
+      );
+    }
+    changedFiles.add(normalizePath(filePath));
+  }
   const attributedFiles = new Set(options.changedFiles.map(normalizePath));
   if (
     policy.changed_files !== "exact" ||
@@ -262,7 +329,6 @@ export async function reconcileHistoricalMerge(
       { suppliedEvidence: supplied, linkedEvidence: [...linked] },
     );
   }
-  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
   const recordsDir = path.resolve(rootDir, config.roots.records);
   const records = await Promise.all(
     options.evidence.map((reference) => readEvidence(recordsDir, reference, task.id, options.pr, commit)),

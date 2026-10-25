@@ -5148,6 +5148,16 @@ type: record
       expect(() => runCli(root, command.filter((_, index) => index !== reviewIndex - 1 && index !== reviewIndex))).toThrow("TASK_HISTORICAL_MERGE_MISSING_EVIDENCE");
       const foreignIndex = command.indexOf("foreign.ts");
       expect(() => runCli(root, command.filter((_, index) => index !== foreignIndex - 1 && index !== foreignIndex))).toThrow("TASK_HISTORICAL_MERGE_UNATTRIBUTED_CHANGED_FILE");
+      const ciPath = path.join(root, "backlog", "records", "record-ci.md");
+      const ciEvidence = await fs.readFile(ciPath, "utf8");
+      await fs.writeFile(ciPath, ciEvidence.replace(pr, `${pr}0`));
+      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_UNATTRIBUTED_EVIDENCE");
+      await fs.writeFile(ciPath, ciEvidence);
+      const taskPath = path.join(root, "backlog", "059-historical.md");
+      const taskDocument = await fs.readFile(taskPath, "utf8");
+      await fs.writeFile(taskPath, taskDocument.replace(commit, commit.slice(0, 1)));
+      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_COMMIT_NOT_LINKED");
+      await fs.writeFile(taskPath, taskDocument);
       const result = runCliJson<{ taskId: string; toStatus: string }>(root, command);
 
       expect(result).toMatchObject({ taskId: "wi-059", toStatus: "completed" });
