@@ -6,13 +6,17 @@ summary: Add a fail-closed CLI path to reconcile verified work merged before run
 type: work-item
 subtype: task
 lifecycle: active
-status: running
-status_reason: implementation
+status: completed
+status_reason: completed
 priority: high
 estimated: 3
+actual: 3
+completed_date: '2026-10-25'
 links:
   evidence:
     - '[[record-wi-60513-node22-node24]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/115
 tags:
   - afk
   - runtime
@@ -26,9 +30,9 @@ Close historically merged Work Items only when immutable commit ancestry, linked
 
 ## Tasks
 
-- [ ] Add public CLI and regression coverage for historical-merge reconciliation.
-- [ ] Enforce policy-backed ancestry, evidence, and changed-file checks.
-- [ ] Validate Node 22/24 coverage and publish a reviewed pull request.
+- [x] Add public CLI and regression coverage for historical-merge reconciliation.
+- [x] Enforce policy-backed ancestry, evidence, and changed-file checks.
+- [x] Validate Node 22/24 coverage and publish a reviewed pull request.
 
 ## Deliverables
 
@@ -37,7 +41,7 @@ Close historically merged Work Items only when immutable commit ancestry, linked
 
 ## Acceptance Criteria
 
-- [ ] The command never creates or accepts retroactive claim locks.
-- [ ] A linked immutable PR commit must be an ancestor of the named published ref.
-- [ ] CI and review records must be linked to the Work Item and the immutable PR commit.
-- [ ] Every changed file must be explicitly attributed, with no foreign paths accepted.
+- [x] The command never creates or accepts retroactive claim locks.
+- [x] A linked immutable PR commit must be an ancestor of the named published ref.
+- [x] CI and review records must be linked to the Work Item and the immutable PR commit.
+- [x] Every changed file must be explicitly attributed, with no foreign paths accepted.
