@@ -5050,7 +5050,18 @@ type: record
           "--actual",
           "",
         ]),
-      ).toThrow(/Actual effort must be a finite number/);
+      ).toThrow(/Actual effort must be a non-negative finite number/);
+      expect(() =>
+        runCli(root, [
+          "work",
+          "complete",
+          "wi-210-work-complete",
+          "--claim",
+          completionClaim.claimToken,
+          "--actual",
+          "-1",
+        ]),
+      ).toThrow(/Actual effort must be a non-negative finite number/);
       expect(() =>
         runCli(root, [
           "work",

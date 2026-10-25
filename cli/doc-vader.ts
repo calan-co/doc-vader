@@ -2143,8 +2143,8 @@ function registerWorkCommandSurface(surface: Command): void {
             );
           }
           const actual = opts.actual === undefined ? undefined : Number(opts.actual);
-          if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual))) {
-            throw new TaskCommandError("TASK_TRANSITION_INVALID_ACTUAL", "Actual effort must be a finite number.");
+          if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual) || actual < 0)) {
+            throw new TaskCommandError("TASK_TRANSITION_INVALID_ACTUAL", "Actual effort must be a non-negative finite number.");
           }
           const completedDate = opts.completedDate;
           if (completedDate !== undefined) {
