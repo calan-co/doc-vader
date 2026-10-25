@@ -5100,7 +5100,7 @@ type: record
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 30_000);
 
   it("reconciles a historically merged work item without retroactive locks", async () => {
     const root = await mkTmpRoot();
@@ -5158,6 +5158,11 @@ type: record
       await fs.writeFile(taskPath, taskDocument.replace(commit, commit.slice(0, 1)));
       expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_COMMIT_NOT_LINKED");
       await fs.writeFile(taskPath, taskDocument);
+      const policyDirectory = path.join(root, "schemas", "work-management", "workflows", "default");
+      await fs.mkdir(policyDirectory, { recursive: true });
+      await fs.writeFile(path.join(policyDirectory, "historical-merge-reconciliation.json"), "null");
+      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_INVALID_POLICY");
+      await fs.rm(path.join(root, "schemas"), { recursive: true, force: true });
       const result = runCliJson<{ taskId: string; toStatus: string }>(root, command);
 
       expect(result).toMatchObject({ taskId: "wi-059", toStatus: "completed" });

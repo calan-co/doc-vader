@@ -70,7 +70,7 @@ function policyPath(rootDir: string): string {
 
 async function loadPolicy(rootDir: string): Promise<HistoricalMergePolicy> {
   const policyFile = policyPath(rootDir);
-  let document: { "x-historical-merge-reconciliation"?: HistoricalMergePolicy };
+  let document: { "x-historical-merge-reconciliation"?: HistoricalMergePolicy } | null;
   try {
     document = JSON.parse(await fs.readFile(policyFile, "utf8")) as typeof document;
   } catch (error) {
@@ -80,7 +80,7 @@ async function loadPolicy(rootDir: string): Promise<HistoricalMergePolicy> {
       { path: policyFile, error: error instanceof Error ? error.message : String(error) },
     );
   }
-  const policy = document["x-historical-merge-reconciliation"];
+  const policy = document?.["x-historical-merge-reconciliation"];
   if (
     !policy ||
     !Array.isArray(policy.from) ||
@@ -147,16 +147,15 @@ function gitStatus(rootDir: string, args: string[]): string[] {
   }
 }
 
-function normalizePath(value: string): string {
-  const normalized = value.trim().replace(/\\/g, "/");
-  if (!normalized || normalized.startsWith("/") || normalized.split("/").includes("..")) {
+function validatePath(value: string): string {
+  if (!value || value.trim() !== value || value.startsWith("/") || value.split("/").includes("..")) {
     throw new TaskCommandError(
       "TASK_HISTORICAL_MERGE_INVALID_CHANGED_FILE",
       `Changed file '${value}' must be a repository-relative path.`,
       { path: value },
     );
   }
-  return normalized;
+  return value;
 }
 
 function evidenceBasename(reference: string): string {
@@ -305,9 +304,9 @@ export async function reconcileHistoricalMerge(
         { status },
       );
     }
-    changedFiles.add(normalizePath(filePath));
+    changedFiles.add(validatePath(filePath));
   }
-  const attributedFiles = new Set(options.changedFiles.map(normalizePath));
+  const attributedFiles = new Set(options.changedFiles.map(validatePath));
   if (
     policy.changed_files !== "exact" ||
     changedFiles.size !== attributedFiles.size ||
