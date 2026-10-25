@@ -4873,6 +4873,7 @@ type: work-item
 lifecycle: active
 status: ready
 status_reason: auto
+estimated: 4
 tags:
   - afk`,
       );
@@ -4986,6 +4987,70 @@ tags:
           claim.claimId,
         ]),
       ).toThrow(/TASK_TRANSITION_FROM_STATUS_MISMATCH/);
+
+      await writeTask(
+        root,
+        "210-work-complete.md",
+        `id: wi-210-work-complete
+title: Completed Work
+type: work-item
+lifecycle: active
+status: ready
+status_reason: auto
+estimated: 4
+tags:
+  - afk`,
+      );
+      const completionClaim = runCliJson<{ claimToken: string }>(root, [
+        "work",
+        "claim",
+        "wi-210-work-complete",
+        "--holder",
+        "agent-a",
+        "--json",
+      ]);
+      await fs.writeFile(
+        path.join(root, "backlog/records/completion-record.md"),
+        `---
+id: record:completion-record
+type: record
+---
+
+## Subject References
+
+- wi-210-work-complete
+`,
+      );
+      runCli(root, [
+        "lock",
+        "create",
+        "--claim",
+        completionClaim.claimToken,
+        "backlog/210-work-complete.md",
+      ]);
+      const completed = runCliJson<{
+        toStatus: string;
+        workItem: { frontmatter: { actual: number; completed_date: string } };
+      }>(root, [
+        "work",
+        "complete",
+        "wi-210-work-complete",
+        "--claim",
+        completionClaim.claimToken,
+        "--evidence",
+        "completion-record",
+        "--actual",
+        "4",
+        "--completed-date",
+        "2026-10-24",
+        "--json",
+      ]);
+      expect(completed).toMatchObject({
+        toStatus: "completed",
+        workItem: {
+          frontmatter: { actual: 4, completed_date: "2026-10-24" },
+        },
+      });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

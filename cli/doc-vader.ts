@@ -2128,17 +2128,25 @@ function registerWorkCommandSurface(surface: Command): void {
       .requiredOption("--claim <claim-id>", "Active claim id")
       .option("--evidence <reference>", "Link evidence before transitioning", collectOption, [])
       .option("--reason <reason>", "Status reason; defaults from the workflow policy")
+      .option("--actual <effort>", "Actual effort for a terminal transition")
+      .option("--completed-date <date>", "Completion date for a terminal transition")
       .option("--dry-run", "Validate the proposed transition without writing files")
       .option("--json", "Emit machine-readable JSON")
       .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
-      .action(async (taskId: string, opts: { claim: string; evidence: string[]; reason?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
+      .action(async (taskId: string, opts: { claim: string; evidence: string[]; reason?: string; actual?: string; completedDate?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
         try {
+          const actual = opts.actual === undefined ? undefined : Number(opts.actual);
+          if (actual !== undefined && !Number.isFinite(actual)) {
+            throw new TaskCommandError("TASK_TRANSITION_INVALID_ACTUAL", "Actual effort must be a finite number.");
+          }
           const result = await transitionTask({
             claimId: opts.claim,
             taskId,
             status: action.status,
             expectedFromStatuses: action.from,
             statusReason: opts.reason ?? action.reason,
+            actual,
+            completedDate: opts.completedDate,
             evidence: opts.evidence,
             dryRun: opts.dryRun,
             backlogDir: opts.backlogDir,
