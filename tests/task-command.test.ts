@@ -4923,6 +4923,18 @@ tags:
         ]),
       );
 
+      expect(() =>
+        runCli(root, [
+          "work",
+          "start",
+          "wi-209-work-actions",
+          "--claim",
+          claim.claimId,
+          "--actual",
+          "4",
+        ]),
+      ).toThrow(/terminal transitions/);
+
       const started = runCliJson<{ toStatus: string }>(root, [
         "work",
         "start",
@@ -5028,6 +5040,18 @@ type: record
         completionClaim.claimToken,
         "backlog/210-work-complete.md",
       ]);
+      expect(() =>
+        runCli(root, [
+          "work",
+          "complete",
+          "wi-210-work-complete",
+          "--claim",
+          completionClaim.claimToken,
+          "--actual",
+          "",
+        ]),
+      ).toThrow(/Actual effort must be a finite number/);
+
       const completed = runCliJson<{
         toStatus: string;
         workItem: { frontmatter: { actual: number; completed_date: string } };

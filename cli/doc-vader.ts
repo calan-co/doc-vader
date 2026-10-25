@@ -2135,8 +2135,15 @@ function registerWorkCommandSurface(surface: Command): void {
       .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
       .action(async (taskId: string, opts: { claim: string; evidence: string[]; reason?: string; actual?: string; completedDate?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
         try {
+          const terminal = action.status === "completed" || action.status === "aborted";
+          if (!terminal && (opts.actual !== undefined || opts.completedDate !== undefined)) {
+            throw new TaskCommandError(
+              "TASK_TRANSITION_INVALID_TERMINAL_METADATA",
+              "Actual effort and completion date are only valid for terminal transitions.",
+            );
+          }
           const actual = opts.actual === undefined ? undefined : Number(opts.actual);
-          if (actual !== undefined && !Number.isFinite(actual)) {
+          if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual))) {
             throw new TaskCommandError("TASK_TRANSITION_INVALID_ACTUAL", "Actual effort must be a finite number.");
           }
           const result = await transitionTask({
