@@ -2146,6 +2146,13 @@ function registerWorkCommandSurface(surface: Command): void {
           if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual))) {
             throw new TaskCommandError("TASK_TRANSITION_INVALID_ACTUAL", "Actual effort must be a finite number.");
           }
+          const completedDate = opts.completedDate;
+          if (completedDate !== undefined) {
+            const parsed = new Date(`${completedDate}T00:00:00.000Z`);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(completedDate) || Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== completedDate) {
+              throw new TaskCommandError("TASK_TRANSITION_INVALID_COMPLETED_DATE", "Completion date must be a valid ISO date.");
+            }
+          }
           const result = await transitionTask({
             claimId: opts.claim,
             taskId,
@@ -2153,7 +2160,7 @@ function registerWorkCommandSurface(surface: Command): void {
             expectedFromStatuses: action.from,
             statusReason: opts.reason ?? action.reason,
             actual,
-            completedDate: opts.completedDate,
+            completedDate,
             evidence: opts.evidence,
             dryRun: opts.dryRun,
             backlogDir: opts.backlogDir,

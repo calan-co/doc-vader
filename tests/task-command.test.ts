@@ -5051,6 +5051,17 @@ type: record
           "",
         ]),
       ).toThrow(/Actual effort must be a finite number/);
+      expect(() =>
+        runCli(root, [
+          "work",
+          "complete",
+          "wi-210-work-complete",
+          "--claim",
+          completionClaim.claimToken,
+          "--completed-date",
+          "2026-02-30",
+        ]),
+      ).toThrow(/Completion date must be a valid ISO date/);
 
       const completed = runCliJson<{
         toStatus: string;
