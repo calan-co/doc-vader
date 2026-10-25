@@ -5106,7 +5106,7 @@ type: record
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
-      const ownedFile = " owned.ts ";
+      const ownedFile = process.platform === "win32" ? "owned file.ts" : " owned.ts ";
       await fs.writeFile(path.join(root, ownedFile), "export const value = 1;\n");
       await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 1;\n");
       execFileSync("git", ["add", "."], { cwd: root });
