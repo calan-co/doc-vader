@@ -2128,17 +2128,39 @@ function registerWorkCommandSurface(surface: Command): void {
       .requiredOption("--claim <claim-id>", "Active claim id")
       .option("--evidence <reference>", "Link evidence before transitioning", collectOption, [])
       .option("--reason <reason>", "Status reason; defaults from the workflow policy")
+      .option("--actual <effort>", "Actual effort for a terminal transition")
+      .option("--completed-date <date>", "Completion date for a terminal transition")
       .option("--dry-run", "Validate the proposed transition without writing files")
       .option("--json", "Emit machine-readable JSON")
       .option("--backlog-dir <path>", "Path to the backlog directory", "backlog")
-      .action(async (taskId: string, opts: { claim: string; evidence: string[]; reason?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
+      .action(async (taskId: string, opts: { claim: string; evidence: string[]; reason?: string; actual?: string; completedDate?: string; dryRun?: boolean; json?: boolean; backlogDir?: string }) => {
         try {
+          const terminal = action.status === "completed" || action.status === "aborted";
+          if (!terminal && (opts.actual !== undefined || opts.completedDate !== undefined)) {
+            throw new TaskCommandError(
+              "TASK_TRANSITION_INVALID_TERMINAL_METADATA",
+              "Actual effort and completion date are only valid for terminal transitions.",
+            );
+          }
+          const actual = opts.actual === undefined ? undefined : Number(opts.actual);
+          if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual) || actual < 0)) {
+            throw new TaskCommandError("TASK_TRANSITION_INVALID_ACTUAL", "Actual effort must be a non-negative finite number.");
+          }
+          const completedDate = opts.completedDate;
+          if (completedDate !== undefined) {
+            const parsed = new Date(`${completedDate}T00:00:00.000Z`);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(completedDate) || Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== completedDate) {
+              throw new TaskCommandError("TASK_TRANSITION_INVALID_COMPLETED_DATE", "Completion date must be a valid ISO date.");
+            }
+          }
           const result = await transitionTask({
             claimId: opts.claim,
             taskId,
             status: action.status,
             expectedFromStatuses: action.from,
             statusReason: opts.reason ?? action.reason,
+            actual,
+            completedDate,
             evidence: opts.evidence,
             dryRun: opts.dryRun,
             backlogDir: opts.backlogDir,
