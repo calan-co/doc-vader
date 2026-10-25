@@ -10,6 +10,9 @@ status: running
 status_reason: implementation
 priority: high
 estimated: 3
+links:
+  evidence:
+    - '[[record-wi-60513-node22-node24]]'
 tags:
   - afk
   - runtime
