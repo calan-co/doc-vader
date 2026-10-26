@@ -2221,6 +2221,64 @@ export class RuntimeSqliteStore {
     };
   }
 
+  reclaimExpiredRuntimeClaimForRecovery(
+    targetType: string,
+    targetId: string,
+  ) {
+    const claim = this.getClaimByTarget(targetType, targetId);
+    if (!claim || claim.state === "active") {
+      return { outcome: "not-expired" as const };
+    }
+
+    const conflict = this.readClaimCleanupConflict(claim.claim_token);
+    if (conflict) {
+      return { outcome: "conflict" as const, conflict };
+    }
+
+    return this.withTransaction(() => {
+      const current = this.getClaimByToken(claim.claim_token);
+      if (!current || current.state === "active") {
+        return { outcome: "not-expired" as const };
+      }
+      const currentConflict = this.readClaimCleanupConflict(current.claim_token);
+      if (currentConflict) {
+        return { outcome: "conflict" as const, conflict: currentConflict };
+      }
+
+      const scopeLocks = this.listScopeLocksByClaimToken(current.claim_token)
+        .filter((lock) => lock.lifecycle_state === "active")
+        .map(({ scope_ref, lock_mode, policy_name, acquired_at }) => ({
+          scope_ref,
+          lock_mode,
+          policy_name,
+          acquired_at,
+        }));
+      const executionLogEntry = this.insertExecutionLogEntry({
+        schema_version: current.schema_version,
+        claim_token: current.claim_token,
+        target_type: current.target_type,
+        target_id: current.target_id,
+        state: "halted",
+        reason: "expired",
+        created_at: new Date().toISOString(),
+        detail: {
+          code: "x-runtime-expired-claim-reclaimed",
+          message: "Expired runtime claim reclaimed during recovery.",
+          "x-reclaimed-scope-locks": scopeLocks,
+        },
+      });
+      const locksRemoved = this.deleteLocksByClaimToken(current.claim_token);
+      this.deleteClaim(current.claim_token);
+      return {
+        outcome: "reclaimed" as const,
+        claim: current,
+        locksRemoved,
+        scopeLocks,
+        executionLogEntry,
+      };
+    });
+  }
+
   pruneRuntimeClaims(cutoff: Date): RuntimeClaimCleanupResult {
     const cutoffTime = cutoff.getTime();
     const claimTokens = this.listClaims()

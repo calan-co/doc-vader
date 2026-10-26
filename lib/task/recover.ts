@@ -546,6 +546,21 @@ export async function recoverTaskClaim(
 
   const store = openRuntimeSqliteStore({ rootDir });
   try {
+    const reclaimed = store.reclaimExpiredRuntimeClaimForRecovery(
+      "task",
+      task.id,
+    );
+    if (reclaimed.outcome === "conflict") {
+      throw new TaskCommandError(
+        "TASK_RECOVERY_EXPIRED_CLAIM_CONFLICT",
+        `Task '${task.id}' recovery cannot reclaim its expired runtime claim.`,
+        {
+          taskId: task.id,
+          conflict: reclaimed.conflict,
+        },
+      );
+    }
+
     const claimResult = store.acquireRuntimeClaim(claimSeed, {
       initialLockPaths,
     });

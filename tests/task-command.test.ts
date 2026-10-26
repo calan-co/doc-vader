@@ -2140,6 +2140,90 @@ tags:
     },
   );
 
+  it("reclaims expired scope locks during forced recovery and permits a retry claim", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
+      await fs.writeFile(path.join(root, ".gitignore"), ".doc-vader/runtime/\n", "utf8");
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["switch", "-c", "sandcastle/issue-304"], { cwd: root, stdio: "ignore" });
+      await writeTask(root, "304-expired-scope-lock.md", `id: wi-304
+title: Expired Scope Lock
+summary: Expired Scope Lock
+type: work-item
+subtype: story
+lifecycle: active
+status: paused
+status_reason: blocked
+tags:
+  - afk`);
+      execFileSync("git", ["add", "backlog/304-expired-scope-lock.md"], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: task"], { cwd: root, stdio: "ignore" });
+
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        store.insertClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          claim_token: "claim-expired-scope-lock",
+          target_type: "task",
+          target_id: "wi-304",
+          holder: "expired-worker",
+          created_at: "2026-06-15T12:00:00.000Z",
+          expires_at: "2026-06-15T12:30:00.000Z",
+        });
+        store.insertScopeLock({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          claim_token: "claim-expired-scope-lock",
+          scope_ref: "wi:304",
+          lock_mode: "execute",
+          policy_name: "ExecuteLockPolicy",
+          acquired_at: "2026-06-15T12:00:00.000Z",
+          updated_at: "2026-06-15T12:00:00.000Z",
+          lifecycle_state: "active",
+        });
+      } finally {
+        store.close();
+      }
+      recordRuntimeExecutionLog(root, {
+        claim_token: "claim-expired-scope-lock",
+        target_type: "task",
+        target_id: "wi-304",
+        state: "halted",
+        reason: "blocked",
+        created_at: "2026-06-15T12:31:00.000Z",
+        detail: { code: "x-runtime-task-blocked", message: "Expired claim halted." },
+      });
+
+      const recovered = runCliJson<{ transition: { frontmatter: { status: string } } }>(root, ["work", "recover", "wi-304", "--force", "reconcile", "--json"]);
+      expect(recovered.transition.frontmatter.status).toBe("ready");
+
+      const retried = runCliJson<{ outcome: string; claimToken: string }>(root, ["work", "claim", "wi-304", "--holder", "retry-worker", "--json"]);
+      expect(retried.outcome).toBe("acquired");
+
+      const postRecoveryStore = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        expect(postRecoveryStore.getClaimByToken(retried.claimToken)).toMatchObject({ state: "active" });
+        expect(postRecoveryStore.listScopeLocksByClaimToken(retried.claimToken)).toMatchObject([
+          { scope_ref: "wi:304", lifecycle_state: "active" },
+        ]);
+        expect(postRecoveryStore.listExecutionLogEntries("claim-expired-scope-lock")).toEqual(expect.arrayContaining([
+          expect.objectContaining({ state: "halted", reason: "blocked" }),
+          expect.objectContaining({
+            state: "halted",
+            reason: "expired",
+            payload: expect.stringContaining("x-runtime-expired-claim-reclaimed"),
+          }),
+        ]));
+      } finally {
+        postRecoveryStore.close();
+      }
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it(
     "rejects force recovery when unrelated dirty paths are present",
     { timeout: 30_000 },
