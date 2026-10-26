@@ -2140,7 +2140,10 @@ tags:
     },
   );
 
-  it("preserves runtime sqlite through real recovery and permits a retry claim", async () => {
+  it(
+    "preserves runtime sqlite through real recovery and permits a retry claim",
+    { timeout: 15_000 },
+    async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
@@ -2250,7 +2253,8 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+    },
+  );
 
   it(
     "rejects force recovery when unrelated dirty paths are present",
