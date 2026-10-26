@@ -10,6 +10,9 @@ status: running
 status_reason: implementation
 priority: high
 estimated: 1
+links:
+  evidence:
+    - '[[record-20261026-164842-60514]]'
 tags:
   - afk
   - runtime
