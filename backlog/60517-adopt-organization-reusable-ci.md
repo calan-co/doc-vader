@@ -13,6 +13,8 @@ completed_date: '2026-10-26'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/120
+  evidence:
+    - '[[record-20261026-233054-60517]]'
 tags:
   - ci
   - github-actions
