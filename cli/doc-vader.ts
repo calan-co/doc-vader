@@ -2235,12 +2235,20 @@ function registerWorkCommandSurface(surface: Command): void {
       "Path to consumer config JSON",
       ".doc-vader/backlog-consumer.json",
     )
+    .option("--historical-pr <url>", "Verified historical merged pull request URL")
+    .option("--historical-commit <sha>", "Verified historical merge commit")
+    .option("--historical-published-ref <ref>", "Published ref containing the historical commit")
+    .option("--historical-changed-file <path>", "Verified historical changed file", collectOption, [])
     .option("--dry-run", "Validate and render mutation without writing files")
     .action(
       async (opts: {
         claim: string;
         type: string;
         payload: string;
+        historicalPr?: string;
+        historicalCommit?: string;
+        historicalPublishedRef?: string;
+        historicalChangedFile: string[];
         json?: boolean;
         porcelain?: boolean;
         consumerConfig?: string;
@@ -2251,11 +2259,29 @@ function registerWorkCommandSurface(surface: Command): void {
             throw new Error("Use either --json or --porcelain, not both.");
           }
           const payload = await readRecordPayload(opts.payload, process.stdin);
+          const historicalValues = [
+            opts.historicalPr,
+            opts.historicalCommit,
+            opts.historicalPublishedRef,
+          ];
+          if (historicalValues.some(Boolean) || opts.historicalChangedFile.length > 0) {
+            if (historicalValues.some((value) => !value) || opts.historicalChangedFile.length === 0) {
+              throw new Error("Historical evidence requires --historical-pr, --historical-commit, --historical-published-ref, and --historical-changed-file.");
+            }
+          }
           const result = await recordTaskEvidence({
             claimId: opts.claim,
             type: opts.type,
             payload,
             consumerConfig: opts.consumerConfig,
+            historical: opts.historicalPr
+              ? {
+                  pr: opts.historicalPr,
+                  commit: opts.historicalCommit!,
+                  publishedRef: opts.historicalPublishedRef!,
+                  changedFiles: opts.historicalChangedFile,
+                }
+              : undefined,
             dryRun: opts.dryRun,
           });
           if (opts.json) {

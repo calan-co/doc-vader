@@ -5251,6 +5251,53 @@ type: record
       execFileSync("git", ["add", "."], { cwd: root });
       execFileSync("git", ["commit", "-m", "record historical evidence"], { cwd: root, stdio: "ignore" });
 
+      const evidenceClaim = await claimTask("wi-059", {
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        holder: "evidence-agent",
+      });
+      acquireRuntimeTaskClaim(root, "wi-059", [
+        path.join(root, "backlog", "059-historical.md"),
+        path.join(root, "backlog", "records", "record-ci.md"),
+        path.join(root, "backlog", "records", "record-review.md"),
+        path.join(root, "backlog", "records", "record-historical-ci.md"),
+      ]);
+      const evidencePayload = validateTaskRecordPayload({
+        id: "record:historical-ci",
+        summary: "Historical CI",
+        observation: "CI passed for the published merge.",
+        outcome: "pass",
+      });
+      const historicalRecord = await recordTaskEvidence({
+        rootDir: root,
+        claimStorePath: claimStorePath(root),
+        claimId: evidenceClaim.claimId,
+        type: "test-result",
+        payload: evidencePayload,
+        historical: {
+          pr,
+          commit,
+          publishedRef: "HEAD",
+          changedFiles: [ownedFile, "foreign.ts"],
+        },
+      });
+      await expect(fs.readFile(historicalRecord.record.filePath, "utf8")).resolves.toContain(commit);
+      await expect(
+        recordTaskEvidence({
+          rootDir: root,
+          claimStorePath: claimStorePath(root),
+          claimId: evidenceClaim.claimId,
+          type: "test-result",
+          payload: { ...evidencePayload, id: "record:historical-foreign" },
+          historical: {
+            pr,
+            commit,
+            publishedRef: "HEAD",
+            changedFiles: [ownedFile, "foreign-path.ts"],
+          },
+        }),
+      ).rejects.toMatchObject({ code: "TASK_HISTORICAL_EVIDENCE_UNATTRIBUTED_CHANGED_FILE" });
+
       const command = [
         "work", "reconcile-merged", "wi-059", "--pr", pr, "--commit", commit,
         "--published-ref", "HEAD", "--evidence", "record-ci", "--evidence", "record-review",

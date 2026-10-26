@@ -340,6 +340,7 @@ export function runRuntimeClaimCoverageAudit(options: {
   rootDir: string;
   taskId: string;
   requiredPaths: string[];
+  excludedPaths?: string[];
   mergeTargetRef?: string;
 }): RuntimeChangedFileAuditResult {
   const runtimeDatabasePath = path.join(
@@ -376,7 +377,10 @@ export function runRuntimeClaimCoverageAudit(options: {
       options.requiredPaths,
       { mergeTargetRef },
     );
-    const diagnostics = [...currentAudit.diagnostics];
+    const excludedPaths = new Set(options.excludedPaths ?? []);
+    const diagnostics = currentAudit.diagnostics.filter(
+      (diagnostic) => !excludedPaths.has(diagnostic.path),
+    );
     const seen = new Set(
       diagnostics.map((diagnostic) => `${diagnostic.path}:${diagnostic.actualLockState}`),
     );
@@ -387,12 +391,16 @@ export function runRuntimeClaimCoverageAudit(options: {
       }
     }
     const changedFiles = [
-      ...currentAudit.changedFiles,
+      ...currentAudit.changedFiles.filter(
+        (file) => !excludedPaths.has(file.path),
+      ),
       ...requiredAudit.changedFiles,
     ];
     const changedPaths = Array.from(
       new Set([
-        ...currentAudit.changedPaths,
+        ...currentAudit.changedPaths.filter(
+          (filePath) => !excludedPaths.has(filePath),
+        ),
         ...requiredAudit.changedPaths,
       ]),
     );
@@ -412,9 +420,10 @@ export function runRuntimeClaimCoverageAudit(options: {
       fresh: currentAudit.fresh && requiredAudit.fresh,
       mergeable: currentAudit.mergeable && requiredAudit.mergeable,
       passed:
-        currentAudit.passed &&
-        requiredAudit.passed &&
-        diagnostics.length === 0 &&
+        (excludedPaths.size > 0
+          ? requiredAudit.diagnostics.length === 0
+          : requiredAudit.passed) &&
+        (excludedPaths.size > 0 ? diagnostics.length === 0 : currentAudit.passed) &&
         renameDiagnostics.length === 0,
     };
   } finally {

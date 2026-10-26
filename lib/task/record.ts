@@ -1,12 +1,16 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
+import matter from "gray-matter";
 import {
   createRecord,
   linkWorkItem,
+  loadConsumerConfig,
   runRuntimeClaimCoverageAudit,
   type CreateRecordOptions,
   type CreateRecordResult,
 } from "../work-management/index.js";
+import { loadTaskModel } from "./model.js";
 import { openRuntimeSqliteStore } from "../runtime/index.js";
 import { canonicalizeClaimScopeRef } from "../runtime/scope-locks.js";
 import { getClaimStatus } from "./claims.js";
@@ -27,6 +31,13 @@ export interface RecordPayload {
 }
 
 export type TaskRecordPayload = RecordPayload;
+
+export interface HistoricalEvidenceContext {
+  pr: string;
+  commit: string;
+  publishedRef: string;
+  changedFiles: string[];
+}
 
 export interface TaskRecordResult {
   claimId: string;
@@ -191,6 +202,117 @@ export async function readRecordPayload(
 
 export const readTaskRecordPayload = readRecordPayload;
 
+function git(rootDir: string, args: string[]): string {
+  try {
+    return execFileSync("git", args, { cwd: rootDir, encoding: "utf8" }).trim();
+  } catch (error) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_EVIDENCE_GIT_VERIFICATION_FAILED",
+      `Unable to verify historical evidence with git ${args.join(" ")}.`,
+      { args, error: error instanceof Error ? error.message : String(error) },
+    );
+  }
+}
+
+function historicalPath(value: string): string {
+  if (!value || value.startsWith("/") || value.split("/").includes("..")) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_EVIDENCE_INVALID_CHANGED_FILE",
+      `Historical changed file '${value}' must be a repository-relative path.`,
+      { path: value },
+    );
+  }
+  return value;
+}
+
+async function verifyHistoricalEvidenceContext(options: {
+  rootDir: string;
+  taskId: string;
+  consumerConfig: string;
+  context: HistoricalEvidenceContext;
+}): Promise<HistoricalEvidenceContext> {
+  const { context } = options;
+  if (!/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/.test(context.pr)) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_EVIDENCE_INVALID_PR",
+      "Historical evidence requires an immutable GitHub pull request URL.",
+      { pr: context.pr },
+    );
+  }
+  const config = await loadConsumerConfig(options.rootDir, options.consumerConfig);
+  const task = await loadTaskModel(options.taskId, {
+    rootDir: options.rootDir,
+    backlogDir: config.roots.backlog,
+  });
+  const rawTask = matter(
+    await fs.readFile(path.resolve(options.rootDir, task.filePath), "utf8"),
+  );
+  if (!Array.isArray(rawTask.data?.links?.pull_requests) || !rawTask.data.links.pull_requests.includes(context.pr)) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_EVIDENCE_PR_NOT_LINKED",
+      `PR '${context.pr}' is not linked to task '${task.id}'.`,
+      { taskId: task.id, pr: context.pr },
+    );
+  }
+  const commit = git(options.rootDir, ["rev-parse", "--verify", `${context.commit}^{commit}`]);
+  const publishedRef = git(options.rootDir, ["rev-parse", "--verify", `${context.publishedRef}^{commit}`]);
+  try {
+    execFileSync("git", ["merge-base", "--is-ancestor", commit, publishedRef], {
+      cwd: options.rootDir,
+      stdio: "ignore",
+    });
+  } catch {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_EVIDENCE_COMMIT_NOT_PUBLISHED",
+      `Commit '${commit}' is not an ancestor of published ref '${context.publishedRef}'.`,
+      { commit, publishedRef: context.publishedRef },
+    );
+  }
+  const commits = rawTask.data?.commits;
+  if (
+    typeof commits !== "object" || commits === null || Array.isArray(commits) ||
+    !Object.keys(commits as Record<string, unknown>).some(
+      (sha) => /^[0-9a-f]{7,40}$/i.test(sha) && commit.startsWith(sha.toLowerCase()),
+    )
+  ) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_EVIDENCE_COMMIT_NOT_LINKED",
+      `Commit '${commit}' is not linked to task '${task.id}'.`,
+      { taskId: task.id, commit },
+    );
+  }
+  const parent = git(options.rootDir, ["rev-parse", "--verify", `${commit}^1`]);
+  const diff = execFileSync(
+    "git",
+    ["diff", "--name-status", "--find-renames", "-z", parent, commit],
+    { cwd: options.rootDir, encoding: "utf8" },
+  ).split("\0").filter(Boolean);
+  const changedFiles = new Set<string>();
+  for (let index = 0; index < diff.length;) {
+    const status = diff[index++]!;
+    if (status.startsWith("R") || status.startsWith("C")) {
+      throw new TaskCommandError(
+        "TASK_HISTORICAL_EVIDENCE_RENAME_NOT_SUPPORTED",
+        "Historical evidence rejects renamed or copied files.",
+        { status },
+      );
+    }
+    changedFiles.add(historicalPath(diff[index++] ?? ""));
+  }
+  const attributed = new Set(context.changedFiles.map(historicalPath));
+  if (
+    changedFiles.size !== attributed.size ||
+    [...changedFiles].some((filePath) => !attributed.has(filePath))
+  ) {
+    throw new TaskCommandError(
+      "TASK_HISTORICAL_EVIDENCE_UNATTRIBUTED_CHANGED_FILE",
+      "Historical evidence requires the exact verified changed-file manifest.",
+      { changedFiles: [...changedFiles], attributedFiles: [...attributed] },
+    );
+  }
+  return { pr: context.pr, commit, publishedRef, changedFiles: [...changedFiles].sort() };
+}
+
 function resolveSubjects(
   payload: RecordPayload,
   additionalSubjects: string[] = [],
@@ -279,6 +401,7 @@ export async function recordTaskEvidence(options: {
   rootDir?: string;
   claimStorePath?: string;
   consumerConfig?: string;
+  historical?: HistoricalEvidenceContext;
   dryRun?: boolean;
 }): Promise<TaskRecordResult> {
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
@@ -295,8 +418,24 @@ export async function recordTaskEvidence(options: {
     );
   }
 
+  const historical = options.historical
+    ? await verifyHistoricalEvidenceContext({
+        rootDir,
+        taskId: claim.taskId,
+        consumerConfig,
+        context: options.historical,
+      })
+    : undefined;
+  const payload = historical
+    ? {
+        ...options.payload,
+        supportingRefs: [...new Set([...(options.payload.supportingRefs ?? []), historical.pr, historical.commit, historical.publishedRef])],
+        notes: [...(options.payload.notes ?? []), ...historical.changedFiles.map((filePath) => `Verified historical changed file: ${filePath}`)],
+      }
+    : options.payload;
+
   const recordOptions = buildCreateRecordOptions({
-    payload: options.payload,
+    payload,
     type: options.type,
     consumerConfig,
     subjects: resolveSubjects(options.payload, [
@@ -331,6 +470,7 @@ export async function recordTaskEvidence(options: {
       path.relative(rootDir, recordPreflight.filePath).split(path.sep).join("/"),
       workItemPreflight.filePath,
     ],
+    excludedPaths: historical?.changedFiles,
   });
   if (!runtimeAudit.passed) {
     throw new TaskCommandError(
