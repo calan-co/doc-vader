@@ -15,6 +15,7 @@ links:
     - https://github.com/calan-co/doc-vader/pull/120
   evidence:
     - '[[record-20261026-233054-60517]]'
+    - '[[record-wi-60517-validation]]'
 tags:
   - ci
   - github-actions
