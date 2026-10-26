@@ -88,8 +88,10 @@ async function loadPolicy(rootDir: string): Promise<HistoricalMergePolicy> {
     typeof policy.status !== "string" ||
     typeof policy.reason !== "string" ||
     policy.changed_files !== "exact" ||
-    !policy.evidence?.ci ||
-    !policy.evidence?.review
+    typeof policy.evidence?.ci?.subtype !== "string" ||
+    typeof policy.evidence?.ci?.outcome !== "string" ||
+    typeof policy.evidence?.review?.subtype !== "string" ||
+    typeof policy.evidence?.review?.outcome !== "string"
   ) {
     throw new TaskCommandError(
       "TASK_HISTORICAL_MERGE_INVALID_POLICY",

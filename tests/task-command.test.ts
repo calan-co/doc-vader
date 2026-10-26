@@ -5161,7 +5161,18 @@ type: record
       await fs.writeFile(taskPath, taskDocument);
       const policyDirectory = path.join(root, "schemas", "work-management", "workflows", "default");
       await fs.mkdir(policyDirectory, { recursive: true });
-      await fs.writeFile(path.join(policyDirectory, "historical-merge-reconciliation.json"), "null");
+      const policyPath = path.join(policyDirectory, "historical-merge-reconciliation.json");
+      await fs.writeFile(policyPath, "null");
+      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_INVALID_POLICY");
+      await fs.writeFile(policyPath, JSON.stringify({
+        "x-historical-merge-reconciliation": {
+          from: ["ready"],
+          status: "completed",
+          reason: "completed",
+          evidence: { ci: {}, review: { subtype: "approval", outcome: "approved" } },
+          changed_files: "exact",
+        },
+      }));
       expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_INVALID_POLICY");
       await fs.rm(path.join(root, "schemas"), { recursive: true, force: true });
       const result = runCliJson<{ taskId: string; toStatus: string }>(root, command);
