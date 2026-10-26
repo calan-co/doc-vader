@@ -1480,6 +1480,66 @@ describe("runtime sqlite store", { timeout: integrationTestTimeoutMs() }, () => 
     }
   });
 
+  it("reclaims expired running claims but preserves active running claims", async () => {
+    const root = await mkRoot();
+    const store = openRuntimeSqliteStore({ rootDir: root });
+    try {
+      const expired = expectClaimAcquired(
+        store.acquireRuntimeClaim(
+          makeClaimSeed({
+            target_id: "wi-expired-running",
+            entropy: "entropy-expired-running",
+            expires_at: "2026-06-20T00:14:36.020Z",
+          }),
+          { initialLockPaths: ["backlog/expired-running.md"] },
+        ),
+      );
+      const active = expectClaimAcquired(
+        store.acquireRuntimeClaim(
+          makeClaimSeed({
+            target_id: "wi-active-running",
+            entropy: "entropy-active-running",
+            expires_at: "2099-06-20T05:14:36.020Z",
+          }),
+          { initialLockPaths: ["backlog/active-running.md"] },
+        ),
+      );
+
+      expect(
+        store.reclaimExpiredRuntimeClaimForRecovery("task", "wi-expired-running"),
+      ).toMatchObject({
+        outcome: "reclaimed",
+        claim: { claim_token: expired.claimToken, state: "expired" },
+        locksRemoved: 1,
+        scopeLocks: [{ scope_ref: "wi:expired-running" }],
+        executionLogEntry: { state: "halted", reason: "expired" },
+      });
+      expect(store.getClaimByToken(expired.claimToken)).toBeUndefined();
+      expect(store.listLocksByClaimToken(expired.claimToken)).toEqual([]);
+      expect(store.listScopeLocksByClaimToken(expired.claimToken)).toEqual([]);
+      expect(store.listExecutionLogEntries(expired.claimToken)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ state: "running", reason: "started" }),
+          expect.objectContaining({ state: "halted", reason: "expired" }),
+        ]),
+      );
+
+      expect(
+        store.reclaimExpiredRuntimeClaimForRecovery("task", "wi-active-running"),
+      ).toEqual({ outcome: "not-expired" });
+      expect(store.getClaimByToken(active.claimToken)).toMatchObject({
+        state: "active",
+      });
+      expect(store.listLocksByClaimToken(active.claimToken)).toHaveLength(1);
+      expect(store.listScopeLocksByClaimToken(active.claimToken)).toHaveLength(1);
+      expect(store.listExecutionLogEntries(active.claimToken)).toEqual([
+        expect.objectContaining({ state: "running", reason: "started" }),
+      ]);
+    } finally {
+      store.close();
+    }
+  });
+
   it("rolls back halt writes when cleanup fails mid-transaction", async () => {
     const root = await mkRoot();
     const store = openRuntimeSqliteStore({ rootDir: root });
