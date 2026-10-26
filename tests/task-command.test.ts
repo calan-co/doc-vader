@@ -2140,15 +2140,21 @@ tags:
     },
   );
 
-  it("reclaims expired scope locks during forced recovery and permits a retry claim", async () => {
+  it(
+    "preserves runtime sqlite through real recovery and permits a retry claim",
+    { timeout: 15_000 },
+    async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
       await fs.writeFile(path.join(root, "README.md"), "base\n", "utf8");
-      await fs.writeFile(path.join(root, ".gitignore"), ".doc-vader/runtime/\n", "utf8");
       execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
       execFileSync("git", ["commit", "-m", "chore: base"], { cwd: root, stdio: "ignore" });
       execFileSync("git", ["switch", "-c", "sandcastle/issue-304"], { cwd: root, stdio: "ignore" });
+      await fs.mkdir(path.join(root, ".doc-vader", "runtime"), { recursive: true });
+      await fs.writeFile(path.join(root, ".doc-vader", "runtime", "metadata.json"), "{}\n", "utf8");
+      execFileSync("git", ["add", ".doc-vader/runtime/metadata.json"], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: runtime metadata"], { cwd: root, stdio: "ignore" });
       await writeTask(root, "304-expired-scope-lock.md", `id: wi-304
 title: Expired Scope Lock
 summary: Expired Scope Lock
@@ -2196,8 +2202,33 @@ tags:
         detail: { code: "x-runtime-task-blocked", message: "Expired claim halted." },
       });
 
-      const recovered = runCliJson<{ transition: { frontmatter: { status: string } } }>(root, ["work", "recover", "wi-304", "--force", "reconcile", "--json"]);
+      const runtimeDatabasePath = path.join(root, ".doc-vader", "runtime", "runtime.sqlite");
+      expect(
+        execFileSync("git", ["status", "--porcelain", "--untracked-files=all"], { cwd: root, encoding: "utf8" }),
+      ).toContain("?? .doc-vader/runtime/runtime.sqlite");
+
+      const preview = runCliJson<{ plannedInitialLockPaths: string[] }>(root, [
+        "work",
+        "recover",
+        "wi-304",
+        "--force",
+        "reconcile",
+        "--dry-run",
+        "--json",
+      ]);
+      expect(preview.plannedInitialLockPaths).not.toContain(
+        ".doc-vader/runtime/metadata.json",
+      );
+
+      const recovered = runCliJson<{
+        checkpoint: { filePath: string };
+        transition: { frontmatter: { status: string } };
+      }>(root, ["work", "recover", "wi-304", "--force", "reconcile", "--json"]);
       expect(recovered.transition.frontmatter.status).toBe("ready");
+      await expect(fs.stat(runtimeDatabasePath)).resolves.toBeDefined();
+      await expect(fs.readFile(recovered.checkpoint.filePath, "utf8")).resolves.toContain(
+        '"dirtyPaths": []',
+      );
 
       const retried = runCliJson<{ outcome: string; claimToken: string }>(root, ["work", "claim", "wi-304", "--holder", "retry-worker", "--json"]);
       expect(retried.outcome).toBe("acquired");
@@ -2222,7 +2253,8 @@ tags:
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  });
+    },
+  );
 
   it(
     "rejects force recovery when unrelated dirty paths are present",

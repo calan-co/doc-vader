@@ -70,6 +70,7 @@ interface RecoveryHaltedPathScope {
 
 const DEFAULT_TTL_MINUTES = 240;
 const RECOVERY_CHECKPOINT_DIR = ".doc-vader/runtime/recovery-checkpoints";
+const RUNTIME_INTERNAL_PATH = ".doc-vader/runtime";
 
 function normalizeHolder(holder: string | undefined): string {
   const value = holder?.trim();
@@ -101,6 +102,14 @@ function normalizeRecoveryWorktreeMetadata(
     return undefined;
   }
   return relative;
+}
+
+function isRuntimeInternalPath(filePath: string): boolean {
+  const normalized = filePath.replaceAll("\\", "/").replace(/^\.\/+/, "");
+  return (
+    normalized === RUNTIME_INTERNAL_PATH ||
+    normalized.startsWith(`${RUNTIME_INTERNAL_PATH}/`)
+  );
 }
 
 function asRelativeRepoPath(rootDir: string, filePath: string): string {
@@ -426,12 +435,18 @@ export async function recoverTaskClaim(
     rootDir,
     backlogDir: options.backlogDir,
   });
-  const gitState = collectTaskRecoveryGitState({
+  const collectedGitState = collectTaskRecoveryGitState({
     rootDir,
     taskFilePath: task.filePath,
     expectedBranch: options.branch ?? task.runtime?.latestExecutionLog?.branch,
     expectedWorktree: options.worktree ?? task.runtime?.latestExecutionLog?.worktree,
   });
+  const gitState = {
+    ...collectedGitState,
+    dirtyPaths: collectedGitState.dirtyPaths.filter(
+      (entry) => !isRuntimeInternalPath(entry.path),
+    ),
+  };
 
   assertRecoverySafe(task);
   assertRecoverableStatus({ task, gitState, force: options.force });
@@ -489,9 +504,9 @@ export async function recoverTaskClaim(
     );
   }
 
-  const branchPaths = collectBranchDiffPaths(rootDir).map((entry) =>
-    asRelativeRepoPath(rootDir, entry),
-  );
+  const branchPaths = collectBranchDiffPaths(rootDir)
+    .filter((entry) => !isRuntimeInternalPath(entry))
+    .map((entry) => asRelativeRepoPath(rootDir, entry));
   const dirtyLockPaths =
     recoverableReadyRuntimeState && !options.force
       ? []
