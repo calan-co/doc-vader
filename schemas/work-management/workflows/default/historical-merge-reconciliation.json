@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "/work-management/workflows/default/historical-merge-reconciliation",
+  "title": "Historical merge reconciliation policy",
+  "type": "object",
+  "x-historical-merge-reconciliation": {
+    "from": ["ready", "running"],
+    "status": "completed",
+    "reason": "completed",
+    "evidence": {
+      "ci": { "subtype": "test-result", "outcome": "pass" },
+      "review": { "subtype": "approval", "outcome": "approved" }
+    },
+    "changed_files": "exact"
+  }
+}
