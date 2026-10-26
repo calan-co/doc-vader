@@ -11,6 +11,8 @@ status_reason: implementation
 priority: critical
 estimated: 1
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/119
   reference:
     - '[[60518-preserve-runtime-state-during-recovery]]'
     - https://github.com/calan-co/doc-vader/pull/118
@@ -27,9 +29,15 @@ Allow an active current claim to record CI or review evidence for exactly one
 already-published historical merge after verifying the linked PR, immutable
 commit, published ref, and complete changed-file manifest.
 
+## Tasks
+
+- [x] Add bounded historical-evidence recording with exact-manifest verification.
+- [x] Cover accepted and rejected evidence paths with focused command tests.
+- [x] Validate typecheck, focused tests, build, and the full suite.
+
 ## Acceptance Criteria
 
-- [ ] Historical evidence mode excludes only the verified historical manifest from the current lock audit.
-- [ ] Historical CI/review records bind the work item, PR URL, resolved commit, published ref, and manifest.
-- [ ] Ordinary record behavior and active-claim checks remain fail closed.
-- [ ] Foreign PRs, commits, evidence, and manifest paths are rejected.
+- [x] Historical evidence mode excludes only the verified historical manifest from the current lock audit.
+- [x] Historical CI/review records bind the work item, PR URL, resolved commit, published ref, and manifest.
+- [x] Ordinary record behavior and active-claim checks remain fail closed.
+- [x] Foreign PRs, commits, evidence, and manifest paths are rejected.
