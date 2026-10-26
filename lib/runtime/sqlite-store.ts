@@ -2226,23 +2226,14 @@ export class RuntimeSqliteStore {
     targetId: string,
   ) {
     const claim = this.getClaimByTarget(targetType, targetId);
-    if (!claim || claim.state === "active") {
+    if (!claim || claim.state !== "expired") {
       return { outcome: "not-expired" as const };
-    }
-
-    const conflict = this.readClaimCleanupConflict(claim.claim_token);
-    if (conflict) {
-      return { outcome: "conflict" as const, conflict };
     }
 
     return this.withTransaction(() => {
       const current = this.getClaimByToken(claim.claim_token);
-      if (!current || current.state === "active") {
+      if (!current || current.state !== "expired") {
         return { outcome: "not-expired" as const };
-      }
-      const currentConflict = this.readClaimCleanupConflict(current.claim_token);
-      if (currentConflict) {
-        return { outcome: "conflict" as const, conflict: currentConflict };
       }
 
       const scopeLocks = this.listScopeLocksByClaimToken(current.claim_token)

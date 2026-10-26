@@ -550,17 +550,6 @@ export async function recoverTaskClaim(
       "task",
       task.id,
     );
-    if (reclaimed.outcome === "conflict") {
-      throw new TaskCommandError(
-        "TASK_RECOVERY_EXPIRED_CLAIM_CONFLICT",
-        `Task '${task.id}' recovery cannot reclaim its expired runtime claim.`,
-        {
-          taskId: task.id,
-          conflict: reclaimed.conflict,
-        },
-      );
-    }
-
     const claimResult = store.acquireRuntimeClaim(claimSeed, {
       initialLockPaths,
     });
