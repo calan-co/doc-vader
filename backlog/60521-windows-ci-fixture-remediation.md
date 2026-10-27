@@ -15,6 +15,8 @@ links:
     - '[[60495-investigate-windows-node-22-ci-flakiness]]'
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/126
+  evidence:
+    - '[[record-wi-60521-windows-ci-remediation]]'
 tags:
   - ci
   - windows
