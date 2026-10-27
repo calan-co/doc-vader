@@ -5425,6 +5425,10 @@ type: record
         `#!/bin/sh\nif [ "$1" = "auth" ]; then [ "$GH_AUTH" = "ok" ] && exit 0 || exit 1; fi\nif [ "$1" = "api" ] && [ "$2" = "user" ]; then echo admin; exit 0; fi\nif [ "$1" = "api" ] && [ "$2" = "repos/example/vita/collaborators/admin/permission" ]; then echo "\${GH_PERMISSION:-admin}"; exit 0; fi\nexit 1\n`,
         { mode: 0o755 },
       );
+      await fs.writeFile(
+        path.join(bin, "gh.cmd"),
+        `@echo off\nif "%1"=="auth" (\n  if "%GH_AUTH%"=="ok" exit /b 0\n  exit /b 1\n)\nif "%1"=="api" if "%2"=="user" (\n  echo admin\n  exit /b 0\n)\nif "%1"=="api" if "%2"=="repos/example/vita/collaborators/admin/permission" (\n  echo %GH_PERMISSION%\n  exit /b 0\n)\nexit /b 1\n`,
+      );
       const command = [
         "work", "reconcile-direct-push", "wi-059", "--commit", commit,
         "--receipt", "record-direct-push", "--receipt-commit", receiptCommit,
