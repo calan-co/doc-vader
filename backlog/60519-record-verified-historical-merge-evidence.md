@@ -15,6 +15,7 @@ completed_date: '2026-10-26'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/119
+    - https://github.com/calan-co/doc-vader/pull/121
   evidence:
     - '[[record-20261026-234500-60519]]'
   reference:
