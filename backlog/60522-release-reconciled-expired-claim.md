@@ -12,6 +12,8 @@ priority: critical
 estimated: 1
 actual: 1
 completed_date: '2026-10-27'
+commits:
+  9e430358a8c9ca2ec92bd18819e3ff8f9aa7621a: 'fix(work): release reconciled expired claims'
 links:
   evidence:
     - '[[record-wi-60522-node22-node24]]'
