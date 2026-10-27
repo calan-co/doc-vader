@@ -6,10 +6,12 @@ summary: Add a disabled-by-default, repository-admin-verified direct-push source
 type: work-item
 subtype: feature
 lifecycle: active
-status: ready
-status_reason: planned
+status: completed
+status_reason: completed
 priority: critical
 estimated: 1
+actual: 1
+completed_date: '2026-10-27'
 links:
   reference:
     - https://github.com/calan-co/doc-vader/pull/119
@@ -31,20 +33,20 @@ Support one explicit, disabled-by-default direct-push reconciliation source with
 
 ## Acceptance Criteria
 
-- [ ] The source is unavailable unless a project-local policy explicitly enables it.
-- [ ] The command verifies `gh` authentication and that the current viewer has `admin` permission for the configured origin repository.
-- [ ] The commit is immutable and reachable from the configured protected ref.
-- [ ] The caller supplies the exact changed-file manifest and immutable admin approval/evidence receipt.
-- [ ] Missing, failed, foreign, or mismatched verification fails closed.
-- [ ] The implementation never creates retroactive locks or changes GitHub branch protection.
-- [ ] Regression coverage proves disabled-by-default, valid admin-gated success, and each verification failure.
+- [x] The source is unavailable unless a project-local policy explicitly enables it.
+- [x] The command verifies `gh` authentication and that the current viewer has `admin` permission for the configured origin repository.
+- [x] The commit is immutable and reachable from the configured protected ref.
+- [x] The caller supplies the exact changed-file manifest and immutable admin approval/evidence receipt.
+- [x] Missing, failed, foreign, or mismatched verification fails closed.
+- [x] The implementation never creates retroactive locks or changes GitHub branch protection.
+- [x] Regression coverage proves disabled-by-default, valid admin-gated success, and each verification failure.
 
 ## Tasks
 
-- [ ] Define the project-local policy schema and CLI contract after PR #119 (WI-60519) merges.
-- [ ] Implement source verification and manifest validation.
-- [ ] Add public CLI regression coverage.
-- [ ] Validate with Node 22/24 suites and independent review.
+- [x] Define the project-local policy schema and CLI contract after PR #119 (WI-60519) merges.
+- [x] Implement source verification and manifest validation.
+- [x] Add public CLI regression coverage.
+- [x] Validate with Node 22/24 suites and independent review.
 
 ## Relationships
 
