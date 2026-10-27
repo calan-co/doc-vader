@@ -80,9 +80,11 @@ describe("Windows Node 22 diagnostic probe contract", () => {
         "-t",
         expect.stringContaining("selects ready tasks"),
         "--pool=forks",
+        "--maxWorkers=1",
         "--no-file-parallelism",
       ]),
     );
+    expect(plan.focusedArgs).not.toContain("--minWorkers=1");
   });
 
   it("requires independently addressable evidence fields and runtime telemetry for every sample", () => {
@@ -894,22 +896,24 @@ describe("containment failure paths", () => {
 });
 
 describe("review regressions", () => {
-  it("records the exact focused worker bounds in the plan and manifest", () => {
-    expect(
-      createProbePlan({ iterations: 1, artifactLabel: "wi60495" }).focusedArgs,
-    ).toEqual(expect.arrayContaining(["--minWorkers=1", "--maxWorkers=1"]));
-    expect(
-      createProbeManifestEntry({
-        phase: "serial",
-        coldWarm: "cold",
-        iteration: 1,
-        childIndex: 0,
-        workspace: ".",
-        pnpmStore: ".",
-        stdoutPath: "a",
-        stderrPath: "b",
-      }).command,
-    ).toEqual(expect.arrayContaining(["--minWorkers=1", "--maxWorkers=1"]));
+  it("records Vitest-compatible focused worker limits in the plan and manifest", () => {
+    const plan = createProbePlan({ iterations: 1, artifactLabel: "wi60495" });
+    expect(plan.focusedArgs).toEqual(
+      expect.arrayContaining(["--maxWorkers=1"]),
+    );
+    expect(plan.focusedArgs).not.toContain("--minWorkers=1");
+    const command = createProbeManifestEntry({
+      phase: "serial",
+      coldWarm: "cold",
+      iteration: 1,
+      childIndex: 0,
+      workspace: ".",
+      pnpmStore: ".",
+      stdoutPath: "a",
+      stderrPath: "b",
+    }).command;
+    expect(command).toEqual(expect.arrayContaining(["--maxWorkers=1"]));
+    expect(command).not.toContain("--minWorkers=1");
   });
 
   it("rejects a warm sample without the cold workspace reuse", async () => {
