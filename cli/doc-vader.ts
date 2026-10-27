@@ -80,6 +80,7 @@ import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
   reconcileHistoricalWorkMerge,
+  releaseReconciledExpiredWorkClaim,
   reconcileDirectPushWork,
   assertWorkClaimable as assertTaskClaimable,
   adaptWorkGraphExportToCytoscape,
@@ -2161,6 +2162,30 @@ function registerWorkCommandSurface(surface: Command): void {
         });
         if (opts.json) printTaskJson(result);
         else console.log(`${opts.dryRun ? "would" : "did"} reconcile historical merge ${result.taskId}`);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    });
+
+  surface
+    .command("release-reconciled")
+    .description("Release an expired claim from its verified completed reconciliation")
+    .argument("<task-id>", "Completed reconciled work item id")
+    .requiredOption("--claim <claim-token>", "Expired claim token recorded by the reconciliation")
+    .option("--json", "Emit machine-readable JSON")
+    .option("--backlog-dir <path>", "Path to the backlog directory")
+    .option("--consumer-config <path>", "Path to consumer config JSON")
+    .action(async (taskId: string, opts: { claim: string; json?: boolean; backlogDir?: string; consumerConfig?: string }) => {
+      try {
+        const result = await releaseReconciledExpiredWorkClaim({
+          taskId,
+          claimToken: opts.claim,
+          rootDir: runtimeRootDir(),
+          backlogDir: opts.backlogDir,
+          consumerConfig: opts.consumerConfig,
+        });
+        if (opts.json) printTaskJson(result);
+        else console.log(`${result.claimToken} ${result.taskId} released`);
       } catch (error) {
         failTaskCommand(error, opts.json);
       }

@@ -678,6 +678,13 @@ export interface RuntimeExecutionTerminalResult {
   executionLogEntry: RuntimeExecutionLogRecord;
 }
 
+export type RuntimeReconciledClaimReleaseResult =
+  | ({ outcome: "released" } & RuntimeExecutionTerminalResult)
+  | {
+      outcome: "rejected";
+      reason: "missing" | "active" | "foreign" | "manifest-mismatch";
+    };
+
 export type RuntimeLockWorktreeState = "clean" | "modified";
 
 export interface RuntimeLockStatusRecord extends RuntimeLockRecord {
@@ -2287,6 +2294,59 @@ export class RuntimeSqliteStore {
     });
   }
 
+  releaseReconciledExpiredRuntimeClaim(
+    taskId: string,
+    claimToken: string,
+  ): RuntimeReconciledClaimReleaseResult {
+    const claim = this.getClaimByToken(claimToken);
+    if (!claim) return { outcome: "rejected", reason: "missing" };
+    if (claim.state === "active") return { outcome: "rejected", reason: "active" };
+    if (claim.target_type !== "task" || claim.target_id !== taskId) {
+      return { outcome: "rejected", reason: "foreign" };
+    }
+    const manifest = this.verifiedHistoricalMerge(claimToken, claim);
+    if (!manifest) return { outcome: "rejected", reason: "manifest-mismatch" };
+
+    return this.withTransaction(() => {
+      const current = this.getClaimByToken(claimToken);
+      const verified = this.verifiedHistoricalMerge(claimToken, current);
+      if (!current) return { outcome: "rejected", reason: "missing" };
+      if (current.state === "active") return { outcome: "rejected", reason: "active" };
+      if (current.target_type !== "task" || current.target_id !== taskId) {
+        return { outcome: "rejected", reason: "foreign" };
+      }
+      if (!verified) return { outcome: "rejected", reason: "manifest-mismatch" };
+
+      const scopeLocks = this.listScopeLocksByClaimToken(claimToken).filter(
+        (lock) => lock.lifecycle_state === "active",
+      );
+      const executionLogEntry = this.insertExecutionLogEntry({
+        schema_version: current.schema_version,
+        claim_token: current.claim_token,
+        target_type: current.target_type,
+        target_id: current.target_id,
+        state: "completed",
+        reason: "success",
+        created_at: new Date().toISOString(),
+        detail: {
+          code: "x-runtime-reconciled-claim-released",
+          message: "Expired claim released from its verified reconciliation manifest.",
+          "x-reconciliation-manifest": verified,
+          "x-released-scope-locks": scopeLocks,
+        },
+      });
+      const locksRemoved = this.deleteLocksByClaimToken(claimToken);
+      this.deleteClaim(claimToken);
+      return {
+        outcome: "released",
+        claimToken,
+        claim: current,
+        locksRemoved,
+        executionLogEntry,
+      };
+    });
+  }
+
   pruneRuntimeClaims(cutoff: Date): RuntimeClaimCleanupResult {
     const cutoffTime = cutoff.getTime();
     const claimTokens = this.listClaims()
@@ -2382,11 +2442,11 @@ export class RuntimeSqliteStore {
     );
   }
 
-  private verifiedHistoricalMergePaths(
+  private verifiedHistoricalMerge(
     claimToken: string,
     claim: RuntimeClaimRecord | undefined,
-  ): Set<string> {
-    if (!claim || claim.target_type !== "task") return new Set();
+  ): { commit: string; changedPaths: string[] } | undefined {
+    if (!claim || claim.target_type !== "task") return undefined;
     const manifest = this.database.prepare(
       `SELECT target_id, commit_sha, changed_paths
        FROM historical_merge_manifests
@@ -2397,19 +2457,19 @@ export class RuntimeSqliteStore {
       typeof manifest.commit_sha !== "string" ||
       !/^[0-9a-f]{40}$/i.test(manifest.commit_sha) ||
       typeof manifest.changed_paths !== "string"
-    ) return new Set();
+    ) return undefined;
 
     let paths: unknown;
     try {
       paths = JSON.parse(manifest.changed_paths);
     } catch {
-      return new Set();
+      return undefined;
     }
     if (
       !Array.isArray(paths) ||
       paths.some((value) => typeof value !== "string")
     ) {
-      return new Set();
+      return undefined;
     }
     const expected = new Set(paths);
     const actual = parseGitChangedFiles(
@@ -2429,8 +2489,15 @@ export class RuntimeSqliteStore {
       ) ||
       actual.length !== expected.size ||
       actual.some((entry) => !expected.has(entry.path))
-    ) return new Set();
-    return expected;
+    ) return undefined;
+    return { commit: manifest.commit_sha, changedPaths: [...expected].sort() };
+  }
+
+  private verifiedHistoricalMergePaths(
+    claimToken: string,
+    claim: RuntimeClaimRecord | undefined,
+  ): Set<string> {
+    return new Set(this.verifiedHistoricalMerge(claimToken, claim)?.changedPaths);
   }
 
   auditChangedFiles(
