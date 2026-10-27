@@ -297,7 +297,7 @@ describe("runtime sqlite store", { timeout: integrationTestTimeoutMs() }, () => 
         .prepare("PRAGMA table_info(execution_log)")
         .all() as Array<{ name: string }>;
 
-      expect(firstMigrationCount.count).toBe(3);
+      expect(firstMigrationCount.count).toBe(4);
       expect(claimColumns.map((column) => column.name)).toEqual([
         "schema_version",
         "claim_token",
@@ -350,7 +350,7 @@ describe("runtime sqlite store", { timeout: integrationTestTimeoutMs() }, () => 
           reopened.database
             .prepare("SELECT count(*) AS count FROM runtime_migrations")
             .get(),
-        ).toMatchObject({ count: 3 });
+        ).toMatchObject({ count: 4 });
       } finally {
         reopened?.close();
       }

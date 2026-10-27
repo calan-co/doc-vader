@@ -72,6 +72,8 @@ const RUNTIME_SQLITE_BUSY_TIMEOUT_MS = 5_000;
 const RUNTIME_MIGRATION_ID = "0001-initial-runtime-entities";
 const RUNTIME_MIGRATION_ID_LAST_SEEN = "0002-claim-last-seen";
 const RUNTIME_MIGRATION_ID_SCOPE_LOCKS = "0003-claim-scope-locks";
+const RUNTIME_MIGRATION_ID_HISTORICAL_MERGES =
+  "0004-historical-merge-manifests";
 const RUNTIME_INTERNAL_PATH_PREFIX = ".doc-vader/runtime/";
 const DEFAULT_RUNTIME_CLAIM_TTL_MINUTES = 240;
 const DEFAULT_RUNTIME_CLAIM_GRACE_SECONDS = 300;
@@ -923,6 +925,21 @@ const RUNTIME_SCHEMA_MIGRATIONS = [
           ON claim_scope_locks(scope_ref, lifecycle_state, lock_mode);
         CREATE INDEX IF NOT EXISTS idx_claim_scope_locks_claim_token
           ON claim_scope_locks(claim_token, lifecycle_state, acquired_at);
+      `);
+    },
+  },
+  {
+    id: RUNTIME_MIGRATION_ID_HISTORICAL_MERGES,
+    apply(database: DatabaseSync): void {
+      database.exec(`
+        CREATE TABLE historical_merge_manifests (
+          claim_token TEXT PRIMARY KEY,
+          target_id TEXT NOT NULL,
+          commit_sha TEXT NOT NULL,
+          changed_paths TEXT NOT NULL,
+          verified_at TEXT NOT NULL,
+          FOREIGN KEY (claim_token) REFERENCES claims(claim_token) ON DELETE CASCADE
+        ) WITHOUT ROWID;
       `);
     },
   },
@@ -2343,11 +2360,88 @@ export class RuntimeSqliteStore {
     return this.collectRuntimeLockStatus(claimToken);
   }
 
+  recordVerifiedHistoricalMerge(options: {
+    taskId: string;
+    commit: string;
+    changedPaths: string[];
+  }): void {
+    const claim = this.getClaimByTarget("task", options.taskId);
+    if (!claim || claim.state !== "active") return;
+
+    this.database.prepare(
+      `INSERT INTO historical_merge_manifests (
+        claim_token, target_id, commit_sha, changed_paths, verified_at
+      ) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(claim_token) DO NOTHING`,
+    ).run(
+      claim.claim_token,
+      options.taskId,
+      options.commit,
+      stringifyCanonicalJson([...new Set(options.changedPaths)].sort()),
+      new Date().toISOString(),
+    );
+  }
+
+  private verifiedHistoricalMergePaths(
+    claimToken: string,
+    claim: RuntimeClaimRecord | undefined,
+  ): Set<string> {
+    if (!claim || claim.target_type !== "task") return new Set();
+    const manifest = this.database.prepare(
+      `SELECT target_id, commit_sha, changed_paths
+       FROM historical_merge_manifests
+       WHERE claim_token = ? AND target_id = ?`,
+    ).get(claimToken, claim.target_id) as Record<string, unknown> | undefined;
+    if (
+      !manifest ||
+      typeof manifest.commit_sha !== "string" ||
+      !/^[0-9a-f]{40}$/i.test(manifest.commit_sha) ||
+      typeof manifest.changed_paths !== "string"
+    ) return new Set();
+
+    let paths: unknown;
+    try {
+      paths = JSON.parse(manifest.changed_paths);
+    } catch {
+      return new Set();
+    }
+    if (
+      !Array.isArray(paths) ||
+      paths.some((value) => typeof value !== "string")
+    ) {
+      return new Set();
+    }
+    const expected = new Set(paths);
+    const actual = parseGitChangedFiles(
+      gitOutput(this.rootDir, [
+        "diff",
+        "--name-status",
+        "-z",
+        "--find-renames",
+        `${manifest.commit_sha}^1`,
+        manifest.commit_sha,
+      ]),
+      this.rootDir,
+    );
+    if (
+      actual.some(
+        (entry) => entry.status.startsWith("R") || entry.status.startsWith("C"),
+      ) ||
+      actual.length !== expected.size ||
+      actual.some((entry) => !expected.has(entry.path))
+    ) return new Set();
+    return expected;
+  }
+
   auditChangedFiles(
     claimToken: string,
     options: { mergeTargetRef?: string } = {},
   ): RuntimeChangedFileAuditResult {
     const claim = this.getClaimByToken(claimToken);
+    const verifiedHistoricalPaths = this.verifiedHistoricalMergePaths(
+      claimToken,
+      claim,
+    );
     const mergeTargetRef = options.mergeTargetRef ?? "HEAD";
     const { headRef, headSha, fresh, mergeable } =
       this.collectGitAuditContext(mergeTargetRef);
@@ -2405,7 +2499,10 @@ export class RuntimeSqliteStore {
         lockConflict,
         renamePaths,
       });
-      if (actualLockState === "owned") {
+      if (
+        actualLockState === "owned" ||
+        verifiedHistoricalPaths.has(entry.path)
+      ) {
         continue;
       }
 

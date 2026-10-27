@@ -5227,6 +5227,7 @@ type: record
       await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 1;\n");
       execFileSync("git", ["add", "."], { cwd: root });
       execFileSync("git", ["commit", "-m", "baseline"], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["switch", "-c", "historical-merge"], { cwd: root, stdio: "ignore" });
       await fs.writeFile(path.join(root, ownedFile), "export const value = 2;\n");
       await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 2;\n");
       execFileSync("git", ["add", ownedFile, "foreign.ts"], { cwd: root });
@@ -5256,7 +5257,7 @@ type: record
         claimStorePath: claimStorePath(root),
         holder: "evidence-agent",
       });
-      acquireRuntimeTaskClaim(root, "wi-059", [
+      const claimToken = acquireRuntimeTaskClaim(root, "wi-059", [
         path.join(root, "backlog", "059-historical.md"),
         path.join(root, "backlog", "records", "record-ci.md"),
         path.join(root, "backlog", "records", "record-review.md"),
@@ -5319,6 +5320,17 @@ type: record
         }),
       ).rejects.toMatchObject({ code: "TASK_HISTORICAL_EVIDENCE_UNATTRIBUTED_CHANGED_FILE" });
 
+      expect(() =>
+        runCli(root, [
+          "claim",
+          "release",
+          claimToken,
+          "--outcome",
+          "success",
+          "--json",
+        ]),
+      ).toThrow("TASK_TRANSITION_CHANGED_FILE_LOCK_AUDIT_FAILED");
+
       const command = [
         "work", "reconcile-merged", "wi-059", "--pr", pr, "--commit", commit,
         "--published-ref", "HEAD", "--evidence", "record-ci", "--evidence", "record-review",
@@ -5363,6 +5375,16 @@ type: record
 
       expect(result).toMatchObject({ taskId: "wi-059", toStatus: "completed" });
       expect(await fs.readFile(path.join(root, "backlog", "059-historical.md"), "utf8")).toContain("status: completed");
+      expect(
+        runCliJson<{ taskId: string }>(root, [
+          "claim",
+          "release",
+          claimToken,
+          "--outcome",
+          "success",
+          "--json",
+        ]),
+      ).toMatchObject({ taskId: "wi-059" });
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
