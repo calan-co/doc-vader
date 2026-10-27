@@ -15,6 +15,7 @@ import {
   RUNTIME_SCHEMA_VERSION,
 } from "../lib/runtime/sqlite-store.js";
 import { GitHubBacklogAutomationProvider } from "../lib/backlog/providers/github.js";
+import { withTestStageTiming } from "./helpers/test-stage-timing.js";
 
 const tempDirs: string[] = [];
 
@@ -38,7 +39,9 @@ function acquireRuntimeClaim(
   taskId: string,
   lockPaths: string[],
 ): void {
-  const store = openRuntimeSqliteStore({ rootDir });
+  const store = withTestStageTiming("sqlite", () =>
+    openRuntimeSqliteStore({ rootDir }),
+  );
   try {
     const createdAt = new Date();
     const expiresAt = new Date(createdAt.getTime() + 60 * 60 * 1000);
@@ -63,10 +66,12 @@ function acquireRuntimeClaim(
 }
 
 afterEach(async () => {
-  await Promise.all(
-    tempDirs
-      .splice(0, tempDirs.length)
-      .map((dir) => rm(dir, { recursive: true, force: true })),
+  await withTestStageTiming("filesystem-cleanup", () =>
+    Promise.all(
+      tempDirs
+        .splice(0, tempDirs.length)
+        .map((dir) => rm(dir, { recursive: true, force: true })),
+    ),
   );
 });
 

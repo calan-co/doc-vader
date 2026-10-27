@@ -34,9 +34,7 @@ export function shouldUseWindowsCmdShell(
 export function hasSetupFailure(result: any) {
   return [result.install, result.build].some(
     (step) =>
-      step &&
-      !step.skipped &&
-      (step.timedOut || step.error || step.code !== 0),
+      step && !step.skipped && (step.timedOut || step.error || step.code !== 0),
   );
 }
 
@@ -46,7 +44,10 @@ const TEST_SELECTOR =
 export function parseDiagnosticInputs({
   iterations,
   artifactLabel,
-}: { iterations: string | number; artifactLabel: string }) {
+}: {
+  iterations: string | number;
+  artifactLabel: string;
+}) {
   const parsedIterations = Number(iterations);
   if (
     !Number.isInteger(parsedIterations) ||
@@ -66,7 +67,10 @@ export function parseDiagnosticInputs({
 export function createProbePlan({
   iterations,
   artifactLabel,
-}: { iterations: string | number; artifactLabel: string }) {
+}: {
+  iterations: string | number;
+  artifactLabel: string;
+}) {
   const inputs = parseDiagnosticInputs({ iterations, artifactLabel });
   return {
     targetSha: APPROVED_TARGET_SHA,
@@ -133,19 +137,16 @@ export function createProbeManifestEntry({
     command: (() => {
       const selected = commandFor({ fullSuite: phase === "baseline" });
       return [
-        selected.command === "pnpm" ? packageManagerCommand(platform) : selected.command,
+        selected.command === "pnpm"
+          ? packageManagerCommand(platform)
+          : selected.command,
         ...selected.args,
       ];
     })(),
     effectiveOptions:
       phase === "baseline"
-        ? { pool: "forks", minWorkers: 4, maxWorkers: 4 }
-        : {
-            pool: "forks",
-            minWorkers: 1,
-            maxWorkers: 1,
-            fileParallelism: false,
-          },
+        ? { pool: "forks", maxWorkers: 4 }
+        : { pool: "forks", maxWorkers: 1, fileParallelism: false },
     workspace,
     pnpmStore,
     stdoutPath,
@@ -477,7 +478,6 @@ function commandFor(phase: any) {
         "--",
         "--run",
         "--pool=forks",
-        "--minWorkers=4",
         "--maxWorkers=4",
         "--reporter=verbose",
       ],
@@ -493,7 +493,6 @@ function commandFor(phase: any) {
       "-t",
       TEST_SELECTOR,
       "--pool=forks",
-      "--minWorkers=1",
       "--maxWorkers=1",
       "--no-file-parallelism",
       "--reporter=verbose",

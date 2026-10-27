@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { integrationTestTimeoutMs } from "./helper/windows-integration-timeout.js";
+import { withTestStageTiming } from "./helpers/test-stage-timing.js";
 import {
   claimTask,
   getClaimStatus,
@@ -296,7 +297,7 @@ async function withHistoricalMergeFixture(
 ): Promise<void> {
   const root = await mkTmpRoot();
   try {
-    initGitRepo(root);
+    withTestStageTiming("git-setup", () => initGitRepo(root));
     const ownedFile = process.platform === "win32" ? "owned file.ts" : " owned.ts ";
     await fs.writeFile(path.join(root, ownedFile), "export const value = 1;\n");
     await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 1;\n");
