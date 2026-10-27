@@ -6,13 +6,17 @@ summary: Permit CI and review evidence for a verified historical merge without c
 type: work-item
 subtype: bug
 lifecycle: active
-status: running
-status_reason: implementation
+status: completed
+status_reason: completed
 priority: critical
 estimated: 1
+actual: 1
+completed_date: '2026-10-26'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/119
+  evidence:
+    - '[[record-20261026-234500-60519]]'
   reference:
     - '[[60518-preserve-runtime-state-during-recovery]]'
     - https://github.com/calan-co/doc-vader/pull/118
