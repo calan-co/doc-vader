@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import matter from "gray-matter";
+import { openRuntimeSqliteStore } from "../runtime/index.js";
 import { loadConsumerConfig, transitionWorkItem } from "../work-management/index.js";
 import { TaskCommandError } from "./errors.js";
 import { loadTaskModel } from "./model.js";
@@ -354,6 +355,24 @@ export async function reconcileHistoricalMerge(
     completedDate: options.completedDate,
     dryRun: options.dryRun,
   });
+  const runtimeDatabase = path.join(
+    rootDir,
+    ".doc-vader",
+    "runtime",
+    "runtime.sqlite",
+  );
+  if (!options.dryRun && existsSync(runtimeDatabase)) {
+    const store = openRuntimeSqliteStore({ rootDir });
+    try {
+      store.recordVerifiedHistoricalMerge({
+        taskId: task.id,
+        commit,
+        changedPaths: [...changedFiles],
+      });
+    } finally {
+      store.close();
+    }
+  }
   return {
     taskId: task.id,
     fromStatus: task.status,

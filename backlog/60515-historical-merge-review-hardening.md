@@ -6,11 +6,15 @@ summary: Resolve verified review findings in the fail-closed historical merge re
 type: work-item
 subtype: task
 lifecycle: active
-status: running
-status_reason: implementation
+status: completed
+status_reason: completed
 priority: high
 estimated: 2
+actual: 2
+completed_date: '2026-10-27'
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/122
   evidence:
     - '[[record-20261026-164842-60515]]'
 tags:
@@ -38,3 +42,4 @@ Resolve verified review findings without weakening historical merge verification
 - [x] Renames and inconsistent configured roots are rejected.
 - [x] Null policies fail with the reconciliation policy error, and changed-file paths are not rewritten.
 - [x] The Windows Node 22 public CLI integration test has a scoped 30-second timeout.
+- [x] A verified reconciliation may exempt only its active claim's immutable historical paths during success release.
