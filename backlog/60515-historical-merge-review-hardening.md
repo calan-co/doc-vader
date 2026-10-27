@@ -6,11 +6,15 @@ summary: Resolve verified review findings in the fail-closed historical merge re
 type: work-item
 subtype: task
 lifecycle: active
-status: running
-status_reason: implementation
+status: completed
+status_reason: completed
 priority: high
 estimated: 2
+actual: 2
+completed_date: '2026-10-27'
 links:
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/122
   evidence:
     - '[[record-20261026-164842-60515]]'
 tags:
