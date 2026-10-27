@@ -5422,12 +5422,12 @@ type: record
       execFileSync("git", ["push", "origin", "main"], { cwd: root, stdio: "ignore" });
       await fs.writeFile(
         path.join(bin, "gh"),
-        `#!/bin/sh\nif [ "$1" = "auth" ]; then [ "$GH_AUTH" = "ok" ] && exit 0 || exit 1; fi\nif [ "$1" = "api" ] && [ "$2" = "user" ]; then echo admin; exit 0; fi\nif [ "$1" = "api" ] && [ "$2" = "repos/example/vita/collaborators/admin/permission" ]; then echo "\${GH_PERMISSION:-admin}"; exit 0; fi\nexit 1\n`,
+        `#!/bin/sh\nif [ "$1" = "auth" ]; then [ "$GH_AUTH" = "ok" ] && exit 0 || exit 1; fi\nif [ "$1" = "api" ] && [ "$2" = "--hostname" ] && [ "$3" = "github.com" ] && [ "$4" = "user" ]; then echo admin; exit 0; fi\nif [ "$1" = "api" ] && [ "$2" = "--hostname" ] && [ "$3" = "github.com" ] && [ "$4" = "repos/example/vita/collaborators/admin/permission" ]; then echo "\${GH_PERMISSION:-admin}"; exit 0; fi\nexit 1\n`,
         { mode: 0o755 },
       );
       await fs.writeFile(
         path.join(bin, "gh.cmd"),
-        `@echo off\nif "%1"=="auth" (\n  if "%GH_AUTH%"=="ok" exit /b 0\n  exit /b 1\n)\nif "%1"=="api" if "%2"=="user" (\n  echo admin\n  exit /b 0\n)\nif "%1"=="api" if "%2"=="repos/example/vita/collaborators/admin/permission" (\n  echo %GH_PERMISSION%\n  exit /b 0\n)\nexit /b 1\n`,
+        `@echo off\nif "%1"=="auth" (\n  if "%GH_AUTH%"=="ok" exit /b 0\n  exit /b 1\n)\nif "%1"=="api" if "%2"=="--hostname" if "%3"=="github.com" if "%4"=="user" (\n  echo admin\n  exit /b 0\n)\nif "%1"=="api" if "%2"=="--hostname" if "%3"=="github.com" if "%4"=="repos/example/vita/collaborators/admin/permission" (\n  echo %GH_PERMISSION%\n  exit /b 0\n)\nexit /b 1\n`,
       );
       const command = [
         "work", "reconcile-direct-push", "wi-059", "--commit", commit,
@@ -5445,6 +5445,9 @@ type: record
       };
       await fs.rm(policyPath);
       expect(failure(command)).toContain("TASK_DIRECT_PUSH_POLICY_DISABLED");
+      await fs.writeFile(policyPath, JSON.stringify(policy));
+      await fs.writeFile(policyPath, JSON.stringify({ ...policy, unexpected: true }));
+      expect(failure(command)).toContain("TASK_DIRECT_PUSH_POLICY_INVALID");
       await fs.writeFile(policyPath, JSON.stringify(policy));
       expect(failure(command.map((value) => value === commit ? "HEAD" : value))).toContain("TASK_DIRECT_PUSH_COMMIT_INVALID");
       await fs.writeFile(policyPath, JSON.stringify({ ...policy, protected_ref: "refs/heads/missing" }));

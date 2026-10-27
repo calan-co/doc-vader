@@ -57,18 +57,29 @@ async function loadPolicy(rootDir: string): Promise<DirectPushPolicy> {
   } catch (error) {
     fail("TASK_DIRECT_PUSH_POLICY_INVALID", "Direct-push reconciliation policy cannot be read.", { path: policyPath, error: error instanceof Error ? error.message : String(error) });
   }
-  const value = policy as Omit<Partial<DirectPushPolicy>, "enabled"> & { enabled?: boolean };
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
+    fail("TASK_DIRECT_PUSH_POLICY_INVALID", "Direct-push reconciliation policy is invalid.", { path: policyPath });
+  }
+  const raw = policy as Record<string, unknown>;
+  const value = raw as Omit<Partial<DirectPushPolicy>, "enabled"> & { enabled?: boolean; $schema?: unknown };
+  const receipt = raw.receipt as Record<string, unknown> | undefined;
+  const allowed = new Set(["$schema", "enabled", "repository", "protected_ref", "from", "status", "reason", "receipt", "changed_files"]);
   if (value.enabled === false) {
     fail("TASK_DIRECT_PUSH_POLICY_DISABLED", "Direct-push reconciliation is disabled by the project-local policy.", { path: policyPath });
   }
   if (
+    Object.keys(raw).some((key) => !allowed.has(key)) ||
+    (value.$schema !== undefined && typeof value.$schema !== "string") ||
     value.enabled !== true ||
     typeof value.repository !== "string" || !/^github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value.repository) ||
     typeof value.protected_ref !== "string" || !/^refs\/heads\/[A-Za-z0-9._/-]+$/.test(value.protected_ref) ||
-    !Array.isArray(value.from) || !value.from.every((status) => typeof status === "string") ||
-    typeof value.status !== "string" || typeof value.reason !== "string" ||
+    !Array.isArray(value.from) || value.from.length === 0 || !value.from.every((status) => typeof status === "string" && status.length > 0) ||
+    typeof value.status !== "string" || value.status.length === 0 ||
+    typeof value.reason !== "string" || value.reason.length === 0 ||
     value.changed_files !== "exact" ||
-    typeof value.receipt?.subtype !== "string" || typeof value.receipt?.outcome !== "string"
+    !receipt || Object.keys(receipt).some((key) => key !== "subtype" && key !== "outcome") ||
+    typeof receipt.subtype !== "string" || receipt.subtype.length === 0 ||
+    typeof receipt.outcome !== "string" || receipt.outcome.length === 0
   ) {
     fail("TASK_DIRECT_PUSH_POLICY_INVALID", "Direct-push reconciliation policy is invalid.", { path: policyPath });
   }
@@ -111,7 +122,9 @@ function originRepository(rootDir: string): string {
 
 function gh(args: string[], code: string): string {
   try {
-    return execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    const command = process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "gh";
+    const commandArgs = process.platform === "win32" ? ["/d", "/s", "/c", "gh", ...args] : args;
+    return execFileSync(command, commandArgs, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
     fail(code, `GitHub CLI verification failed: gh ${args.join(" ")}.`, { args });
   }
@@ -119,11 +132,11 @@ function gh(args: string[], code: string): string {
 
 function verifyAdmin(repository: string): void {
   gh(["auth", "status", "--hostname", "github.com"], "TASK_DIRECT_PUSH_GH_AUTH_FAILED");
-  const viewer = gh(["api", "user", "--jq", ".login"], "TASK_DIRECT_PUSH_GH_AUTH_FAILED");
+  const viewer = gh(["api", "--hostname", "github.com", "user", "--jq", ".login"], "TASK_DIRECT_PUSH_GH_AUTH_FAILED");
   if (!/^[A-Za-z0-9-]+$/.test(viewer)) {
     fail("TASK_DIRECT_PUSH_GH_AUTH_FAILED", "GitHub CLI did not return a valid authenticated viewer.");
   }
-  const permission = gh(["api", `repos/${repository.slice("github.com/".length)}/collaborators/${viewer}/permission`, "--jq", ".permission"], "TASK_DIRECT_PUSH_ADMIN_REQUIRED");
+  const permission = gh(["api", "--hostname", "github.com", `repos/${repository.slice("github.com/".length)}/collaborators/${viewer}/permission`, "--jq", ".permission"], "TASK_DIRECT_PUSH_ADMIN_REQUIRED");
   if (permission !== "admin") {
     fail("TASK_DIRECT_PUSH_ADMIN_REQUIRED", "The authenticated GitHub viewer must have admin permission for the configured origin repository.", { repository, viewer, permission });
   }
