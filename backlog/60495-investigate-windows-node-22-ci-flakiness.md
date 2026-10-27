@@ -18,6 +18,8 @@ links:
     - https://github.com/calan-co/doc-vader/pull/81
     - https://github.com/calan-co/doc-vader/pull/84
     - '[[record-20260827-195058-60495]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/126
 tags:
   - ci
   - windows
