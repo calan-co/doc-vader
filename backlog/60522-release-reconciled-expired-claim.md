@@ -17,6 +17,8 @@ commits:
 links:
   evidence:
     - '[[record-wi-60522-node22-node24]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/125
 tags:
   - afk
   - runtime
