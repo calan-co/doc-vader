@@ -5218,7 +5218,7 @@ type: record
     }
   }, 30_000);
 
-  it("reconciles a historically merged work item without retroactive locks", async () => {
+  it("reconciles a historical merge and validates its generated evidence record", async () => {
     const root = await mkTmpRoot();
     try {
       initGitRepo(root);
@@ -5267,6 +5267,7 @@ type: record
         summary: "Historical CI",
         observation: "CI passed for the published merge.",
         outcome: "pass",
+        supportingRefs: ["059-historical"],
       });
       const historicalRecord = await recordTaskEvidence({
         rootDir: root,
@@ -5281,7 +5282,27 @@ type: record
           changedFiles: [ownedFile, "foreign.ts"],
         },
       });
-      await expect(fs.readFile(historicalRecord.record.filePath, "utf8")).resolves.toContain(commit);
+      const historicalRecordContent = await fs.readFile(
+        historicalRecord.record.filePath,
+        "utf8",
+      );
+      expect(historicalRecordContent).toContain(`- \`${commit}\``);
+      expect(historicalRecordContent).not.toContain(`[[${commit}]]`);
+      expect(historicalRecord.record.frontmatter.links).toMatchObject({
+        supporting_reference: expect.arrayContaining(["[[059-historical]]"]),
+      });
+      expect(
+        runCliJson<{ exit_code: number }>(root, [
+          "backlog",
+          "validate",
+          "--dir",
+          "backlog",
+          "--fail-on",
+          "error",
+          "--format",
+          "json",
+        ]).exit_code,
+      ).toBe(0);
       await expect(
         recordTaskEvidence({
           rootDir: root,

@@ -544,6 +544,9 @@ function normalizeLink(kind: LinkKind, value: string): string {
   if (/^\[\[[^\]]+\]\]$/.test(trimmed)) {
     return trimmed;
   }
+  if (/^[0-9a-f]{7,40}$/i.test(trimmed)) {
+    return `\`${trimmed}\``;
+  }
   if (/^(https?:)?\/\//.test(trimmed) || /^mailto:/.test(trimmed)) {
     return trimmed;
   }
