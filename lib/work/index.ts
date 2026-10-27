@@ -79,6 +79,7 @@ export {
   completeTaskClaim as completeWorkClaim,
   assertTaskClaimable as assertWorkClaimable,
   reconcileHistoricalMerge as reconcileHistoricalWorkMerge,
+  reconcileDirectPush as reconcileDirectPushWork,
 } from "../task/index.js";
 export {
   loadCanonicalTask as loadCanonicalWork,
