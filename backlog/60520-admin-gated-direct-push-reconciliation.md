@@ -13,6 +13,8 @@ estimated: 1
 links:
   reference:
     - https://github.com/calan-co/doc-vader/pull/119
+  evidence:
+    - '[[record-wi-60520-validation-20261027]]'
 tags:
   - afk
   - runtime

@@ -7,6 +7,7 @@ export * from "./model.js";
 export * from "./ready.js";
 export * from "./complete.js";
 export * from "./historical-merge.js";
+export * from "./direct-push.js";
 export * from "./record.js";
 export * from "./recover.js";
 export * from "./recovery-state.js";

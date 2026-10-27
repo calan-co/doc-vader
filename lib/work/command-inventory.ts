@@ -59,6 +59,7 @@ function workCommandTree(): readonly WorkCommandInventoryDefinition[] {
     { name: "claim" },
     { name: "recover" },
     { name: "reconcile-merged" },
+    { name: "reconcile-direct-push" },
     ...actions,
     { name: "record" },
   ];

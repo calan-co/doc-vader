@@ -80,6 +80,7 @@ import {
   claimWork as claimTask,
   completeWorkClaim as completeTaskClaim,
   reconcileHistoricalWorkMerge,
+  reconcileDirectPushWork,
   assertWorkClaimable as assertTaskClaimable,
   adaptWorkGraphExportToCytoscape,
   assertWorkGraphExportResult,
@@ -2160,6 +2161,49 @@ function registerWorkCommandSurface(surface: Command): void {
         });
         if (opts.json) printTaskJson(result);
         else console.log(`${opts.dryRun ? "would" : "did"} reconcile historical merge ${result.taskId}`);
+      } catch (error) {
+        failTaskCommand(error, opts.json);
+      }
+    });
+
+  surface
+    .command("reconcile-direct-push")
+    .description("Complete an admin-verified historical direct push from an explicitly enabled local policy")
+    .argument("<task-id>", "Work item id")
+    .requiredOption("--commit <sha>", "Immutable direct-push commit SHA")
+    .requiredOption("--receipt <reference>", "Immutable linked admin approval record")
+    .requiredOption("--receipt-commit <sha>", "Immutable commit containing the approval record")
+    .requiredOption("--changed-file <path>", "Direct-push commit file attributed to this work item", collectOption)
+    .requiredOption("--completed-date <date>", "Historical completion date")
+    .option("--actual <effort>", "Actual effort when the work item has an estimate")
+    .option("--dry-run", "Validate without writing files")
+    .option("--json", "Emit machine-readable JSON")
+    .option("--backlog-dir <path>", "Path to the backlog directory")
+    .option("--consumer-config <path>", "Path to consumer config JSON")
+    .action(async (taskId: string, opts: { commit: string; receipt: string; receiptCommit: string; changedFile: string[]; completedDate: string; actual?: string; dryRun?: boolean; json?: boolean; backlogDir?: string; consumerConfig?: string }) => {
+      try {
+        const actual = opts.actual === undefined ? undefined : Number(opts.actual);
+        if (actual !== undefined && (!opts.actual?.trim() || !Number.isFinite(actual) || actual < 0)) {
+          throw new TaskCommandError("TASK_DIRECT_PUSH_INVALID_ACTUAL", "Actual effort must be a non-negative finite number.");
+        }
+        const parsed = new Date(`${opts.completedDate}T00:00:00.000Z`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.completedDate) || Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== opts.completedDate) {
+          throw new TaskCommandError("TASK_DIRECT_PUSH_INVALID_COMPLETED_DATE", "Completion date must be a valid ISO date.");
+        }
+        const result = await reconcileDirectPushWork({
+          taskId,
+          commit: opts.commit,
+          receipt: opts.receipt,
+          receiptCommit: opts.receiptCommit,
+          changedFiles: opts.changedFile,
+          actual,
+          completedDate: opts.completedDate,
+          dryRun: opts.dryRun,
+          backlogDir: opts.backlogDir,
+          consumerConfig: opts.consumerConfig,
+        });
+        if (opts.json) printTaskJson(result);
+        else console.log(`${opts.dryRun ? "would" : "did"} reconcile direct push ${result.taskId}`);
       } catch (error) {
         failTaskCommand(error, opts.json);
       }

@@ -280,8 +280,8 @@ function runCli(
   });
 }
 
-function runCliJson<T>(root: string, args: string[]): T {
-  return JSON.parse(runCli(root, args)) as T;
+function runCliJson<T>(root: string, args: string[], env?: NodeJS.ProcessEnv): T {
+  return JSON.parse(runCli(root, args, undefined, env)) as T;
 }
 
 async function writeWorkspaceTransitionProfile(
@@ -5367,6 +5367,98 @@ type: record
       await fs.rm(root, { recursive: true, force: true });
     }
   }, 15_000);
+
+  it("reconciles a direct push only with local policy, admin verification, an immutable receipt, and an exact manifest", async () => {
+    const root = await mkTmpRoot();
+    try {
+      initGitRepo(root);
+      const origin = path.join(root, "origin.git");
+      const bin = path.join(root, "bin");
+      await fs.mkdir(bin, { recursive: true });
+      execFileSync("git", ["init", "--bare", origin], { stdio: "ignore" });
+      execFileSync("git", ["remote", "add", "origin", "https://github.com/example/vita.git"], { cwd: root });
+      execFileSync("git", ["config", `url.${origin}.insteadOf`, "https://github.com/example/vita.git"], { cwd: root });
+      await fs.writeFile(path.join(root, "owned.ts"), "export const value = 1;\n");
+      await writeTask(
+        root,
+        "059-direct-push.md",
+        "id: wi-059\ntitle: Direct push\ntype: work-item\nlifecycle: active\nstatus: ready\nstatus_reason: auto\nestimated: 1",
+      );
+      execFileSync("git", ["add", "."], { cwd: root });
+      execFileSync("git", ["commit", "-m", "baseline"], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["branch", "-M", "main"], { cwd: root });
+      execFileSync("git", ["push", "-u", "origin", "main"], { cwd: root, stdio: "ignore" });
+      await fs.writeFile(path.join(root, "owned.ts"), "export const value = 2;\n");
+      execFileSync("git", ["add", "owned.ts"], { cwd: root });
+      execFileSync("git", ["commit", "-m", "direct push"], { cwd: root, stdio: "ignore" });
+      const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+      await fs.mkdir(path.join(root, ".doc-vader"), { recursive: true });
+      const policyPath = path.join(root, ".doc-vader", "direct-push-reconciliation.json");
+      const policy = {
+        $schema: "schemas/work-management/direct-push-reconciliation.schema.json",
+        enabled: true,
+        repository: "github.com/example/vita",
+        protected_ref: "refs/heads/main",
+        receipt: { subtype: "approval", outcome: "approved" },
+        from: ["ready"],
+        status: "completed",
+        reason: "completed",
+        changed_files: "exact",
+      };
+      await fs.writeFile(policyPath, JSON.stringify(policy));
+      await fs.mkdir(path.join(root, "backlog", "records"), { recursive: true });
+      await fs.writeFile(
+        path.join(root, "backlog", "records", "record-direct-push.md"),
+        `---\nid: record:direct-push\ntype: record\nsubtype: approval\n---\n\n## Outcome\n\napproved\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${commit}\n`,
+      );
+      await writeTask(
+        root,
+        "059-direct-push.md",
+        `id: wi-059\ntitle: Direct push\ntype: work-item\nlifecycle: active\nstatus: ready\nstatus_reason: auto\nestimated: 1\ncommits:\n  ${commit}: Direct push\nlinks:\n  evidence:\n    - '[[record-direct-push]]'`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root });
+      execFileSync("git", ["commit", "-m", "admin receipt"], { cwd: root, stdio: "ignore" });
+      const receiptCommit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+      execFileSync("git", ["push", "origin", "main"], { cwd: root, stdio: "ignore" });
+      await fs.writeFile(
+        path.join(bin, "gh"),
+        `#!/bin/sh\nif [ "$1" = "auth" ]; then [ "$GH_AUTH" = "ok" ] && exit 0 || exit 1; fi\nif [ "$1" = "api" ] && [ "$2" = "user" ]; then echo admin; exit 0; fi\nif [ "$1" = "api" ] && [ "$2" = "repos/example/vita/collaborators/admin/permission" ]; then echo "\${GH_PERMISSION:-admin}"; exit 0; fi\nexit 1\n`,
+        { mode: 0o755 },
+      );
+      const command = [
+        "work", "reconcile-direct-push", "wi-059", "--commit", commit,
+        "--receipt", "record-direct-push", "--receipt-commit", receiptCommit,
+        "--changed-file", "owned.ts", "--actual", "1", "--completed-date", "2026-10-27", "--json",
+      ];
+      const env = { PATH: `${bin}${path.delimiter}${process.env.PATH}`, GH_AUTH: "ok", GH_PERMISSION: "admin" };
+      const failure = (args: string[], environment = env): string => {
+        try {
+          runCli(root, args, undefined, environment);
+        } catch (error) {
+          return (error as { stderr?: Buffer }).stderr?.toString("utf8") ?? "";
+        }
+        throw new Error("Expected direct-push reconciliation to fail.");
+      };
+      await fs.rm(policyPath);
+      expect(failure(command)).toContain("TASK_DIRECT_PUSH_POLICY_DISABLED");
+      await fs.writeFile(policyPath, JSON.stringify(policy));
+      expect(failure(command.map((value) => value === commit ? "HEAD" : value))).toContain("TASK_DIRECT_PUSH_COMMIT_INVALID");
+      await fs.writeFile(policyPath, JSON.stringify({ ...policy, protected_ref: "refs/heads/missing" }));
+      expect(failure(command)).toContain("TASK_DIRECT_PUSH_PROTECTED_REF_VERIFICATION_FAILED");
+      await fs.writeFile(policyPath, JSON.stringify({ ...policy, repository: "github.com/example/foreign" }));
+      expect(failure(command)).toContain("TASK_DIRECT_PUSH_ORIGIN_MISMATCH");
+      await fs.writeFile(policyPath, JSON.stringify(policy));
+      expect(failure(command, { ...env, GH_AUTH: "failed" })).toContain("TASK_DIRECT_PUSH_GH_AUTH_FAILED");
+      expect(failure(command, { ...env, GH_PERMISSION: "write" })).toContain("TASK_DIRECT_PUSH_ADMIN_REQUIRED");
+      expect(failure(command.map((value) => value === "owned.ts" ? "foreign.ts" : value))).toContain("TASK_DIRECT_PUSH_MANIFEST_MISMATCH");
+      expect(failure([...command, "--changed-file", "owned.ts"])).toContain("TASK_DIRECT_PUSH_MANIFEST_MISMATCH");
+      expect(failure(command.map((value) => value === receiptCommit ? commit : value))).toContain("TASK_DIRECT_PUSH_RECEIPT_INVALID");
+      const result = runCliJson<{ taskId: string; toStatus: string }>(root, command, env);
+      expect(result).toMatchObject({ taskId: "wi-059", toStatus: "completed", commit, receiptCommit });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it("rejects a claim for another work item before mutating it", async () => {
     const root = await mkTmpRoot();
