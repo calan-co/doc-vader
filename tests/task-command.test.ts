@@ -14,6 +14,7 @@ import {
   recoverClaim,
   releaseClaim,
 } from "../lib/task/claims.js";
+import { reconcileHistoricalMerge } from "../lib/task/historical-merge.js";
 import { loadTaskModel } from "../lib/task/model.js";
 import {
   loadCanonicalTask,
@@ -282,6 +283,43 @@ function runCli(
 
 function runCliJson<T>(root: string, args: string[], env?: NodeJS.ProcessEnv): T {
   return JSON.parse(runCli(root, args, undefined, env)) as T;
+}
+
+async function withHistoricalMergeFixture(
+  test: (fixture: {
+    root: string;
+    commit: string;
+    pr: string;
+    ownedFile: string;
+    options: Parameters<typeof reconcileHistoricalMerge>[0];
+  }) => Promise<void>,
+): Promise<void> {
+  const root = await mkTmpRoot();
+  try {
+    initGitRepo(root);
+    const ownedFile = process.platform === "win32" ? "owned file.ts" : " owned.ts ";
+    await fs.writeFile(path.join(root, ownedFile), "export const value = 1;\n");
+    await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 1;\n");
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-m", "baseline"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["switch", "-c", "historical-merge"], { cwd: root, stdio: "ignore" });
+    await fs.writeFile(path.join(root, ownedFile), "export const value = 2;\n");
+    await fs.writeFile(path.join(root, "foreign.ts"), "export const value = 2;\n");
+    execFileSync("git", ["add", ownedFile, "foreign.ts"], { cwd: root });
+    execFileSync("git", ["commit", "-m", "historical implementation"], { cwd: root, stdio: "ignore" });
+    const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+    const pr = "https://github.com/example/vita/pull/7";
+    await fs.mkdir(path.join(root, "backlog", "records"), { recursive: true });
+    for (const [name, subtype, outcome] of [["record-ci", "test-result", "pass"], ["record-review", "approval", "approved"]]) {
+      await fs.writeFile(path.join(root, "backlog", "records", `${name}.md`), `---\nid: ${name.replace("record-", "record:")}\ntype: record\nsubtype: ${subtype}\n---\n\n## Outcome\n\n${outcome}\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${pr}\n- ${commit}\n`);
+    }
+    await writeTask(root, "059-historical.md", `id: wi-059\ntitle: Historical merge\ntype: work-item\nlifecycle: active\nstatus: ready\nstatus_reason: auto\nestimated: 1\ncommits:\n  ${commit}: Historical implementation\nlinks:\n  pull_requests:\n    - ${pr}\n  evidence:\n    - '[[record-ci]]'\n    - '[[record-review]]'`, "## Tasks\n\n- [x] Reconcile the verified merge\n\n## Acceptance Criteria\n\n- [x] Complete only with verified historical evidence\n");
+    execFileSync("git", ["add", "."], { cwd: root });
+    execFileSync("git", ["commit", "-m", "record historical evidence"], { cwd: root, stdio: "ignore" });
+    await test({ root, commit, pr, ownedFile, options: { taskId: "wi-059", pr, commit, publishedRef: "HEAD", evidence: ["record-ci", "record-review"], changedFiles: [ownedFile, "foreign.ts"], actual: 1, completedDate: "2026-10-25", rootDir: root } });
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
 }
 
 async function writeWorkspaceTransitionProfile(
@@ -5218,6 +5256,46 @@ type: record
     }
   }, 30_000);
 
+  it("rejects an unpublished historical merge", async () => {
+    await withHistoricalMergeFixture(async ({ root, commit, options }) => {
+      const publishedRef = execFileSync("git", ["rev-parse", `${commit}^1`], { cwd: root, encoding: "utf8" }).trim();
+      execFileSync("git", ["branch", "published-before", publishedRef], { cwd: root });
+      await expect(reconcileHistoricalMerge({ ...options, publishedRef: "published-before" })).rejects.toMatchObject({ code: "TASK_HISTORICAL_MERGE_COMMIT_NOT_PUBLISHED" });
+    });
+  });
+
+  it("rejects incomplete or untracked historical merge evidence", async () => {
+    await withHistoricalMergeFixture(async ({ root, pr, options }) => {
+      await expect(reconcileHistoricalMerge({ ...options, evidence: ["record-ci"] })).rejects.toMatchObject({ code: "TASK_HISTORICAL_MERGE_MISSING_EVIDENCE" });
+      const ciPath = path.join(root, "backlog", "records", "record-ci.md");
+      const ciEvidence = await fs.readFile(ciPath, "utf8");
+      await fs.writeFile(ciPath, ciEvidence.replace(pr, `${pr}0`));
+      await expect(reconcileHistoricalMerge(options)).rejects.toMatchObject({ code: "TASK_HISTORICAL_MERGE_UNATTRIBUTED_EVIDENCE" });
+    });
+  });
+
+  it("rejects historical merge files or commits absent from the evidence", async () => {
+    await withHistoricalMergeFixture(async ({ root, commit, ownedFile, options }) => {
+      await expect(reconcileHistoricalMerge({ ...options, changedFiles: [ownedFile] })).rejects.toMatchObject({ code: "TASK_HISTORICAL_MERGE_UNATTRIBUTED_CHANGED_FILE" });
+      const taskPath = path.join(root, "backlog", "059-historical.md");
+      const taskDocument = await fs.readFile(taskPath, "utf8");
+      await fs.writeFile(taskPath, taskDocument.replace(commit, commit.slice(0, 1)));
+      await expect(reconcileHistoricalMerge(options)).rejects.toMatchObject({ code: "TASK_HISTORICAL_MERGE_COMMIT_NOT_LINKED" });
+    });
+  });
+
+  it("rejects unreadable or malformed historical merge policy", async () => {
+    await withHistoricalMergeFixture(async ({ root, options }) => {
+      const policyDirectory = path.join(root, "schemas", "work-management", "workflows", "default");
+      await fs.mkdir(policyDirectory, { recursive: true });
+      const policyPath = path.join(policyDirectory, "historical-merge-reconciliation.json");
+      await fs.writeFile(policyPath, "null");
+      await expect(reconcileHistoricalMerge(options)).rejects.toMatchObject({ code: "TASK_HISTORICAL_MERGE_INVALID_POLICY" });
+      await fs.writeFile(policyPath, JSON.stringify({ "x-historical-merge-reconciliation": { from: ["ready"], status: "completed", reason: "completed", evidence: { ci: {}, review: { subtype: "approval", outcome: "approved" } }, changed_files: "exact" } }));
+      await expect(reconcileHistoricalMerge(options)).rejects.toMatchObject({ code: "TASK_HISTORICAL_MERGE_INVALID_POLICY" });
+    });
+  });
+
   it("reconciles a historical merge and validates its generated evidence record", async () => {
     const root = await mkTmpRoot();
     try {
@@ -5337,40 +5415,6 @@ type: record
         "--changed-file", ownedFile, "--changed-file", "foreign.ts", "--actual", "1",
         "--completed-date", "2026-10-25", "--json",
       ];
-      const publishedRef = execFileSync("git", ["rev-parse", `${commit}^1`], { cwd: root, encoding: "utf8" }).trim();
-      execFileSync("git", ["branch", "published-before", publishedRef], { cwd: root });
-      const publishedRefIndex = command.indexOf("HEAD");
-      expect(() => runCli(root, command.map((value, index) => index === publishedRefIndex ? "published-before" : value))).toThrow("TASK_HISTORICAL_MERGE_COMMIT_NOT_PUBLISHED");
-      const reviewIndex = command.indexOf("record-review");
-      expect(() => runCli(root, command.filter((_, index) => index !== reviewIndex - 1 && index !== reviewIndex))).toThrow("TASK_HISTORICAL_MERGE_MISSING_EVIDENCE");
-      const foreignIndex = command.indexOf("foreign.ts");
-      expect(() => runCli(root, command.filter((_, index) => index !== foreignIndex - 1 && index !== foreignIndex))).toThrow("TASK_HISTORICAL_MERGE_UNATTRIBUTED_CHANGED_FILE");
-      const ciPath = path.join(root, "backlog", "records", "record-ci.md");
-      const ciEvidence = await fs.readFile(ciPath, "utf8");
-      await fs.writeFile(ciPath, ciEvidence.replace(pr, `${pr}0`));
-      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_UNATTRIBUTED_EVIDENCE");
-      await fs.writeFile(ciPath, ciEvidence);
-      const taskPath = path.join(root, "backlog", "059-historical.md");
-      const taskDocument = await fs.readFile(taskPath, "utf8");
-      await fs.writeFile(taskPath, taskDocument.replace(commit, commit.slice(0, 1)));
-      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_COMMIT_NOT_LINKED");
-      await fs.writeFile(taskPath, taskDocument);
-      const policyDirectory = path.join(root, "schemas", "work-management", "workflows", "default");
-      await fs.mkdir(policyDirectory, { recursive: true });
-      const policyPath = path.join(policyDirectory, "historical-merge-reconciliation.json");
-      await fs.writeFile(policyPath, "null");
-      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_INVALID_POLICY");
-      await fs.writeFile(policyPath, JSON.stringify({
-        "x-historical-merge-reconciliation": {
-          from: ["ready"],
-          status: "completed",
-          reason: "completed",
-          evidence: { ci: {}, review: { subtype: "approval", outcome: "approved" } },
-          changed_files: "exact",
-        },
-      }));
-      expect(() => runCli(root, command)).toThrow("TASK_HISTORICAL_MERGE_INVALID_POLICY");
-      await fs.rm(path.join(root, "schemas"), { recursive: true, force: true });
       const result = runCliJson<{ taskId: string; toStatus: string }>(root, command);
 
       expect(result).toMatchObject({ taskId: "wi-059", toStatus: "completed" });
