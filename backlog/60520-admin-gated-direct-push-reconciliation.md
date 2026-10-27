@@ -13,6 +13,8 @@ estimated: 1
 links:
   reference:
     - https://github.com/calan-co/doc-vader/pull/119
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/123
   evidence:
     - '[[record-wi-60520-validation-20261027]]'
 tags:
@@ -46,4 +48,4 @@ Support one explicit, disabled-by-default direct-push reconciliation source with
 
 ## Relationships
 
-- `depends_on`: PR #119 / WI-60519 record-verified-historical-merge-evidence (unmerged external prerequisite).
+- `depends_on`: PR #119 / WI-60519 record-verified-historical-merge-evidence (merged prerequisite).
