@@ -47,6 +47,14 @@ export interface ReconcileHistoricalMergeResult {
   workItem: Awaited<ReturnType<typeof transitionWorkItem>>;
 }
 
+export interface ReleaseReconciledExpiredClaimOptions {
+  taskId: string;
+  claimToken: string;
+  rootDir?: string;
+  backlogDir?: string;
+  consumerConfig?: string;
+}
+
 function policyPath(rootDir: string): string {
   const repositoryPolicy = path.join(
     rootDir,
@@ -226,6 +234,74 @@ async function readEvidence(
     );
   }
   return { subtype: typeof record.data.subtype === "string" ? record.data.subtype : "", content: record.content };
+}
+
+export async function releaseReconciledExpiredClaim(
+  options: ReleaseReconciledExpiredClaimOptions,
+) {
+  const rootDir = path.resolve(options.rootDir ?? process.cwd());
+  const config = await loadConsumerConfig(rootDir, options.consumerConfig);
+  const backlogDir = options.backlogDir ?? config.roots.backlog;
+  if (path.resolve(rootDir, backlogDir) !== path.resolve(rootDir, config.roots.backlog)) {
+    throw new TaskCommandError(
+      "TASK_RELEASE_RECONCILED_BACKLOG_ROOT_MISMATCH",
+      "Reconciled claim release requires --backlog-dir to match the consumer configuration.",
+      { backlogDir, configuredBacklogDir: config.roots.backlog },
+    );
+  }
+  const task = await loadTaskModel(options.taskId, { rootDir, backlogDir });
+  if (task.status !== "completed") {
+    throw new TaskCommandError(
+      "TASK_RELEASE_RECONCILED_INCOMPLETE_TASK",
+      `Task '${task.id}' must be completed before its reconciled claim can be released.`,
+      { taskId: task.id, status: task.status },
+    );
+  }
+
+  const runtimeDatabase = path.join(rootDir, ".doc-vader", "runtime", "runtime.sqlite");
+  if (!existsSync(runtimeDatabase)) {
+    throw new TaskCommandError(
+      "TASK_RELEASE_RECONCILED_MISSING_CLAIM",
+      `Claim '${options.claimToken}' does not exist.`,
+      { claimToken: options.claimToken },
+    );
+  }
+  const store = openRuntimeSqliteStore({ rootDir });
+  try {
+    const result = store.releaseReconciledExpiredRuntimeClaim(
+      task.id,
+      options.claimToken,
+    );
+    if (result.outcome === "released") {
+      return { taskId: task.id, ...result };
+    }
+    const errors = {
+      missing: [
+        "TASK_RELEASE_RECONCILED_MISSING_CLAIM",
+        `Claim '${options.claimToken}' does not exist.`,
+      ],
+      active: [
+        "TASK_RELEASE_RECONCILED_ACTIVE_CLAIM",
+        `Claim '${options.claimToken}' is still active.`,
+      ],
+      foreign: [
+        "TASK_RELEASE_RECONCILED_FOREIGN_CLAIM",
+        `Claim '${options.claimToken}' does not belong to task '${task.id}'.`,
+      ],
+      "manifest-mismatch": [
+        "TASK_RELEASE_RECONCILED_MANIFEST_MISMATCH",
+        `Claim '${options.claimToken}' has no matching verified reconciliation manifest.`,
+      ],
+    } as const;
+    const [code, message] = errors[result.reason];
+    throw new TaskCommandError(code, message, {
+      taskId: task.id,
+      claimToken: options.claimToken,
+      reason: result.reason,
+    });
+  } finally {
+    store.close();
+  }
 }
 
 export async function reconcileHistoricalMerge(

@@ -5005,7 +5005,7 @@ tags:
       expect(help).toContain("complete");
       expect(help).not.toMatch(/^\s+claim-for\b/m);
       expect(help).not.toMatch(/^\s+claims\b/m);
-      expect(help).not.toMatch(/^\s+release\b/m);
+      expect(help).not.toMatch(/^\s+release(?:\s|$)/m);
       expect(help).not.toMatch(/^\s+transition\b/m);
       expect(help).not.toMatch(/^\s+close\b/m);
       expect(help).not.toMatch(/^\s+link\b/m);
@@ -5420,8 +5420,105 @@ type: record
 
       expect(result).toMatchObject({ taskId: "wi-059", toStatus: "completed" });
       expect(await fs.readFile(path.join(root, "backlog", "059-historical.md"), "utf8")).toContain("status: completed");
-      expect(
-        runCliJson<{ taskId: string }>(root, [
+      expect(() =>
+        runCli(root, [
+          "work",
+          "release-reconciled",
+          "wi-059",
+          "--claim",
+          claimToken,
+          "--json",
+        ]),
+      ).toThrow("TASK_RELEASE_RECONCILED_ACTIVE_CLAIM");
+
+      const store = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        store.database
+          .prepare("UPDATE claims SET expires_at = ? WHERE claim_token = ?")
+          .run("2000-01-01T00:00:00.000Z", claimToken);
+        store.insertClaim({
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          claim_token: "claim-wi-foreign",
+          target_type: "task",
+          target_id: "wi-foreign",
+          holder: "foreign-agent",
+          created_at: "1999-01-01T00:00:00.000Z",
+          expires_at: "2000-01-01T00:00:00.000Z",
+        });
+      } finally {
+        store.close();
+      }
+
+      const release = (token: string) => [
+        "work",
+        "release-reconciled",
+        "wi-059",
+        "--claim",
+        token,
+        "--json",
+      ];
+      expect(() => runCli(root, release("missing-claim"))).toThrow(
+        "TASK_RELEASE_RECONCILED_MISSING_CLAIM",
+      );
+      expect(() => runCli(root, release("claim-wi-foreign"))).toThrow(
+        "TASK_RELEASE_RECONCILED_FOREIGN_CLAIM",
+      );
+
+      const workItemPath = path.join(root, "backlog", "059-historical.md");
+      const completedWorkItem = await fs.readFile(workItemPath, "utf8");
+      await fs.writeFile(
+        workItemPath,
+        completedWorkItem.replace("status: completed", "status: ready"),
+      );
+      expect(() => runCli(root, release(claimToken))).toThrow(
+        "TASK_RELEASE_RECONCILED_INCOMPLETE_TASK",
+      );
+      await fs.writeFile(workItemPath, completedWorkItem);
+
+      const manifestStore = openRuntimeSqliteStore({ rootDir: root });
+      let changedPaths: string;
+      try {
+        changedPaths = (
+          manifestStore.database
+            .prepare(
+              "SELECT changed_paths FROM historical_merge_manifests WHERE claim_token = ?",
+            )
+            .get(claimToken) as { changed_paths: string }
+        ).changed_paths;
+        manifestStore.database
+          .prepare(
+            "UPDATE historical_merge_manifests SET changed_paths = ? WHERE claim_token = ?",
+          )
+          .run('["foreign.ts"]', claimToken);
+      } finally {
+        manifestStore.close();
+      }
+      expect(() => runCli(root, release(claimToken))).toThrow(
+        "TASK_RELEASE_RECONCILED_MANIFEST_MISMATCH",
+      );
+      const restoredManifestStore = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        restoredManifestStore.database
+          .prepare(
+            "UPDATE historical_merge_manifests SET changed_paths = ? WHERE claim_token = ?",
+          )
+          .run(changedPaths!, claimToken);
+      } finally {
+        restoredManifestStore.close();
+      }
+
+      const unreleasedStore = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        expect(unreleasedStore.getClaimByToken(claimToken)).toMatchObject({
+          state: "expired",
+          target_id: "wi-059",
+        });
+        expect(unreleasedStore.listLocksByClaimToken(claimToken)).toHaveLength(4);
+      } finally {
+        unreleasedStore.close();
+      }
+      expect(() =>
+        runCli(root, [
           "claim",
           "release",
           claimToken,
@@ -5429,7 +5526,42 @@ type: record
           "success",
           "--json",
         ]),
-      ).toMatchObject({ taskId: "wi-059" });
+      ).toThrow("TASK_COMPLETE_INVALID_CLAIM");
+
+      expect(runCliJson<{
+        taskId: string;
+        claimToken: string;
+        locksRemoved: number;
+        executionLogEntry: { state: string; reason: string; payload: string };
+      }>(root, release(claimToken))).toMatchObject({
+        taskId: "wi-059",
+        claimToken,
+        locksRemoved: 4,
+        executionLogEntry: {
+          state: "completed",
+          reason: "success",
+        },
+      });
+      const releasedStore = openRuntimeSqliteStore({ rootDir: root });
+      try {
+        expect(releasedStore.getClaimByToken(claimToken)).toBeUndefined();
+        expect(releasedStore.listLocksByClaimToken(claimToken)).toEqual([]);
+        expect(releasedStore.listScopeLocksByClaimToken(claimToken)).toEqual([]);
+        const audit = releasedStore.listExecutionLogEntries().at(-1)!;
+        expect(audit).toMatchObject({
+          claim_token: claimToken,
+          state: "completed",
+          reason: "success",
+        });
+        expect(JSON.parse(audit.payload)).toMatchObject({
+          detail: {
+            code: "x-runtime-reconciled-claim-released",
+            "x-reconciliation-manifest": { commit },
+          },
+        });
+      } finally {
+        releasedStore.close();
+      }
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
