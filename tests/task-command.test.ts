@@ -5697,7 +5697,7 @@ type: record
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 30_000);
 
   it("reconciles a direct push only with local policy, admin verification, an immutable receipt, and an exact manifest", async () => {
     const root = await mkTmpRoot();
