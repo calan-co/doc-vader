@@ -12,9 +12,6 @@ completed_date: '2026-06-30'
 commits:
   28c5bd3cf4d4d2b92f8689b828b2de682d834065: 'docs: restore wi-60417 release validation'
 links:
-  blocks:
-    - '[[60415-authoritative-dv4sandcastle-documentation]]'
-    - '[[60416-end-to-end-sandcastle-smoke-and-recovery]]'
   reference:
     - '[[../docs/reference/work-management/foundation.md]]'
   evidence:

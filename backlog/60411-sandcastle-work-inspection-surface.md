@@ -9,6 +9,7 @@ status: completed
 status_reason: completed
 priority: high
 estimated: 5
+actual: 5
 completed_date: '2026-06-30'
 links:
   depends_on:

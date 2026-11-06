@@ -10,6 +10,7 @@ status: completed
 status_reason: completed
 priority: high
 estimated: 1
+actual: 1
 completed_date: '2026-08-24'
 links:
   evidence:
