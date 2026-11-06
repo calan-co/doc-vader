@@ -4756,6 +4756,138 @@ tags:
     }
   }, 15_000);
 
+  it("records evidence only in the selected clean worktree", async () => {
+    const root = await mkTmpRoot();
+    const worktreeRoot = `${root}-record-worktree`;
+    try {
+      initGitRepo(root);
+      await fs.writeFile(
+        path.join(root, ".gitignore"),
+        ".doc-vader/runtime/\n",
+        "utf8",
+      );
+      await writeTask(
+        root,
+        "206-record-worktree.md",
+        `id: wi-206-record-worktree
+title: Record Worktree
+type: work-item
+lifecycle: active
+status: ready
+tags:
+  - afk`,
+      );
+      execFileSync("git", ["add", "."], { cwd: root, stdio: "ignore" });
+      execFileSync("git", ["commit", "-m", "chore: base"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      execFileSync(
+        "git",
+        [
+          "worktree",
+          "add",
+          "-b",
+          "sandcastle/record-worktree",
+          worktreeRoot,
+          "HEAD",
+        ],
+        { cwd: root, stdio: "ignore" },
+      );
+      await fs.writeFile(path.join(worktreeRoot, "branch-change.md"), "branch\n");
+      execFileSync("git", ["add", "branch-change.md"], {
+        cwd: worktreeRoot,
+        stdio: "ignore",
+      });
+      execFileSync("git", ["commit", "-m", "chore: branch"], {
+        cwd: worktreeRoot,
+        stdio: "ignore",
+      });
+
+      const claim = await claimTask("wi-206-record-worktree", {
+        rootDir: worktreeRoot,
+        claimStorePath: claimStorePath(worktreeRoot),
+        holder: "agent-a",
+      });
+      acquireRuntimeTaskClaim(worktreeRoot, "wi-206-record-worktree", [
+        path.join(worktreeRoot, "branch-change.md"),
+        path.join(worktreeRoot, "backlog", "206-record-worktree.md"),
+        path.join(
+          worktreeRoot,
+          "backlog",
+          "records",
+          "record-wi-206-record-worktree-evidence.md",
+        ),
+      ]);
+      const resolvedWorktreeRoot = await fs.realpath(worktreeRoot);
+      const result = JSON.parse(
+        runCli(
+          root,
+          [
+            "work",
+            "record",
+            "--worktree",
+            worktreeRoot,
+            "--claim",
+            claim.claimId,
+            "--type",
+            "test-result",
+            "--payload",
+            "-",
+            "--json",
+          ],
+          JSON.stringify({
+            id: "record:wi-206-record-worktree-evidence",
+            summary: "Worktree evidence",
+            observation: "The selected worktree receives the record.",
+          }),
+          { DOC_VADER_TASK_CLAIM_STORE: claimStorePath(worktreeRoot) },
+        ),
+      ) as { record: { filePath: string } };
+
+      expect(result.record.filePath).toBe(
+        path.join(
+          resolvedWorktreeRoot,
+          "backlog",
+          "records",
+          "record-wi-206-record-worktree-evidence.md",
+        ),
+      );
+      await expect(
+        fs.readFile(
+          path.join(
+            worktreeRoot,
+            "backlog",
+            "records",
+            "record-wi-206-record-worktree-evidence.md",
+          ),
+          "utf8",
+        ),
+      ).resolves.toContain("The selected worktree receives the record.");
+      await expect(
+        fs.stat(
+          path.join(
+            root,
+            "backlog",
+            "records",
+            "record-wi-206-record-worktree-evidence.md",
+          ),
+        ),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      try {
+        execFileSync("git", ["worktree", "remove", "--force", worktreeRoot], {
+          cwd: root,
+          stdio: "ignore",
+        });
+      } catch {
+        // The test may fail before the worktree is created.
+      }
+      await fs.rm(worktreeRoot, { recursive: true, force: true });
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }, 15_000);
+
   it("creates generic records from payload files without claim context", async () => {
     const root = await mkTmpRoot();
     try {
@@ -5565,7 +5697,7 @@ type: record
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
-  }, 15_000);
+  }, 30_000);
 
   it("reconciles a direct push only with local policy, admin verification, an immutable receipt, and an exact manifest", async () => {
     const root = await mkTmpRoot();

@@ -2299,6 +2299,7 @@ function registerWorkCommandSurface(surface: Command): void {
     )
     .option("--json", "Emit machine-readable JSON")
     .option("--porcelain", "Emit stable script-friendly output")
+    .option("--worktree <path>", "Worktree path")
     .option(
       "--consumer-config <path>",
       "Path to consumer config JSON",
@@ -2320,6 +2321,7 @@ function registerWorkCommandSurface(surface: Command): void {
         historicalChangedFile: string[];
         json?: boolean;
         porcelain?: boolean;
+        worktree?: string;
         consumerConfig?: string;
         dryRun?: boolean;
       }) => {
@@ -2339,6 +2341,7 @@ function registerWorkCommandSurface(surface: Command): void {
             }
           }
           const result = await recordTaskEvidence({
+            rootDir: resolveGitRoot(opts.worktree),
             claimId: opts.claim,
             type: opts.type,
             payload,
