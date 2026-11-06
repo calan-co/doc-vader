@@ -12,6 +12,7 @@ priority: high
 completed_date: '2026-11-06'
 commits:
   991c02b450835ad02df7e466fd91d81df985fa2e: 'fix(work): isolate record operations to selected worktree'
+  beb56e5d976c204bab1481c1806bb1eb0203261c: 'fix(work): treat clean merge-tree output as mergeable'
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/128
