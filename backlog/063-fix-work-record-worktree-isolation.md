@@ -15,6 +15,7 @@ commits:
 links:
   pull_requests:
     - https://github.com/calan-co/doc-vader/pull/128
+    - https://github.com/calan-co/doc-vader/pull/129
   evidence:
     - '[[record-wi-063-worktree-isolation-validation]]'
   reference:

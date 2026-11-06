@@ -1436,7 +1436,7 @@ function mergeRuntimeChangedFiles(
 }
 
 function mergeTreeHasConflicts(output: string | undefined): boolean {
-  if (!output) {
+  if (output === undefined) {
     return true;
   }
   return (
