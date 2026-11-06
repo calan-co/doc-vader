@@ -12,7 +12,7 @@ priority: high
 completed_date: '2026-11-06'
 links:
   pull_requests:
-    - https://github.com/calan-co/doc-vader/pull/127
+    - https://github.com/calan-co/doc-vader/pull/128
   evidence:
     - '[[record-wi-063-worktree-isolation-validation]]'
   reference:
