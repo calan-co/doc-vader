@@ -6,8 +6,8 @@ summary: Make backlog validation report schema-load errors as errors and resolve
 type: work-item
 subtype: bug
 lifecycle: active
-status: ready
-status_reason: prioritized
+status: running
+status_reason: implementation
 priority: high
 tags:
   - afk
