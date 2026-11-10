@@ -35,7 +35,7 @@ describe("validatePullRequestWorkItems", () => {
     });
 
     expect(result.errors).toContain(
-      "implementation pull requests require exactly one Work item linked through links.pull_requests.",
+      "implementation pull requests require at least one Work item linked through links.pull_requests.",
     );
   });
 
@@ -93,7 +93,7 @@ describe("validatePullRequestWorkItems", () => {
     );
   });
 
-  it("rejects ambiguous associations", () => {
+  it("accepts multiple fully completed linked Work items", () => {
     const result = validatePullRequestWorkItems({
       pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
       changedPaths: ["lib/init/command.ts"],
@@ -106,9 +106,7 @@ describe("validatePullRequestWorkItems", () => {
       ],
     });
 
-    expect(result.errors).toContain(
-      "implementation pull requests must link exactly one Work item; found 2.",
-    );
+    expect(result.errors).toEqual([]);
   });
 
   it("allows documentation-only pull requests without a Work item", () => {
@@ -129,7 +127,7 @@ describe("validatePullRequestWorkItems", () => {
     });
 
     expect(result.errors).toContain(
-      "implementation pull requests require exactly one Work item linked through links.pull_requests.",
+      "implementation pull requests require at least one Work item linked through links.pull_requests.",
     );
   });
 
@@ -364,7 +362,7 @@ describe("validatePullRequestWorkItems", () => {
     });
 
     expect(result.errors).toContain(
-      "implementation pull requests require exactly one Work item linked through links.pull_requests.",
+      "implementation pull requests require at least one Work item linked through links.pull_requests.",
     );
   });
 
@@ -382,4 +380,26 @@ describe("validatePullRequestWorkItems", () => {
       }),
     ).toThrow("only YAML front matter is allowed");
   });
+});
+
+
+it.each([
+  ["incomplete", (s: string) => s.replace("status: completed", "status: running"), "status must be 'completed'"],
+  ["unchecked tasks", (s: string) => s.replace("[x] Implement", "[ ] Implement"), "unchecked checklist"],
+  ["unchecked criteria", (s: string) => s.replace("[x] The implementation", "[ ] The implementation"), "unchecked checklist"],
+  ["missing evidence", (s: string) => s.replace("  evidence:\n    - '[[record-20260921-195524-60498]]'\n", ""), "require links.evidence"],
+  ["missing date", (s: string) => s.replace("completed_date: '2026-09-21'\n", ""), "require a valid completed_date"],
+  ["missing effort", (s: string) => s.replace("actual: 3\n", ""), "require numeric actual effort"],
+])("rejects a multi-item PR with %s in any linked item", (_name, invalidate, error) => {
+  const valid = { filePath: "backlog/60498.md", content: completedWorkItem };
+  const invalid = { filePath: "backlog/60500.md", content: invalidate(completedWorkItem).replace(/60498/g, "60500") };
+  for (const workItems of [[valid, invalid], [invalid, valid]]) {
+    const result = validatePullRequestWorkItems({
+      pullRequestUrl: "https://github.com/calan-co/doc-vader/pull/95",
+      changedPaths: ["lib/init/command.ts"],
+      workItems,
+    });
+    expect(result.errors).toEqual(expect.arrayContaining([expect.stringContaining(`backlog/60500.md:`)]));
+    expect(result.errors.some((message) => message.includes(error))).toBe(true);
+  }
 });
