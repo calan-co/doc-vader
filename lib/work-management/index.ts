@@ -314,7 +314,7 @@ function normalizeLifecycle(value: unknown): string {
 }
 
 function defaultAuditMergeTargetRef(rootDir: string): string {
-  const candidates = ["main", "master", "HEAD"];
+  const candidates = ["origin/HEAD", "main", "master", "HEAD"];
   for (const candidate of candidates) {
     try {
       const result = execFileSync(
