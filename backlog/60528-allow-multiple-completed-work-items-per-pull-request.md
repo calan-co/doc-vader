@@ -6,12 +6,17 @@ summary: Bootstrap a reviewed multi-item completion gate while retaining fail-cl
 type: work-item
 subtype: task
 lifecycle: active
-status: running
-status_reason: implementation
+status: completed
+status_reason: completed
 priority: high
+completed_date: '2026-11-10'
 links:
   reference:
     - https://github.com/calan-co/doc-vader/pull/130
+  evidence:
+    - '[[record-wi-60528-policy-validation-20261110]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/131
 tags:
   - afk
   - governance
@@ -34,15 +39,15 @@ and the WI-60523/WI-60527 delivery records in PR 130.
 
 ## Tasks
 
-- [ ] Integrate the already-reviewed validation dependencies without weakening gates.
-- [ ] Add failing coverage for multiple completed items and mixed valid/invalid associations.
-- [ ] Validate every linked Work Item while continuing to reject zero matches.
-- [ ] Run focused and full tests, documentation/backlog checks, and pre-push validation.
-- [ ] Record genuine prospective-claim evidence and obtain independent review.
+- [x] Integrate the already-reviewed validation dependencies without weakening gates.
+- [x] Add failing coverage for multiple completed items and mixed valid/invalid associations.
+- [x] Validate every linked Work Item while continuing to reject zero matches.
+- [x] Run focused and full tests, documentation/backlog checks, and pre-push validation.
+- [x] Record genuine prospective-claim evidence and obtain independent review.
 
 ## Acceptance Criteria
 
-- [ ] One or more fully completed linked Work Items pass the implementation gate.
-- [ ] Zero linked items and any incomplete linked item fail.
-- [ ] Every linked item retains the existing checklist, evidence, date, and effort checks.
-- [ ] Documentation-only behavior, YAML-only parsing, and protected CI enforcement remain unchanged.
+- [x] One or more fully completed linked Work Items pass the implementation gate.
+- [x] Zero linked items and any incomplete linked item fail.
+- [x] Every linked item retains the existing checklist, evidence, date, and effort checks.
+- [x] Documentation-only behavior, YAML-only parsing, and protected CI enforcement remain unchanged.
