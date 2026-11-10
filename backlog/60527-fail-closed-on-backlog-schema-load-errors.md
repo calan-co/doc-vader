@@ -6,9 +6,15 @@ summary: Make backlog validation report schema-load errors as errors and resolve
 type: work-item
 subtype: bug
 lifecycle: active
-status: running
-status_reason: implementation
+status: completed
+status_reason: completed
 priority: high
+completed_date: '2026-11-10'
+links:
+  evidence:
+    - '[[record-wi-60527-prerequisite-validation-20261110]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/130
 tags:
   - afk
   - validation
@@ -32,6 +38,6 @@ runtime schema suite.
 
 ## Acceptance Criteria
 
-- [ ] Schema-load errors cause `--fail-on error` to exit nonzero.
-- [ ] An explicit schema URI can be resolved through an installed/runtime schema map without copying a shadow schema tree into the consumer.
-- [ ] Regression coverage uses an external consumer fixture and preserves ordinary schema violations and baseline reporting semantics.
+- [x] Schema-load errors cause `--fail-on error` to exit nonzero.
+- [x] An explicit schema URI can be resolved through an installed/runtime schema map without copying a shadow schema tree into the consumer.
+- [x] Regression coverage uses an external consumer fixture and preserves ordinary schema violations and baseline reporting semantics.
