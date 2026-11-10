@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import {
@@ -9,6 +10,7 @@ import {
   ingestEvent,
   finalizeWorkItem,
   transitionWorkItem,
+  runRuntimeClaimCoverageAudit,
 } from "../lib/work-management/index.js";
 import {
   openRuntimeSqliteStore,
@@ -1093,4 +1095,40 @@ links:
       globalThis.fetch = originalFetch;
     }
   });
+});
+
+
+it("audits against the remote default while retaining unlocked-path enforcement and local fallback", async () => {
+  const root = await createTempRepo();
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: "pipe" });
+  git("init", "-b", "main");
+  git("config", "user.email", "test@example.com");
+  git("config", "user.name", "Test Agent");
+  await writeFile(path.join(root, ".gitignore"), ".doc-vader/\n");
+  git("add", ".");
+  git("commit", "-m", "baseline");
+  git("switch", "-c", "staging");
+  await writeFile(path.join(root, "already-integrated.ts"), "export const baseline = true;\n");
+  git("add", ".");
+  git("commit", "-m", "already integrated on staging");
+  git("update-ref", "refs/remotes/origin/staging", "HEAD");
+  git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/staging");
+  git("switch", "-c", "feature");
+  await writeFile(path.join(root, "owned.ts"), "export const feature = true;\n");
+  git("add", ".");
+  git("commit", "-m", "feature");
+  acquireRuntimeClaim(root, "wi-audit-base", ["owned.ts"]);
+  const options = { rootDir: root, taskId: "wi-audit-base", requiredPaths: ["owned.ts"] };
+  expect(runRuntimeClaimCoverageAudit(options)).toMatchObject({ mergeTargetRef: "origin/HEAD", passed: true });
+  expect(runRuntimeClaimCoverageAudit({ ...options, mergeTargetRef: "main" })).toMatchObject({ mergeTargetRef: "main", passed: false });
+
+  await writeFile(path.join(root, "unlocked.ts"), "unowned change\n");
+  const unowned = runRuntimeClaimCoverageAudit(options);
+  expect(unowned.passed).toBe(false);
+  expect(unowned.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ path: "unlocked.ts", actualLockState: "missing" })]));
+
+  git("symbolic-ref", "--delete", "refs/remotes/origin/HEAD");
+  const fallback = runRuntimeClaimCoverageAudit(options);
+  expect(fallback).toMatchObject({ mergeTargetRef: "main", passed: false });
+  expect(fallback.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({ path: "already-integrated.ts", actualLockState: "missing" })]));
 });

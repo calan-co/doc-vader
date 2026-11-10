@@ -38,6 +38,11 @@ interface SchemaMapConfig {
   bySubtype?: Record<string, string>;
 }
 
+interface ResolvedSchemaMap {
+  schemaMap: SchemaMapConfig;
+  schemaRoots: string[];
+}
+
 interface BacklogItem {
   file: string;
   id: string | null;
@@ -245,12 +250,19 @@ async function addSchemaWithAliases(
   const schemaId =
     typeof resolvedSchema.$id === "string" ? resolvedSchema.$id : undefined;
 
-  if (!ajv.getSchema(alias)) {
-    const aliasSchema =
-      schemaId && schemaId !== alias
-        ? ({ ...resolvedSchema, $id: alias } as Record<string, unknown>)
-        : resolvedSchema;
+  try {
+    if (schemaId) ajv.addSchema(resolvedSchema);
+  } catch (err) {
+    if (!(err instanceof Error) || !err.message.includes("already exists")) throw err;
+  }
+  const aliasSchema =
+    schemaId && schemaId !== alias
+      ? ({ ...resolvedSchema, $id: alias } as Record<string, unknown>)
+      : resolvedSchema;
+  try {
     ajv.addSchema(aliasSchema, alias);
+  } catch (err) {
+    if (!(err instanceof Error) || !err.message.includes("already exists")) throw err;
   }
 }
 
@@ -288,11 +300,19 @@ async function preloadSchemaTree(
   await walk(schemaRoot);
 }
 
+function schemaRootFromMapPath(schemaMapPath: string): string | undefined {
+  for (let directory = path.dirname(schemaMapPath); ; directory = path.dirname(directory)) {
+    if (path.basename(directory) === "schemas") return path.dirname(directory);
+    const parent = path.dirname(directory);
+    if (parent === directory) return undefined;
+  }
+}
+
 async function resolveSchemaMap(
   rootDir: string,
   schemaMapPath?: string,
   schemaMapPaths?: string[],
-): Promise<SchemaMapConfig> {
+): Promise<ResolvedSchemaMap> {
   const defaults: SchemaMapConfig = {
     byType: {
       "work-item": "schemas/work-management/frontmatter/work-item.json",
@@ -304,8 +324,9 @@ async function resolveSchemaMap(
     ...(schemaMapPaths ?? []),
     ...(schemaMapPath ? [schemaMapPath] : []),
   ];
-  if (sources.length === 0) return defaults;
+  if (sources.length === 0) return { schemaMap: defaults, schemaRoots: [] };
 
+  const schemaRoots = new Set<string>();
   let merged: SchemaMapConfig = {
     default: defaults.default,
     byType: { ...(defaults.byType ?? {}) },
@@ -316,6 +337,8 @@ async function resolveSchemaMap(
     const resolved = resolveLocalPath(rootDir, source);
     const raw = await loadJson(resolved);
     const parsed = guessSchemaMap(raw);
+    const schemaRoot = schemaRootFromMapPath(resolved);
+    if (schemaRoot) schemaRoots.add(schemaRoot);
     merged = {
       default: parsed.default ?? merged.default,
       byType: { ...(merged.byType ?? {}), ...(parsed.byType ?? {}) },
@@ -323,7 +346,7 @@ async function resolveSchemaMap(
     };
   }
 
-  return merged;
+  return { schemaMap: merged, schemaRoots: [...schemaRoots] };
 }
 
 function mergeOptions(
@@ -494,11 +517,12 @@ export async function auditBacklog(
     },
     profileOptions,
   );
-  const schemaMap = await resolveSchemaMap(
+  const { schemaMap, schemaRoots: runtimeSchemaRoots } = await resolveSchemaMap(
     options.rootDir,
     options.schemaMap,
     options.schemaMaps,
   );
+  const schemaRoots = [...new Set([options.rootDir, ...runtimeSchemaRoots])];
 
   const files = await findMarkdownFiles(
     options.backlogDir,
@@ -640,49 +664,55 @@ export async function auditBacklog(
   });
   const validatorCache = new Map<string, ReturnType<Ajv2020["compile"]>>();
 
-  const docSchemaPath = resolveLocalPath(
-    options.rootDir,
-    "schemas/frontmatter/document/current.json",
-  );
-  try {
-    const docSchema = await loadJson(docSchemaPath);
-    ajv.addSchema(docSchema, "/frontmatter/document/1.0.0");
-  } catch {
-    // Best effort.
-  }
-
-  // Pre-load support schemas for work-item validation
-  const baseSchemaPath = resolveLocalPath(
-    options.rootDir,
-    "schemas/frontmatter/support/base/current.json",
-  );
-  try {
-    const baseSchema = await loadJson(baseSchemaPath);
-    await addSchemaWithAliases(
-      ajv,
-      options.rootDir,
-      baseSchemaPath,
-      baseSchema,
+  for (const schemaRoot of schemaRoots) {
+    const docSchemaPath = resolveLocalPath(
+      schemaRoot,
+      "schemas/frontmatter/document/current.json",
     );
-  } catch {
-    // Best effort.
-  }
+    try {
+      const docSchema = await loadJson(docSchemaPath);
+      if (!ajv.getSchema("/frontmatter/document/1.0.0")) {
+        ajv.addSchema(docSchema, "/frontmatter/document/1.0.0");
+      }
+    } catch {
+      // Best effort.
+    }
 
-  // Pre-load local contract and overlay schemas so Ajv never needs the remote
-  // templjs registry for base-schema $ref resolution.
-  await preloadSchemaTree(
-    ajv,
-    options.rootDir,
-    "schemas/frontmatter/support/contracts",
-  );
-  await preloadSchemaTree(
-    ajv,
-    options.rootDir,
-    "schemas/frontmatter/support/overlays",
-  );
+    const baseSchemaPath = resolveLocalPath(
+      schemaRoot,
+      "schemas/frontmatter/support/base/current.json",
+    );
+    try {
+      const baseSchema = await loadJson(baseSchemaPath);
+      await addSchemaWithAliases(ajv, schemaRoot, baseSchemaPath, baseSchema);
+    } catch {
+      // Best effort.
+    }
+
+    for (const relativeDir of [
+      "schemas/frontmatter/support/base",
+      "schemas/frontmatter/support/contracts",
+      "schemas/frontmatter/support/overlays",
+      "schemas/work-management",
+    ]) {
+      await preloadSchemaTree(ajv, schemaRoot, relativeDir);
+    }
+  }
 
   async function getValidator(schemaTarget: string) {
-    const schemaPath = resolveLocalPath(options.rootDir, schemaTarget);
+    const schemaPaths = [...new Set(
+      schemaRoots.map((schemaRoot) => resolveLocalPath(schemaRoot, schemaTarget)),
+    )];
+    let schemaPath = schemaPaths[0];
+    for (const candidate of schemaPaths) {
+      try {
+        await fs.access(candidate);
+        schemaPath = candidate;
+        break;
+      } catch {
+        // Try the runtime schema root next.
+      }
+    }
     if (validatorCache.has(schemaPath)) return validatorCache.get(schemaPath)!;
     const schema = await loadJson(schemaPath);
     const schemaId =
@@ -759,11 +789,11 @@ export async function auditBacklog(
   const hasErrors =
     unresolved.length > 0 ||
     parseErrors.length > 0 ||
-    schemaViolations.length > 0;
+    schemaViolations.length > 0 ||
+    schemaLoadErrors.length > 0;
   const hasWarnings =
     duplicateIds.length > 0 ||
-    noInboundActive.length > 0 ||
-    schemaLoadErrors.length > 0;
+    noInboundActive.length > 0;
 
   const exitCode =
     options.failOn === "warning"

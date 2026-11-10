@@ -429,7 +429,13 @@ export async function recordTaskEvidence(options: {
   const payload = historical
     ? {
         ...options.payload,
-        supportingRefs: [...new Set([...(options.payload.supportingRefs ?? []), historical.pr, historical.commit, historical.publishedRef])],
+        supportingRefs: [...new Set([
+          ...(options.payload.supportingRefs ?? []),
+          historical.pr,
+          ...[historical.commit, historical.publishedRef].map((sha) =>
+            historical.pr.replace(/\/pull\/\d+$/, `/commit/${sha}`),
+          ),
+        ])],
         notes: [...(options.payload.notes ?? []), ...historical.changedFiles.map((filePath) => `Verified historical changed file: ${filePath}`)],
       }
     : options.payload;

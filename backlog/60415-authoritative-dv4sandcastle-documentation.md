@@ -8,10 +8,10 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: medium
-estimated: 4
 completed_date: '2026-06-30'
 links:
   depends_on:
+    - '[[60417-work-ready-dependency-resolver-mismatch]]'
     - '[[60414-sandcastle-init-templateargs-wiring]]'
   reference:
     - '[[../docs/how-to/implementation-plans/doc-vader-sandcastle-ready-work-cli-prd.md]]'

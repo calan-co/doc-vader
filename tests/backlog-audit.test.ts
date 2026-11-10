@@ -1,8 +1,31 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import os from "node:os";
+import { pathToFileURL } from "node:url";
 import { auditBacklog } from "../lib/backlog/audit.js";
+
+const repoRoot = path.resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
+const tsxImport = pathToFileURL(require.resolve("tsx")).href;
+
+function runCli(cwd: string, args: string[]): { code: number; stdout: string } {
+  try {
+    return {
+      code: 0,
+      stdout: execFileSync(
+        process.execPath,
+        ["--import", tsxImport, path.join(repoRoot, "cli/doc-vader.ts"), ...args],
+        { cwd, encoding: "utf8" },
+      ),
+    };
+  } catch (error) {
+    const child = error as { status?: number; stdout?: string };
+    return { code: child.status ?? 1, stdout: child.stdout ?? "" };
+  }
+}
 
 async function mkTmpDir(prefix: string): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
@@ -241,6 +264,48 @@ describe("auditBacklog", () => {
     });
 
     expect(report.totals.unresolved_wikilinks).toBe(0);
+  });
+
+  it("fails --fail-on error when a selected schema cannot load", async () => {
+    const root = await mkTmpDir("doc-vader-backlog-schema-load-error-");
+    cleanupDirs.push(root);
+    await writeFile(
+      path.join(root, "backlog", "missing-schema.md"),
+      `---\nid: wi-missing\ntitle: Missing schema\ntype: work-item\n$schema: schemas/missing.json\nlifecycle: active\nstatus: ready\npriority: high\n---\n`,
+    );
+
+    const result = runCli(root, [
+      "backlog",
+      "validate",
+      "--dir",
+      "backlog",
+      "--format",
+      "json",
+      "--fail-on",
+      "error",
+    ]);
+
+    expect(result.code).toBe(1);
+    expect(JSON.parse(result.stdout).schema_load_errors).toHaveLength(1);
+  });
+
+  it("resolves explicit consumer-relative schemas from an external runtime schema map", async () => {
+    const root = await mkTmpDir("doc-vader-external-schema-map-");
+    cleanupDirs.push(root);
+    await writeFile(
+      path.join(root, "backlog", "external-runtime.md"),
+      `---\nid: wi-60527\ntitle: External runtime\ntype: work-item\n$schema: schemas/work-management/frontmatter/work-item.json\nsubtype: task\nlifecycle: active\nstatus: ready\npriority: high\n---\n`,
+    );
+
+    const report = await auditBacklog({
+      rootDir: root,
+      backlogDir: path.join(root, "backlog"),
+      schemaMap: path.join(repoRoot, "schemas/frontmatter/schema-map.json"),
+      failOn: "error",
+    });
+
+    expect(report.schema_load_errors).toEqual([]);
+    expect(report.exit_code).toBe(0);
   });
 
   it("routes work items through the canonical frontmatter schema by default", async () => {

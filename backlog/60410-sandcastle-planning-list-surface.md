@@ -8,7 +8,6 @@ lifecycle: active
 status: completed
 status_reason: completed
 priority: high
-estimated: 6
 completed_date: '2026-06-30'
 links:
   reference:
