@@ -5448,16 +5448,16 @@ type: record
       await fs.mkdir(path.join(root, "backlog", "records"), { recursive: true });
       await fs.writeFile(
         path.join(root, "backlog", "records", "record-ci.md"),
-        `---\nid: record:ci\ntype: record\nsubtype: test-result\n---\n\n## Outcome\n\npass\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${pr}\n- ${commit}\n`,
+        `---\n$schema: schemas/work-management/frontmatter/record.json\nid: record:ci\ntitle: Historical CI\nsummary: Historical CI\ntype: record\nsubtype: test-result\nlifecycle: active\nstatus: ready\nstatus_reason: recorded\n---\n\n## Outcome\n\npass\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${pr}\n- ${commit}\n`,
       );
       await fs.writeFile(
         path.join(root, "backlog", "records", "record-review.md"),
-        `---\nid: record:review\ntype: record\nsubtype: approval\n---\n\n## Outcome\n\napproved\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${pr}\n- ${commit}\n`,
+        `---\n$schema: schemas/work-management/frontmatter/record.json\nid: record:review\ntitle: Historical review\nsummary: Historical review\ntype: record\nsubtype: approval\nlifecycle: active\nstatus: ready\nstatus_reason: recorded\n---\n\n## Outcome\n\napproved\n\n## Subject References\n\n- wi-059\n\n## Supporting References\n\n- ${pr}\n- ${commit}\n`,
       );
       await writeTask(
         root,
         "059-historical.md",
-        `id: wi-059\ntitle: Historical merge\ntype: work-item\nlifecycle: active\nstatus: ready\nstatus_reason: auto\nestimated: 1\ncommits:\n  ${commit}: Historical implementation\nlinks:\n  pull_requests:\n    - ${pr}\n  evidence:\n    - '[[record-ci]]'\n    - '[[record-review]]'`,
+        `id: wi-059\ntitle: Historical merge\ntype: work-item\nsubtype: task\npriority: high\nlifecycle: active\nstatus: ready\nstatus_reason: auto\nestimated: 1\ncommits:\n  ${commit}: Historical implementation\nlinks:\n  pull_requests:\n    - ${pr}\n  evidence:\n    - '[[record-ci]]'\n    - '[[record-review]]'`,
         "## Tasks\n\n- [x] Reconcile the verified merge\n\n## Acceptance Criteria\n\n- [x] Complete only with verified historical evidence\n",
       );
       execFileSync("git", ["add", "."], { cwd: root });
@@ -5498,23 +5498,29 @@ type: record
         historicalRecord.record.filePath,
         "utf8",
       );
-      expect(historicalRecordContent).toContain(`- \`${commit}\``);
+      const commitUrl = `https://github.com/example/vita/commit/${commit}`;
+      const publishedSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+      const publishedUrl = `https://github.com/example/vita/commit/${publishedSha}`;
+      expect(historicalRecordContent).toContain(commitUrl);
+      expect(historicalRecordContent).not.toContain("/commit/HEAD");
       expect(historicalRecordContent).not.toContain(`[[${commit}]]`);
       expect(historicalRecord.record.frontmatter.links).toMatchObject({
-        supporting_reference: expect.arrayContaining(["[[059-historical]]"]),
+        supporting_reference: expect.arrayContaining(["[[059-historical]]", commitUrl, publishedUrl]),
       });
-      expect(
-        runCliJson<{ exit_code: number }>(root, [
-          "backlog",
-          "validate",
-          "--dir",
-          "backlog",
-          "--fail-on",
-          "error",
-          "--format",
-          "json",
-        ]).exit_code,
-      ).toBe(0);
+      const validation = spawnSync(process.execPath, [
+        "--import", tsxImport, cliPath, "backlog", "validate",
+        "--dir", "backlog", "--fail-on", "error", "--format", "json",
+        "--schema-map", path.resolve(__dirname, "../schemas/frontmatter/schema-map.json"),
+      ], { cwd: root, encoding: "utf8" });
+      const validationReport = JSON.parse(validation.stdout) as {
+        exit_code: number;
+        schema_load_errors: unknown[];
+        schema_violations: Array<{ file: string }>;
+      };
+      expect(validationReport.schema_load_errors).toEqual([]);
+      expect(validationReport.schema_violations).toEqual([]);
+      expect(validationReport.exit_code).toBe(0);
+      expect(validation.status).toBe(0);
       await expect(
         recordTaskEvidence({
           rootDir: root,

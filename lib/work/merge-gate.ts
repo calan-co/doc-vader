@@ -182,23 +182,14 @@ export function validatePullRequestWorkItems(
   if (matches.length === 0) {
     return {
       errors: [
-        "implementation pull requests require exactly one Work item linked through links.pull_requests.",
+        "implementation pull requests require at least one Work item linked through links.pull_requests.",
       ],
     };
   }
-  if (matches.length !== 1) {
-    return {
-      errors: [
-        `implementation pull requests must link exactly one Work item; found ${matches.length}.`,
-      ],
-    };
-  }
-
-  const [{ filePath, frontmatter, content }] = matches;
   return {
-    errors: [
+    errors: matches.flatMap(({ filePath, frontmatter, content }) => [
       ...isCompletedWorkItem(frontmatter, filePath),
       ...checklistErrors(filePath, content),
-    ],
+    ]),
   };
 }

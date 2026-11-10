@@ -4,7 +4,7 @@ id: record:wi-60508-linkity-validation-contract-delivered-in-commit-d59c54dd
 title: wi-60508 Linkity validation contract delivered in commit d59c54dd.
 summary: wi-60508 Linkity validation contract delivered in commit d59c54dd.
 type: record
-subtype: validation
+subtype: evidence
 lifecycle: active
 status: ready
 status_reason: recorded

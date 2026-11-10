@@ -94,7 +94,7 @@ describe("pull-request work item validation script", () => {
     const result = run(["lib/init/command.ts"]);
 
     expect(result.code).toBe(1);
-    expect(result.stderr).toMatch(/require exactly one Work item linked/i);
+    expect(result.stderr).toMatch(/require at least one Work item linked/i);
   });
 
   it("accepts a completed linked Work item", () => {
@@ -112,7 +112,7 @@ describe("pull-request work item validation script", () => {
     const result = run(["lib/init/command.ts"]);
 
     expect(result.code).toBe(1);
-    expect(result.stderr).toMatch(/require exactly one Work item linked/i);
+    expect(result.stderr).toMatch(/require at least one Work item linked/i);
   });
 
   it("does not let a record satisfy an implementation association", () => {
@@ -121,7 +121,21 @@ describe("pull-request work item validation script", () => {
     const result = run(["lib/init/command.ts"]);
 
     expect(result.code).toBe(1);
-    expect(result.stderr).toMatch(/require exactly one Work item linked/i);
+    expect(result.stderr).toMatch(/require at least one Work item linked/i);
+  });
+
+  it("accepts multiple completed linked Work items through the CLI", () => {
+    write("backlog/60498-init.md", completed);
+    write("backlog/60500-second.md", completed.replace(/60498/g, "60500"));
+    expect(run(["lib/init/command.ts"]).code).toBe(0);
+  });
+
+  it("rejects an incomplete item even alongside a completed association", () => {
+    write("backlog/60498-init.md", completed);
+    write("backlog/60500-second.md", completed.replace(/60498/g, "60500").replace("status: completed", "status: running"));
+    const result = run(["lib/init/command.ts"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/60500-second.md: status must be 'completed'/);
   });
 
   it("accepts changed paths supplied in a JSON file", () => {
@@ -156,6 +170,6 @@ describe("pull-request work item validation script", () => {
     });
 
     expect(result.code).toBe(1);
-    expect(result.stderr).toMatch(/require exactly one Work item linked/i);
+    expect(result.stderr).toMatch(/require at least one Work item linked/i);
   });
 });
