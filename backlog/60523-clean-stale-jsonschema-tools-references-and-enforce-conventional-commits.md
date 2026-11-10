@@ -6,12 +6,17 @@ summary: Remove stale jsonschema-tools wording while retaining live integrations
 type: work-item
 subtype: task
 lifecycle: active
-status: ready
-status_reason: recoverable
+status: completed
+status_reason: completed
 priority: medium
+completed_date: '2026-11-10'
 links:
   reference:
     - '[[60377-work-item-governance-kernel]]'
+  evidence:
+    - '[[record-wi-60523-hook-validation-20261110]]'
+  pull_requests:
+    - https://github.com/calan-co/doc-vader/pull/130
 tags:
   - afk
   - tech-debt
@@ -24,13 +29,13 @@ Keep only live jsonschema-tools references and enforce the repository's existing
 
 ## Tasks
 
-- [ ] Classify jsonschema-tools references as live implementation/test dependencies or stale wording.
-- [ ] Remove or neutralize stale wording without rewriting historical evidence.
-- [ ] Correct commit-msg argument handling so commitlint receives the hook message file.
-- [ ] Add focused regression coverage for accepted and rejected Conventional Commit messages.
+- [x] Classify jsonschema-tools references as live implementation/test dependencies or stale wording.
+- [x] Remove or neutralize stale wording without rewriting historical evidence.
+- [x] Correct commit-msg argument handling so commitlint receives the hook message file.
+- [x] Add focused regression coverage for accepted and rejected Conventional Commit messages.
 
 ## Acceptance Criteria
 
-- [ ] Live jsonschema-tools package, hook, and test integrations remain functional; stale active wording is removed.
-- [ ] A Conventional Commit message passes and an invalid message fails through the repository hook command.
-- [ ] Focused tests, lint, typecheck, documentation/backlog validation, and pre-push validation pass.
+- [x] Live jsonschema-tools package, hook, and test integrations remain functional; stale active wording is removed.
+- [x] A Conventional Commit message passes and an invalid message fails through the repository hook command.
+- [x] Focused tests, lint, typecheck, documentation/backlog validation, and pre-push validation pass.

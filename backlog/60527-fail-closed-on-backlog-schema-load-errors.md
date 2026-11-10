@@ -36,6 +36,13 @@ The JSON reports `schema_load_errors` for explicit
 The supplied map does not route those explicit consumer-relative schema URIs to the
 runtime schema suite.
 
+## Tasks
+
+- [x] Make schema-load errors fail the backlog error gate.
+- [x] Resolve explicit consumer schema references through external runtime schema maps.
+- [x] Add external-consumer regressions and validate generated historical evidence against real schemas.
+- [x] Run focused tests, the full suite, and rebuilt documentation/backlog validation; record the actual results.
+
 ## Acceptance Criteria
 
 - [x] Schema-load errors cause `--fail-on error` to exit nonzero.
