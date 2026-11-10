@@ -10,6 +10,8 @@ status: completed
 status_reason: completed
 priority: high
 completed_date: '2026-11-10'
+commits:
+  585d0e85abe6b94773f4f9cca98ee48861212904: 'fix(work): validate every linked completed Work Item (WI-60528)'
 links:
   reference:
     - https://github.com/calan-co/doc-vader/pull/130
