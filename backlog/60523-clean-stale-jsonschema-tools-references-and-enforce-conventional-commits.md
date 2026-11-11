@@ -10,6 +10,8 @@ status: completed
 status_reason: completed
 priority: medium
 completed_date: '2026-11-10'
+commits:
+  de10e6d1531b5943d46cf1291a8e00fb4f1d75a3: 'fix(work): restore honest prerequisite validation (WI-60523, WI-60527)'
 links:
   reference:
     - '[[60377-work-item-governance-kernel]]'
